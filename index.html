@@ -606,7 +606,12 @@
       <div class="modal-title">📲 Invite to Leaderboard</div>
       <button class="btn-close" id="invite-close">✕</button>
     </div>
-    <div class="card-sub mb-md">Enter a mobile number, email, or both. We'll send them a link and instructions to install the app.</div>
+
+    <div id="invite-copied-note" class="hidden" style="background:var(--green-dim);border:1px solid var(--green-border);border-radius:var(--radius-sm);padding:0.6rem 0.85rem;font-size:0.82rem;color:var(--green);margin-bottom:1rem;">
+      ✅ Invite message copied to clipboard
+    </div>
+
+    <div class="card-sub mb-md">Enter a mobile or email to send manually:</div>
 
     <div class="field">
       <label>Mobile Number (inc. country code)</label>
@@ -618,14 +623,14 @@
     </div>
 
     <div class="two-col">
-      <button class="btn btn-outline" id="invite-sms-btn">💬 Send SMS</button>
-      <button class="btn btn-outline" id="invite-email-btn">✉️ Send Email</button>
+      <button class="btn btn-outline" id="invite-sms-btn">💬 SMS</button>
+      <button class="btn btn-outline" id="invite-email-btn">✉️ Email</button>
     </div>
-    <button class="btn btn-green btn-full mt-sm" id="invite-whatsapp-btn">💚 Send via WhatsApp</button>
+    <button class="btn btn-green btn-full mt-sm" id="invite-whatsapp-btn">💚 WhatsApp</button>
 
     <div class="hint mt-sm" style="line-height:1.6;">
       <strong>iPhone:</strong> Open link in Safari → tap Share → Add to Home Screen<br>
-      <strong>Android:</strong> Open link in Chrome → tap ⋮ → Add to Home Screen
+      <strong>Android:</strong> Open in Chrome → tap ⋮ → Add to Home Screen
     </div>
   </div>
 </div>
