@@ -339,9 +339,15 @@ function onCourseSelectChange() {
     const opt = document.createElement('option');
     opt.value = i; opt.textContent = t.name; teeSel.appendChild(opt);
   });
-  setup.teeIdx = 0; teeSel.value = '0';
+
+  // Default to last used tee for this course, otherwise first tee
+  const lastTee  = localStorage.getItem(`lb-last-tee-${courseId}`);
+  const lastIdx  = lastTee ? (course.tees ?? []).findIndex(t => t.name === lastTee) : -1;
+  setup.teeIdx   = lastIdx >= 0 ? lastIdx : 0;
+  teeSel.value   = String(setup.teeIdx);
+
   show('setup-tee-wrap');
-  renderSIPreview(course, 0);
+  renderSIPreview(course, setup.teeIdx);
 }
 
 document.getElementById('setup-course-select')?.addEventListener('change', onCourseSelectChange);
@@ -569,6 +575,9 @@ async function teeOff() {
   const parSlice = tee.par.slice(offset, offset + count);
   const hcpArr   = setup.players.map(p => p.hcpIndex || 0);
   const hcpObj   = calcHandicaps(hcpArr, setup.hcpPct);
+
+  // Remember last used tee for this course
+  try { localStorage.setItem(`lb-last-tee-${setup.courseId}`, tee.name); } catch {}
 
   gameState = buildInitialState({
     format: setup.format,
@@ -1240,7 +1249,7 @@ function showProfile() {
   document.getElementById('prof-email').value  = currentUser?.email ?? '';
   document.getElementById('prof-mobile').value = p.mobile      ?? '';
   document.getElementById('prof-hcp').value    = p.hcp         ?? '';
-  document.getElementById('prof-whs').value    = p.whs_number  ?? '';
+  document.getElementById('prof-whs').value    = p.whs ?? '';
 
   const initials = `${(p.first_name ?? '?')[0]}${(p.last_name ?? '')[0] ?? ''}`.toUpperCase();
   document.getElementById('profile-avatar').textContent = initials;
@@ -1277,7 +1286,6 @@ document.getElementById('btn-save-profile')?.addEventListener('click', async () 
     hcp:        parseFloat(document.getElementById('prof-hcp').value) || null,
     whs:        document.getElementById('prof-whs').value.trim(),
     home_course_id: document.getElementById('prof-course-select').value || null,
-    preferred_tees: document.getElementById('prof-tees').value,
   };
   const btn = document.getElementById('btn-save-profile');
   btn.disabled = true; btn.textContent = 'Saving…';
