@@ -1408,6 +1408,61 @@ document.getElementById('btn-search-friend')?.addEventListener('click', async ()
 
 document.getElementById('friends-back')?.addEventListener('click', () => showHome());
 
+// ----------------------------------------------------------------
+// INVITE MODAL
+// ----------------------------------------------------------------
+const APP_URL = 'https://leaderboard-ten-wheat.vercel.app';
+
+function buildInviteMessage() {
+  const myName = currentProfile
+    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+    : 'A friend';
+  return `${myName} has invited you to play golf on Leaderboard ⛳\n\n` +
+    `Join here: ${APP_URL}\n\n` +
+    `📱 To install as an app:\n` +
+    `iPhone: Open in Safari → tap Share → Add to Home Screen\n` +
+    `Android: Open in Chrome → tap ⋮ → Add to Home Screen`;
+}
+
+document.getElementById('btn-open-invite')?.addEventListener('click', () => {
+  document.getElementById('invite-mobile').value = '';
+  document.getElementById('invite-email').value  = '';
+  document.getElementById('modal-invite').classList.add('open');
+});
+
+document.getElementById('invite-close')?.addEventListener('click', () => {
+  document.getElementById('modal-invite').classList.remove('open');
+});
+
+document.getElementById('invite-sms-btn')?.addEventListener('click', () => {
+  const mobile = document.getElementById('invite-mobile').value.trim();
+  if (!mobile) { alert('Please enter a mobile number.'); return; }
+  const msg = buildInviteMessage();
+  window.open(`sms:${mobile}?body=${encodeURIComponent(msg)}`);
+  document.getElementById('modal-invite').classList.remove('open');
+});
+
+document.getElementById('invite-email-btn')?.addEventListener('click', () => {
+  const email = document.getElementById('invite-email').value.trim();
+  if (!email) { alert('Please enter an email address.'); return; }
+  const msg     = buildInviteMessage();
+  const subject = encodeURIComponent('You\'ve been invited to Leaderboard ⛳');
+  window.open(`mailto:${email}?subject=${subject}&body=${encodeURIComponent(msg)}`);
+  document.getElementById('modal-invite').classList.remove('open');
+});
+
+document.getElementById('invite-whatsapp-btn')?.addEventListener('click', () => {
+  const mobile = document.getElementById('invite-mobile').value.trim();
+  const msg    = buildInviteMessage();
+  const enc    = encodeURIComponent(msg);
+  // WhatsApp with number if provided, otherwise just open WhatsApp share
+  const url = mobile
+    ? `https://wa.me/${mobile.replace(/\D/g,'')}?text=${enc}`
+    : `https://wa.me/?text=${enc}`;
+  window.open(url, '_blank');
+  document.getElementById('modal-invite').classList.remove('open');
+});
+
 // ================================================================
 // HISTORY
 // ================================================================
