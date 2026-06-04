@@ -8,7 +8,7 @@ import {
   authForgotPassword, authOnStateChange, authGetUser,
   profileLoad, profileSave, profileFindByEmail,
   coursesLoadAll, courseLoadById, courseSave, courseDelete, coursesEnsureDefaults,
-  roundCreate, roundSaveState, roundComplete, roundAbandon,
+  roundCreate, roundSaveState, roundComplete, roundAbandon, roundDelete,
   roundsLoadActive, roundLoadById, roundsLoadHistory,
   roundPlayersSave, roundPlayersLoad,
   friendsLoad, friendRequestsLoadPending,
@@ -803,7 +803,7 @@ function renderHolePanel() {
         </div>
         <div class="counter">
           <button class="c-btn" data-pair="${label}" data-dir="-1">−</button>
-          <div class="c-val" id="cv-pair-${label}">${par + 2}</div>
+          <div class="c-val" id="cv-pair-${label}">${par}</div>
           <button class="c-btn" data-pair="${label}" data-dir="1">＋</button>
         </div>`;
       inputsEl.appendChild(row);
@@ -877,7 +877,7 @@ function makePlayerInputRow(pi, h, par) {
     <div>
       <div class="counter">
         <button class="c-btn" data-pi="${pi}" data-dir="-1">−</button>
-        <div class="c-val" id="cv${pi}">${par + 2}</div>
+        <div class="c-val" id="cv${pi}">${par}</div>
         <button class="c-btn" data-pi="${pi}" data-dir="1">＋</button>
       </div>
       <div class="penalty-row" id="pen-row-${pi}">
@@ -1411,8 +1411,8 @@ document.getElementById('friends-back')?.addEventListener('click', () => showHom
 async function showHistory() {
   showScreen('screen-history');
   historyFilter = 'all';
-  document.querySelectorAll('.filter-btn').forEach(b =>
-    b.classList.toggle('active', b.dataset.filter === 'all'));
+  const sel = document.getElementById('history-format-select');
+  if (sel) sel.value = 'all';
   await loadHistory();
 }
 
@@ -1448,11 +1448,8 @@ async function loadHistory() {
   } catch (err) { listEl.innerHTML = `<div class="history-empty">${err.message}</div>`; }
 }
 
-document.getElementById('history-filter-bar')?.addEventListener('click', e => {
-  const btn = e.target.closest('.filter-btn'); if (!btn) return;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  historyFilter = btn.dataset.filter;
+document.getElementById('history-format-select')?.addEventListener('change', e => {
+  historyFilter = e.target.value;
   loadHistory();
 });
 document.getElementById('history-back')?.addEventListener('click', () => showHome());
@@ -1471,6 +1468,23 @@ function showHistoryDetail(rid, rounds) {
       </div>`;
     document.getElementById('hd-scorecard').innerHTML = buildScorecardHTML(state);
   }
+
+  // Wire up delete button
+  const delBtn = document.getElementById('btn-delete-round');
+  if (delBtn) {
+    delBtn.onclick = async () => {
+      if (!confirm('Delete this round permanently? This cannot be undone.')) return;
+      delBtn.disabled = true; delBtn.textContent = 'Deleting…';
+      try {
+        await roundDelete(r.id);
+        await showHistory();
+      } catch (err) {
+        alert('Could not delete round: ' + err.message);
+        delBtn.disabled = false; delBtn.textContent = '🗑 Delete Round';
+      }
+    };
+  }
+
   showScreen('screen-history-detail');
 }
 
