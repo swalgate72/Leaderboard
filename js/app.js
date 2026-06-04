@@ -60,7 +60,7 @@ const cwiz = {
 
 let fpCallback    = null;
 let historyFilter = 'all';
-let theme         = localStorage.getItem('lb-theme') || 'dark';
+let theme = localStorage.getItem('lb-theme') || localStorage.getItem('lb_theme') || 'dark';
 
 // ================================================================
 // UTILITIES
@@ -102,7 +102,8 @@ function applyTheme(t) {
   theme = t;
   if (t === 'light') document.documentElement.classList.add('light');
   else               document.documentElement.classList.remove('light');
-  localStorage.setItem('lb-theme', t);
+  // Store under both keys for compatibility
+  try { localStorage.setItem('lb-theme', t); localStorage.setItem('lb_theme', t); } catch {}
   ['btn-theme-dark','btn-theme-light'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('active', id === `btn-theme-${t}`);
@@ -287,7 +288,7 @@ document.getElementById('format-grid')?.addEventListener('click', e => {
 
 document.getElementById('coming-soon-close')?.addEventListener('click', () => hide('modal-coming-soon'));
 document.getElementById('btn-resume')?.addEventListener('click', async () => { if (roundId) await resumeRound(roundId); });
-document.getElementById('btn-abandon-home')?.addEventListener('click', () => { abandonSource = 'home'; show('modal-abandon'); });
+document.getElementById('btn-abandon-home')?.addEventListener('click', () => { abandonSource = 'home'; document.getElementById('modal-abandon').classList.add('open'); });
 
 document.getElementById('nav-profile')?.addEventListener('click', () => showProfile());
 document.getElementById('nav-friends')?.addEventListener('click', () => showFriends());
@@ -408,7 +409,7 @@ document.getElementById('setup-num-groups')?.addEventListener('change', e => {
 });
 document.getElementById('setup-add-course-btn')?.addEventListener('click', () => { cwiz.returnTo = 'setup'; openCourseWizard(null); });
 document.getElementById('setup-course-back')?.addEventListener('click', () => showHome());
-document.getElementById('setup-abandon-1')  ?.addEventListener('click', () => { abandonSource = 'setup'; show('modal-abandon'); });
+document.getElementById('setup-abandon-1')  ?.addEventListener('click', () => { abandonSource = 'setup'; document.getElementById('modal-abandon').classList.add('open'); });
 
 document.getElementById('btn-setup-course-next')?.addEventListener('click', () => {
   if (!setup.courseId) { alert('Please select a course.'); return; }
@@ -509,7 +510,7 @@ document.getElementById('fp-close')    ?.addEventListener('click', () => hide('m
 document.getElementById('fp-back-btn') ?.addEventListener('click', () => { show('fp-chips'); hide('fp-confirm'); });
 document.getElementById('setup-players-back')     ?.addEventListener('click', () => showScreen('screen-setup-course'));
 document.getElementById('btn-setup-players-back') ?.addEventListener('click', () => showScreen('screen-setup-course'));
-document.getElementById('setup-abandon-2')        ?.addEventListener('click', () => { abandonSource = 'setup'; show('modal-abandon'); });
+document.getElementById('setup-abandon-2')        ?.addEventListener('click', () => { abandonSource = 'setup'; document.getElementById('modal-abandon').classList.add('open'); });
 
 document.getElementById('btn-setup-players-next')?.addEventListener('click', () => {
   for (let i = 0; i < setup.numPlayers; i++) {
@@ -556,7 +557,7 @@ function buildSetupReview() {
 
 document.getElementById('setup-review-back') ?.addEventListener('click', () => showScreen('screen-setup-players'));
 document.getElementById('btn-review-back')   ?.addEventListener('click', () => showScreen('screen-setup-players'));
-document.getElementById('setup-abandon-3')   ?.addEventListener('click', () => { abandonSource = 'setup'; show('modal-abandon'); });
+document.getElementById('setup-abandon-3')   ?.addEventListener('click', () => { abandonSource = 'setup'; document.getElementById('modal-abandon').classList.add('open'); });
 document.getElementById('btn-tee-off')       ?.addEventListener('click', async () => await teeOff());
 
 async function teeOff() {
@@ -832,34 +833,49 @@ function makePlayerInputRow(pi, h, par) {
   const extra   = isIndiv
     ? indivStrokesOnHole(gameState.playingHandicaps[pi], gameState.si[h])
     : strokesOnHole(gameState.matchHandicaps[pi], gameState.si[h]);
-  const badge   = extra > 0
-    ? `<span class="stroke-badge">+${extra}</span>`
-    : '';
+  const badge   = extra > 0 ? `<span class="stroke-badge">+${extra}</span>` : '';
   const hcpLine = isIndiv
     ? `Playing HCP ${gameState.playingHandicaps[pi]}`
     : `Match HCP ${gameState.matchHandicaps[pi]}`;
   const inChair = fmt === 'itc' && gameState.chair === pi;
 
+  // Look up previous hole score for this player if available
+  const prevEntry = gameState.log?.length > 0 ? gameState.log[gameState.log.length - 1] : null;
+  const prevGross = prevEntry?.grosses?.[pi];
+  const prevPts   = prevEntry?.holePts?.[pi];
+  const prevNet   = prevEntry?.nets?.[pi];
+  let prevLabel = '';
+  if (prevEntry && prevGross != null) {
+    const prevH = prevEntry.h1 ?? (gameState.log.length);
+    if (fmt === 'stableford' && prevPts != null) prevLabel = `H${prevH}: ${prevGross} gross · ${prevPts}pts`;
+    else if (fmt === 'stroke' && prevNet != null) prevLabel = `H${prevH}: ${prevGross} gross · ${prevNet} net`;
+    else if (fmt === 'split6' && prevEntry.holePts?.[pi] != null) prevLabel = `H${prevH}: ${prevGross} gross · ${prevEntry.holePts[pi]}pts`;
+    else prevLabel = `H${prevH}: ${prevGross}`;
+  }
+
   const row = document.createElement('div');
   row.className = `gi-row${inChair ? ' in-chair' : ''}`;
   row.innerHTML = `
-    <div>
+    <div style="flex:1;">
       <div class="gi-name">
         <span class="dot" style="background:${pHex(pi)};"></span>
         ${gameState.names[pi]} ${badge}
         ${inChair ? '<span style="font-size:1rem;margin-left:4px;">🪑</span>' : ''}
       </div>
       <div class="gi-hcp">${hcpLine}</div>
+      <div class="gi-prev" id="gi-prev-${pi}" style="font-size:0.58rem;color:var(--muted);min-height:1em;margin-top:2px;letter-spacing:0.03em;">${prevLabel}</div>
     </div>
-    <div class="counter">
-      <button class="c-btn" data-pi="${pi}" data-dir="-1">−</button>
-      <div class="c-val" id="cv${pi}">${par + 2}</div>
-      <button class="c-btn" data-pi="${pi}" data-dir="1">＋</button>
-    </div>
-    <div class="penalty-row" id="pen-row-${pi}">
-      <button class="pen-btn" data-pen="sand"  data-pi="${pi}" title="Sand">🟡</button>
-      <button class="pen-btn" data-pen="water" data-pi="${pi}" title="Water">💧</button>
-      <button class="pen-btn" data-pen="ob"    data-pi="${pi}" title="OB">🚫</button>
+    <div>
+      <div class="counter">
+        <button class="c-btn" data-pi="${pi}" data-dir="-1">−</button>
+        <div class="c-val" id="cv${pi}">${par + 2}</div>
+        <button class="c-btn" data-pi="${pi}" data-dir="1">＋</button>
+      </div>
+      <div class="penalty-row" id="pen-row-${pi}">
+        <button class="pen-btn" data-pen="sand"  data-pi="${pi}" title="Sand">🟡</button>
+        <button class="pen-btn" data-pen="water" data-pi="${pi}" title="Water">💧</button>
+        <button class="pen-btn" data-pen="ob"    data-pi="${pi}" title="OB">🚫</button>
+      </div>
     </div>`;
 
   row.querySelectorAll('.c-btn').forEach(btn => {
@@ -869,13 +885,9 @@ function makePlayerInputRow(pi, h, par) {
       valEl.textContent = Math.max(1, Math.min(15, v));
     });
   });
-
   row.querySelectorAll('.pen-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      btn.classList.toggle(`active-${btn.dataset.pen}`);
-    });
+    btn.addEventListener('click', () => btn.classList.toggle(`active-${btn.dataset.pen}`));
   });
-
   return row;
 }
 
@@ -932,7 +944,7 @@ document.getElementById('btn-back-hole')?.addEventListener('click', () => {
 });
 
 document.getElementById('btn-finish-early')?.addEventListener('click', () => showEndRound());
-document.getElementById('btn-game-abandon')?.addEventListener('click', () => { abandonSource = 'game'; show('modal-abandon'); });
+document.getElementById('btn-game-abandon')?.addEventListener('click', () => { abandonSource = 'game'; document.getElementById('modal-abandon').classList.add('open'); });
 
 document.getElementById('btn-game-scorecard')?.addEventListener('click', () => {
   renderScorecardOverlay();
@@ -1015,9 +1027,6 @@ function flashHoleResult(holeIdx) {
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2800);
 }
-
-// ----------------------------------------------------------------
-// SCORECARD OVERLAY
 // ----------------------------------------------------------------
 function renderScorecardOverlay() {
   document.getElementById('sc-overlay-title').textContent =
@@ -1087,9 +1096,9 @@ function subscribeToFriendRequests() {
 // ----------------------------------------------------------------
 // ABANDON
 // ----------------------------------------------------------------
-document.getElementById('abandon-cancel')?.addEventListener('click', () => hide('modal-abandon'));
+document.getElementById('abandon-cancel')?.addEventListener('click', () => document.getElementById('modal-abandon').classList.remove('open'));
 document.getElementById('abandon-confirm')?.addEventListener('click', async () => {
-  hide('modal-abandon');
+  document.getElementById('modal-abandon').classList.remove('open');
   if (roundId) { try { await roundAbandon(roundId); } catch {} }
   realtimeUnsubscribe(realtimeCh); realtimeCh = null;
   roundId = null; gameState = null;
@@ -1266,7 +1275,7 @@ document.getElementById('btn-save-profile')?.addEventListener('click', async () 
     last_name:  document.getElementById('prof-lname').value.trim(),
     mobile:     document.getElementById('prof-mobile').value.trim(),
     hcp:        parseFloat(document.getElementById('prof-hcp').value) || null,
-    whs_number: document.getElementById('prof-whs').value.trim(),
+    whs:        document.getElementById('prof-whs').value.trim(),
     home_course_id: document.getElementById('prof-course-select').value || null,
     preferred_tees: document.getElementById('prof-tees').value,
   };
