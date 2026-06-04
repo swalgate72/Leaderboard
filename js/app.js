@@ -686,6 +686,14 @@ function renderTotalsBar() {
       ? (gameState.runningPts?.[i] ?? 0)
       : (gameState.totals?.[i] ?? 0);
     const label = fmt === 'stroke' ? 'shots' : 'pts';
+
+    // For split6, compute raw cumulative (before min subtraction) to show in brackets
+    let rawLabel = '';
+    if (fmt === 'split6' && gameState.log?.length > 0) {
+      const rawTotal = gameState.log.reduce((sum, e) => sum + (e.holePts?.[i] ?? 0), 0);
+      rawLabel = `<div class="tc-sub" style="color:var(--muted);">(${rawTotal} raw)</div>`;
+    }
+
     return `
       <div class="total-cell">
         <div class="tc-name">
@@ -694,6 +702,7 @@ function renderTotalsBar() {
         </div>
         <div class="tc-pts" style="color:${pCol(i)};">${score}</div>
         <div class="tc-sub">${label}</div>
+        ${rawLabel}
       </div>`;
   }).join('');
 
@@ -880,11 +889,6 @@ function makePlayerInputRow(pi, h, par) {
         <div class="c-val" id="cv${pi}">${par}</div>
         <button class="c-btn" data-pi="${pi}" data-dir="1">＋</button>
       </div>
-      <div class="penalty-row" id="pen-row-${pi}">
-        <button class="pen-btn" data-pen="sand"  data-pi="${pi}" title="Sand">🟡</button>
-        <button class="pen-btn" data-pen="water" data-pi="${pi}" title="Water">💧</button>
-        <button class="pen-btn" data-pen="ob"    data-pi="${pi}" title="OB">🚫</button>
-      </div>
     </div>`;
 
   row.querySelectorAll('.c-btn').forEach(btn => {
@@ -893,9 +897,6 @@ function makePlayerInputRow(pi, h, par) {
       let v = parseInt(valEl.textContent) + parseInt(btn.dataset.dir);
       valEl.textContent = Math.max(1, Math.min(15, v));
     });
-  });
-  row.querySelectorAll('.pen-btn').forEach(btn => {
-    btn.addEventListener('click', () => btn.classList.toggle(`active-${btn.dataset.pen}`));
   });
   return row;
 }
