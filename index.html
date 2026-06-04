@@ -583,10 +583,50 @@
       <button class="btn btn-outline" id="btn-search-friend">🔍 Search</button>
     </div>
 
+    <!-- Invite to Leaderboard -->
+    <div class="card mt-md">
+      <div class="card-title">Invite to Leaderboard</div>
+      <div class="card-sub mb-sm">Send someone a link to join — includes instructions to install the app on their phone.</div>
+      <button class="btn btn-green btn-full" id="btn-open-invite">📲 Send Invite</button>
+    </div>
+
     <!-- Friends list -->
     <div class="card-title mb-sm">Your Friends</div>
     <div id="friends-list"></div>
 
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     INVITE MODAL
+     ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-invite">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title">📲 Invite to Leaderboard</div>
+      <button class="btn-close" id="invite-close">✕</button>
+    </div>
+    <div class="card-sub mb-md">Enter a mobile number, email, or both. We'll send them a link and instructions to install the app.</div>
+
+    <div class="field">
+      <label>Mobile Number (inc. country code)</label>
+      <input id="invite-mobile" type="tel" placeholder="+447700900000">
+    </div>
+    <div class="field mb-md">
+      <label>Email Address</label>
+      <input id="invite-email" type="email" placeholder="friend@email.com">
+    </div>
+
+    <div class="two-col">
+      <button class="btn btn-outline" id="invite-sms-btn">💬 Send SMS</button>
+      <button class="btn btn-outline" id="invite-email-btn">✉️ Send Email</button>
+    </div>
+    <button class="btn btn-green btn-full mt-sm" id="invite-whatsapp-btn">💚 Send via WhatsApp</button>
+
+    <div class="hint mt-sm" style="line-height:1.6;">
+      <strong>iPhone:</strong> Open link in Safari → tap Share → Add to Home Screen<br>
+      <strong>Android:</strong> Open link in Chrome → tap ⋮ → Add to Home Screen
+    </div>
   </div>
 </div>
 
