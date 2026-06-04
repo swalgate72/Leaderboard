@@ -337,6 +337,14 @@ export async function roundAbandon(roundId) {
   if (error) throw error;
 }
 
+export async function roundDelete(roundId) {
+  const { error } = await sb
+    .from('rounds')
+    .delete()
+    .eq('id', roundId);
+  if (error) throw error;
+}
+
 export async function roundsLoadActive(organiserId) {
   const { data, error } = await sb
     .from('rounds')
