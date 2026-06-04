@@ -387,8 +387,8 @@
     <div id="game-itc-bar"   class="itc-bar hidden"></div>
     <div class="pot-banner" id="game-pot-banner"><span id="game-pot-text"></span></div>
 
-    <!-- Result flash -->
-    <div id="result-flash" class="result-flash"></div>
+    <!-- Result flash (permanent bar - no layout shift) -->
+    <div id="result-flash" class="result-flash result-flash-permanent">&#8203;</div>
 
   </div><!-- /game-sticky-top -->
 
@@ -524,13 +524,6 @@
           <select id="prof-course-select" style="flex:1;"></select>
           <button class="btn btn-ghost" id="prof-add-course-btn">＋</button>
         </div>
-      </div>
-      <div class="field" style="margin:0;">
-        <label>Preferred Tees</label>
-        <select id="prof-tees">
-          <option>Yellow</option><option>White</option><option>Red</option>
-          <option>Blue</option><option>Black</option><option>Gold</option>
-        </select>
       </div>
     </div>
 
