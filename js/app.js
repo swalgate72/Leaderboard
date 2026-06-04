@@ -1425,39 +1425,10 @@ function buildInviteMessage() {
 }
 
 document.getElementById('btn-open-invite')?.addEventListener('click', () => {
-  const myName = currentProfile
-    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
-    : 'A friend';
-  const msg =
-    `You have been invited to the Leaderboard Golf Score App by ${myName}.\n\n` +
-    `Download it here: ${APP_URL}\n\n` +
-    `📱 To install as an app:\n` +
-    `iPhone: Open in Safari → tap Share → Add to Home Screen\n` +
-    `Android: Open in Chrome → tap ⋮ → Add to Home Screen`;
-
-  if (navigator.share) {
-    // Native share sheet — works perfectly on iPhone and Android
-    navigator.share({
-      title: 'Join me on Leaderboard ⛳',
-      text:  msg,
-      url:   APP_URL,
-    }).catch(() => {}); // user cancelled — do nothing
-  } else {
-    // Desktop fallback — copy to clipboard and show modal
-    navigator.clipboard.writeText(`${msg}\n\n${APP_URL}`).then(() => {
-      document.getElementById('invite-mobile').value = '';
-      document.getElementById('invite-email').value  = '';
-      document.getElementById('invite-copied-note').classList.remove('hidden');
-      document.getElementById('modal-invite').classList.add('open');
-    }).catch(() => {
-      document.getElementById('invite-copied-note').classList.add('hidden');
-      document.getElementById('modal-invite').classList.add('open');
-    });
-  }
-});
-
-document.getElementById('invite-close')?.addEventListener('click', () => {
-  document.getElementById('modal-invite').classList.remove('open');
+  document.getElementById('invite-mobile').value = '';
+  document.getElementById('invite-email').value  = '';
+  document.getElementById('invite-copied-note').classList.add('hidden');
+  document.getElementById('modal-invite').classList.add('open');
 });
 
 document.getElementById('invite-sms-btn')?.addEventListener('click', () => {
@@ -1481,11 +1452,14 @@ document.getElementById('invite-whatsapp-btn')?.addEventListener('click', () => 
   const mobile = document.getElementById('invite-mobile').value.trim();
   const msg    = buildInviteMessage();
   const enc    = encodeURIComponent(msg);
-  // WhatsApp with number if provided, otherwise just open WhatsApp share
-  const url = mobile
+  const url    = mobile
     ? `https://wa.me/${mobile.replace(/\D/g,'')}?text=${enc}`
     : `https://wa.me/?text=${enc}`;
   window.open(url, '_blank');
+  document.getElementById('modal-invite').classList.remove('open');
+});
+
+document.getElementById('invite-close')?.addEventListener('click', () => {
   document.getElementById('modal-invite').classList.remove('open');
 });
 
