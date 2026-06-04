@@ -1417,17 +1417,43 @@ function buildInviteMessage() {
   const myName = currentProfile
     ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
     : 'A friend';
-  return `${myName} has invited you to play golf on Leaderboard ⛳\n\n` +
-    `Join here: ${APP_URL}\n\n` +
+  return `You have been invited to the Leaderboard Golf Score App by ${myName}.\n\n` +
+    `Download it here: ${APP_URL}\n\n` +
     `📱 To install as an app:\n` +
     `iPhone: Open in Safari → tap Share → Add to Home Screen\n` +
     `Android: Open in Chrome → tap ⋮ → Add to Home Screen`;
 }
 
 document.getElementById('btn-open-invite')?.addEventListener('click', () => {
-  document.getElementById('invite-mobile').value = '';
-  document.getElementById('invite-email').value  = '';
-  document.getElementById('modal-invite').classList.add('open');
+  const myName = currentProfile
+    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+    : 'A friend';
+  const msg =
+    `You have been invited to the Leaderboard Golf Score App by ${myName}.\n\n` +
+    `Download it here: ${APP_URL}\n\n` +
+    `📱 To install as an app:\n` +
+    `iPhone: Open in Safari → tap Share → Add to Home Screen\n` +
+    `Android: Open in Chrome → tap ⋮ → Add to Home Screen`;
+
+  if (navigator.share) {
+    // Native share sheet — works perfectly on iPhone and Android
+    navigator.share({
+      title: 'Join me on Leaderboard ⛳',
+      text:  msg,
+      url:   APP_URL,
+    }).catch(() => {}); // user cancelled — do nothing
+  } else {
+    // Desktop fallback — copy to clipboard and show modal
+    navigator.clipboard.writeText(`${msg}\n\n${APP_URL}`).then(() => {
+      document.getElementById('invite-mobile').value = '';
+      document.getElementById('invite-email').value  = '';
+      document.getElementById('invite-copied-note').classList.remove('hidden');
+      document.getElementById('modal-invite').classList.add('open');
+    }).catch(() => {
+      document.getElementById('invite-copied-note').classList.add('hidden');
+      document.getElementById('modal-invite').classList.add('open');
+    });
+  }
 });
 
 document.getElementById('invite-close')?.addEventListener('click', () => {
