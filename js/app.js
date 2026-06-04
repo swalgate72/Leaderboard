@@ -132,18 +132,27 @@ function applyTheme(t) {
   });
 }
 
-// Render the SVG logo into every .logo-wrap element
+// Render the pencil SVG logo into every .logo-wrap element
 function renderLogos() {
   const svg = `
-  <svg viewBox="0 0 200 48" xmlns="http://www.w3.org/2000/svg" style="width:160px;height:auto;">
-    <text x="0" y="38"
+  <svg viewBox="0 0 320 44" xmlns="http://www.w3.org/2000/svg" style="width:220px;height:auto;">
+    <!-- Pencil tip (wood triangle) -->
+    <polygon points="0,22 18,10 18,34" fill="#c8a068"/>
+    <!-- Pencil tip shading -->
+    <polygon points="0,22 18,22 18,34" fill="#a07840"/>
+    <!-- Pencil body (dark green) -->
+    <rect x="18" y="8" width="242" height="28" rx="2" fill="#2d4a2d"/>
+    <!-- Gold ferrule -->
+    <rect x="260" y="8" width="22" height="28" fill="#d4a843"/>
+    <!-- Eraser -->
+    <rect x="282" y="10" width="28" height="24" rx="3" fill="#e8d5c4"/>
+    <!-- Eraser highlight -->
+    <rect x="282" y="10" width="28" height="10" rx="3" fill="#f0e0d0"/>
+    <!-- Text on pencil -->
+    <text x="139" y="29"
       font-family="'Barlow Condensed',sans-serif"
-      font-size="42" font-weight="800" letter-spacing="-1"
-      fill="var(--gold)">LEADER</text>
-    <text x="120" y="38"
-      font-family="'Barlow Condensed',sans-serif"
-      font-size="42" font-weight="300" letter-spacing="-1"
-      fill="var(--white)">BOARD</text>
+      font-size="18" font-weight="700" letter-spacing="3"
+      fill="#d4a843" text-anchor="middle">LEADERBOARD</text>
   </svg>`;
   document.querySelectorAll('.logo-wrap').forEach(el => { el.innerHTML = svg; });
 }
