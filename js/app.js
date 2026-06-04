@@ -691,7 +691,7 @@ function renderTotalsBar() {
     let rawLabel = '';
     if (fmt === 'split6' && gameState.log?.length > 0) {
       const rawTotal = gameState.log.reduce((sum, e) => sum + (e.holePts?.[i] ?? 0), 0);
-      rawLabel = `<div class="tc-sub" style="color:var(--muted);">(${rawTotal} raw)</div>`;
+      rawLabel = `<div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;color:${pCol(i)};margin-top:1px;">(${rawTotal} raw)</div>`;
     }
 
     return `
@@ -700,8 +700,10 @@ function renderTotalsBar() {
           <span class="dot" style="background:${pHex(i)};"></span>
           ${nm.split(' ')[0].toUpperCase()}
         </div>
-        <div class="tc-pts" style="color:${pCol(i)};">${score}</div>
-        <div class="tc-sub">${label}</div>
+        <div style="display:flex;align-items:baseline;justify-content:center;gap:2px;">
+          <div class="tc-pts" style="color:${pCol(i)};">${score}</div>
+          <span style="font-size:0.9rem;font-weight:600;color:${pCol(i)};margin-left:3px;vertical-align:middle;">${label}</span>
+        </div>
         ${rawLabel}
       </div>`;
   }).join('');
