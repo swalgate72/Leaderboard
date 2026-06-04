@@ -1029,12 +1029,11 @@ function flashHoleResult(holeIdx) {
   }
 
   const el = document.getElementById('result-flash');
-  if (!el || !msg) return;
-  el.innerHTML = msg;
-  el.style.background = bg;
-  el.style.borderTop  = `1px solid ${border}`;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2800);
+  if (!el) return;
+  el.innerHTML = msg || '&nbsp;';
+  el.style.background = msg ? bg     : 'transparent';
+  el.style.borderTop  = msg ? `1px solid ${border}` : 'none';
+  el.style.color      = msg ? ''     : 'transparent';
 }
 // ----------------------------------------------------------------
 function renderScorecardOverlay() {
