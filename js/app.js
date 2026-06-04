@@ -1192,24 +1192,24 @@ function buildScorecardHTML(state) {
     : names;
 
   let html = '<table class="sc-table"><thead><tr>';
-  html += '<th>H</th><th>Par</th><th>SI</th>';
+  html += '<th style="font-size:0.62rem;">H</th><th style="font-size:0.62rem;">Par</th><th style="font-size:0.62rem;">SI</th>';
   dispNames.forEach((nm, i) => {
-    html += `<th style="color:${pHex(i)};">${nm.split(' ')[0]}</th>`;
-    if (fmt === 'stableford') html += `<th class="sc-pts" style="color:${pHex(i)};">Pts</th>`;
-    if (fmt === 'stroke')     html += `<th class="sc-net" style="color:${pHex(i)};">Net</th>`;
+    html += `<th style="color:${pHex(i)};font-size:0.7rem;">${nm.split(' ')[0]}</th>`;
+    if (fmt === 'stableford') html += `<th class="sc-pts" style="color:${pHex(i)};font-size:0.7rem;">Pts</th>`;
+    if (fmt === 'stroke')     html += `<th class="sc-net" style="color:${pHex(i)};font-size:0.7rem;">Net</th>`;
   });
-  if (['match','betterball','csm','foursomes','greensomes'].includes(fmt)) html += '<th>Match</th>';
-  if (['skins','itc','split6'].includes(fmt)) html += '<th>Result</th>';
+  if (['match','betterball','csm','foursomes','greensomes'].includes(fmt)) html += '<th style="font-size:0.62rem;">Match</th>';
+  if (['skins','itc','split6'].includes(fmt)) html += '<th style="font-size:0.62rem;">Result</th>';
   html += '</tr></thead><tbody>';
 
   let runMatch = 0;
   rows.forEach(row => {
-    html += `<tr><td>${row.holeDisplay}</td><td>${row.par}</td><td>${row.si}</td>`;
+    html += `<tr><td style="color:var(--muted);font-size:0.72rem;">${row.holeDisplay}</td><td style="font-size:0.72rem;">${row.par}</td><td style="font-size:0.72rem;color:var(--muted);">${row.si}</td>`;
     row.players.forEach((p, pi) => {
       const won = p.won || p.isBest;
-      html += `<td${won ? ` style="font-weight:700;color:${pHex(pi)};"` : ''}>${p.gross ?? '—'}</td>`;
-      if (fmt === 'stableford') html += `<td class="sc-pts">${p.pts ?? '—'}</td>`;
-      if (fmt === 'stroke')     html += `<td class="sc-net">${p.net ?? '—'}</td>`;
+      html += `<td style="font-size:0.85rem;font-weight:${won ? '700' : '500'};color:${won ? pHex(pi) : ''};">${p.gross ?? '—'}</td>`;
+      if (fmt === 'stableford') html += `<td class="sc-pts" style="font-size:0.85rem;font-weight:600;">${p.pts ?? '—'}</td>`;
+      if (fmt === 'stroke')     html += `<td class="sc-net" style="font-size:0.85rem;font-weight:600;">${p.net ?? '—'}</td>`;
     });
     if (row.matchStr) { runMatch += (row.result ?? 0); html += `<td class="sc-match">${row.matchStr}</td>`; }
     if (row.extra)    html += `<td style="color:var(--gold);font-size:0.7rem;">${row.extra}</td>`;
@@ -1472,15 +1472,18 @@ function showHistoryDetail(rid, rounds) {
   // Wire up delete button
   const delBtn = document.getElementById('btn-delete-round');
   if (delBtn) {
+    // Reset button state every time detail screen opens
+    delBtn.disabled = false; delBtn.textContent = '🗑 Delete Round';
     delBtn.onclick = async () => {
       if (!confirm('Delete this round permanently? This cannot be undone.')) return;
-      delBtn.disabled = true; delBtn.textContent = 'Deleting…';
+      // Navigate away immediately so button can't be double-clicked
+      await showHistory();
       try {
         await roundDelete(r.id);
-        await showHistory();
+        // Reload the list now the delete is done
+        await loadHistory();
       } catch (err) {
         alert('Could not delete round: ' + err.message);
-        delBtn.disabled = false; delBtn.textContent = '🗑 Delete Round';
       }
     };
   }
