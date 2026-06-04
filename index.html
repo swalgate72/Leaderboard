@@ -600,18 +600,20 @@
   </div>
 
   <div style="padding:0.75rem 1rem 0;max-width:520px;margin:0 auto;">
-    <div class="filter-bar" id="history-filter-bar">
-      <button class="filter-btn active" data-filter="all">All</button>
-      <button class="filter-btn" data-filter="stroke">Stroke</button>
-      <button class="filter-btn" data-filter="stableford">Stableford</button>
-      <button class="filter-btn" data-filter="match">Match</button>
-      <button class="filter-btn" data-filter="skins">Skins</button>
-      <button class="filter-btn" data-filter="split6">Split 6</button>
-      <button class="filter-btn" data-filter="itc">In Chair</button>
-      <button class="filter-btn" data-filter="betterball">Better Ball</button>
-      <button class="filter-btn" data-filter="csm">Combined</button>
-      <button class="filter-btn" data-filter="foursomes">Foursomes</button>
-      <button class="filter-btn" data-filter="greensomes">Greensomes</button>
+    <div class="field" style="margin:0;">
+      <select id="history-format-select">
+        <option value="all">All formats</option>
+        <option value="stableford">Stableford</option>
+        <option value="stroke">Stroke Play</option>
+        <option value="match">Match Play</option>
+        <option value="split6">Split 6</option>
+        <option value="betterball">Better Ball</option>
+        <option value="csm">Combined Score</option>
+        <option value="skins">Skins</option>
+        <option value="itc">In the Chair</option>
+        <option value="foursomes">Foursomes</option>
+        <option value="greensomes">Greensomes</option>
+      </select>
     </div>
     <div id="history-count" class="eyebrow mt-sm mb-sm"></div>
   </div>
@@ -630,7 +632,8 @@
   <div class="page-pad" style="padding-top:1rem;">
     <div id="hd-result"   class="mb-md"></div>
     <div class="label mb-sm">Scorecard</div>
-    <div id="hd-scorecard" style="overflow-x:auto;"></div>
+    <div id="hd-scorecard" style="overflow-x:auto;margin-bottom:1.5rem;"></div>
+    <button class="btn btn-danger" id="btn-delete-round" style="width:100%;">🗑 Delete Round</button>
   </div>
 </div>
 
