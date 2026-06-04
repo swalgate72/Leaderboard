@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<!-- Leaderboard v3.0 - build 20260604-01 -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Leaderboard">
+  <meta name="theme-color" content="#d4a843">
+  <title>Leaderboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     AUTH SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-auth" class="screen active centered">
+  <div class="auth-hero">
+    <div class="logo-wrap" id="auth-logo"></div>
+    <div class="eyebrow mt-sm">Golf Scoring &amp; Tournaments</div>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-signin" data-tab="signin">SIGN IN</div>
+      <div class="auth-tab" id="tab-signup" data-tab="signup">SIGN UP</div>
+    </div>
+
+    <div id="auth-error" class="msg-error"></div>
+    <div id="auth-success" class="msg-success"></div>
+
+    <!-- Sign In -->
+    <div id="form-signin">
+      <div class="field">
+        <label>Email</label>
+        <input id="si-email" type="email" placeholder="you@email.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input id="si-password" type="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary btn-full mt-sm" id="btn-signin">SIGN IN →</button>
+      <div class="text-center mt-sm">
+        <button class="btn-forgot" id="btn-forgot">Forgot password?</button>
+      </div>
+    </div>
+
+    <!-- Sign Up -->
+    <div id="form-signup" class="hidden">
+      <div class="two-col mb-sm">
+        <div class="field" style="margin:0">
+          <label>First Name</label>
+          <input id="su-fname" type="text" placeholder="Lee" autocomplete="given-name">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Last Name</label>
+          <input id="su-lname" type="text" placeholder="Smith" autocomplete="family-name">
+        </div>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input id="su-email" type="email" placeholder="you@email.com" autocomplete="email">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input id="su-password" type="password" placeholder="min 8 characters" autocomplete="new-password">
+      </div>
+      <button class="btn btn-primary btn-full mt-sm" id="btn-signup">CREATE ACCOUNT →</button>
+    </div>
+
+    <div class="auth-divider">
+      <div class="auth-divider-line"></div>
+      <div class="auth-divider-text">or</div>
+      <div class="auth-divider-line"></div>
+    </div>
+
+    <button class="btn-google" id="btn-google">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/><path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07z"/><path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.3z"/></svg>
+      Continue with Google
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     HOME SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-home" class="screen">
+  <div style="padding: 1.5rem 1rem 1rem; max-width: 480px; margin: 0 auto;">
+
+    <!-- Logo -->
+    <div class="logo-wrap mb-md" id="home-logo"></div>
+
+    <!-- Resume banner (shown if active round exists) -->
+    <div id="home-resume-banner" class="resume-banner hidden">
+      <div class="resume-banner-label">
+        <span class="live-dot"></span> Round in progress
+      </div>
+      <div class="resume-banner-title" id="resume-title">Loading…</div>
+      <div class="resume-banner-sub" id="resume-sub"></div>
+      <div class="resume-banner-actions mt-sm">
+        <button class="btn btn-green btn-full" id="btn-resume">▶ RESUME</button>
+        <button class="btn btn-ghost" id="btn-abandon-home">Abandon</button>
+      </div>
+    </div>
+
+    <!-- Format grid -->
+    <div class="format-grid" id="format-grid">
+
+      <button class="format-btn" data-format="stroke">
+        <div class="fmt-icon">📋</div>
+        <div class="fmt-name">Stroke Play</div>
+        <div class="fmt-desc">Total net shots</div>
+      </button>
+
+      <button class="format-btn" data-format="stableford">
+        <div class="fmt-icon">⭐</div>
+        <div class="fmt-name">Stableford</div>
+        <div class="fmt-desc">Points against par</div>
+      </button>
+
+      <button class="format-btn" data-format="match">
+        <div class="fmt-icon">⚔️</div>
+        <div class="fmt-name">Match Play</div>
+        <div class="fmt-desc">Hole by hole · net</div>
+      </button>
+
+      <button class="format-btn" data-format="skins">
+        <div class="fmt-icon">🏆</div>
+        <div class="fmt-name">Skins</div>
+        <div class="fmt-desc">Win holes outright</div>
+      </button>
+
+      <button class="format-btn" data-format="split6">
+        <div class="fmt-icon">🎯</div>
+        <div class="fmt-name">Split 6</div>
+        <div class="fmt-desc">6 pts per hole · 3 ball</div>
+      </button>
+
+      <button class="format-btn" data-format="itc">
+        <div class="fmt-icon">🪑</div>
+        <div class="fmt-name">In the Chair</div>
+        <div class="fmt-desc">Defend to score</div>
+      </button>
+
+      <button class="format-btn" data-format="betterball">
+        <div class="fmt-icon">⛳</div>
+        <div class="fmt-name">Better Ball</div>
+        <div class="fmt-desc">Pairs · best net score</div>
+      </button>
+
+      <button class="format-btn" data-format="csm">
+        <div class="fmt-icon">📊</div>
+        <div class="fmt-name">Combined Score</div>
+        <div class="fmt-desc">Pairs · combined stableford</div>
+      </button>
+
+      <button class="format-btn" data-format="foursomes">
+        <div class="fmt-icon">🤝</div>
+        <div class="fmt-name">Foursomes</div>
+        <div class="fmt-desc">Pairs · alternate shots</div>
+      </button>
+
+      <button class="format-btn" data-format="greensomes">
+        <div class="fmt-icon">🤝</div>
+        <div class="fmt-name">Greensomes</div>
+        <div class="fmt-desc">Pairs · both drive then alternate</div>
+      </button>
+
+      <!-- Tournament — full width, different colour -->
+      <button class="format-btn tournament" data-format="tournament">
+        <div class="fmt-icon">🏅</div>
+        <div>
+          <div class="fmt-name">Tournament</div>
+          <div class="fmt-desc">Multi-round competition</div>
+        </div>
+      </button>
+
+    </div>
+
+    <!-- Bottom nav -->
+    <div class="home-nav mt-md">
+      <button class="home-nav-btn" id="nav-profile">
+        <div class="nav-icon">👤</div>
+        <div class="nav-label">Profile</div>
+      </button>
+      <button class="home-nav-btn" id="nav-friends">
+        <div class="nav-icon">👥</div>
+        <div class="nav-label">Friends</div>
+      </button>
+      <button class="home-nav-btn" id="nav-history">
+        <div class="nav-icon">📋</div>
+        <div class="nav-label">History</div>
+      </button>
+      <button class="home-nav-btn" id="nav-course">
+        <div class="nav-icon">🏌️</div>
+        <div class="nav-label">Course</div>
+      </button>
+      <button class="home-nav-btn" id="nav-theme">
+        <div class="nav-icon" id="theme-icon">🌙</div>
+        <div class="nav-label">Theme</div>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SETUP — STEP 1: COURSE
+     ══════════════════════════════════════════ -->
+<div id="screen-setup-course" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="setup-course-back">← Back</button>
+    <h2 id="setup-course-format-label">Stroke Play</h2>
+    <button class="btn btn-ghost btn-danger-ghost" id="setup-abandon-1">Abandon</button>
+  </div>
+
+  <div class="page-pad-sm" style="padding-top:1rem;">
+    <div class="step-progress" id="step-progress-1">
+      <div class="step-dot current"></div>
+      <div class="step-dot"></div>
+      <div class="step-dot"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Course &amp; Tee</div>
+
+      <div class="field">
+        <label>Select Course</label>
+        <div class="flex gap-sm">
+          <select id="setup-course-select" style="flex:1"></select>
+          <button class="btn btn-ghost" id="setup-add-course-btn" title="Add new course">＋</button>
+        </div>
+      </div>
+
+      <div id="setup-tee-wrap" class="hidden">
+        <div class="field">
+          <label>Tee Markers</label>
+          <select id="setup-tee-select"></select>
+        </div>
+
+        <!-- 18 / Front 9 / Back 9 -->
+        <div class="field">
+          <label>Holes</label>
+          <div class="three-col" style="margin:0;">
+            <button class="btn btn-outline holes-btn active" data-holes="18">18</button>
+            <button class="btn btn-outline holes-btn" data-holes="front9">Front 9</button>
+            <button class="btn btn-outline holes-btn" data-holes="back9">Back 9</button>
+          </div>
+        </div>
+
+        <!-- SI preview -->
+        <div id="setup-si-preview" class="hidden" style="margin-top:0.75rem;">
+          <div class="label mb-sm">Stroke Indexes</div>
+          <div id="setup-si-grid" style="display:grid;grid-template-columns:repeat(9,1fr);gap:3px;font-size:0.65rem;text-align:center;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Settings</div>
+      <div class="two-col" style="margin-bottom:0;">
+        <div class="field" style="margin:0;">
+          <label>Players</label>
+          <select id="setup-num-players"></select>
+        </div>
+        <div class="field" style="margin:0;">
+          <label>Groups</label>
+          <select id="setup-num-groups"></select>
+        </div>
+      </div>
+      <div class="field mt-sm" style="margin-bottom:0;">
+        <label>Handicap Allowance %</label>
+        <input id="setup-hcp-pct" type="number" min="0" max="100" step="1" value="100">
+        <div class="hint">100 = full · 75 = three-quarter · 50 = half</div>
+      </div>
+    </div>
+
+    <button class="btn btn-green btn-full" id="btn-setup-course-next">NEXT: PLAYERS →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SETUP — STEP 2: PLAYERS
+     ══════════════════════════════════════════ -->
+<div id="screen-setup-players" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="setup-players-back">← Back</button>
+    <h2>Players</h2>
+    <button class="btn btn-ghost btn-danger-ghost" id="setup-abandon-2">Abandon</button>
+  </div>
+
+  <div class="page-pad-sm" style="padding-top:1rem;">
+    <div class="step-progress" id="step-progress-2">
+      <div class="step-dot done"></div>
+      <div class="step-dot current"></div>
+      <div class="step-dot"></div>
+    </div>
+
+    <div id="setup-player-groups"></div>
+
+    <div class="flex gap-sm mt-sm">
+      <button class="btn btn-ghost" style="flex:1;" id="btn-setup-players-back">← Back</button>
+      <button class="btn btn-green" style="flex:2;" id="btn-setup-players-next">NEXT: REVIEW →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SETUP — STEP 3: REVIEW & TEE OFF
+     ══════════════════════════════════════════ -->
+<div id="screen-setup-review" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="setup-review-back">← Back</button>
+    <h2>Review</h2>
+    <button class="btn btn-ghost btn-danger-ghost" id="setup-abandon-3">Abandon</button>
+  </div>
+
+  <div class="page-pad-sm" style="padding-top:1rem;">
+    <div class="step-progress">
+      <div class="step-dot done"></div>
+      <div class="step-dot done"></div>
+      <div class="step-dot current"></div>
+    </div>
+
+    <div class="card" id="review-card">
+      <div class="card-title">Round Summary</div>
+      <div id="review-content"></div>
+    </div>
+
+    <button class="btn btn-play" id="btn-tee-off">⛳ TEE OFF →</button>
+
+    <button class="btn btn-outline mt-sm" id="btn-review-back">← Back</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     GAME SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-game" class="screen">
+
+  <!-- Sticky top: top bar + score header + flash -->
+  <div id="game-sticky-top" style="position:sticky;top:0;z-index:40;background:var(--bg);">
+
+    <!-- Top bar -->
+    <div class="game-top-bar">
+      <div class="flex items-center gap-sm">
+        <div id="game-logo-mini"></div>
+        <div>
+          <div class="game-course" id="game-course-name"></div>
+          <div class="game-sub" id="game-sub"></div>
+        </div>
+      </div>
+      <div class="flex items-center gap-sm">
+        <div class="sync-badge syncing hidden" id="game-sync-badge">
+          <div class="sync-dot pulse"></div>
+          <span>Saving</span>
+        </div>
+        <button class="btn btn-ghost" id="btn-game-scorecard">📋</button>
+        <button class="btn btn-ghost btn-danger-ghost" id="btn-game-abandon">Abandon</button>
+      </div>
+    </div>
+
+    <!-- Score header — one of these is shown depending on format -->
+    <div id="game-totals-bar"  class="totals-bar score-bar hidden"></div>
+    <div id="game-match-bar"   class="match-bar score-bar hidden">
+      <div class="mb-pair">
+        <div class="mb-names" id="mb-names-a"></div>
+        <div class="mb-score" style="color:var(--p0);" id="mb-score-a">0</div>
+      </div>
+      <div class="mb-status-wrap">
+        <div class="mb-status all-sq" id="mb-status">ALL SQ</div>
+        <div class="mb-holes-left" id="mb-holes-left"></div>
+      </div>
+      <div class="mb-pair mb-pair-b">
+        <div class="mb-names" id="mb-names-b"></div>
+        <div class="mb-score" style="color:var(--p1);text-align:right;" id="mb-score-b">0</div>
+      </div>
+    </div>
+    <div id="game-skins-bar" class="skins-bar hidden"></div>
+    <div id="game-itc-bar"   class="itc-bar hidden"></div>
+    <div class="pot-banner" id="game-pot-banner"><span id="game-pot-text"></span></div>
+
+    <!-- Result flash -->
+    <div id="result-flash" class="result-flash"></div>
+
+  </div><!-- /game-sticky-top -->
+
+  <!-- Hole entry panel -->
+  <div class="hole-panel" id="hole-panel">
+    <div class="hole-hdr">
+      <div>
+        <div class="hole-lbl">Current Hole</div>
+        <div class="hole-num" id="game-hole-num">1</div>
+      </div>
+      <div class="hole-si-info" id="game-hole-si"></div>
+    </div>
+
+    <!-- Player input rows rendered here -->
+    <div id="game-inputs"></div>
+
+    <!-- Back / Record -->
+    <div class="hole-actions">
+      <button class="btn-back-hole" id="btn-back-hole" disabled>← Back</button>
+      <button class="btn-record" id="btn-record-hole">RECORD HOLE →</button>
+    </div>
+
+    <!-- Secondary actions -->
+    <button class="btn btn-outline mt-sm" id="btn-finish-early"
+      style="font-size:0.85rem;padding:0.55rem;">
+      ✓ FINISH ROUND EARLY
+    </button>
+
+  </div><!-- /hole-panel -->
+
+  <!-- Scorecard overlay (in-game) -->
+  <div id="scorecard-overlay" class="sc-overlay">
+    <div class="sc-overlay-head">
+      <div>
+        <div class="sc-overlay-title" id="sc-overlay-title">Scorecard</div>
+        <div class="eyebrow" id="sc-overlay-sub"></div>
+      </div>
+      <button class="btn btn-ghost" id="btn-close-scorecard">✕ Close</button>
+    </div>
+    <div class="sc-overlay-body" id="sc-overlay-body"></div>
+  </div>
+
+</div><!-- /screen-game -->
+
+<!-- ══════════════════════════════════════════
+     END ROUND SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-end-round" class="screen">
+
+  <div class="end-round-head">
+    <div class="er-format" id="er-format"></div>
+    <div class="er-result" id="er-result"></div>
+    <div class="er-sub" id="er-sub"></div>
+  </div>
+
+  <div class="page-pad" style="padding-top:1rem;">
+
+    <!-- Podium / result cards -->
+    <div id="er-podium" class="mb-md"></div>
+
+    <!-- Scorecard -->
+    <div class="label mb-sm">Scorecard</div>
+    <div id="er-scorecard" style="overflow-x:auto;margin-bottom:1.5rem;"></div>
+
+    <!-- Actions -->
+    <button class="btn btn-primary btn-full" id="btn-confirm-end">
+      ✓ SAVE &amp; FINISH
+    </button>
+    <button class="btn btn-outline mt-sm" id="btn-back-to-game">
+      ← Back to Scoring
+    </button>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PROFILE SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-profile" class="screen centered">
+  <div class="profile-hero">
+    <div class="logo-wrap" id="profile-logo"></div>
+    <div class="profile-avatar" id="profile-avatar">?</div>
+    <div class="profile-name"   id="profile-name">Welcome</div>
+    <div class="profile-hcp hidden" id="profile-hcp"></div>
+    <div class="flex items-center justify-between mt-sm" style="width:100%;max-width:480px;padding:0 0.5rem;">
+      <div class="sync-badge synced" id="profile-sync">
+        <div class="sync-dot"></div>
+        <span id="profile-sync-text">Synced</span>
+      </div>
+      <div class="eyebrow" id="profile-email-display"></div>
+    </div>
+  </div>
+
+  <div class="page-pad-sm">
+
+    <div class="card">
+      <div class="card-title">Your Details</div>
+      <div class="two-col">
+        <div class="field" style="margin:0;">
+          <label>First Name</label>
+          <input id="prof-fname" type="text" placeholder="Lee" autocomplete="given-name">
+        </div>
+        <div class="field" style="margin:0;">
+          <label>Last Name</label>
+          <input id="prof-lname" type="text" placeholder="Smith" autocomplete="family-name">
+        </div>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input id="prof-email" type="email" autocomplete="email">
+      </div>
+      <div class="two-col">
+        <div class="field" style="margin:0;">
+          <label>Mobile (inc. country code)</label>
+          <input id="prof-mobile" type="tel" placeholder="+447700900000">
+        </div>
+        <div class="field" style="margin:0;">
+          <label>Handicap Index</label>
+          <input id="prof-hcp" type="number" placeholder="12.4" step="0.1" min="0" max="54">
+        </div>
+      </div>
+      <div class="field" style="margin:0;">
+        <label>WHS Number</label>
+        <input id="prof-whs" type="text" placeholder="e.g. 123456">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Home Club</div>
+      <div class="field">
+        <label>Select from saved courses</label>
+        <div class="flex gap-sm">
+          <select id="prof-course-select" style="flex:1;"></select>
+          <button class="btn btn-ghost" id="prof-add-course-btn">＋</button>
+        </div>
+      </div>
+      <div class="field" style="margin:0;">
+        <label>Preferred Tees</label>
+        <select id="prof-tees">
+          <option>Yellow</option><option>White</option><option>Red</option>
+          <option>Blue</option><option>Black</option><option>Gold</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Theme</div>
+      <div class="two-col" style="margin:0;">
+        <button class="theme-btn active" id="btn-theme-dark"
+          style="background:#0e1a12;">
+          <div style="font-size:1.2rem;">🌙</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.85rem;font-weight:700;color:#d4a843;letter-spacing:0.08em;margin-top:3px;">DARK</div>
+        </button>
+        <button class="theme-btn" id="btn-theme-light"
+          style="background:#f0ebe0;">
+          <div style="font-size:1.2rem;">☀️</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.85rem;font-weight:700;color:#8a6412;letter-spacing:0.08em;margin-top:3px;">LIGHT</div>
+        </button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-full" id="btn-save-profile">SAVE PROFILE</button>
+    <button class="btn btn-outline mt-sm"    id="btn-profile-home">← Home</button>
+    <button class="btn btn-danger  mt-sm"    id="btn-sign-out" style="width:100%;">SIGN OUT</button>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     FRIENDS SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-friends" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="friends-back">← Back</button>
+    <h2>Friends <span id="friend-req-badge" class="badge badge-gold hidden">0</span></h2>
+  </div>
+
+  <div class="page-pad" style="padding-top:1rem;">
+
+    <!-- Pending requests -->
+    <div id="friend-requests-section" class="hidden mb-md">
+      <div class="card-title mb-sm">Pending Requests</div>
+      <div id="friend-requests-list"></div>
+    </div>
+
+    <!-- Add by email -->
+    <div class="card">
+      <div class="card-title">Add Friend by Email</div>
+      <div class="field">
+        <label>Email Address</label>
+        <input id="friend-search-email" type="email" placeholder="friend@email.com">
+      </div>
+      <div id="friend-search-result" class="hidden"
+        style="background:var(--surface2);border:1px solid var(--gold-border);border-radius:var(--radius-sm);padding:0.65rem 0.85rem;margin-bottom:0.65rem;">
+        <div id="friend-found-name" style="font-size:0.88rem;margin-bottom:0.5rem;"></div>
+        <button class="btn btn-primary" style="padding:0.45rem 1rem;width:auto;" id="btn-send-request">Send Request</button>
+      </div>
+      <div id="friend-search-empty" class="hidden hint mb-sm"></div>
+      <button class="btn btn-outline" id="btn-search-friend">🔍 Search</button>
+    </div>
+
+    <!-- Friends list -->
+    <div class="card-title mb-sm">Your Friends</div>
+    <div id="friends-list"></div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     HISTORY SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-history" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="history-back">← Back</button>
+    <h2>History</h2>
+  </div>
+
+  <div style="padding:0.75rem 1rem 0;max-width:520px;margin:0 auto;">
+    <div class="filter-bar" id="history-filter-bar">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="stroke">Stroke</button>
+      <button class="filter-btn" data-filter="stableford">Stableford</button>
+      <button class="filter-btn" data-filter="match">Match</button>
+      <button class="filter-btn" data-filter="skins">Skins</button>
+      <button class="filter-btn" data-filter="split6">Split 6</button>
+      <button class="filter-btn" data-filter="itc">In Chair</button>
+      <button class="filter-btn" data-filter="betterball">Better Ball</button>
+      <button class="filter-btn" data-filter="csm">Combined</button>
+      <button class="filter-btn" data-filter="foursomes">Foursomes</button>
+      <button class="filter-btn" data-filter="greensomes">Greensomes</button>
+    </div>
+    <div id="history-count" class="eyebrow mt-sm mb-sm"></div>
+  </div>
+
+  <div style="padding:0 1rem 2rem;max-width:520px;margin:0 auto;" id="history-list"></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     HISTORY DETAIL SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-history-detail" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="history-detail-back">← Back</button>
+    <h2 id="hd-title">Round</h2>
+  </div>
+  <div class="page-pad" style="padding-top:1rem;">
+    <div id="hd-result"   class="mb-md"></div>
+    <div class="label mb-sm">Scorecard</div>
+    <div id="hd-scorecard" style="overflow-x:auto;"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     COURSE WIZARD MODAL
+     ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-course-wizard">
+  <div class="modal-box gold-border">
+
+    <div class="modal-header">
+      <button class="btn btn-ghost" id="cwiz-cancel">Cancel</button>
+      <div style="text-align:center;">
+        <div class="modal-title" id="cwiz-title">Add Course</div>
+        <div class="modal-sub"   id="cwiz-sub"></div>
+      </div>
+      <div style="width:60px;"></div>
+    </div>
+
+    <!-- Phase: name + tees -->
+    <div id="cwiz-phase-name">
+      <div class="field mb-md">
+        <label>Course Name</label>
+        <input id="cwiz-name" type="text" placeholder="e.g. Wentworth">
+      </div>
+      <div class="field mb-md">
+        <label>Location (optional)</label>
+        <input id="cwiz-location" type="text" placeholder="e.g. Virginia Water, Surrey">
+      </div>
+      <div class="flex items-center justify-between mb-sm">
+        <div class="card-title" style="margin:0;">Tee Boxes</div>
+        <button class="btn btn-ghost" id="cwiz-add-tee-btn">＋ Add Tee</button>
+      </div>
+      <div id="cwiz-tees-list" class="mb-md"></div>
+      <button class="btn btn-green btn-full" id="cwiz-start-holes-btn" disabled>
+        ENTER HOLE DATA →
+      </button>
+    </div>
+
+    <!-- Phase: hole by hole -->
+    <div id="cwiz-phase-holes" class="hidden">
+      <div id="cwiz-prog-dots" class="flex mb-md" style="gap:3px;flex-wrap:wrap;"></div>
+      <div class="flex items-center gap-sm mb-md">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:2.5rem;font-weight:800;color:var(--gold);line-height:1;" id="cwiz-hole-num">1</div>
+        <div class="eyebrow">of 18</div>
+      </div>
+      <div class="mb-md">
+        <div class="label mb-sm">Par</div>
+        <div class="par-btns" id="cwiz-par-btns"></div>
+      </div>
+      <div id="cwiz-si-sections"></div>
+      <div class="two-col">
+        <button class="btn btn-outline" id="cwiz-hole-back-btn">← Back</button>
+        <button class="btn btn-green"   id="cwiz-hole-next-btn">Next →</button>
+      </div>
+    </div>
+
+    <!-- Phase: review -->
+    <div id="cwiz-phase-review" class="hidden">
+      <div class="card-sub mb-sm">Review all 18 holes then save.</div>
+      <div id="cwiz-review-grid"
+        style="display:grid;grid-template-columns:repeat(9,1fr);gap:3px;margin-bottom:0.75rem;"></div>
+      <div class="eyebrow text-center mb-md">
+        Total par: <span id="cwiz-review-par" style="color:var(--white);font-weight:600;"></span>
+      </div>
+      <button class="btn btn-primary btn-full mb-sm" id="cwiz-save-btn">✅ SAVE COURSE</button>
+      <button class="btn btn-outline"                id="cwiz-redo-btn">← Redo from Hole 1</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     FRIEND PICKER MODAL
+     ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-friend-picker">
+  <div class="modal-box" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title" id="fp-title">Pick a Player</div>
+      <button class="btn-close" id="fp-close">✕</button>
+    </div>
+    <div id="fp-chips" class="flex" style="flex-wrap:wrap;gap:3px;min-height:36px;margin-bottom:0.75rem;"></div>
+    <div id="fp-confirm" class="hidden">
+      <div style="background:var(--surface2);border:1px solid var(--gold-border);border-radius:var(--radius-sm);padding:0.75rem;margin-bottom:0.75rem;">
+        <div id="fp-selected-name" style="font-size:0.88rem;margin-bottom:0.5rem;"></div>
+        <div class="field" style="margin:0;">
+          <label>HCP Index</label>
+          <input id="fp-hcp" type="number" step="0.1" min="0" max="54">
+        </div>
+      </div>
+      <div class="two-col">
+        <button class="btn btn-outline" id="fp-back-btn">← Back</button>
+        <button class="btn btn-green"   id="fp-confirm-btn">USE PLAYER</button>
+      </div>
+    </div>
+    <div id="fp-empty" class="hidden history-empty" style="padding:1rem 0;">
+      No friends yet — add them from the Friends screen.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MATCH WON MODAL
+     ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-match-won">
+  <div class="modal-box" style="text-align:center;max-width:360px;">
+    <div class="eyebrow mb-sm">Match Won</div>
+    <div id="mw-winner" style="font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:800;margin-bottom:0.2rem;color:var(--gold);"></div>
+    <div id="mw-score"  style="font-family:'Barlow Condensed',sans-serif;font-size:3.5rem;font-weight:800;line-height:1;margin-bottom:1rem;color:var(--gold);"></div>
+    <div class="text-muted" style="font-size:0.78rem;margin-bottom:1.25rem;">
+      Continue playing the remaining holes or end the match now.
+    </div>
+    <div class="two-col">
+      <button class="btn btn-outline" id="mw-keep-playing">KEEP PLAYING</button>
+      <button class="btn btn-primary" id="mw-end-match">END MATCH</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ABANDON CONFIRM MODAL
+     ══════════════════════════════════════════ -->
+<div class="modal-overlay abandon-modal" id="modal-abandon">
+  <div class="modal-box" style="text-align:center;max-width:360px;border-color:var(--red-border);">
+    <div style="font-size:2rem;margin-bottom:0.5rem;">⚠️</div>
+    <div class="modal-title" style="color:var(--red);margin-bottom:0.5rem;">Abandon Round?</div>
+    <div class="text-muted mb-md" style="font-size:0.82rem;line-height:1.5;">
+      This will permanently delete all data for this round. It cannot be undone.
+    </div>
+    <div class="two-col">
+      <button class="btn btn-outline" id="abandon-cancel">Cancel</button>
+      <button class="btn btn-danger"  id="abandon-confirm">Yes, Abandon</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOURNAMENT COMING SOON MODAL
+     ══════════════════════════════════════════ -->
+<div class="modal-overlay coming-soon-modal" id="modal-coming-soon">
+  <div class="modal-box" style="text-align:center;max-width:340px;border-color:var(--purple-border);">
+    <div style="font-size:2rem;margin-bottom:0.5rem;">🏅</div>
+    <div class="modal-title mb-sm">Tournament Mode</div>
+    <div class="text-muted mb-md" style="font-size:0.82rem;line-height:1.5;">
+      Tournament mode is coming soon — multi-round competitions with cumulative standings.
+    </div>
+    <button class="btn btn-outline btn-full" id="coming-soon-close">Got it</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SMS INVITE JOIN SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-join" class="screen">
+  <div class="join-screen">
+    <div class="text-center mb-md">
+      <div class="logo-wrap" id="join-logo"></div>
+      <div class="eyebrow mt-sm">You've been invited</div>
+    </div>
+    <div class="card" style="max-width:400px;">
+      <div id="join-invite-info" class="text-center mb-md"></div>
+      <div id="join-auth-prompt" class="hidden">
+        <div class="card-sub text-center">Sign in or create an account to join.</div>
+        <button class="btn btn-primary btn-full" id="btn-join-auth">SIGN IN / SIGN UP</button>
+      </div>
+      <div id="join-confirm-prompt" class="hidden">
+        <button class="btn btn-green btn-full" id="btn-join-confirm">JOIN THIS ROUND →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     APP SCRIPT
+     ══════════════════════════════════════════ -->
+<script type="module" src="js/app.js"></script>
+
+</body>
+</html>
