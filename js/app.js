@@ -937,6 +937,8 @@ function renderTotalsBar() {
     groupBanner.classList.add('hidden');
   }
 }
+
+function renderMatchBar() {
   const bar = document.getElementById('game-match-bar');
   const fmt = gameState.format;
   const ms  = gameState.matchScore ?? 0;
@@ -1251,6 +1253,8 @@ function renderLeaderboard() {
   html += '</tbody></table>';
   tableEl.innerHTML = html;
 }
+
+document.getElementById('btn-game-scorecard')?.addEventListener('click', () => {
   renderScorecardOverlay();
   document.getElementById('scorecard-overlay')?.classList.add('open');
 });
