@@ -465,7 +465,7 @@ function populateNumPlayerSelect() {
   if (fmt === 'split6')                                                { min = 3; max = 3; }
   else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ min = 2; max = 6; } // pairs
   else if (fmt === 'match')                                            { min = 2; max = 2; }
-  else if (fmt === 'best2')                                            { min = 3; max = 5; } // players per group
+  else if (fmt === 'best2')                                            { min = 3; max = 4; } // players per group
   else                                                                 { min = 2; max = 12; }
 
   for (let n = min; n <= max; n++) {
