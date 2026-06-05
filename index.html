@@ -110,76 +110,48 @@
       </div>
     </div>
 
-    <!-- Format grid -->
-    <div class="format-grid" id="format-grid">
+    <!-- Three big game mode buttons -->
+    <div style="display:grid;gap:0.75rem;margin-bottom:1rem;">
 
-      <button class="format-btn" data-format="stroke">
-        <div class="fmt-icon">📋</div>
-        <div class="fmt-name">Stroke Play</div>
-        <div class="fmt-desc">Total net shots</div>
-      </button>
-
-      <button class="format-btn" data-format="stableford">
-        <div class="fmt-icon">⭐</div>
-        <div class="fmt-name">Stableford</div>
-        <div class="fmt-desc">Points against par</div>
-      </button>
-
-      <button class="format-btn" data-format="match">
-        <div class="fmt-icon">⚔️</div>
-        <div class="fmt-name">Match Play</div>
-        <div class="fmt-desc">Hole by hole · net</div>
-      </button>
-
-      <button class="format-btn" data-format="skins">
-        <div class="fmt-icon">🏆</div>
-        <div class="fmt-name">Skins</div>
-        <div class="fmt-desc">Win holes outright</div>
-      </button>
-
-      <button class="format-btn" data-format="split6">
-        <div class="fmt-icon">🎯</div>
-        <div class="fmt-name">Split 6</div>
-        <div class="fmt-desc">6 pts per hole · 3 ball</div>
-      </button>
-
-      <button class="format-btn" data-format="itc">
-        <div class="fmt-icon">🪑</div>
-        <div class="fmt-name">In the Chair</div>
-        <div class="fmt-desc">Defend to score</div>
-      </button>
-
-      <button class="format-btn" data-format="betterball">
-        <div class="fmt-icon">⛳</div>
-        <div class="fmt-name">Better Ball</div>
-        <div class="fmt-desc">Pairs · best net score</div>
-      </button>
-
-      <button class="format-btn" data-format="csm">
-        <div class="fmt-icon">📊</div>
-        <div class="fmt-name">Combined Score</div>
-        <div class="fmt-desc">Pairs · combined stableford</div>
-      </button>
-
-      <button class="format-btn" data-format="foursomes">
-        <div class="fmt-icon">🤝</div>
-        <div class="fmt-name">Foursomes</div>
-        <div class="fmt-desc">Pairs · alternate shots</div>
-      </button>
-
-      <button class="format-btn" data-format="greensomes">
-        <div class="fmt-icon">🤝</div>
-        <div class="fmt-name">Greensomes</div>
-        <div class="fmt-desc">Pairs · both drive then alternate</div>
-      </button>
-
-      <!-- Tournament — full width, different colour -->
-      <button class="format-btn tournament" data-format="tournament">
-        <div class="fmt-icon">🏅</div>
-        <div>
-          <div class="fmt-name">Tournament</div>
-          <div class="fmt-desc">Multi-round competition</div>
+      <button id="btn-solo-scoring"
+        style="padding:1.4rem 1.25rem;background:var(--surface);border:1px solid var(--border);
+               border-radius:var(--radius);text-align:left;cursor:pointer;transition:border-color 0.15s;width:100%;"
+        onmouseover="this.style.borderColor='var(--gold-border)'"
+        onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.5rem;font-weight:800;
+                    color:var(--gold);letter-spacing:0.06em;margin-bottom:0.2rem;">
+          ⛳ Single Player Scoring
         </div>
+        <div style="font-size:0.75rem;color:var(--muted);">
+          Stableford · Stroke · Match Play · Skins · In the Chair · Split 6
+        </div>
+      </button>
+
+      <button id="btn-team-scoring"
+        style="padding:1.4rem 1.25rem;background:var(--surface);border:1px solid var(--border);
+               border-radius:var(--radius);text-align:left;cursor:pointer;transition:border-color 0.15s;width:100%;"
+        onmouseover="this.style.borderColor='var(--gold-border)'"
+        onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.5rem;font-weight:800;
+                    color:var(--gold);letter-spacing:0.06em;margin-bottom:0.2rem;">
+          🤝 Pairs / Team Scoring
+        </div>
+        <div style="font-size:0.75rem;color:var(--muted);">
+          Better Ball · Combined · Foursomes · Greensomes · Best 2
+        </div>
+      </button>
+
+      <button id="btn-tournament-mode"
+        style="padding:1.4rem 1.25rem;background:var(--surface);border:1px solid var(--border);
+               border-radius:var(--radius);text-align:left;cursor:pointer;transition:border-color 0.15s;
+               opacity:0.6;width:100%;"
+        onmouseover="this.style.borderColor='var(--blue-border)'"
+        onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.5rem;font-weight:800;
+                    color:var(--blue);letter-spacing:0.06em;margin-bottom:0.2rem;">
+          🏆 Tournament Mode
+        </div>
+        <div style="font-size:0.75rem;color:var(--muted);">Coming soon</div>
       </button>
 
     </div>
@@ -208,6 +180,23 @@
       </button>
     </div>
 
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SETUP — CATEGORY (single/team)
+     ══════════════════════════════════════════ -->
+<!-- Handled by home screen buttons — no separate screen needed -->
+
+<!-- ══════════════════════════════════════════
+     SETUP — FORMAT PICKER
+     ══════════════════════════════════════════ -->
+<div id="screen-setup-format" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="setup-format-back">← Back</button>
+    <h2 id="setup-format-screen-title">Select Format</h2>
+  </div>
+  <div style="padding:1rem;max-width:520px;margin:0 auto;" id="setup-format-list">
   </div>
 </div>
 
@@ -267,7 +256,7 @@
       <div class="card-title">Settings</div>
       <div class="two-col" style="margin-bottom:0;">
         <div class="field" style="margin:0;">
-          <label>Players</label>
+          <label id="setup-num-players-label">Players</label>
           <select id="setup-num-players"></select>
         </div>
         <div class="field" style="margin:0;">
@@ -386,6 +375,7 @@
     <div id="game-skins-bar" class="skins-bar hidden"></div>
     <div id="game-itc-bar"   class="itc-bar hidden"></div>
     <div class="pot-banner" id="game-pot-banner"><span id="game-pot-text"></span></div>
+    <div class="pot-banner hidden" id="game-group-total-banner" style="background:rgba(212,168,67,0.08);border-bottom:1px solid var(--gold-border);"></div>
 
     <!-- Result flash (permanent bar - no layout shift) -->
     <div id="result-flash" class="result-flash result-flash-permanent">&#8203;</div>
@@ -607,11 +597,15 @@
       <button class="btn-close" id="invite-close">✕</button>
     </div>
 
-    <div id="invite-copied-note" class="hidden" style="background:var(--green-dim);border:1px solid var(--green-border);border-radius:var(--radius-sm);padding:0.6rem 0.85rem;font-size:0.82rem;color:var(--green);margin-bottom:1rem;">
-      ✅ Invite message copied to clipboard
+    <!-- Invite text box with copy -->
+    <div class="field">
+      <label>Invite Message</label>
+      <textarea id="invite-text-box" readonly rows="6"
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+               padding:0.65rem 0.85rem;color:var(--white);font-size:0.82rem;width:100%;
+               line-height:1.5;resize:none;outline:none;font-family:'Lato',sans-serif;"></textarea>
     </div>
-
-    <div class="card-sub mb-md">Enter a mobile or email to send manually:</div>
+    <button class="btn btn-outline mb-md" id="invite-copy-btn" style="width:100%;">📋 Copy Message</button>
 
     <div class="field">
       <label>Mobile Number (inc. country code)</label>
@@ -629,7 +623,7 @@
     <button class="btn btn-green btn-full mt-sm" id="invite-whatsapp-btn">💚 WhatsApp</button>
 
     <div class="hint mt-sm" style="line-height:1.6;">
-      <strong>iPhone:</strong> Open link in Safari → tap Share → Add to Home Screen<br>
+      <strong>iPhone:</strong> Open in Safari → tap Share → Add to Home Screen<br>
       <strong>Android:</strong> Open in Chrome → tap ⋮ → Add to Home Screen
     </div>
   </div>
