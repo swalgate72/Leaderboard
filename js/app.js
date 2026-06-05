@@ -481,10 +481,10 @@ function populateNumPlayerSelect() {
 function populateNumGroupSelect() {
   const sel = document.getElementById('setup-num-groups');
   sel.innerHTML = '';
-  for (let g = 1; g <= setup.numPlayers; g++) {
+  for (let g = 1; g <= 20; g++) {
     const opt = document.createElement('option');
     opt.value = g; opt.textContent = g;
-    if (g === 1) opt.selected = true;
+    if (g === setup.numGroups) opt.selected = true;
     sel.appendChild(opt);
   }
 }
