@@ -304,6 +304,7 @@ document.getElementById('nav-profile')?.addEventListener('click', () => showProf
 document.getElementById('nav-friends')?.addEventListener('click', () => showFriends());
 document.getElementById('nav-history')?.addEventListener('click', () => showHistory());
 document.getElementById('nav-course') ?.addEventListener('click', () => { cwiz.returnTo = 'home'; openCourseWizard(null); });
+document.getElementById('nav-theme')  ?.addEventListener('click', () => showProfile());
 
 document.getElementById('coming-soon-close')?.addEventListener('click', () => hide('modal-coming-soon'));
 document.getElementById('btn-resume')?.addEventListener('click', async () => { if (roundId) await resumeRound(roundId); });
@@ -1919,7 +1920,7 @@ function openCourseWizard(courseId) {
   }
 
   renderCwizTeesList();
-  show('modal-course-wizard');
+  document.getElementById('modal-course-wizard').classList.add('open');
   show('cwiz-phase-name'); hide('cwiz-phase-holes'); hide('cwiz-phase-review');
   updateCwizStartBtn();
 }
@@ -2072,7 +2073,7 @@ document.getElementById('cwiz-save-btn')?.addEventListener('click', async () => 
       tees, isDefault: false, createdBy: currentUser.id,
     });
     allCourses = await coursesLoadAll();
-    hide('modal-course-wizard');
+    document.getElementById('modal-course-wizard').classList.remove('open');
     if (cwiz.returnTo === 'setup') {
       populateCourseSelect();
       const sel = document.getElementById('setup-course-select');
@@ -2084,7 +2085,7 @@ document.getElementById('cwiz-save-btn')?.addEventListener('click', async () => 
   finally { btn.disabled = false; btn.textContent = '✅ SAVE COURSE'; }
 });
 
-document.getElementById('cwiz-cancel')?.addEventListener('click', () => hide('modal-course-wizard'));
+document.getElementById('cwiz-cancel')?.addEventListener('click', () => document.getElementById('modal-course-wizard').classList.remove('open'));
 
 // ================================================================
 // JOIN FLOW
