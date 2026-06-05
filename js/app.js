@@ -794,13 +794,13 @@ async function teeOff() {
   const btn = document.getElementById('btn-tee-off');
   btn.disabled = true; btn.textContent = 'Starting…';
   try {
+    const { allGroupStates, ...stateToSave } = gameState;
     roundId = await roundCreate({
       organiserId:  currentUser.id,
       courseName:   course.name,
       teeName:      tee.name,
       gameFormat:   fmt,
       scoringMethod: setup.scoring,
-      
       hcpAllowance: setup.hcpPct,
       si:           siSlice,
       par:          parSlice,
@@ -808,7 +808,7 @@ async function teeOff() {
       holeOffset:   offset,
       numGroups:    setup.numGroups,
       playerNames:  setup.players.map(p => p.name || 'Player'),
-      gameState,
+      gameState:    stateToSave,
     });
     await roundPlayersSave(roundId, setup.players.map((p, i) => ({
       profileId:       p.profileId ?? null,
@@ -1374,7 +1374,11 @@ async function saveRoundState() {
   if (!roundId || !gameState) return;
   const badge = document.getElementById('game-sync-badge');
   badge?.classList.remove('hidden');
-  try { await roundSaveState(roundId, gameState, gameState.names); }
+  try {
+    // Strip allGroupStates to avoid circular JSON serialisation
+    const { allGroupStates, ...stateToSave } = gameState;
+    await roundSaveState(roundId, stateToSave, stateToSave.names);
+  }
   catch (err) { console.error('saveRoundState error', err); }
   finally { badge?.classList.add('hidden'); }
 }
