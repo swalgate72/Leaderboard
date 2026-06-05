@@ -46,16 +46,17 @@ let allCourses     = [];
 let allFriends     = [];
 
 const setup = {
-  category:   null,   // 'solo' | 'team'
-  scoring:    null,   // the format key (stableford, match, betterball, best2 etc.)
-  get format() { return this.scoring; }, // alias for compatibility
-  courseId:   null,
-  teeIdx:     0,
-  holes:      18,
-  numPlayers: 2,
-  numGroups:  1,
-  hcpPct:     100,
-  players:    [],
+  category:        null,
+  scoring:         null,
+  get format() { return this.scoring; },
+  courseId:        null,
+  teeIdx:          0,
+  holes:           18,
+  numPlayers:      2,
+  numGroups:       1,
+  playersPerGroup: null,  // used for Best 2
+  hcpPct:          100,
+  players:         [],
 };
 
 let roundId    = null;
@@ -355,11 +356,11 @@ function showFormatPicker(category) {
       setup.scoring  = fmt;
       setup.courseId = null; setup.teeIdx = 0; setup.holes = 18;
       setup.hcpPct   = 100; setup.players = [];
-      if (fmt === 'split6')                                                { setup.numPlayers = 3; setup.numGroups = 1; }
-      else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ setup.numPlayers = 4; setup.numGroups = 1; }
-      else if (fmt === 'best2')                                            { setup.numPlayers = 4; setup.numGroups = 2; }
-      else if (fmt === 'match')                                            { setup.numPlayers = 2; setup.numGroups = 1; }
-      else                                                                 { setup.numPlayers = 3; setup.numGroups = 1; }
+      if (fmt === 'split6')                                                { setup.numPlayers = 3; setup.numGroups = 1; setup.playersPerGroup = null; }
+      else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ setup.numPlayers = 4; setup.numGroups = 1; setup.playersPerGroup = null; }
+      else if (fmt === 'best2')                                            { setup.numPlayers = 8; setup.numGroups = 2; setup.playersPerGroup = 4; }
+      else if (fmt === 'match')                                            { setup.numPlayers = 2; setup.numGroups = 1; setup.playersPerGroup = null; }
+      else                                                                 { setup.numPlayers = 3; setup.numGroups = 1; setup.playersPerGroup = null; }
       startSetup();
     });
   });
@@ -497,6 +498,9 @@ document.getElementById('setup-num-players')?.addEventListener('change', e => {
 });
 document.getElementById('setup-num-groups')?.addEventListener('change', e => {
   setup.numGroups = parseInt(e.target.value, 10);
+  if (setup.scoring === 'best2' && setup.playersPerGroup) {
+    setup.numPlayers = setup.playersPerGroup * setup.numGroups;
+  }
 });
 document.getElementById('setup-add-course-btn')?.addEventListener('click', () => { cwiz.returnTo = 'setup'; openCourseWizard(null); });
 document.getElementById('setup-course-back')?.addEventListener('click', () => {
@@ -509,7 +513,16 @@ document.getElementById('btn-setup-course-next')?.addEventListener('click', () =
   setup.hcpPct     = parseInt(document.getElementById('setup-hcp-pct').value, 10) || 100;
   const rawVal  = parseInt(document.getElementById('setup-num-players').value, 10);
   const isPairsFormat = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
-  setup.numPlayers = isPairsFormat ? rawVal * 2 : rawVal;
+  const isBest2Format = setup.scoring === 'best2';
+  if (isBest2Format) {
+    // rawVal = players per group, numGroups set separately
+    setup.playersPerGroup = rawVal;
+    setup.numPlayers = rawVal * setup.numGroups;
+  } else if (isPairsFormat) {
+    setup.numPlayers = rawVal * 2;
+  } else {
+    setup.numPlayers = rawVal;
+  }
   setup.numGroups  = parseInt(document.getElementById('setup-num-groups').value, 10);
   buildPlayerForms();
   showScreen('screen-setup-players');
