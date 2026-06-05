@@ -507,7 +507,9 @@ document.getElementById('setup-abandon-1')  ?.addEventListener('click', () => { 
 document.getElementById('btn-setup-course-next')?.addEventListener('click', () => {
   if (!setup.courseId) { alert('Please select a course.'); return; }
   setup.hcpPct     = parseInt(document.getElementById('setup-hcp-pct').value, 10) || 100;
-  setup.numPlayers = parseInt(document.getElementById('setup-num-players').value, 10);
+  const rawVal  = parseInt(document.getElementById('setup-num-players').value, 10);
+  const isPairsFormat = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
+  setup.numPlayers = isPairsFormat ? rawVal * 2 : rawVal;
   setup.numGroups  = parseInt(document.getElementById('setup-num-groups').value, 10);
   buildPlayerForms();
   showScreen('screen-setup-players');
@@ -1155,7 +1157,12 @@ function recordHole() {
     }
   }
 
+  const prevGroupStates = gameState.allGroupStates;
   gameState = processHole(gameState, grosses);
+  if (prevGroupStates) {
+    gameState.allGroupStates = prevGroupStates;
+    gameState.allGroupStates[0] = gameState;
+  }
   flashHoleResult(h);
 
   const matchFmts = ['match','betterball','csm','foursomes','greensomes'];
@@ -1178,7 +1185,9 @@ function recordHole() {
 
 document.getElementById('btn-back-hole')?.addEventListener('click', () => {
   if ((gameState.log?.length ?? 0) === 0) return;
+  const prevGS = gameState.allGroupStates;
   gameState = undoHole(gameState);
+  if (prevGS) gameState.allGroupStates = prevGS;
   renderScoreHeader(); renderHolePanel(); saveRoundState();
 });
 
