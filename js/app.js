@@ -1470,7 +1470,8 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
   const btn = document.getElementById('btn-confirm-end');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    await roundComplete(roundId, gameState);
+    const { allGroupStates, ...stateToSave } = gameState;
+    await roundComplete(roundId, stateToSave);
     realtimeUnsubscribe(realtimeCh); realtimeCh = null;
     roundId = null; gameState = null;
     await showHome();
