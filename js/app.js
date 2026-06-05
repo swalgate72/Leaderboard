@@ -24,6 +24,8 @@ import {
   stablefordPoints, matchPlayStatus, matchPlayIsOver,
   buildInitialState, processHole, undoHole, editHole,
   getResultSummary, buildScorecardRows,
+  greensomesPairHandicap, foursomedPairHandicap,
+  buildMultiGroupLeaderboard,
 } from '../game.js';
 
 // ================================================================
@@ -44,8 +46,16 @@ let allCourses     = [];
 let allFriends     = [];
 
 const setup = {
-  format: null, courseId: null, teeIdx: 0, holes: 18,
-  numPlayers: 2, numGroups: 1, hcpPct: 100, players: [],
+  category:   null,   // 'solo' | 'team'
+  scoring:    null,   // the format key (stableford, match, betterball, best2 etc.)
+  get format() { return this.scoring; }, // alias for compatibility
+  courseId:   null,
+  teeIdx:     0,
+  holes:      18,
+  numPlayers: 2,
+  numGroups:  1,
+  hcpPct:     100,
+  players:    [],
 };
 
 let roundId    = null;
@@ -278,13 +288,111 @@ async function showHome() {
   } catch { hide('home-resume-banner'); }
 }
 
-document.getElementById('format-grid')?.addEventListener('click', e => {
-  const btn = e.target.closest('.format-btn');
-  if (!btn) return;
-  const fmt = btn.dataset.format;
-  if (fmt === 'tournament') { show('modal-coming-soon'); return; }
-  startSetup(fmt);
+// Home screen three-button handlers
+document.getElementById('btn-solo-scoring')?.addEventListener('click', () => {
+  setup.category = 'solo';
+  showFormatPicker('solo');
 });
+document.getElementById('btn-team-scoring')?.addEventListener('click', () => {
+  setup.category = 'team';
+  showFormatPicker('team');
+});
+document.getElementById('btn-tournament-mode')?.addEventListener('click', () => show('modal-coming-soon'));
+
+function showScoringMethodScreen() {
+  const SCORING_OPTIONS = [
+    { key: 'stableford', label: 'Stableford',   desc: 'Points against par · handicap adjusted' },
+    { key: 'stroke',     label: 'Stroke Play',   desc: 'Total net shots over the round' },
+    { key: 'match',      label: 'Match Play',    desc: 'Hole by hole · net scores' },
+    { key: 'skins',      label: 'Skins',         desc: 'Win a hole outright · halved holes carry over' },
+    { key: 'itc',        label: 'In the Chair',  desc: 'Win the hole · defend the chair to score' },
+    { key: 'split6',     label: 'Split 6',       desc: '3 players · 6 points distributed per hole' },
+  ];
+
+  const list = document.getElementById('scoring-method-list');
+  list.innerHTML = SCORING_OPTIONS.map(o => `
+    <div class="format-option-card" data-scoring="${o.key}"
+      style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+             padding:1rem 1.25rem;margin-bottom:0.5rem;cursor:pointer;transition:border-color 0.15s;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:700;
+                  letter-spacing:0.06em;color:var(--gold);margin-bottom:2px;">${o.label}</div>
+      <div style="font-size:0.72rem;color:var(--muted);">${o.desc}</div>
+    </div>`).join('');
+
+  list.querySelectorAll('.format-option-card').forEach(card => {
+    card.addEventListener('mouseenter', () => card.style.borderColor = 'var(--gold-border)');
+    card.addEventListener('mouseleave', () => card.style.borderColor = 'var(--border)');
+    card.addEventListener('click', () => {
+      setup.scoring = card.dataset.scoring;
+      if (setup.scoring === 'split6') {
+        // Split 6 always solo 3-player — skip playing format screen
+        setup.playFormat = 'solo';
+        setup.numPlayers = 3;
+        setup.numGroups  = 1;
+        startSetup();
+      } else {
+        showPlayingFormatScreen();
+      }
+    });
+  });
+
+  showScreen('screen-setup-scoring');
+}
+
+document.getElementById('setup-scoring-back')?.addEventListener('click', () => showHome());
+
+function showPlayingFormatScreen() {
+  const isPairsOnly = false; // all formats can be solo or pairs
+  document.getElementById('setup-playformat-title').textContent =
+    `${FORMAT_LABELS[setup.scoring] ?? setup.scoring} — Format`;
+
+  const PLAY_OPTIONS = [
+    { key: 'solo',       label: 'Solo',              desc: 'Individual players compete' },
+    { key: 'betterball', label: 'Pairs — Better Ball', desc: 'Best net score per pair competes' },
+    { key: 'csm',        label: 'Pairs — Combined',   desc: 'Combined stableford per pair' },
+    { key: 'foursomes',  label: 'Pairs — Foursomes',  desc: 'Alternate shots · WHS handicap rules' },
+    { key: 'greensomes', label: 'Pairs — Greensomes', desc: 'Both drive · alternate from second · WHS handicap rules' },
+  ];
+
+  // CSM only valid with stableford scoring
+  const validOptions = PLAY_OPTIONS.filter(o => {
+    if (o.key === 'csm' && setup.scoring !== 'stableford') return false;
+    // Better ball best with stroke/stableford/match base
+    return true;
+  });
+
+  const list = document.getElementById('playing-format-list');
+  list.innerHTML = validOptions.map(o => `
+    <div class="format-option-card" data-play="${o.key}"
+      style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+             padding:1rem 1.25rem;margin-bottom:0.5rem;cursor:pointer;transition:border-color 0.15s;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:700;
+                  letter-spacing:0.06em;color:var(--gold);margin-bottom:2px;">${o.label}</div>
+      <div style="font-size:0.72rem;color:var(--muted);">${o.desc}</div>
+    </div>`).join('');
+
+  list.querySelectorAll('.format-option-card').forEach(card => {
+    card.addEventListener('mouseenter', () => card.style.borderColor = 'var(--gold-border)');
+    card.addEventListener('mouseleave', () => card.style.borderColor = 'var(--border)');
+    card.addEventListener('click', () => {
+      setup.playFormat = card.dataset.play;
+      const isPairs = setup.playFormat !== 'solo';
+      // Set sensible defaults
+      if (isPairs) {
+        setup.numPlayers = 4; // 2 pairs
+        setup.numGroups  = 1;
+      } else {
+        setup.numPlayers = 2;
+        setup.numGroups  = 1;
+      }
+      startSetup();
+    });
+  });
+
+  showScreen('screen-setup-playformat');
+}
+
+document.getElementById('setup-playformat-back')?.addEventListener('click', () => showScoringMethodScreen());
 
 document.getElementById('coming-soon-close')?.addEventListener('click', () => hide('modal-coming-soon'));
 document.getElementById('btn-resume')?.addEventListener('click', async () => { if (roundId) await resumeRound(roundId); });
@@ -298,13 +406,9 @@ document.getElementById('nav-course') ?.addEventListener('click', () => { cwiz.r
 // ================================================================
 // SETUP — STEP 1: COURSE
 // ================================================================
-function startSetup(fmt) {
-  setup.format     = fmt;
-  setup.courseId   = null; setup.teeIdx = 0; setup.holes = 18;
-  setup.numPlayers = Math.max(2, FORMAT_MIN_PLAYERS[fmt] ?? 2);
-  setup.numGroups  = 1; setup.hcpPct = 100; setup.players = [];
-
-  document.getElementById('setup-course-format-label').textContent = fmtLabel(fmt);
+function startSetup() {
+  const fmt = setup.scoring;
+  document.getElementById('setup-course-format-label').textContent = FORMAT_LABELS[fmt] ?? fmt;
   populateCourseSelect();
   populateNumPlayerSelect();
   populateNumGroupSelect();
@@ -384,14 +488,26 @@ document.querySelectorAll('.holes-btn').forEach(btn => {
 });
 
 function populateNumPlayerSelect() {
-  const sel = document.getElementById('setup-num-players');
+  const sel     = document.getElementById('setup-num-players');
+  const fmt     = setup.scoring;
+  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(fmt);
+  const label   = document.getElementById('setup-num-players-label');
+  if (label) label.textContent = isPairs ? 'Number of Pairs' : fmt === 'best2' ? 'Players per Group' : 'Number of Players';
+
   sel.innerHTML = '';
-  const min  = FORMAT_MIN_PLAYERS[setup.format] ?? 1;
-  const maxP = ['betterball','csm','foursomes','greensomes'].includes(setup.format) ? 4 : setup.format === 'split6' ? 3 : 4;
-  for (let n = min; n <= maxP; n++) {
+  let min = 2, max = 12;
+  if (fmt === 'split6')                                                { min = 3; max = 3; }
+  else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ min = 2; max = 6; } // pairs
+  else if (fmt === 'match')                                            { min = 2; max = 2; }
+  else if (fmt === 'best2')                                            { min = 3; max = 5; } // players per group
+  else                                                                 { min = 2; max = 12; }
+
+  for (let n = min; n <= max; n++) {
     const opt = document.createElement('option');
-    opt.value = n; opt.textContent = n;
-    if (n === setup.numPlayers) opt.selected = true;
+    opt.value = n;
+    if (isPairs) opt.textContent = `${n} pair${n !== 1 ? 's' : ''} (${n * 2} players)`;
+    else         opt.textContent = `${n}`;
+    if (n === (isPairs ? setup.numPlayers / 2 : setup.numPlayers)) opt.selected = true;
     sel.appendChild(opt);
   }
 }
@@ -408,13 +524,18 @@ function populateNumGroupSelect() {
 }
 
 document.getElementById('setup-num-players')?.addEventListener('change', e => {
-  setup.numPlayers = parseInt(e.target.value, 10); populateNumGroupSelect();
+  const val     = parseInt(e.target.value, 10);
+  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
+  setup.numPlayers = isPairs ? val * 2 : val;
+  populateNumGroupSelect();
 });
 document.getElementById('setup-num-groups')?.addEventListener('change', e => {
   setup.numGroups = parseInt(e.target.value, 10);
 });
 document.getElementById('setup-add-course-btn')?.addEventListener('click', () => { cwiz.returnTo = 'setup'; openCourseWizard(null); });
-document.getElementById('setup-course-back')?.addEventListener('click', () => showHome());
+document.getElementById('setup-course-back')?.addEventListener('click', () => {
+  showFormatPicker(setup.category ?? 'solo');
+});
 document.getElementById('setup-abandon-1')  ?.addEventListener('click', () => { abandonSource = 'setup'; document.getElementById('modal-abandon').classList.add('open'); });
 
 document.getElementById('btn-setup-course-next')?.addEventListener('click', () => {
@@ -434,48 +555,130 @@ function buildPlayerForms() {
   container.innerHTML = ''; setup.players = [];
   const myName = currentProfile ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim() : '';
   const myHcp  = currentProfile?.hcp ?? '';
-  const perGroup = Math.round(setup.numPlayers / setup.numGroups);
+  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
+  const isBest2 = setup.scoring === 'best2';
+
+  // How many players per group
+  const playersPerGroup = Math.ceil(setup.numPlayers / setup.numGroups);
+
+  // Initialise all player slots
+  for (let i = 0; i < setup.numPlayers; i++) {
+    setup.players[i] = {
+      name:        i === 0 ? myName  : '',
+      hcpIndex:    i === 0 ? myHcp   : '',
+      groupNumber: Math.floor(i / playersPerGroup) + 1,
+      profileId:   i === 0 ? currentUser?.id : null,
+      mobile:      i === 0 ? currentProfile?.mobile ?? '' : '',
+      isScorer:    i === 0,
+    };
+  }
 
   for (let g = 1; g <= setup.numGroups; g++) {
-    const start = (g - 1) * perGroup;
-    const end   = g === setup.numGroups ? setup.numPlayers : g * perGroup;
+    const start = (g - 1) * playersPerGroup;
+    const end   = Math.min(g * playersPerGroup, setup.numPlayers);
+
     const groupEl = document.createElement('div');
     groupEl.className = 'group-block';
     if (setup.numGroups > 1) groupEl.innerHTML = `<div class="group-label">Group ${g}</div>`;
 
-    for (let p = start; p < end; p++) {
-      setup.players[p] = {
-        name: p === 0 ? myName : '', hcpIndex: p === 0 ? myHcp : '',
-        groupNumber: g, profileId: p === 0 ? currentUser?.id : null,
-        mobile: p === 0 ? currentProfile?.mobile ?? '' : '', isScorer: p === 0,
-      };
-      const row = document.createElement('div');
-      row.className = 'player-slot';
-      row.innerHTML = `
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
-          <span class="dot" style="background:${pHex(p)};"></span>
-          <input id="pname-${p}" type="text" placeholder="Player ${p+1}"
-            value="${setup.players[p].name}" style="flex:1;background:none;border:none;
-            color:var(--white);font-size:0.88rem;outline:none;
-            border-bottom:1px solid var(--border);" autocomplete="off">
-          ${p !== 0 ? `<button class="btn btn-ghost" style="padding:0.25rem 0.6rem;font-size:0.8rem;" data-pick="${p}">👤</button>` : ''}
-        </div>
-        <div style="display:flex;gap:0.5rem;align-items:center;">
-          <div class="field" style="margin:0;width:90px;">
-            <label>HCP Index</label>
-            <input id="phcp-${p}" type="number" step="0.1" min="0" max="54"
-              placeholder="0.0" value="${setup.players[p].hcpIndex}">
-          </div>
-        </div>`;
-      groupEl.appendChild(row);
+    if (isPairs) {
+      // Render as pair blocks
+      const numPairsInGroup = Math.ceil((end - start) / 2);
+      for (let pair = 0; pair < numPairsInGroup; pair++) {
+        const p0 = start + pair * 2;
+        const p1 = start + pair * 2 + 1;
+        const pairLabel = String.fromCharCode(65 + pair); // A, B, C...
 
-      row.querySelector(`#pname-${p}`)?.addEventListener('input', e => { setup.players[p].name = e.target.value.trim(); });
-      row.querySelector(`#phcp-${p}`) ?.addEventListener('input', e => { setup.players[p].hcpIndex = parseFloat(e.target.value) || 0; });
-      const pickBtn = row.querySelector(`[data-pick="${p}"]`);
-      if (pickBtn) pickBtn.addEventListener('click', () => openFriendPicker(p));
+        const pairBlock = document.createElement('div');
+        pairBlock.className = 'pair-block pair-block-a';
+        pairBlock.innerHTML = `<div class="pair-label pair-label-a" style="margin-bottom:0.5rem;">Pair ${pairLabel}</div>`;
+
+        [p0, p1].forEach((pi, pairPos) => {
+          if (pi >= setup.numPlayers) return;
+          pairBlock.appendChild(makePlayerInputEl(pi, pairPos === 0 && pi === 0));
+        });
+        groupEl.appendChild(pairBlock);
+      }
+    } else {
+      for (let p = start; p < end; p++) {
+        groupEl.appendChild(makePlayerInputEl(p, p === 0));
+      }
     }
+
+    // Scorer checkbox for this group
+    const scorerWrap = document.createElement('div');
+    scorerWrap.style.cssText = 'margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--border);';
+    scorerWrap.innerHTML = `
+      <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.35rem;">Scorer for Group ${g}</div>
+      <div id="scorer-radios-g${g}" style="display:flex;flex-wrap:wrap;gap:0.4rem;"></div>`;
+    groupEl.appendChild(scorerWrap);
+
     container.appendChild(groupEl);
   }
+
+  // Build scorer radio buttons after all players are in DOM
+  for (let g = 1; g <= setup.numGroups; g++) {
+    const start = (g - 1) * playersPerGroup;
+    const end   = Math.min(g * playersPerGroup, setup.numPlayers);
+    const radios = document.getElementById(`scorer-radios-g${g}`);
+    if (!radios) continue;
+    for (let pi = start; pi < end; pi++) {
+      const btn = document.createElement('button');
+      btn.className = `btn ${setup.players[pi].isScorer ? 'btn-primary' : 'btn-outline'}`;
+      btn.style.cssText = 'padding:0.3rem 0.75rem;font-size:0.82rem;width:auto;';
+      btn.dataset.pi = pi;
+      btn.textContent = setup.players[pi].name || `Player ${pi + 1}`;
+      btn.addEventListener('click', () => {
+        // Clear scorer for this group, set new one
+        for (let p = start; p < end; p++) setup.players[p].isScorer = false;
+        setup.players[pi].isScorer = true;
+        radios.querySelectorAll('button').forEach((b, bi) => {
+          b.className = `btn ${pi === start + bi ? 'btn-primary' : 'btn-outline'}`;
+          b.style.cssText = 'padding:0.3rem 0.75rem;font-size:0.82rem;width:auto;';
+        });
+      });
+      radios.appendChild(btn);
+    }
+  }
+}
+
+function makePlayerInputEl(pi, isMe) {
+  const row = document.createElement('div');
+  row.className = 'player-slot';
+  row.innerHTML = `
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
+      <span class="dot" style="background:${pHex(pi % 8)};"></span>
+      <input id="pname-${pi}" type="text" placeholder="Player ${pi+1}"
+        value="${setup.players[pi].name}" style="flex:1;background:none;border:none;
+        color:var(--white);font-size:0.88rem;outline:none;
+        border-bottom:1px solid var(--border);" autocomplete="off">
+      ${!isMe ? `<button class="btn btn-ghost" style="padding:0.25rem 0.6rem;font-size:0.8rem;" data-pick="${pi}">👤</button>` : ''}
+    </div>
+    <div class="field" style="margin:0;width:110px;">
+      <label>HCP Index</label>
+      <input id="phcp-${pi}" type="number" step="0.1" min="0" max="54"
+        placeholder="0.0" value="${setup.players[pi].hcpIndex}">
+    </div>`;
+
+  row.querySelector(`#pname-${pi}`)?.addEventListener('input', e => {
+    setup.players[pi].name = e.target.value.trim();
+    // Update scorer button label if this is the scorer
+    const scorerBtn = document.querySelector(`[data-scorer-pi="${pi}"]`);
+    if (scorerBtn) scorerBtn.textContent = e.target.value.trim() || `Player ${pi+1}`;
+    // Refresh scorer radio for this group
+    const g = setup.players[pi].groupNumber;
+    const radios = document.getElementById(`scorer-radios-g${g}`);
+    if (radios) {
+      const btn = radios.querySelectorAll('button')[pi - ((g-1) * Math.ceil(setup.numPlayers / setup.numGroups))];
+      if (btn) btn.textContent = e.target.value.trim() || `Player ${pi+1}`;
+    }
+  });
+  row.querySelector(`#phcp-${pi}`)?.addEventListener('input', e => {
+    setup.players[pi].hcpIndex = parseFloat(e.target.value) || 0;
+  });
+  const pickBtn = row.querySelector(`[data-pick="${pi}"]`);
+  if (pickBtn) pickBtn.addEventListener('click', () => openFriendPicker(pi));
+  return row;
 }
 
 function openFriendPicker(playerIdx) {
@@ -537,7 +740,7 @@ function buildSetupReview() {
 
   let html = `
     <div style="display:grid;gap:0.35rem;font-size:0.82rem;margin-bottom:0.75rem;">
-      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Format</span><span>${fmtLabel(setup.format)}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Format</span><span>${fmtLabel(setup.scoring)}</span></div>
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Course</span><span>${course?.name ?? '—'}</span></div>
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Tees</span><span>${tee?.name ?? '—'}</span></div>
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Holes</span><span>${count === 18 ? '18' : count === 9 && offset === 0 ? 'Front 9' : 'Back 9'}</span></div>
@@ -573,36 +776,82 @@ async function teeOff() {
   const { offset, count } = holeRange(setup.holes);
   const siSlice  = tee.si.slice(offset, offset + count);
   const parSlice = tee.par.slice(offset, offset + count);
-  const hcpArr   = setup.players.map(p => p.hcpIndex || 0);
-  const hcpObj   = calcHandicaps(hcpArr, setup.hcpPct);
+  const fmt      = setup.scoring;
+  const isPairs  = ['betterball','csm','foursomes','greensomes'].includes(fmt);
 
   // Remember last used tee for this course
   try { localStorage.setItem(`lb-last-tee-${setup.courseId}`, tee.name); } catch {}
 
-  gameState = buildInitialState({
-    format: setup.format,
-    names: setup.players.map(p => p.name || 'Player'),
-    handicapIndexes: hcpArr,
-    playingHandicaps: hcpObj.map(h => h.playingHandicap),
-    matchHandicaps:   hcpObj.map(h => h.matchHandicap),
-    allowancePct: setup.hcpPct,
-    si: siSlice, par: parSlice, numHoles: count, holeOffset: offset,
-    courseName: course.name, teeName: tee.name,
-  });
+  const hcpArr = setup.players.map(p => p.hcpIndex || 0);
+  const hcpObj = calcHandicaps(hcpArr, setup.hcpPct);
+
+  // For foursomes/greensomes override pair handicaps using official rules
+  // We still store individual handicaps but the processHole function handles the pair calculation
+  const playingHcps = hcpObj.map(h => h.playingHandicap);
+  const matchHcps   = hcpObj.map(h => h.matchHandicap);
+
+  const playersPerGroup = Math.ceil(setup.numPlayers / setup.numGroups);
+
+  // Build one game state per group
+  const groupStates = [];
+  for (let g = 0; g < setup.numGroups; g++) {
+    const start   = g * playersPerGroup;
+    const end     = Math.min(start + playersPerGroup, setup.numPlayers);
+    const gNames  = setup.players.slice(start, end).map(p => p.name || `Player ${start + setup.players.indexOf(p) + 1}`);
+    const gHcpArr = hcpArr.slice(start, end);
+    const gHcpObj = calcHandicaps(gHcpArr, setup.hcpPct);
+
+    const gs = buildInitialState({
+      format:          fmt,
+      names:           gNames,
+      handicapIndexes: gHcpArr,
+      playingHandicaps: gHcpObj.map(h => h.playingHandicap),
+      matchHandicaps:   gHcpObj.map(h => h.matchHandicap),
+      allowancePct:    setup.hcpPct,
+      si:              siSlice,
+      par:             parSlice,
+      numHoles:        count,
+      holeOffset:      offset,
+      courseName:      course.name,
+      teeName:         tee.name,
+      groupNumber:     g + 1,
+      totalGroups:     setup.numGroups,
+    });
+    groupStates.push(gs);
+  }
+
+  // Active state is always group 0 (the scorer's group)
+  // Other groups sync via realtime
+  gameState = groupStates[0];
+  gameState.allGroupStates = groupStates;
 
   const btn = document.getElementById('btn-tee-off');
   btn.disabled = true; btn.textContent = 'Starting…';
   try {
     roundId = await roundCreate({
-      organiserId: currentUser.id, courseName: course.name, teeName: tee.name,
-      gameFormat: setup.format, hcpAllowance: setup.hcpPct,
-      si: siSlice, par: parSlice, numHoles: count, holeOffset: offset,
-      playerNames: setup.players.map(p => p.name || 'Player'), gameState,
+      organiserId:  currentUser.id,
+      courseName:   course.name,
+      teeName:      tee.name,
+      gameFormat:   fmt,
+      scoringMethod: setup.scoring,
+      
+      hcpAllowance: setup.hcpPct,
+      si:           siSlice,
+      par:          parSlice,
+      numHoles:     count,
+      holeOffset:   offset,
+      numGroups:    setup.numGroups,
+      playerNames:  setup.players.map(p => p.name || 'Player'),
+      gameState,
     });
     await roundPlayersSave(roundId, setup.players.map((p, i) => ({
-      profileId: p.profileId ?? null, name: p.name || `Player ${i+1}`,
-      handicapIndex: p.hcpIndex || 0, playingHandicap: hcpObj[i].playingHandicap,
-      groupNumber: p.groupNumber, isScorer: p.isScorer ?? false, mobile: p.mobile ?? null,
+      profileId:       p.profileId ?? null,
+      name:            p.name || `Player ${i+1}`,
+      handicapIndex:   p.hcpIndex || 0,
+      playingHandicap: hcpObj[i].playingHandicap,
+      groupNumber:     p.groupNumber,
+      isScorer:        p.isScorer ?? false,
+      mobile:          p.mobile ?? null,
     })));
     subscribeToRound(roundId);
     enterGameScreen();
@@ -655,7 +904,7 @@ function renderScoreHeader() {
 
   const fmt = gameState.format;
 
-  if (['stableford','stroke','split6'].includes(fmt)) {
+  if (['stableford','stroke','split6','best2'].includes(fmt)) {
     renderTotalsBar();
   } else if (['match','betterball','csm','foursomes','greensomes'].includes(fmt)) {
     renderMatchBar();
@@ -684,7 +933,9 @@ function renderTotalsBar() {
   bar.innerHTML = gameState.names.map((nm, i) => {
     const score = fmt === 'split6'
       ? (gameState.runningPts?.[i] ?? 0)
-      : (gameState.totals?.[i] ?? 0);
+      : fmt === 'best2'
+        ? (gameState.totals?.[i] ?? 0)
+        : (gameState.totals?.[i] ?? 0);
     const label = fmt === 'stroke' ? 'shots' : 'pts';
 
     // For split6, compute raw cumulative (before min subtraction) to show in brackets
@@ -709,9 +960,17 @@ function renderTotalsBar() {
   }).join('');
 
   bar.classList.remove('hidden');
-}
 
-function renderMatchBar() {
+  // For best2 — show group total prominently below individual scores
+  const groupBanner = document.getElementById('game-group-total-banner');
+  if (fmt === 'best2' && groupBanner) {
+    const groupTotal = gameState.groupTotal ?? 0;
+    groupBanner.innerHTML = `<span style="font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:700;color:var(--gold);letter-spacing:0.08em;">GROUP TOTAL: ${groupTotal} pts</span>`;
+    groupBanner.classList.remove('hidden');
+  } else if (groupBanner) {
+    groupBanner.classList.add('hidden');
+  }
+}
   const bar = document.getElementById('game-match-bar');
   const fmt = gameState.format;
   const ms  = gameState.matchScore ?? 0;
@@ -958,7 +1217,74 @@ document.getElementById('btn-back-hole')?.addEventListener('click', () => {
 document.getElementById('btn-finish-early')?.addEventListener('click', () => showEndRound());
 document.getElementById('btn-game-abandon')?.addEventListener('click', () => { abandonSource = 'game'; document.getElementById('modal-abandon').classList.add('open'); });
 
-document.getElementById('btn-game-scorecard')?.addEventListener('click', () => {
+document.getElementById('btn-game-leaderboard')?.addEventListener('click', () => showLeaderboard());
+document.getElementById('leaderboard-back')   ?.addEventListener('click', () => showScreen('screen-game'));
+
+let leaderboardChannel = null;
+
+function showLeaderboard() {
+  showScreen('screen-leaderboard');
+  renderLeaderboard();
+  // Subscribe to all group states for live updates
+  if (leaderboardChannel) realtimeUnsubscribe(leaderboardChannel);
+  leaderboardChannel = realtimeSubscribeRound(roundId, remote => {
+    if (remote?.game_state) {
+      // Merge updated group state
+      const gi = (remote.game_state.groupNumber ?? 1) - 1;
+      if (gameState.allGroupStates) {
+        gameState.allGroupStates[gi] = remote.game_state;
+      }
+      renderLeaderboard();
+    }
+  });
+}
+
+function renderLeaderboard() {
+  const fmt     = gameState.format;
+  const states  = gameState.allGroupStates ?? [gameState];
+  const metaEl  = document.getElementById('leaderboard-meta');
+  const tableEl = document.getElementById('leaderboard-table');
+
+  metaEl.textContent = `${gameState.courseName} · ${gameState.teeName} Tees · ${fmtLabel(fmt)}`;
+
+  const rows = buildMultiGroupLeaderboard(states);
+  if (!rows.length) {
+    tableEl.innerHTML = '<div class="history-empty">No scores recorded yet.</div>';
+    return;
+  }
+
+  const isStableford = fmt === 'stableford';
+  const isStroke     = fmt === 'stroke';
+
+  let html = `<table class="sc-table" style="width:100%;">
+    <thead><tr>
+      <th style="text-align:left;">Player</th>
+      <th>Grp</th>
+      <th>Holes</th>
+      <th>Gross</th>
+      ${isStroke     ? '<th>Net</th>' : ''}
+      ${isStableford ? '<th style="color:var(--gold);">Pts</th>' : ''}
+      <th>HCP</th>
+    </tr></thead><tbody>`;
+
+  rows.forEach((row, rank) => {
+    const isLead = rank === 0;
+    html += `<tr${isLead ? ' style="background:rgba(212,168,67,0.06);"' : ''}>
+      <td style="font-weight:${isLead?'700':'500'};color:${isLead?'var(--gold)':''};text-align:left;">
+        ${rank + 1}. ${row.name}
+      </td>
+      <td>${row.group}</td>
+      <td>${row.holesPlayed}</td>
+      <td>${row.gross || '—'}</td>
+      ${isStroke     ? `<td style="color:var(--green);font-weight:600;">${row.net ?? '—'}</td>` : ''}
+      ${isStableford ? `<td style="color:var(--gold);font-weight:700;">${row.pts ?? '—'}</td>` : ''}
+      <td style="color:var(--muted);font-size:0.75rem;">${row.hcp}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  tableEl.innerHTML = html;
+}
   renderScorecardOverlay();
   document.getElementById('scorecard-overlay')?.classList.add('open');
 });
@@ -1427,8 +1753,23 @@ function buildInviteMessage() {
 document.getElementById('btn-open-invite')?.addEventListener('click', () => {
   document.getElementById('invite-mobile').value = '';
   document.getElementById('invite-email').value  = '';
-  document.getElementById('invite-copied-note').classList.add('hidden');
+  // Populate the text box with the invite message
+  const textBox = document.getElementById('invite-text-box');
+  if (textBox) textBox.value = buildInviteMessage();
   document.getElementById('modal-invite').classList.add('open');
+});
+
+document.getElementById('invite-copy-btn')?.addEventListener('click', () => {
+  const msg = buildInviteMessage();
+  navigator.clipboard.writeText(msg).then(() => {
+    const btn = document.getElementById('invite-copy-btn');
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => { btn.textContent = '📋 Copy Message'; }, 2000);
+  }).catch(() => {
+    // Fallback: select the textarea
+    const tb = document.getElementById('invite-text-box');
+    if (tb) { tb.select(); document.execCommand('copy'); }
+  });
 });
 
 document.getElementById('invite-sms-btn')?.addEventListener('click', () => {
