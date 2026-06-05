@@ -19,6 +19,7 @@ export const FORMAT_LABELS = {
   csm:        'Pairs — Combined Score',
   foursomes:  'Pairs — Foursomes',
   greensomes: 'Pairs — Greensomes',
+  best2:      'Team — Best 2',
 };
 
 export const FORMAT_DESCS = {
@@ -32,6 +33,7 @@ export const FORMAT_DESCS = {
   csm:        '2 pairs · combined stableford scores · match play',
   foursomes:  '2 pairs · alternate shots · match play',
   greensomes: '2 pairs · both drive then alternate · match play',
+  best2:      'Best 2 stableford scores per group · groups compete on leaderboard',
 };
 
 // Minimum players required for each format
@@ -46,6 +48,7 @@ export const FORMAT_MIN_PLAYERS = {
   csm:        4,
   foursomes:  4,
   greensomes: 4,
+  best2:      3,
 };
 
 // Which formats are available for a given player count
@@ -293,11 +296,22 @@ export function itcProcessHole({ chair, grosses, extras }) {
 // The UI handles which player's turn it is to hit
 // ================================================================
 
-// Foursomes/Greensomes is just match play between two pairs
-// Each pair submits one gross score for the hole
-// Handicap: pair handicap = average of both players' match handicaps (rounded)
+// Foursomes pair handicap: average of both players' match handicaps
 export function foursomedPairHandicap(hcpA, hcpB) {
   return Math.round((hcpA + hcpB) / 2);
+}
+
+// Greensomes pair handicap: 0.6 × lower + 0.4 × higher (WHS official)
+export function greensomesPairHandicap(hcpA, hcpB) {
+  const lower  = Math.min(hcpA, hcpB);
+  const higher = Math.max(hcpA, hcpB);
+  return Math.round(0.6 * lower + 0.4 * higher);
+}
+
+// Better-ball style: each player uses their individual match handicap
+// (used for Skins-pairs and ITC-pairs as well as Better Ball)
+export function betterBallExtras(pairIndexes, matchHandicaps, si) {
+  return pairIndexes.map(pi => strokesOnHole(matchHandicaps[pi], si));
 }
 
 // ================================================================
@@ -526,8 +540,12 @@ export function processHole(state, grosses) {
     case 'foursomes':
     case 'greensomes': {
       // grosses[0] = pair A score, grosses[1] = pair B score
-      const pairAHcp = foursomedPairHandicap(state.matchHandicaps[0], state.matchHandicaps[1]);
-      const pairBHcp = foursomedPairHandicap(state.matchHandicaps[2], state.matchHandicaps[3]);
+      const pairAHcp = format === 'greensomes'
+        ? greensomesPairHandicap(state.matchHandicaps[0], state.matchHandicaps[1])
+        : foursomedPairHandicap(state.matchHandicaps[0], state.matchHandicaps[1]);
+      const pairBHcp = format === 'greensomes'
+        ? greensomesPairHandicap(state.matchHandicaps[2], state.matchHandicaps[3])
+        : foursomedPairHandicap(state.matchHandicaps[2], state.matchHandicaps[3]);
       const extraA   = strokesOnHole(pairAHcp, si);
       const extraB   = strokesOnHole(pairBHcp, si);
       const netA     = grosses[0] - extraA;
@@ -887,4 +905,56 @@ function formatMatchStr(matchScore, nameA, nameB) {
   if (matchScore === 0) return 'AS';
   const up = Math.abs(matchScore);
   return matchScore > 0 ? `${nameA.split(' ')[0]} ${up}↑` : `${nameB.split(' ')[0]} ${up}↑`;
+}
+
+// ================================================================
+// MULTI-GROUP LEADERBOARD
+// Combines states from multiple groups into a single ranked table
+// Used for Stableford and Stroke Play multi-group rounds
+// ================================================================
+
+export function buildMultiGroupLeaderboard(groupStates) {
+  // Each groupState has { names, totals, log, playingHandicaps, handicapIndexes, format }
+  const rows = [];
+
+  groupStates.forEach((state, gi) => {
+    if (!state || !state.names) return;
+    const holesPlayed = state.log?.length ?? 0;
+    const fmt = state.format;
+
+    state.names.forEach((name, pi) => {
+      const gross = (state.log ?? []).reduce((sum, e) => sum + (e.grosses?.[pi] ?? 0), 0);
+      const net   = fmt === 'stroke'
+        ? (state.totals?.[pi] ?? 0)
+        : null;
+      const pts   = fmt === 'stableford'
+        ? (state.totals?.[pi] ?? 0)
+        : null;
+
+      rows.push({
+        name,
+        group:       gi + 1,
+        gross,
+        net,
+        pts,
+        holesPlayed,
+        hcp:         state.handicapIndexes?.[pi] ?? 0,
+        playingHcp:  state.playingHandicaps?.[pi] ?? 0,
+      });
+    });
+  });
+
+  // Sort: stableford by pts desc, stroke by net asc
+  const fmt = groupStates.find(s => s?.format)?.format;
+  if (fmt === 'stableford') {
+    rows.sort((a, b) => b.pts - a.pts || b.holesPlayed - a.holesPlayed);
+  } else {
+    rows.sort((a, b) => {
+      // Fewer holes played = rank lower (incomplete rounds go to bottom)
+      if (a.holesPlayed !== b.holesPlayed) return b.holesPlayed - a.holesPlayed;
+      return a.net - b.net;
+    });
+  }
+
+  return rows;
 }
