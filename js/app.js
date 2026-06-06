@@ -2565,64 +2565,98 @@ function renderTournGroupsUI(numGroups) {
   });
 
   const container = document.getElementById('tround-groups-container');
-  container.innerHTML = tournGroups.map((g, gi) => `
-    <div class="group-block" id="tgroup-${gi}" style="margin-bottom:0.5rem;">
-      <div class="group-label">Group ${g.groupNumber}</div>
-      <div class="tgroup-players" data-group="${gi}">
-        ${g.players.map(pid => {
-          const p = players.find(x => x.id === pid);
-          if (!p) return '';
-          const isScorer = p.isGroupScorer;
-          return `<div class="player-slot" data-pid="${pid}"
-            style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
-            <span style="flex:1;font-size:0.85rem;">${p.name}
-              <span style="font-size:0.7rem;color:var(--muted);"> HCP ${p.current_hcp}</span>
-            </span>
-            <button class="btn btn-ghost scorer-btn" data-pid="${pid}" data-gi="${gi}"
-              style="padding:0.2rem 0.5rem;font-size:0.7rem;${isScorer?'color:var(--gold);border-color:var(--gold-border);':''}">
-              ${isScorer ? '✓ Scorer' : 'Scorer'}
-            </button>
-            ${numGroups > 1 ? `
-            <select class="move-group-sel" data-pid="${pid}"
-              style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;
-                     padding:0.2rem 0.4rem;color:var(--white);font-size:0.7rem;max-width:80px;">
-              ${Array.from({length:numGroups},(_,i)=>`<option value="${i}"${i===gi?' selected':''}>Grp ${i+1}</option>`).join('')}
-            </select>` : ''}
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`).join('');
+  container.innerHTML = `
+    <div style="margin-bottom:0.75rem;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:0.3rem 0.4rem;color:var(--muted);font-size:0.65rem;
+                       letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid var(--border);">
+              Player
+            </th>
+            <th style="padding:0.3rem 0.4rem;color:var(--muted);font-size:0.65rem;
+                       letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid var(--border);">
+              HCP
+            </th>
+            <th style="padding:0.3rem 0.4rem;color:var(--muted);font-size:0.65rem;
+                       letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid var(--border);
+                       text-align:center;">
+              Group
+            </th>
+            <th style="padding:0.3rem 0.4rem;color:var(--muted);font-size:0.65rem;
+                       letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid var(--border);
+                       text-align:center;">
+              Scorer
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tournGroups.flatMap((g, gi) =>
+            g.players.map(pid => {
+              const p = players.find(x => x.id === pid);
+              if (!p) return '';
+              const isScorer = p.isGroupScorer;
+              return `<tr>
+                <td style="padding:0.4rem;font-size:0.85rem;">${p.name}</td>
+                <td style="padding:0.4rem;text-align:center;color:var(--muted);">${p.current_hcp}</td>
+                <td style="padding:0.4rem;text-align:center;">
+                  <input type="number" class="grp-input" data-pid="${pid}"
+                    value="${gi + 1}" min="1" max="${numGroups}"
+                    style="width:44px;background:var(--surface2);border:1px solid var(--border);
+                           border-radius:6px;padding:0.25rem;color:var(--white);
+                           font-size:0.85rem;text-align:center;">
+                </td>
+                <td style="padding:0.4rem;text-align:center;">
+                  <button class="scorer-btn btn btn-ghost" data-pid="${pid}" data-gi="${gi}"
+                    style="padding:0.2rem 0.5rem;font-size:0.7rem;
+                           ${isScorer ? 'color:var(--gold);border-color:var(--gold-border);' : ''}">
+                    ${isScorer ? '✓' : 'Set'}
+                  </button>
+                </td>
+              </tr>`;
+            })
+          ).join('')}
+        </tbody>
+      </table>
+    </div>
+    <button class="btn btn-outline" id="btn-amend-groups"
+      style="width:100%;margin-bottom:0.5rem;font-size:0.85rem;">
+      ✓ Amend Groups
+    </button>`;
 
   // Wire up scorer buttons
   container.querySelectorAll('.scorer-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const pid = btn.dataset.pid;
       const gi  = parseInt(btn.dataset.gi);
-      // Clear scorer for all in this group
       tournGroups[gi].players.forEach(p => {
         const player = activeTournPlayers.find(x => x.id === p);
         if (player) player.isGroupScorer = false;
       });
-      // Set this player as scorer
       const player = activeTournPlayers.find(x => x.id === pid);
       if (player) player.isGroupScorer = true;
       renderTournGroupsUI(numGroups);
     });
   });
 
-  // Wire up move-to-group selects
-  container.querySelectorAll('.move-group-sel').forEach(sel => {
-    sel.addEventListener('change', () => {
-      const pid       = sel.dataset.pid;
-      const targetGi  = parseInt(sel.value);
-      // Remove from current group
-      tournGroups.forEach(g => { g.players = g.players.filter(p => p !== pid); });
-      // Add to target group
-      if (!tournGroups[targetGi].players.includes(pid)) {
-        tournGroups[targetGi].players.push(pid);
-      }
-      renderTournGroupsUI(numGroups);
+  // Wire up Amend Groups button
+  document.getElementById('btn-amend-groups')?.addEventListener('click', () => {
+    // Read all group inputs and rebuild tournGroups
+    const newGroups = Array.from({length: numGroups}, (_, i) => ({
+      groupNumber: i + 1, players: [],
+    }));
+
+    container.querySelectorAll('.grp-input').forEach(inp => {
+      const pid      = inp.dataset.pid;
+      let   targetGi = parseInt(inp.value) - 1;
+      // Clamp to valid range
+      if (isNaN(targetGi) || targetGi < 0)           targetGi = 0;
+      if (targetGi >= numGroups)                      targetGi = numGroups - 1;
+      newGroups[targetGi].players.push(pid);
     });
+
+    tournGroups = newGroups;
+    renderTournGroupsUI(numGroups);
   });
 }
 
