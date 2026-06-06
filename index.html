@@ -10,6 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Leaderboard">
   <meta name="theme-color" content="#d4a843">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <title>Leaderboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -143,15 +144,14 @@
 
       <button id="btn-tournament-mode"
         style="padding:1.4rem 1.25rem;background:var(--surface);border:1px solid var(--border);
-               border-radius:var(--radius);text-align:left;cursor:pointer;transition:border-color 0.15s;
-               opacity:0.6;width:100%;"
+               border-radius:var(--radius);text-align:left;cursor:pointer;transition:border-color 0.15s;width:100%;"
         onmouseover="this.style.borderColor='var(--blue-border)'"
         onmouseout="this.style.borderColor='var(--border)'">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.5rem;font-weight:800;
                     color:var(--blue);letter-spacing:0.06em;margin-bottom:0.2rem;">
           🏆 Tournament Mode
         </div>
-        <div style="font-size:0.75rem;color:var(--muted);">Coming soon</div>
+        <div style="font-size:0.75rem;color:var(--muted);">Multi-round competitions · cumulative standings</div>
       </button>
 
     </div>
@@ -848,6 +848,224 @@
      APP SCRIPT
      ══════════════════════════════════════════ -->
 <script type="module" src="js/app.js"></script>
+
+
+<!-- ══════════════════════════════════════════
+     TOURNAMENT LIST SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-tournaments" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="tournaments-back">← Back</button>
+    <h2>Tournaments</h2>
+    <button class="btn btn-ghost" id="btn-new-tournament" style="color:var(--gold);">+ New</button>
+  </div>
+  <div style="padding:1rem;max-width:520px;margin:0 auto;">
+    <div id="tournaments-list"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOURNAMENT SETUP — STEP 1: DETAILS
+     ══════════════════════════════════════════ -->
+<div id="screen-tournament-setup" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="tournament-setup-back">← Back</button>
+    <h2>New Tournament</h2>
+  </div>
+  <div style="padding:1rem;max-width:520px;margin:0 auto;">
+    <div class="card">
+      <div class="card-title">Tournament Details</div>
+      <div class="field">
+        <label>Tournament Name</label>
+        <input id="tourn-name" type="text" placeholder="e.g. Summer Cup 2026">
+      </div>
+      <div class="field">
+        <label>Format</label>
+        <select id="tourn-format">
+          <option value="stableford">Stableford</option>
+          <option value="stroke">Stroke Play</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Number of Rounds</label>
+        <select id="tourn-num-rounds">
+          <option value="2">2</option>
+          <option value="3" selected>3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="8">8</option>
+          <option value="10">10</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Handicap Mode</label>
+        <select id="tourn-hcp-mode">
+          <option value="fixed">Fixed — locked at tournament start</option>
+          <option value="adjustable">Adjustable — update before each round</option>
+          <option value="auto">Auto — adjust after each round</option>
+        </select>
+      </div>
+      <div class="hint">Auto mode: above average −0.5 per unit · below average +0.25 per unit</div>
+    </div>
+    <button class="btn btn-green" id="btn-tourn-setup-next">NEXT: PLAYERS →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOURNAMENT SETUP — STEP 2: PLAYERS
+     ══════════════════════════════════════════ -->
+<div id="screen-tournament-players" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="tournament-players-back">← Back</button>
+    <h2>Tournament Players</h2>
+  </div>
+  <div style="padding:1rem;max-width:520px;margin:0 auto;">
+    <div class="card">
+      <div class="card-title">Players</div>
+      <div class="hint mb-sm">Add all players who will take part. You can set groups before each round.</div>
+      <div id="tourn-players-list"></div>
+      <button class="btn btn-outline mt-sm" id="btn-tourn-add-player">+ Add Player</button>
+    </div>
+    <button class="btn btn-green" id="btn-tourn-players-next">CREATE TOURNAMENT →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOURNAMENT DETAIL SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-tournament-detail" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="tournament-detail-back">← Tournaments</button>
+    <h2 id="td-tournament-name">Tournament</h2>
+  </div>
+  <div style="padding:1rem;max-width:520px;margin:0 auto;">
+
+    <!-- Standings -->
+    <div style="font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:0.5rem;">Standings</div>
+    <div id="td-standings" style="margin-bottom:1.5rem;overflow-x:auto;"></div>
+
+    <!-- Rounds -->
+    <div style="font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:0.5rem;">Rounds</div>
+    <div id="td-rounds" style="margin-bottom:1.5rem;"></div>
+
+    <!-- Actions -->
+    <div style="display:grid;gap:0.5rem;">
+      <button class="btn btn-green" id="btn-start-next-round">⛳ SET UP NEXT ROUND →</button>
+      <button class="btn btn-outline" id="btn-share-tournament">🔗 Share Tournament Link</button>
+      <button class="btn btn-danger" id="btn-delete-tournament">Delete Tournament</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOURNAMENT ROUND SETUP SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-tournament-round-setup" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="tround-back">← Back</button>
+    <h2 id="tround-title">Round Setup</h2>
+  </div>
+  <div style="padding:1rem;max-width:520px;margin:0 auto;">
+
+    <!-- Course & Date -->
+    <div class="card mb-sm">
+      <div class="card-title">Course & Date</div>
+      <div class="field">
+        <label>Select Course</label>
+        <div style="display:flex;gap:0.5rem;">
+          <select id="tround-course-select" style="flex:1;"></select>
+          <button id="tround-add-course-btn" style="background:var(--gold-dim);border:1px solid var(--gold-border);color:var(--gold);border-radius:var(--radius-sm);padding:0 0.85rem;font-size:1rem;flex-shrink:0;">＋</button>
+        </div>
+      </div>
+      <div id="tround-tee-wrap" class="field" style="display:none;">
+        <label>Tees</label>
+        <select id="tround-tee-select"></select>
+      </div>
+      <div class="field">
+        <label>Date</label>
+        <input id="tround-date" type="date">
+      </div>
+    </div>
+
+    <!-- Handicaps (adjustable mode) -->
+    <div class="card mb-sm" id="tround-hcp-card" style="display:none;">
+      <div class="card-title">Update Handicaps</div>
+      <div class="hint mb-sm">Adjust any player handicaps before this round.</div>
+      <div id="tround-hcp-rows"></div>
+    </div>
+
+    <!-- Group Setup -->
+    <div class="card mb-sm">
+      <div class="card-title">Groups</div>
+      <div class="two-col mb-sm">
+        <div class="field" style="margin:0;">
+          <label>Number of Groups</label>
+          <select id="tround-num-groups"></select>
+        </div>
+        <div class="field" style="margin:0;">
+          <label>Players per Group</label>
+          <div id="tround-ppg" style="padding:0.65rem 0;font-size:0.9rem;color:var(--muted);"></div>
+        </div>
+      </div>
+      <div class="hint mb-sm">Default order: lowest scorers in Group 1, highest in last group. Drag to rearrange.</div>
+      <div id="tround-groups-container"></div>
+    </div>
+
+    <button class="btn btn-green" id="btn-tround-tee-off">⛳ TEE OFF →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOURNAMENT LIVE LEADERBOARD
+     ══════════════════════════════════════════ -->
+<div id="screen-tournament-live" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="tlive-back">← Back</button>
+    <h2 id="tlive-title">Live Leaderboard</h2>
+    <div class="sync-badge synced" style="margin-left:auto;">
+      <div class="sync-dot pulse"></div><span>Live</span>
+    </div>
+  </div>
+  <div style="padding:0.75rem 1rem;max-width:520px;margin:0 auto;">
+    <div id="tlive-meta" style="font-size:0.68rem;color:var(--muted);margin-bottom:0.75rem;"></div>
+    <!-- Tab buttons -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;margin-bottom:1rem;">
+      <button class="btn btn-primary" id="tlive-tab-round">This Round</button>
+      <button class="btn btn-outline" id="tlive-tab-tournament">Tournament</button>
+    </div>
+    <div id="tlive-round-table"></div>
+    <div id="tlive-tournament-table" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOURNAMENT PUBLIC VIEW (read-only via link)
+     ══════════════════════════════════════════ -->
+<div id="screen-tournament-view" class="screen">
+  <div class="sticky-header">
+    <h2 id="tview-title">Tournament</h2>
+  </div>
+  <div style="padding:1rem;max-width:520px;margin:0 auto;">
+    <div id="tview-meta" style="font-size:0.72rem;color:var(--muted);margin-bottom:1rem;"></div>
+    <div id="tview-standings" style="overflow-x:auto;"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     HCP ADJUSTMENT MODAL (auto mode)
+     ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-hcp-adjust">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">Handicap Adjustments</div>
+      <button class="btn-close" id="hcp-adjust-close">✕</button>
+    </div>
+    <div class="hint mb-md">Based on last round performance vs field average.</div>
+    <div id="hcp-adjust-rows" style="margin-bottom:1rem;"></div>
+    <button class="btn btn-green" id="btn-hcp-adjust-confirm">APPLY & CONTINUE →</button>
+  </div>
+</div>
 
 </body>
 </html>

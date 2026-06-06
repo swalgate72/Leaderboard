@@ -583,3 +583,155 @@ export function realtimeSubscribeFriendRequests(userId, onRequest) {
 export function realtimeUnsubscribe(channel) {
   if (channel) sb.removeChannel(channel);
 }
+
+// ================================================================
+// TOURNAMENTS
+// ================================================================
+
+export async function tournamentCreate({ organiserId, name, format, numRounds, hcpMode }) {
+  const { data, error } = await sb
+    .from('tournaments')
+    .insert({ organiser_id: organiserId, name, format, num_rounds: numRounds, hcp_mode: hcpMode, status: 'active' })
+    .select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function tournamentsLoad(organiserId) {
+  const { data, error } = await sb
+    .from('tournaments')
+    .select('*')
+    .eq('organiser_id', organiserId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function tournamentLoadById(id) {
+  const { data, error } = await sb
+    .from('tournaments')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function tournamentUpdate(id, updates) {
+  const { error } = await sb.from('tournaments').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+export async function tournamentDelete(id) {
+  const { error } = await sb.from('tournaments').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ── Tournament Players ───────────────────────────────────────────
+
+export async function tournamentPlayersAdd(tournamentId, players) {
+  // players: [{name, profileId, startingHcp}]
+  const rows = players.map(p => ({
+    tournament_id: tournamentId,
+    name:          p.name,
+    profile_id:    p.profileId ?? null,
+    starting_hcp:  p.startingHcp,
+    current_hcp:   p.startingHcp,
+  }));
+  const { data, error } = await sb.from('tournament_players').insert(rows).select();
+  if (error) throw error;
+  return data;
+}
+
+export async function tournamentPlayersLoad(tournamentId) {
+  const { data, error } = await sb
+    .from('tournament_players')
+    .select('*')
+    .eq('tournament_id', tournamentId)
+    .order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function tournamentPlayerUpdate(id, updates) {
+  const { error } = await sb.from('tournament_players').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+// ── Tournament Rounds ────────────────────────────────────────────
+
+export async function tournamentRoundsLoad(tournamentId) {
+  const { data, error } = await sb
+    .from('tournament_rounds')
+    .select('*')
+    .eq('tournament_id', tournamentId)
+    .order('round_number');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function tournamentRoundCreate({ tournamentId, roundNumber, courseName, teeName, date }) {
+  const { data, error } = await sb
+    .from('tournament_rounds')
+    .insert({ tournament_id: tournamentId, round_number: roundNumber, course_name: courseName, tee_name: teeName, date, status: 'pending' })
+    .select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function tournamentRoundUpdate(id, updates) {
+  const { error } = await sb.from('tournament_rounds').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+// ── Tournament Round Scores ──────────────────────────────────────
+
+export async function tournamentScoresLoad(tournamentRoundId) {
+  const { data, error } = await sb
+    .from('tournament_round_scores')
+    .select('*')
+    .eq('tournament_round_id', tournamentRoundId);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function tournamentAllScoresLoad(tournamentId) {
+  // Load all scores for all rounds in this tournament
+  const rounds = await tournamentRoundsLoad(tournamentId);
+  if (!rounds.length) return [];
+  const roundIds = rounds.map(r => r.id);
+  const { data, error } = await sb
+    .from('tournament_round_scores')
+    .select('*')
+    .in('tournament_round_id', roundIds);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function tournamentScoresSave(tournamentRoundId, scores) {
+  // scores: [{tournamentPlayerId, gross, net, points, hcpUsed, absent}]
+  // Upsert by tournament_round_id + tournament_player_id
+  const rows = scores.map(s => ({
+    tournament_round_id:    tournamentRoundId,
+    tournament_player_id:  s.tournamentPlayerId,
+    gross_score:           s.gross ?? null,
+    net_score:             s.net   ?? null,
+    points:                s.points ?? null,
+    hcp_used:              s.hcpUsed ?? null,
+    absent:                s.absent ?? false,
+  }));
+  const { error } = await sb
+    .from('tournament_round_scores')
+    .upsert(rows, { onConflict: 'tournament_round_id,tournament_player_id' });
+  if (error) throw error;
+}
+
+// ── Realtime ─────────────────────────────────────────────────────
+
+export function realtimeSubscribeTournament(tournamentId, onUpdate) {
+  return sb.channel(`tournament:${tournamentId}`)
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'tournament_round_scores',
+    }, onUpdate)
+    .subscribe();
+}

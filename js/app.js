@@ -171,8 +171,16 @@ async function boot() {
   applyTheme(theme);
   renderLogos();
 
-  const params    = new URLSearchParams(window.location.search);
-  const joinToken = params.get('join');
+  const params      = new URLSearchParams(window.location.search);
+  const joinToken   = params.get('join');
+  const tournViewId = params.get('tournament');
+
+  if (tournViewId) {
+    // Public tournament view — no auth needed
+    await handleTournamentViewLink(tournViewId);
+    return;
+  }
+
   if (joinToken) { await handleJoinFlow(joinToken); return; }
 
   authOnStateChange(async (event, user) => {
@@ -304,6 +312,7 @@ document.getElementById('nav-profile')?.addEventListener('click', () => showProf
 document.getElementById('nav-friends')?.addEventListener('click', () => showFriends());
 document.getElementById('nav-history')?.addEventListener('click', () => showHistory());
 document.getElementById('nav-course') ?.addEventListener('click', () => { cwiz.returnTo = 'home'; openCourseWizard(null); });
+document.getElementById('nav-theme')  ?.addEventListener('click', () => showProfile());
 
 document.getElementById('coming-soon-close')?.addEventListener('click', () => hide('modal-coming-soon'));
 document.getElementById('btn-resume')?.addEventListener('click', async () => { if (roundId) await resumeRound(roundId); });
@@ -1494,9 +1503,20 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
   try {
     const { allGroupStates, ...stateToSave } = gameState;
     await roundComplete(roundId, stateToSave);
+    // If this was a tournament round, save tournament scores too
+    if (gameState.tournamentId) {
+      await saveTournamentScores();
+    }
     realtimeUnsubscribe(realtimeCh); realtimeCh = null;
-    roundId = null; gameState = null;
-    await showHome();
+    roundId = null;
+    const wasTournament = !!gameState.tournamentId;
+    const tournId = gameState.tournamentId;
+    gameState = null;
+    if (wasTournament) {
+      await showTournamentDetail(tournId);
+    } else {
+      await showHome();
+    }
   } catch (err) {
     alert('Could not save round: ' + err.message);
     btn.disabled = false; btn.textContent = '✓ SAVE & FINISH';
@@ -1919,7 +1939,7 @@ function openCourseWizard(courseId) {
   }
 
   renderCwizTeesList();
-  show('modal-course-wizard');
+  document.getElementById('modal-course-wizard').classList.add('open');
   show('cwiz-phase-name'); hide('cwiz-phase-holes'); hide('cwiz-phase-review');
   updateCwizStartBtn();
 }
@@ -2072,7 +2092,7 @@ document.getElementById('cwiz-save-btn')?.addEventListener('click', async () => 
       tees, isDefault: false, createdBy: currentUser.id,
     });
     allCourses = await coursesLoadAll();
-    hide('modal-course-wizard');
+    document.getElementById('modal-course-wizard').classList.remove('open');
     if (cwiz.returnTo === 'setup') {
       populateCourseSelect();
       const sel = document.getElementById('setup-course-select');
@@ -2084,7 +2104,7 @@ document.getElementById('cwiz-save-btn')?.addEventListener('click', async () => 
   finally { btn.disabled = false; btn.textContent = '✅ SAVE COURSE'; }
 });
 
-document.getElementById('cwiz-cancel')?.addEventListener('click', () => hide('modal-course-wizard'));
+document.getElementById('cwiz-cancel')?.addEventListener('click', () => document.getElementById('modal-course-wizard').classList.remove('open'));
 
 // ================================================================
 // JOIN FLOW
@@ -2126,3 +2146,880 @@ async function handleJoinFlow(token) {
 // KICK OFF
 // ================================================================
 document.addEventListener('DOMContentLoaded', boot);
+
+// ================================================================
+// TOURNAMENT MODE
+// ================================================================
+
+import {
+  tournamentCreate, tournamentsLoad, tournamentLoadById, tournamentUpdate, tournamentDelete,
+  tournamentPlayersAdd, tournamentPlayersLoad, tournamentPlayerUpdate,
+  tournamentRoundsLoad, tournamentRoundCreate, tournamentRoundUpdate,
+  tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
+  realtimeSubscribeTournament,
+} from '../data.js';
+
+import {
+  buildStandings, calcHandicapAdjustments, buildDefaultGroups,
+  absentStrokeScore, roundSummary, buildTournamentViewUrl,
+} from '../tournament.js';
+
+// Active tournament state
+let activeTournament    = null;
+let activeTournPlayers  = [];
+let activeTournRounds   = [];
+let activeTournAllScores = [];
+let activeTournRound    = null; // the round currently being set up or played
+let tournRealtimeCh     = null;
+let tournGroups         = [];   // [{groupNumber, players: [playerIds]}]
+
+const APP_URL = 'https://leaderboard-ten-wheat.vercel.app';
+
+// ----------------------------------------------------------------
+// HOME → TOURNAMENT LIST
+// ----------------------------------------------------------------
+document.getElementById('btn-tournament-mode')?.addEventListener('click', () => showTournaments());
+document.getElementById('tournaments-back')  ?.addEventListener('click', () => showHome());
+document.getElementById('btn-new-tournament')?.addEventListener('click', () => showTournamentSetup());
+
+async function showTournaments() {
+  showScreen('screen-tournaments');
+  const list = document.getElementById('tournaments-list');
+  list.innerHTML = '<div class="history-empty">Loading…</div>';
+  try {
+    const tournaments = await tournamentsLoad(currentUser.id);
+    if (!tournaments.length) {
+      list.innerHTML = '<div class="history-empty">No tournaments yet — create one above.</div>';
+      return;
+    }
+    list.innerHTML = tournaments.map(t => `
+      <div class="history-item" data-tid="${t.id}" style="cursor:pointer;">
+        <div class="hi-icon">🏆</div>
+        <div class="hi-body">
+          <div class="hi-title">${t.name}</div>
+          <div class="hi-date">${fmtLabel(t.format)} · ${t.num_rounds} rounds · ${t.hcp_mode} HCP</div>
+          <div class="hi-winner" style="color:${t.status === 'completed' ? 'var(--muted)' : 'var(--green)'};">
+            ${t.status === 'completed' ? 'Completed' : 'In Progress'}
+          </div>
+        </div>
+        <div class="hi-arrow">›</div>
+      </div>`).join('');
+
+    list.querySelectorAll('.history-item').forEach(item => {
+      item.addEventListener('click', () => showTournamentDetail(item.dataset.tid));
+    });
+  } catch (err) {
+    list.innerHTML = `<div class="history-empty">${err.message}</div>`;
+  }
+}
+
+// ----------------------------------------------------------------
+// TOURNAMENT SETUP — STEP 1: DETAILS
+// ----------------------------------------------------------------
+function showTournamentSetup() {
+  document.getElementById('tourn-name').value      = '';
+  document.getElementById('tourn-format').value    = 'stableford';
+  document.getElementById('tourn-num-rounds').value = '3';
+  document.getElementById('tourn-hcp-mode').value  = 'fixed';
+  showScreen('screen-tournament-setup');
+}
+
+document.getElementById('tournament-setup-back')?.addEventListener('click', () => showTournaments());
+
+document.getElementById('btn-tourn-setup-next')?.addEventListener('click', () => {
+  const name = document.getElementById('tourn-name').value.trim();
+  if (!name) { alert('Please enter a tournament name.'); return; }
+  buildTournPlayerForms();
+  showScreen('screen-tournament-players');
+});
+
+// ----------------------------------------------------------------
+// TOURNAMENT SETUP — STEP 2: PLAYERS
+// ----------------------------------------------------------------
+let tournSetupPlayers = []; // [{name, hcp, profileId}]
+
+function buildTournPlayerForms() {
+  tournSetupPlayers = [];
+
+  // Pre-fill player 0 from profile
+  const myName = currentProfile
+    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+    : '';
+  tournSetupPlayers.push({ name: myName, hcp: currentProfile?.hcp ?? 0, profileId: currentUser.id });
+
+  renderTournPlayerList();
+}
+
+function renderTournPlayerList() {
+  const container = document.getElementById('tourn-players-list');
+  container.innerHTML = tournSetupPlayers.map((p, i) => `
+    <div class="player-slot" style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.4rem;">
+      <span class="dot" style="background:${pHex(i % 8)};flex-shrink:0;"></span>
+      <input id="tpname-${i}" type="text" value="${p.name}" placeholder="Player name"
+        style="flex:1;background:none;border:none;border-bottom:1px solid var(--border);
+               color:var(--white);font-size:0.88rem;outline:none;">
+      <input id="tphcp-${i}" type="number" value="${p.hcp}" placeholder="HCP" min="0" max="54" step="0.1"
+        style="width:70px;background:none;border:none;border-bottom:1px solid var(--border);
+               color:var(--white);font-size:0.82rem;outline:none;text-align:center;">
+      ${i > 0 ? `<button class="btn btn-ghost" style="padding:0.2rem 0.5rem;font-size:0.75rem;color:var(--red);" data-remove="${i}">✕</button>` : ''}
+    </div>`).join('');
+
+  container.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      tournSetupPlayers.splice(parseInt(btn.dataset.remove), 1);
+      renderTournPlayerList();
+    });
+  });
+
+  container.querySelectorAll('[id^="tpname-"]').forEach(inp => {
+    const i = parseInt(inp.id.split('-')[1]);
+    inp.addEventListener('input', e => { tournSetupPlayers[i].name = e.target.value.trim(); });
+  });
+  container.querySelectorAll('[id^="tphcp-"]').forEach(inp => {
+    const i = parseInt(inp.id.split('-')[1]);
+    inp.addEventListener('input', e => { tournSetupPlayers[i].hcp = parseFloat(e.target.value) || 0; });
+  });
+}
+
+document.getElementById('btn-tourn-add-player')?.addEventListener('click', () => {
+  tournSetupPlayers.push({ name: '', hcp: 0, profileId: null });
+  renderTournPlayerList();
+  // Focus the new name input
+  setTimeout(() => {
+    const last = document.getElementById(`tpname-${tournSetupPlayers.length - 1}`);
+    last?.focus();
+  }, 50);
+});
+
+document.getElementById('tournament-players-back')?.addEventListener('click', () => showScreen('screen-tournament-setup'));
+
+document.getElementById('btn-tourn-players-next')?.addEventListener('click', async () => {
+  // Read final values
+  tournSetupPlayers.forEach((p, i) => {
+    p.name = document.getElementById(`tpname-${i}`)?.value.trim() || `Player ${i+1}`;
+    p.hcp  = parseFloat(document.getElementById(`tphcp-${i}`)?.value) || 0;
+  });
+
+  if (tournSetupPlayers.length < 2) { alert('Add at least 2 players.'); return; }
+
+  const btn = document.getElementById('btn-tourn-players-next');
+  btn.disabled = true; btn.textContent = 'Creating…';
+
+  try {
+    const name      = document.getElementById('tourn-name').value.trim();
+    const format    = document.getElementById('tourn-format').value;
+    const numRounds = parseInt(document.getElementById('tourn-num-rounds').value);
+    const hcpMode   = document.getElementById('tourn-hcp-mode').value;
+
+    const tourn = await tournamentCreate({
+      organiserId: currentUser.id, name, format, numRounds, hcpMode,
+    });
+
+    await tournamentPlayersAdd(tourn.id, tournSetupPlayers.map(p => ({
+      name: p.name, profileId: p.profileId ?? null, startingHcp: p.hcp,
+    })));
+
+    await showTournamentDetail(tourn.id);
+  } catch (err) {
+    alert('Could not create tournament: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'CREATE TOURNAMENT →';
+  }
+});
+
+// ----------------------------------------------------------------
+// TOURNAMENT DETAIL
+// ----------------------------------------------------------------
+document.getElementById('tournament-detail-back')?.addEventListener('click', () => showTournaments());
+
+async function showTournamentDetail(tournamentId) {
+  showScreen('screen-tournament-detail');
+
+  try {
+    activeTournament    = await tournamentLoadById(tournamentId);
+    activeTournPlayers  = await tournamentPlayersLoad(tournamentId);
+    activeTournRounds   = await tournamentRoundsLoad(tournamentId);
+    activeTournAllScores = await tournamentAllScoresLoad(tournamentId);
+  } catch (err) {
+    alert('Could not load tournament: ' + err.message); return;
+  }
+
+  document.getElementById('td-tournament-name').textContent = activeTournament.name;
+
+  renderTournamentStandings();
+  renderTournamentRoundsList();
+
+  // Show/hide start next round button
+  const completedRounds = activeTournRounds.filter(r => r.status === 'completed').length;
+  const nextRoundNum    = completedRounds + 1;
+  const btn             = document.getElementById('btn-start-next-round');
+  if (completedRounds >= activeTournament.num_rounds) {
+    btn.textContent = '✓ Tournament Complete';
+    btn.disabled    = true;
+  } else {
+    btn.textContent = `⛳ SET UP ROUND ${nextRoundNum} →`;
+    btn.disabled    = false;
+  }
+}
+
+function renderTournamentStandings() {
+  const standings = buildStandings(
+    activeTournPlayers, activeTournRounds, activeTournAllScores,
+    activeTournament.format
+  );
+
+  const isStroke = activeTournament.format === 'stroke';
+  const el = document.getElementById('td-standings');
+
+  if (!standings.length) {
+    el.innerHTML = '<div class="text-muted" style="font-size:0.82rem;">No rounds completed yet.</div>';
+    return;
+  }
+
+  // Build header
+  let html = `<table class="sc-table" style="width:100%;font-size:0.75rem;">
+    <thead><tr>
+      <th style="text-align:left;">Player</th>
+      <th>HCP</th>`;
+
+  activeTournRounds.filter(r => r.status === 'completed').forEach(r => {
+    const d = r.date ? new Date(r.date).toLocaleDateString('en-GB', { day:'numeric', month:'short' }) : `R${r.round_number}`;
+    html += `<th title="${r.course_name ?? ''}">${d}</th>`;
+  });
+
+  if (isStroke) {
+    html += '<th style="color:var(--green);">Net</th><th style="color:var(--muted);">Gross</th>';
+  } else {
+    html += '<th style="color:var(--gold);">Total</th>';
+  }
+  html += '</tr></thead><tbody>';
+
+  standings.forEach((row, idx) => {
+    const isLead = idx === 0;
+    html += `<tr${isLead ? ' style="background:rgba(212,168,67,0.06);"' : ''}>
+      <td style="text-align:left;font-weight:${isLead?'700':'500'};color:${isLead?'var(--gold)':''};">
+        ${row.position}. ${row.name}
+      </td>
+      <td style="color:var(--muted);">${row.currentHcp}</td>`;
+
+    activeTournRounds.filter(r => r.status === 'completed').forEach(r => {
+      const rr = row.roundResults.find(x => x.roundId === r.id);
+      const val = rr?.absent ? '—' : isStroke ? (rr?.net ?? '—') : (rr?.pts ?? '—');
+      html += `<td>${val}</td>`;
+    });
+
+    if (isStroke) {
+      html += `<td style="color:var(--green);font-weight:600;">${row.total || '—'}</td>
+               <td style="color:var(--muted);">${row.totalGross || '—'}</td>`;
+    } else {
+      html += `<td style="color:var(--gold);font-weight:700;">${row.total || '—'}</td>`;
+    }
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function renderTournamentRoundsList() {
+  const el = document.getElementById('td-rounds');
+  el.innerHTML = Array.from({ length: activeTournament.num_rounds }, (_, i) => {
+    const r = activeTournRounds.find(x => x.round_number === i + 1);
+    const statusBadge = !r
+      ? `<span class="badge badge-blue">PENDING</span>`
+      : r.status === 'completed'
+        ? `<span class="badge badge-gold">COMPLETE</span>`
+        : `<span class="badge badge-green">IN PROGRESS</span>`;
+
+    const sub = r
+      ? `${r.course_name ?? '—'} · ${r.tee_name ?? ''} · ${r.date ? new Date(r.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : ''}`
+      : 'Not started';
+
+    return `
+      <div class="round-row" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;
+           background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:0.35rem;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:700;color:var(--gold);min-width:2rem;">
+          R${i+1}
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:0.85rem;">${sub}</div>
+        </div>
+        ${statusBadge}
+        ${r?.status === 'active' ? `<button class="btn btn-ghost" style="font-size:0.72rem;" data-resume-round="${r.id}">Resume</button>` : ''}
+      </div>`;
+  }).join('');
+
+  el.querySelectorAll('[data-resume-round]').forEach(btn => {
+    btn.addEventListener('click', () => resumeTournamentRound(btn.dataset.resumeRound));
+  });
+}
+
+// ----------------------------------------------------------------
+// START NEXT ROUND
+// ----------------------------------------------------------------
+document.getElementById('btn-start-next-round')?.addEventListener('click', () => showTournamentRoundSetup());
+document.getElementById('tround-back')          ?.addEventListener('click', () => showTournamentDetail(activeTournament.id));
+
+async function showTournamentRoundSetup() {
+  const completedRounds = activeTournRounds.filter(r => r.status === 'completed').length;
+  const roundNumber     = completedRounds + 1;
+  activeTournRound      = activeTournRounds.find(r => r.round_number === roundNumber) ?? null;
+
+  document.getElementById('tround-title').textContent =
+    `Round ${roundNumber} of ${activeTournament.num_rounds}`;
+
+  // Set today's date as default
+  document.getElementById('tround-date').value =
+    new Date().toISOString().split('T')[0];
+
+  // Populate course dropdown
+  const coursesSel = document.getElementById('tround-course-select');
+  coursesSel.innerHTML = '<option value="">— Select course —</option>';
+  allCourses.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id; opt.textContent = c.name;
+    if (activeTournRound?.course_name === c.name) opt.selected = true;
+    coursesSel.appendChild(opt);
+  });
+  document.getElementById('tround-tee-wrap').style.display = 'none';
+
+  // Show handicap adjustment card if mode is 'adjustable'
+  const hcpCard = document.getElementById('tround-hcp-card');
+  if (activeTournament.hcp_mode === 'adjustable' && roundNumber > 1) {
+    hcpCard.style.display = '';
+    renderTroundHcpRows();
+  } else {
+    hcpCard.style.display = 'none';
+  }
+
+  // If auto mode and previous round complete, show adjustment modal first
+  if (activeTournament.hcp_mode === 'auto' && completedRounds > 0) {
+    await showAutoHcpAdjustment();
+  }
+
+  // Build groups
+  buildTournGroups(roundNumber);
+
+  showScreen('screen-tournament-round-setup');
+}
+
+function renderTroundHcpRows() {
+  const el = document.getElementById('tround-hcp-rows');
+  el.innerHTML = activeTournPlayers.filter(p => !p.excluded).map((p, i) => `
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.4rem;">
+      <span style="flex:1;font-size:0.85rem;">${p.name}</span>
+      <input id="trhcp-${p.id}" type="number" value="${p.current_hcp}" min="0" max="54" step="0.1"
+        style="width:70px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+               padding:0.3rem 0.5rem;color:var(--white);font-size:0.85rem;text-align:center;">
+    </div>`).join('');
+}
+
+// ── Course selection for tournament round ────────────────────────
+document.getElementById('tround-course-select')?.addEventListener('change', e => {
+  const courseId = e.target.value;
+  const teeSel   = document.getElementById('tround-tee-select');
+  const teeWrap  = document.getElementById('tround-tee-wrap');
+  if (!courseId) { teeWrap.style.display = 'none'; return; }
+  const course = allCourses.find(c => c.id === courseId);
+  if (!course) return;
+  teeSel.innerHTML = (course.tees ?? []).map(t =>
+    `<option value="${t.name}">${t.name}</option>`).join('');
+  teeWrap.style.display = '';
+});
+
+document.getElementById('tround-add-course-btn')?.addEventListener('click', () => {
+  cwiz.returnTo = 'tournament-round'; openCourseWizard(null);
+});
+
+// ── Group builder for tournament round ──────────────────────────
+function buildTournGroups(roundNumber) {
+  const numPlayers = activeTournPlayers.filter(p => !p.excluded).length;
+  const numGroups  = Math.max(1, Math.ceil(numPlayers / 4));
+
+  // Populate groups select
+  const groupsSel = document.getElementById('tround-num-groups');
+  groupsSel.innerHTML = Array.from({ length: Math.min(numPlayers, 20) }, (_, i) =>
+    `<option value="${i+1}"${i+1 === numGroups ? ' selected' : ''}>${i+1}</option>`).join('');
+
+  groupsSel.onchange = () => renderTournGroupsUI(parseInt(groupsSel.value));
+
+  renderTournGroupsUI(numGroups);
+}
+
+function renderTournGroupsUI(numGroups) {
+  const players = activeTournPlayers.filter(p => !p.excluded);
+  const ppg     = Math.ceil(players.length / numGroups);
+
+  document.getElementById('tround-ppg').textContent =
+    `~${ppg} per group`;
+
+  // Build default groups from standings
+  const standings = buildStandings(
+    activeTournPlayers, activeTournRounds, activeTournAllScores, activeTournament.format
+  );
+  tournGroups = buildDefaultGroups(standings, numGroups, ppg);
+
+  // Ensure all players are assigned
+  const assigned = new Set(tournGroups.flatMap(g => g.players));
+  players.forEach(p => {
+    if (!assigned.has(p.id)) tournGroups[0].players.push(p.id);
+  });
+
+  const container = document.getElementById('tround-groups-container');
+  container.innerHTML = tournGroups.map((g, gi) => `
+    <div class="group-block" id="tgroup-${gi}" style="margin-bottom:0.5rem;">
+      <div class="group-label">Group ${g.groupNumber}
+        <span style="font-size:0.65rem;color:var(--muted);font-weight:400;margin-left:4px;">
+          (drag players between groups)
+        </span>
+      </div>
+      <div class="tgroup-players" data-group="${gi}" style="min-height:40px;">
+        ${g.players.map(pid => {
+          const p = players.find(x => x.id === pid);
+          if (!p) return '';
+          return `<div class="player-slot" draggable="true" data-pid="${pid}"
+            style="display:flex;align-items:center;gap:0.5rem;cursor:grab;user-select:none;">
+            <span style="font-size:0.9rem;">⠿</span>
+            <span style="flex:1;font-size:0.85rem;">${p.name}</span>
+            <span style="font-size:0.72rem;color:var(--muted);">HCP ${p.current_hcp}</span>
+            <label style="display:flex;align-items:center;gap:4px;font-size:0.65rem;color:var(--muted);">
+              <input type="checkbox" class="scorer-check" data-pid="${pid}" data-gi="${gi}"
+                style="width:14px;height:14px;accent-color:var(--gold);">
+              Scorer
+            </label>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`).join('');
+
+  // Drag and drop
+  setupGroupDragDrop();
+}
+
+function setupGroupDragDrop() {
+  let draggedPid = null;
+
+  document.querySelectorAll('[draggable="true"][data-pid]').forEach(el => {
+    el.addEventListener('dragstart', e => {
+      draggedPid = el.dataset.pid;
+      e.dataTransfer.effectAllowed = 'move';
+    });
+  });
+
+  document.querySelectorAll('.tgroup-players').forEach(zone => {
+    zone.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!draggedPid) return;
+      const targetGi = parseInt(zone.dataset.group);
+      // Remove from current group
+      tournGroups.forEach(g => { g.players = g.players.filter(p => p !== draggedPid); });
+      // Add to target group
+      tournGroups[targetGi].players.push(draggedPid);
+      draggedPid = null;
+      renderTournGroupsUI(tournGroups.length);
+    });
+  });
+}
+
+// ── Tee Off ──────────────────────────────────────────────────────
+document.getElementById('btn-tround-tee-off')?.addEventListener('click', async () => {
+  const courseId  = document.getElementById('tround-course-select').value;
+  const teeName   = document.getElementById('tround-tee-select').value;
+  const date      = document.getElementById('tround-date').value;
+
+  if (!courseId) { alert('Please select a course.'); return; }
+
+  const course    = allCourses.find(c => c.id === courseId);
+  const tee       = course?.tees?.find(t => t.name === teeName);
+  if (!course || !tee) { alert('Please select a tee.'); return; }
+
+  // Save handicap adjustments if adjustable mode
+  if (activeTournament.hcp_mode === 'adjustable') {
+    for (const p of activeTournPlayers.filter(x => !x.excluded)) {
+      const inp = document.getElementById(`trhcp-${p.id}`);
+      if (inp) {
+        const newHcp = parseFloat(inp.value) || p.current_hcp;
+        if (newHcp !== p.current_hcp) {
+          await tournamentPlayerUpdate(p.id, { current_hcp: newHcp });
+          p.current_hcp = newHcp;
+        }
+      }
+    }
+  }
+
+  // Create tournament round record
+  const completedRounds = activeTournRounds.filter(r => r.status === 'completed').length;
+  const roundNumber     = completedRounds + 1;
+
+  let troundRecord = activeTournRound;
+  if (!troundRecord) {
+    troundRecord = await tournamentRoundCreate({
+      tournamentId: activeTournament.id,
+      roundNumber,
+      courseName: course.name,
+      teeName,
+      date,
+    });
+  } else {
+    await tournamentRoundUpdate(troundRecord.id, {
+      course_name: course.name, tee_name: teeName, date, status: 'active',
+    });
+  }
+  activeTournRound = troundRecord;
+
+  // Get scorer groups and start game for each group
+  // For simplicity: start the first group's game for the current user
+  // Other scorers will use the invite flow
+  const myGroup = tournGroups.find(g =>
+    g.players.includes(activeTournPlayers.find(p => p.profile_id === currentUser.id)?.id)
+  ) ?? tournGroups[0];
+
+  const groupPlayers = myGroup.players
+    .map(pid => activeTournPlayers.find(p => p.id === pid))
+    .filter(Boolean);
+
+  // Set up game state for this group
+  const hcpArr = groupPlayers.map(p => p.current_hcp);
+  const hcpObj = calcHandicaps(hcpArr, 100);
+  const si     = tee.si;
+  const par    = tee.par;
+
+  setup.scoring    = activeTournament.format;
+  setup.courseId   = courseId;
+  setup.teeIdx     = course.tees.findIndex(t => t.name === teeName);
+  setup.holes      = 18;
+  setup.hcpPct     = 100;
+  setup.players    = groupPlayers.map((p, i) => ({
+    name:        p.name,
+    hcpIndex:    p.current_hcp,
+    groupNumber: myGroup.groupNumber,
+    profileId:   p.profile_id ?? null,
+    isScorer:    true,
+    mobile:      null,
+    tournamentPlayerId: p.id,
+  }));
+  setup.numPlayers = setup.players.length;
+  setup.numGroups  = 1;
+
+  gameState = buildInitialState({
+    format:          activeTournament.format,
+    names:           groupPlayers.map(p => p.name),
+    handicapIndexes: hcpArr,
+    playingHandicaps: hcpObj.map(h => h.playingHandicap),
+    matchHandicaps:   hcpObj.map(h => h.matchHandicap),
+    allowancePct:    100,
+    si, par, numHoles: 18, holeOffset: 0,
+    courseName: course.name, teeName,
+    tournamentId:       activeTournament.id,
+    tournamentRoundId:  troundRecord.id,
+    groupNumber:        myGroup.groupNumber,
+  });
+
+  // Update round status
+  await tournamentRoundUpdate(troundRecord.id, { status: 'active' });
+  activeTournRounds = await tournamentRoundsLoad(activeTournament.id);
+
+  // Create round record in main rounds table
+  try { localStorage.setItem(`lb-last-tee-${courseId}`, teeName); } catch {}
+  const { allGroupStates, ...stateToSave } = gameState;
+  roundId = await roundCreate({
+    organiserId:   currentUser.id,
+    courseName:    course.name,
+    teeName,
+    gameFormat:    activeTournament.format,
+    hcpAllowance:  100,
+    si, par, numHoles: 18, holeOffset: 0,
+    numGroups:     tournGroups.length,
+    playerNames:   groupPlayers.map(p => p.name),
+    gameState:     stateToSave,
+  });
+
+  await tournamentRoundUpdate(troundRecord.id, { round_id: roundId });
+  subscribeToRound(roundId);
+  enterGameScreen();
+});
+
+// ── Resume tournament round ───────────────────────────────────────
+async function resumeTournamentRound(troundId) {
+  const tround = activeTournRounds.find(r => r.id === troundId);
+  if (!tround?.round_id) return;
+  await resumeRound(tround.round_id);
+}
+
+// ── Auto HCP Adjustment Modal ────────────────────────────────────
+async function showAutoHcpAdjustment() {
+  // Get the last completed round
+  const lastRound = [...activeTournRounds]
+    .filter(r => r.status === 'completed')
+    .sort((a, b) => b.round_number - a.round_number)[0];
+  if (!lastRound) return;
+
+  const lastScores = await tournamentScoresLoad(lastRound.id);
+  const adjustments = calcHandicapAdjustments(
+    activeTournPlayers, lastScores, activeTournament.format
+  );
+
+  if (!adjustments.length) return;
+
+  const rowsEl = document.getElementById('hcp-adjust-rows');
+  rowsEl.innerHTML = adjustments.map(a => `
+    <div style="display:flex;justify-content:space-between;align-items:center;
+         padding:0.5rem 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:0.85rem;">${a.name}</span>
+      <span style="font-size:0.82rem;">
+        <span style="color:var(--muted);">${a.oldHcp}</span>
+        <span style="margin:0 4px;">→</span>
+        <span style="color:${a.delta < 0 ? 'var(--green)' : 'var(--red)'};font-weight:600;">
+          ${a.newHcp}
+        </span>
+        <span style="font-size:0.7rem;color:var(--muted);">
+          (${a.delta > 0 ? '+' : ''}${a.delta})
+        </span>
+      </span>
+    </div>`).join('');
+
+  document.getElementById('modal-hcp-adjust').classList.add('open');
+
+  // Store adjustments for confirmation
+  document.getElementById('btn-hcp-adjust-confirm').onclick = async () => {
+    for (const a of adjustments) {
+      await tournamentPlayerUpdate(a.playerId, { current_hcp: a.newHcp });
+      const p = activeTournPlayers.find(x => x.id === a.playerId);
+      if (p) p.current_hcp = a.newHcp;
+    }
+    document.getElementById('modal-hcp-adjust').classList.remove('open');
+  };
+}
+
+document.getElementById('hcp-adjust-close')?.addEventListener('click', () => {
+  document.getElementById('modal-hcp-adjust').classList.remove('open');
+});
+
+// ── Share tournament ─────────────────────────────────────────────
+document.getElementById('btn-share-tournament')?.addEventListener('click', () => {
+  const url = buildTournamentViewUrl(APP_URL, activeTournament.id);
+  const msg = `Follow the ${activeTournament.name} leaderboard here:\n${url}`;
+  if (navigator.share) {
+    navigator.share({ title: activeTournament.name, text: msg, url }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(msg).then(() => {
+      alert('Link copied to clipboard!');
+    });
+  }
+});
+
+// ── Delete tournament ────────────────────────────────────────────
+document.getElementById('btn-delete-tournament')?.addEventListener('click', async () => {
+  if (!confirm(`Delete "${activeTournament.name}"? This cannot be undone.`)) return;
+  try {
+    await tournamentDelete(activeTournament.id);
+    await showTournaments();
+  } catch (err) {
+    alert('Could not delete: ' + err.message);
+  }
+});
+
+// ----------------------------------------------------------------
+// TOURNAMENT LIVE LEADERBOARD
+// ----------------------------------------------------------------
+document.getElementById('tlive-back')?.addEventListener('click', () => showScreen('screen-game'));
+document.getElementById('btn-game-leaderboard')?.addEventListener('click', () => {
+  // If in a tournament round, show tournament leaderboard, else show regular
+  if (gameState?.tournamentId) showTournamentLive();
+  else showLeaderboard();
+});
+
+function showTournamentLive() {
+  showScreen('screen-tournament-live');
+  const fmt = activeTournament?.format ?? gameState?.format;
+  document.getElementById('tlive-title').textContent =
+    activeTournament?.name ?? 'Live Leaderboard';
+  document.getElementById('tlive-meta').textContent =
+    `${gameState?.courseName ?? ''} · Round ${activeTournRounds.filter(r=>r.status!=='pending').length}`;
+
+  renderTliveRound();
+  renderTliveTournament();
+
+  // Subscribe for live updates
+  if (activeTournament && !tournRealtimeCh) {
+    tournRealtimeCh = realtimeSubscribeTournament(activeTournament.id, async () => {
+      activeTournAllScores = await tournamentAllScoresLoad(activeTournament.id);
+      renderTliveRound();
+      renderTliveTournament();
+    });
+  }
+}
+
+document.getElementById('tlive-tab-round')?.addEventListener('click', () => {
+  document.getElementById('tlive-tab-round').className      = 'btn btn-primary';
+  document.getElementById('tlive-tab-tournament').className = 'btn btn-outline';
+  document.getElementById('tlive-round-table').style.display      = '';
+  document.getElementById('tlive-tournament-table').style.display = 'none';
+});
+
+document.getElementById('tlive-tab-tournament')?.addEventListener('click', () => {
+  document.getElementById('tlive-tab-tournament').className = 'btn btn-primary';
+  document.getElementById('tlive-tab-round').className      = 'btn btn-outline';
+  document.getElementById('tlive-tournament-table').style.display = '';
+  document.getElementById('tlive-round-table').style.display      = 'none';
+});
+
+function renderTliveRound() {
+  const el = document.getElementById('tlive-round-table');
+  if (!gameState) { el.innerHTML = ''; return; }
+  // Use existing multi-group leaderboard logic
+  const states = gameState.allGroupStates ?? [gameState];
+  const rows   = buildMultiGroupLeaderboard(states);
+  const fmt    = gameState.format;
+  const isStableford = fmt === 'stableford';
+  const isStroke     = fmt === 'stroke';
+
+  let html = `<table class="sc-table" style="width:100%;"><thead><tr>
+    <th style="text-align:left;">Player</th>
+    <th>Grp</th><th>Holes</th><th>Gross</th>
+    ${isStroke ? '<th style="color:var(--green);">Net</th>' : ''}
+    ${isStableford ? '<th style="color:var(--gold);">Pts</th>' : ''}
+  </tr></thead><tbody>`;
+
+  rows.forEach((row, rank) => {
+    html += `<tr${rank===0?' style="background:rgba(212,168,67,0.06);"':''}>
+      <td style="font-weight:${rank===0?'700':'500'};color:${rank===0?'var(--gold)':''};text-align:left;">
+        ${rank+1}. ${row.name}
+      </td>
+      <td>${row.group}</td>
+      <td>${row.holesPlayed}</td>
+      <td>${row.gross||'—'}</td>
+      ${isStroke?`<td style="color:var(--green);font-weight:600;">${row.net??'—'}</td>`:''}
+      ${isStableford?`<td style="color:var(--gold);font-weight:700;">${row.pts??'—'}</td>`:''}
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function renderTliveTournament() {
+  const el = document.getElementById('tlive-tournament-table');
+  if (!activeTournament) { el.innerHTML = ''; return; }
+  const standings = buildStandings(
+    activeTournPlayers, activeTournRounds, activeTournAllScores, activeTournament.format
+  );
+  const isStroke = activeTournament.format === 'stroke';
+  let html = `<table class="sc-table" style="width:100%;"><thead><tr>
+    <th style="text-align:left;">Player</th><th>HCP</th>
+    <th style="color:${isStroke?'var(--green)':'var(--gold)'};">Total</th>
+    ${isStroke?'<th style="color:var(--muted);">Gross</th>':''}
+  </tr></thead><tbody>`;
+  standings.forEach((row, idx) => {
+    html += `<tr${idx===0?' style="background:rgba(212,168,67,0.06);"':''}>
+      <td style="font-weight:${idx===0?'700':'500'};color:${idx===0?'var(--gold)':''};text-align:left;">
+        ${row.position}. ${row.name}
+      </td>
+      <td style="color:var(--muted);">${row.currentHcp}</td>
+      <td style="font-weight:600;color:${isStroke?'var(--green)':'var(--gold)'};">${row.total||'—'}</td>
+      ${isStroke?`<td style="color:var(--muted);">${row.totalGross||'—'}</td>`:''}
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+// ----------------------------------------------------------------
+// TOURNAMENT PUBLIC VIEW (via link ?tournament=id)
+// ----------------------------------------------------------------
+async function handleTournamentViewLink(tournamentId) {
+  showScreen('screen-tournament-view');
+  try {
+    const tourn   = await tournamentLoadById(tournamentId);
+    const players = await tournamentPlayersLoad(tournamentId);
+    const rounds  = await tournamentRoundsLoad(tournamentId);
+    const scores  = await tournamentAllScoresLoad(tournamentId);
+
+    document.getElementById('tview-title').textContent = tourn.name;
+    document.getElementById('tview-meta').textContent  =
+      `${fmtLabel(tourn.format)} · ${rounds.filter(r=>r.status==='completed').length} of ${tourn.num_rounds} rounds completed`;
+
+    const standings = buildStandings(players, rounds, scores, tourn.format);
+    const isStroke  = tourn.format === 'stroke';
+
+    let html = `<table class="sc-table" style="width:100%;font-size:0.78rem;">
+      <thead><tr>
+        <th style="text-align:left;">Player</th><th>HCP</th>`;
+    rounds.filter(r=>r.status==='completed').forEach(r => {
+      const d = r.date ? new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : `R${r.round_number}`;
+      html += `<th>${d}</th>`;
+    });
+    html += `<th style="color:${isStroke?'var(--green)':'var(--gold)'};">Total</th>`;
+    if (isStroke) html += '<th>Gross</th>';
+    html += '</tr></thead><tbody>';
+
+    standings.forEach((row, idx) => {
+      html += `<tr${idx===0?' style="background:rgba(212,168,67,0.06);"':''}>
+        <td style="text-align:left;font-weight:${idx===0?'700':'500'};color:${idx===0?'var(--gold)':''};">
+          ${row.position}. ${row.name}
+        </td>
+        <td style="color:var(--muted);">${row.currentHcp}</td>`;
+      rounds.filter(r=>r.status==='completed').forEach(r => {
+        const rr = row.roundResults.find(x => x.roundId === r.id);
+        html += `<td>${rr?.absent?'—':isStroke?(rr?.net??'—'):(rr?.pts??'—')}</td>`;
+      });
+      html += `<td style="font-weight:700;color:${isStroke?'var(--green)':'var(--gold)'};">${row.total||'—'}</td>`;
+      if (isStroke) html += `<td style="color:var(--muted);">${row.totalGross||'—'}</td>`;
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('tview-standings').innerHTML = html;
+  } catch (err) {
+    document.getElementById('tview-standings').innerHTML =
+      `<div class="history-empty">Could not load tournament: ${err.message}</div>`;
+  }
+}
+
+// ----------------------------------------------------------------
+// SAVE TOURNAMENT SCORES after round completes
+// ----------------------------------------------------------------
+async function saveTournamentScores() {
+  if (!gameState?.tournamentId || !gameState?.tournamentRoundId) return;
+  try {
+    const players   = activeTournPlayers.filter(p => !p.excluded);
+    const tRoundId  = gameState.tournamentRoundId;
+    const format    = activeTournament.format;
+    const isStroke  = format === 'stroke';
+    const log       = gameState.log ?? [];
+
+    // Calculate scores from game state
+    const scores = setup.players.map((sp, i) => {
+      const gross = log.reduce((s, e) => s + (e.grosses?.[i] ?? 0), 0);
+      const net   = isStroke ? (gameState.totals?.[i] ?? 0) : null;
+      const pts   = !isStroke ? (gameState.totals?.[i] ?? 0) : null;
+      return {
+        tournamentPlayerId: sp.tournamentPlayerId,
+        gross, net, points: pts,
+        hcpUsed: sp.hcpIndex,
+        absent:  false,
+      };
+    });
+
+    // Handle absent players (those not in this group)
+    const playingIds = new Set(setup.players.map(p => p.tournamentPlayerId).filter(Boolean));
+    const absentScores = players
+      .filter(p => !playingIds.has(p.id))
+      .map(p => ({
+        tournamentPlayerId: p.id,
+        gross: isStroke ? absentStrokeScore(scores) : null,
+        net:   isStroke ? absentStrokeScore(scores) : null,
+        points: !isStroke ? 0 : null,
+        hcpUsed: p.current_hcp,
+        absent: true,
+      }));
+
+    await tournamentScoresSave(tRoundId, [...scores, ...absentScores]);
+    await tournamentRoundUpdate(tRoundId, { status: 'completed' });
+
+    // Reload standings
+    activeTournRounds   = await tournamentRoundsLoad(activeTournament.id);
+    activeTournAllScores = await tournamentAllScoresLoad(activeTournament.id);
+  } catch (err) {
+    console.error('saveTournamentScores error', err);
+  }
+}
