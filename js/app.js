@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD — app.js  (v3.1 · build 20260604-02)
+// LEADERBOARD - app.js  (v3.1 · build 20260604-02)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -95,7 +95,7 @@ function setMsg(id, msg, isError = false) {
 function clearMsg(id) { setMsg(id, ''); }
 
 function fmtHandicap(h) {
-  if (h == null || h === '') return '—';
+  if (h == null || h === '') return '--';
   return parseFloat(h).toFixed(1);
 }
 
@@ -176,7 +176,7 @@ async function boot() {
   const tournViewId = params.get('tournament');
 
   if (tournViewId) {
-    // Public tournament view — no auth needed
+    // Public tournament view - no auth needed
     await handleTournamentViewLink(tournViewId);
     return;
   }
@@ -380,7 +380,7 @@ function showFormatPicker(category) {
 document.getElementById('setup-format-back')?.addEventListener('click', () => showHome());
 
 // ================================================================
-// SETUP — STEP 1: COURSE
+// SETUP -- STEP 1: COURSE
 // ================================================================
 function startSetup() {
   const fmt = setup.scoring;
@@ -395,7 +395,7 @@ function startSetup() {
 
 function populateCourseSelect() {
   const sel = document.getElementById('setup-course-select');
-  sel.innerHTML = '<option value="">— Select course —</option>';
+  sel.innerHTML = '<option value="">-- Select course --</option>';
   allCourses.forEach(c => {
     const opt = document.createElement('option');
     opt.value = c.id;
@@ -538,7 +538,7 @@ document.getElementById('btn-setup-course-next')?.addEventListener('click', () =
 });
 
 // ================================================================
-// SETUP — STEP 2: PLAYERS
+// SETUP -- STEP 2: PLAYERS
 // ================================================================
 function buildPlayerForms() {
   const container = document.getElementById('setup-player-groups');
@@ -720,7 +720,7 @@ document.getElementById('btn-setup-players-next')?.addEventListener('click', () 
 });
 
 // ================================================================
-// SETUP — STEP 3: REVIEW
+// SETUP -- STEP 3: REVIEW
 // ================================================================
 function buildSetupReview() {
   const course = allCourses.find(c => c.id === setup.courseId);
@@ -731,8 +731,8 @@ function buildSetupReview() {
   let html = `
     <div style="display:grid;gap:0.35rem;font-size:0.82rem;margin-bottom:0.75rem;">
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Format</span><span>${fmtLabel(setup.scoring)}</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Course</span><span>${course?.name ?? '—'}</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Tees</span><span>${tee?.name ?? '—'}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Course</span><span>${course?.name ?? '--'}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Tees</span><span>${tee?.name ?? '--'}</span></div>
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Holes</span><span>${count === 18 ? '18' : count === 9 && offset === 0 ? 'Front 9' : 'Back 9'}</span></div>
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">HCP Allowance</span><span>${setup.hcpPct}%</span></div>
     </div>
@@ -951,7 +951,7 @@ function renderTotalsBar() {
 
   bar.classList.remove('hidden');
 
-  // For best2 — show group total prominently below individual scores
+  // For best2 -- show group total prominently below individual scores
   const groupBanner = document.getElementById('game-group-total-banner');
   if (fmt === 'best2' && groupBanner) {
     const groupTotal = gameState.groupTotal ?? 0;
@@ -1078,7 +1078,7 @@ function renderHolePanel() {
       });
     });
   } else if (isPairs) {
-    // Better ball / CSM — show pair groupings
+    // Better ball / CSM -- show pair groupings
     [[[0,1],'A','psl-a'], [[2,3],'B','psl-b']].forEach(([pis, label, cls]) => {
       const pairHeader = document.createElement('div');
       pairHeader.className = 'pair-section';
@@ -1274,9 +1274,9 @@ function renderLeaderboard() {
       </td>
       <td>${row.group}</td>
       <td>${row.holesPlayed}</td>
-      <td>${row.gross || '—'}</td>
-      ${isStroke     ? `<td style="color:var(--green);font-weight:600;">${row.net ?? '—'}</td>` : ''}
-      ${isStableford ? `<td style="color:var(--gold);font-weight:700;">${row.pts ?? '—'}</td>` : ''}
+      <td>${row.gross || '--'}</td>
+      ${isStroke     ? `<td style="color:var(--green);font-weight:600;">${row.net ?? '--'}</td>` : ''}
+      ${isStableford ? `<td style="color:var(--gold);font-weight:700;">${row.pts ?? '--'}</td>` : ''}
       <td style="color:var(--muted);font-size:0.75rem;">${row.hcp}</td>
     </tr>`;
   });
@@ -1315,7 +1315,7 @@ function flashHoleResult(holeIdx) {
     ).join('  ·  ');
   } else if (['match','betterball','csm','foursomes','greensomes'].includes(fmt)) {
     const ms = gameState.matchScore ?? 0;
-    if (ms === 0) { msg = `<span style="color:var(--green);font-weight:600;">Hole halved — All Square</span>`; }
+    if (ms === 0) { msg = `<span style="color:var(--green);font-weight:600;">Hole halved -- All Square</span>`; }
     else {
       const up    = Math.abs(ms);
       const ldrName = ms > 0
@@ -1332,7 +1332,7 @@ function flashHoleResult(holeIdx) {
     }
   } else if (fmt === 'skins') {
     if (entry.winner === -1) {
-      msg = `<span style="color:var(--green);font-weight:600;">Halved — skins carry</span><span style="font-size:0.68rem;color:var(--muted);display:block;margin-top:2px;">Next hole worth <b style="color:var(--gold)">${gameState.pot}</b> skins</span>`;
+      msg = `<span style="color:var(--green);font-weight:600;">Halved -- skins carry</span><span style="font-size:0.68rem;color:var(--muted);display:block;margin-top:2px;">Next hole worth <b style="color:var(--gold)">${gameState.pot}</b> skins</span>`;
     } else {
       const w = entry.winner;
       msg = `<span style="color:${pHex(w)};font-weight:600;">${gameState.names[w]} wins ${entry.potWon} skin${entry.potWon !== 1 ? 's' : ''}! 🏆</span>`;
@@ -1346,7 +1346,7 @@ function flashHoleResult(holeIdx) {
       msg = `<span style="color:${pHex(entry.newChair)};font-weight:600;">${gameState.names[entry.newChair]} takes the chair 🪑</span><span style="font-size:0.68rem;color:var(--muted);display:block;margin-top:2px;">Win again to score</span>`;
       bg = 'rgba(91,163,217,0.07)'; border = 'rgba(91,163,217,0.25)';
     } else {
-      msg = `<span style="color:var(--green);font-weight:600;">Halved — chair empty</span>`;
+      msg = `<span style="color:var(--green);font-weight:600;">Halved -- chair empty</span>`;
     }
   } else if (fmt === 'split6') {
     const pts = entry.holePts;
@@ -1368,7 +1368,7 @@ function flashHoleResult(holeIdx) {
 // ----------------------------------------------------------------
 function renderScorecardOverlay() {
   document.getElementById('sc-overlay-title').textContent =
-    `${gameState.courseName} — ${gameState.teeName}`;
+    `${gameState.courseName} -- ${gameState.teeName}`;
   document.getElementById('sc-overlay-sub').textContent =
     `${fmtLabel(gameState.format)} · ${gameState.log?.length ?? 0} holes played`;
   document.getElementById('sc-overlay-body').innerHTML = buildScorecardHTML(gameState);
@@ -1553,9 +1553,9 @@ function buildScorecardHTML(state) {
     html += `<tr><td style="color:var(--muted);font-size:0.72rem;">${row.holeDisplay}</td><td style="font-size:0.72rem;">${row.par}</td><td style="font-size:0.72rem;color:var(--muted);">${row.si}</td>`;
     row.players.forEach((p, pi) => {
       const won = p.won || p.isBest;
-      html += `<td style="font-size:0.85rem;font-weight:${won ? '700' : '500'};color:${won ? pHex(pi) : ''};">${p.gross ?? '—'}</td>`;
-      if (fmt === 'stableford') html += `<td class="sc-pts" style="font-size:0.85rem;font-weight:600;">${p.pts ?? '—'}</td>`;
-      if (fmt === 'stroke')     html += `<td class="sc-net" style="font-size:0.85rem;font-weight:600;">${p.net ?? '—'}</td>`;
+      html += `<td style="font-size:0.85rem;font-weight:${won ? '700' : '500'};color:${won ? pHex(pi) : ''};">${p.gross ?? '--'}</td>`;
+      if (fmt === 'stableford') html += `<td class="sc-pts" style="font-size:0.85rem;font-weight:600;">${p.pts ?? '--'}</td>`;
+      if (fmt === 'stroke')     html += `<td class="sc-net" style="font-size:0.85rem;font-weight:600;">${p.net ?? '--'}</td>`;
     });
     if (row.matchStr) { runMatch += (row.result ?? 0); html += `<td class="sc-match">${row.matchStr}</td>`; }
     if (row.extra)    html += `<td style="color:var(--gold);font-size:0.7rem;">${row.extra}</td>`;
@@ -1613,7 +1613,7 @@ function showProfile() {
 
 function populateProfileCourseSelect() {
   const sel = document.getElementById('prof-course-select');
-  sel.innerHTML = '<option value="">— None —</option>';
+  sel.innerHTML = '<option value="">-- None --</option>';
   allCourses.forEach(c => {
     const opt = document.createElement('option');
     opt.value = c.id; opt.textContent = c.name;
@@ -1698,7 +1698,7 @@ async function loadFriendRequests() {
 async function renderFriendsList() {
   const listEl = document.getElementById('friends-list');
   if (!allFriends.length) {
-    listEl.innerHTML = '<div class="history-empty">No friends yet — add one above.</div>';
+    listEl.innerHTML = '<div class="history-empty">No friends yet -- add one above.</div>';
     return;
   }
   listEl.innerHTML = allFriends.map(f => {
@@ -1844,14 +1844,14 @@ async function loadHistory() {
     listEl.innerHTML = filtered.map(r => {
       const date = r.completed_at
         ? new Date(r.completed_at).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' })
-        : '—';
+        : '--';
       const state   = r.game_state;
       const summary = state ? getResultSummary(state) : null;
       return `
         <div class="history-item" data-rid="${r.id}">
           <div class="hi-icon">⛳</div>
           <div class="hi-body">
-            <div class="hi-date">${date} · ${r.course_name ?? '—'}</div>
+            <div class="hi-date">${date} · ${r.course_name ?? '--'}</div>
             <div class="hi-title">${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees</div>
             ${summary?.winner ? `<div class="hi-winner">🏆 ${summary.winner}</div>` : ''}
           </div>
@@ -1873,7 +1873,7 @@ document.getElementById('history-back')?.addEventListener('click', () => showHom
 function showHistoryDetail(rid, rounds) {
   const r = rounds.find(x => x.id === rid); if (!r) return;
   const state = r.game_state;
-  document.getElementById('hd-title').textContent = `${r.course_name ?? '—'} · ${fmtLabel(r.game_format)}`;
+  document.getElementById('hd-title').textContent = `${r.course_name ?? '--'} · ${fmtLabel(r.game_format)}`;
   if (state) {
     const summary = getResultSummary(state);
     document.getElementById('hd-result').innerHTML = `
@@ -2013,7 +2013,7 @@ function renderCwizHole() {
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
         <div style="width:12px;height:12px;border-radius:50%;background:${t.color};flex-shrink:0;"></div>
         <div style="font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);">
-          ${t.name} Tee — SI <span style="color:var(--gold);">${cwiz.holes[h].si[t.name] ?? '?'}</span>
+          ${t.name} Tee -- SI <span style="color:var(--gold);">${cwiz.holes[h].si[t.name] ?? '?'}</span>
         </div>
       </div>
       <div class="si-picker">
@@ -2188,7 +2188,7 @@ async function showTournaments() {
   try {
     const tournaments = await tournamentsLoad(currentUser.id);
     if (!tournaments.length) {
-      list.innerHTML = '<div class="history-empty">No tournaments yet — create one above.</div>';
+      list.innerHTML = '<div class="history-empty">No tournaments yet -- create one above.</div>';
       return;
     }
     list.innerHTML = tournaments.map(t => `
@@ -2213,7 +2213,7 @@ async function showTournaments() {
 }
 
 // ----------------------------------------------------------------
-// TOURNAMENT SETUP — STEP 1: DETAILS
+// TOURNAMENT SETUP -- STEP 1: DETAILS
 // ----------------------------------------------------------------
 function showTournamentSetup() {
   document.getElementById('tourn-name').value      = '';
@@ -2233,7 +2233,7 @@ document.getElementById('btn-tourn-setup-next')?.addEventListener('click', () =>
 });
 
 // ----------------------------------------------------------------
-// TOURNAMENT SETUP — STEP 2: PLAYERS
+// TOURNAMENT SETUP -- STEP 2: PLAYERS
 // ----------------------------------------------------------------
 let tournSetupPlayers = []; // [{name, hcp, profileId}]
 
@@ -2403,15 +2403,15 @@ function renderTournamentStandings() {
 
     activeTournRounds.filter(r => r.status === 'completed').forEach(r => {
       const rr = row.roundResults.find(x => x.roundId === r.id);
-      const val = rr?.absent ? '—' : isStroke ? (rr?.net ?? '—') : (rr?.pts ?? '—');
+      const val = rr?.absent ? '--' : isStroke ? (rr?.net ?? '--') : (rr?.pts ?? '--');
       html += `<td>${val}</td>`;
     });
 
     if (isStroke) {
-      html += `<td style="color:var(--green);font-weight:600;">${row.total || '—'}</td>
-               <td style="color:var(--muted);">${row.totalGross || '—'}</td>`;
+      html += `<td style="color:var(--green);font-weight:600;">${row.total || '--'}</td>
+               <td style="color:var(--muted);">${row.totalGross || '--'}</td>`;
     } else {
-      html += `<td style="color:var(--gold);font-weight:700;">${row.total || '—'}</td>`;
+      html += `<td style="color:var(--gold);font-weight:700;">${row.total || '--'}</td>`;
     }
     html += '</tr>';
   });
@@ -2431,7 +2431,7 @@ function renderTournamentRoundsList() {
         : `<span class="badge badge-green">IN PROGRESS</span>`;
 
     const sub = r
-      ? `${r.course_name ?? '—'} · ${r.tee_name ?? ''} · ${r.date ? new Date(r.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : ''}`
+      ? `${r.course_name ?? '--'} · ${r.tee_name ?? ''} · ${r.date ? new Date(r.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : ''}`
       : 'Not started';
 
     return `
@@ -2476,7 +2476,7 @@ async function showTournamentRoundSetup() {
 
   // Course dropdown
   const coursesSel = document.getElementById('tround-course-select');
-  coursesSel.innerHTML = '<option value="">— Select course —</option>';
+  coursesSel.innerHTML = '<option value="">-- Select course --</option>';
   allCourses.forEach(c => {
     const opt = document.createElement('option');
     opt.value = c.id; opt.textContent = c.name;
@@ -2512,7 +2512,7 @@ async function showTournamentRoundSetup() {
     await showAutoHcpAdjustment();
   }
 
-  // Groups — restore or build default
+  // Groups -- restore or build default
   const groupsSel = document.getElementById('tround-num-groups');
   if (saved?.groups?.length) {
     tournGroups = saved.groups;
@@ -2989,9 +2989,9 @@ function renderTliveRound() {
       </td>
       <td>${row.group}</td>
       <td>${row.holesPlayed}</td>
-      <td>${row.gross||'—'}</td>
-      ${isStroke?`<td style="color:var(--green);font-weight:600;">${row.net??'—'}</td>`:''}
-      ${isStableford?`<td style="color:var(--gold);font-weight:700;">${row.pts??'—'}</td>`:''}
+      <td>${row.gross||'--'}</td>
+      ${isStroke?`<td style="color:var(--green);font-weight:600;">${row.net??'--'}</td>`:''}
+      ${isStableford?`<td style="color:var(--gold);font-weight:700;">${row.pts??'--'}</td>`:''}
     </tr>`;
   });
   html += '</tbody></table>';
@@ -3016,8 +3016,8 @@ function renderTliveTournament() {
         ${row.position}. ${row.name}
       </td>
       <td style="color:var(--muted);">${row.currentHcp}</td>
-      <td style="font-weight:600;color:${isStroke?'var(--green)':'var(--gold)'};">${row.total||'—'}</td>
-      ${isStroke?`<td style="color:var(--muted);">${row.totalGross||'—'}</td>`:''}
+      <td style="font-weight:600;color:${isStroke?'var(--green)':'var(--gold)'};">${row.total||'--'}</td>
+      ${isStroke?`<td style="color:var(--muted);">${row.totalGross||'--'}</td>`:''}
     </tr>`;
   });
   html += '</tbody></table>';
@@ -3061,10 +3061,10 @@ async function handleTournamentViewLink(tournamentId) {
         <td style="color:var(--muted);">${row.currentHcp}</td>`;
       rounds.filter(r=>r.status==='completed').forEach(r => {
         const rr = row.roundResults.find(x => x.roundId === r.id);
-        html += `<td>${rr?.absent?'—':isStroke?(rr?.net??'—'):(rr?.pts??'—')}</td>`;
+        html += `<td>${rr?.absent?'--':isStroke?(rr?.net??'--'):(rr?.pts??'--')}</td>`;
       });
-      html += `<td style="font-weight:700;color:${isStroke?'var(--green)':'var(--gold)'};">${row.total||'—'}</td>`;
-      if (isStroke) html += `<td style="color:var(--muted);">${row.totalGross||'—'}</td>`;
+      html += `<td style="font-weight:700;color:${isStroke?'var(--green)':'var(--gold)'};">${row.total||'--'}</td>`;
+      if (isStroke) html += `<td style="color:var(--muted);">${row.totalGross||'--'}</td>`;
       html += '</tr>';
     });
     html += '</tbody></table>';
