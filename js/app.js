@@ -2567,56 +2567,61 @@ function renderTournGroupsUI(numGroups) {
   const container = document.getElementById('tround-groups-container');
   container.innerHTML = tournGroups.map((g, gi) => `
     <div class="group-block" id="tgroup-${gi}" style="margin-bottom:0.5rem;">
-      <div class="group-label">Group ${g.groupNumber}
-        <span style="font-size:0.65rem;color:var(--muted);font-weight:400;margin-left:4px;">
-          (drag players between groups)
-        </span>
-      </div>
-      <div class="tgroup-players" data-group="${gi}" style="min-height:40px;">
+      <div class="group-label">Group ${g.groupNumber}</div>
+      <div class="tgroup-players" data-group="${gi}">
         ${g.players.map(pid => {
           const p = players.find(x => x.id === pid);
           if (!p) return '';
-          return `<div class="player-slot" draggable="true" data-pid="${pid}"
-            style="display:flex;align-items:center;gap:0.5rem;cursor:grab;user-select:none;">
-            <span style="font-size:0.9rem;">⠿</span>
-            <span style="flex:1;font-size:0.85rem;">${p.name}</span>
-            <span style="font-size:0.72rem;color:var(--muted);">HCP ${p.current_hcp}</span>
-            <label style="display:flex;align-items:center;gap:4px;font-size:0.65rem;color:var(--muted);">
-              <input type="checkbox" class="scorer-check" data-pid="${pid}" data-gi="${gi}"
-                style="width:14px;height:14px;accent-color:var(--gold);">
-              Scorer
-            </label>
+          const isScorer = p.isGroupScorer;
+          return `<div class="player-slot" data-pid="${pid}"
+            style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
+            <span style="flex:1;font-size:0.85rem;">${p.name}
+              <span style="font-size:0.7rem;color:var(--muted);"> HCP ${p.current_hcp}</span>
+            </span>
+            <button class="btn btn-ghost scorer-btn" data-pid="${pid}" data-gi="${gi}"
+              style="padding:0.2rem 0.5rem;font-size:0.7rem;${isScorer?'color:var(--gold);border-color:var(--gold-border);':''}">
+              ${isScorer ? '✓ Scorer' : 'Scorer'}
+            </button>
+            ${numGroups > 1 ? `
+            <select class="move-group-sel" data-pid="${pid}"
+              style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+                     padding:0.2rem 0.4rem;color:var(--white);font-size:0.7rem;max-width:80px;">
+              ${Array.from({length:numGroups},(_,i)=>`<option value="${i}"${i===gi?' selected':''}>Grp ${i+1}</option>`).join('')}
+            </select>` : ''}
           </div>`;
         }).join('')}
       </div>
     </div>`).join('');
 
-  // Drag and drop
-  setupGroupDragDrop();
-}
-
-function setupGroupDragDrop() {
-  let draggedPid = null;
-
-  document.querySelectorAll('[draggable="true"][data-pid]').forEach(el => {
-    el.addEventListener('dragstart', e => {
-      draggedPid = el.dataset.pid;
-      e.dataTransfer.effectAllowed = 'move';
+  // Wire up scorer buttons
+  container.querySelectorAll('.scorer-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pid = btn.dataset.pid;
+      const gi  = parseInt(btn.dataset.gi);
+      // Clear scorer for all in this group
+      tournGroups[gi].players.forEach(p => {
+        const player = activeTournPlayers.find(x => x.id === p);
+        if (player) player.isGroupScorer = false;
+      });
+      // Set this player as scorer
+      const player = activeTournPlayers.find(x => x.id === pid);
+      if (player) player.isGroupScorer = true;
+      renderTournGroupsUI(numGroups);
     });
   });
 
-  document.querySelectorAll('.tgroup-players').forEach(zone => {
-    zone.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
-    zone.addEventListener('drop', e => {
-      e.preventDefault();
-      if (!draggedPid) return;
-      const targetGi = parseInt(zone.dataset.group);
+  // Wire up move-to-group selects
+  container.querySelectorAll('.move-group-sel').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const pid       = sel.dataset.pid;
+      const targetGi  = parseInt(sel.value);
       // Remove from current group
-      tournGroups.forEach(g => { g.players = g.players.filter(p => p !== draggedPid); });
+      tournGroups.forEach(g => { g.players = g.players.filter(p => p !== pid); });
       // Add to target group
-      tournGroups[targetGi].players.push(draggedPid);
-      draggedPid = null;
-      renderTournGroupsUI(tournGroups.length);
+      if (!tournGroups[targetGi].players.includes(pid)) {
+        tournGroups[targetGi].players.push(pid);
+      }
+      renderTournGroupsUI(numGroups);
     });
   });
 }
