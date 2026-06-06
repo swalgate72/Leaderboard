@@ -2173,7 +2173,6 @@ let activeTournRound    = null; // the round currently being set up or played
 let tournRealtimeCh     = null;
 let tournGroups         = [];   // [{groupNumber, players: [playerIds]}]
 
-const APP_URL = 'https://leaderboard-ten-wheat.vercel.app';
 
 // ----------------------------------------------------------------
 // HOME → TOURNAMENT LIST
