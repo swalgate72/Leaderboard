@@ -2467,22 +2467,38 @@ async function showTournamentRoundSetup() {
   document.getElementById('tround-title').textContent =
     `Round ${roundNumber} of ${activeTournament.num_rounds}`;
 
-  // Set today's date as default
-  document.getElementById('tround-date').value =
-    new Date().toISOString().split('T')[0];
+  // Try to restore previously saved setup state
+  const saved = restoreTroundSetup();
 
-  // Populate course dropdown
+  // Date
+  document.getElementById('tround-date').value =
+    saved?.date ?? new Date().toISOString().split('T')[0];
+
+  // Course dropdown
   const coursesSel = document.getElementById('tround-course-select');
   coursesSel.innerHTML = '<option value="">— Select course —</option>';
   allCourses.forEach(c => {
     const opt = document.createElement('option');
     opt.value = c.id; opt.textContent = c.name;
-    if (activeTournRound?.course_name === c.name) opt.selected = true;
+    const matchSaved = saved?.courseId && c.id === saved.courseId;
+    const matchRound = !saved && activeTournRound?.course_name === c.name;
+    if (matchSaved || matchRound) opt.selected = true;
     coursesSel.appendChild(opt);
   });
-  document.getElementById('tround-tee-wrap').style.display = 'none';
 
-  // Show handicap adjustment card if mode is 'adjustable'
+  // Tee dropdown
+  const teeWrap = document.getElementById('tround-tee-wrap');
+  const teeSel  = document.getElementById('tround-tee-select');
+  const savedCourse = allCourses.find(c => c.id === (saved?.courseId ?? ''));
+  if (savedCourse) {
+    teeSel.innerHTML = (savedCourse.tees ?? []).map(t =>
+      `<option value="${t.name}"${t.name === saved?.teeName ? ' selected' : ''}>${t.name}</option>`).join('');
+    teeWrap.style.display = '';
+  } else {
+    teeWrap.style.display = 'none';
+  }
+
+  // Handicap card
   const hcpCard = document.getElementById('tround-hcp-card');
   if (activeTournament.hcp_mode === 'adjustable' && roundNumber > 1) {
     hcpCard.style.display = '';
@@ -2491,13 +2507,23 @@ async function showTournamentRoundSetup() {
     hcpCard.style.display = 'none';
   }
 
-  // If auto mode and previous round complete, show adjustment modal first
+  // Auto HCP adjustment modal
   if (activeTournament.hcp_mode === 'auto' && completedRounds > 0) {
     await showAutoHcpAdjustment();
   }
 
-  // Build groups
-  buildTournGroups(roundNumber);
+  // Groups — restore or build default
+  const groupsSel = document.getElementById('tround-num-groups');
+  if (saved?.groups?.length) {
+    tournGroups = saved.groups;
+    const ng = saved.groups.length;
+    groupsSel.innerHTML = Array.from({length: Math.min(activeTournPlayers.filter(p=>!p.excluded).length, 20)}, (_,i) =>
+      `<option value="${i+1}"${i+1===ng?' selected':''}>${i+1}</option>`).join('');
+    groupsSel.onchange = () => { tournGroups = []; renderTournGroupsUI(parseInt(groupsSel.value)); saveTroundSetup(); };
+    renderTournGroupsUI(ng);
+  } else {
+    buildTournGroups(roundNumber);
+  }
 
   showScreen('screen-tournament-round-setup');
 }
@@ -2514,19 +2540,49 @@ function renderTroundHcpRows() {
 }
 
 // ── Course selection for tournament round ────────────────────────
+// ── Auto-save/restore round setup state ─────────────────────────
+function saveTroundSetup() {
+  if (!activeTournament) return;
+  try {
+    const state = {
+      courseId:  document.getElementById('tround-course-select')?.value ?? '',
+      teeName:   document.getElementById('tround-tee-select')?.value ?? '',
+      date:      document.getElementById('tround-date')?.value ?? '',
+      numGroups: document.getElementById('tround-num-groups')?.value ?? '1',
+      groups:    tournGroups,
+    };
+    localStorage.setItem(`lb-tround-${activeTournament.id}`, JSON.stringify(state));
+  } catch {}
+}
+
+function restoreTroundSetup() {
+  if (!activeTournament) return null;
+  try {
+    const raw = localStorage.getItem(`lb-tround-${activeTournament.id}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function clearTroundSetup() {
+  if (!activeTournament) return;
+  try { localStorage.removeItem(`lb-tround-${activeTournament.id}`); } catch {}
+}
+
 document.getElementById('tround-course-select')?.addEventListener('change', e => {
   const courseId = e.target.value;
   const teeSel   = document.getElementById('tround-tee-select');
   const teeWrap  = document.getElementById('tround-tee-wrap');
-  if (!courseId) { teeWrap.style.display = 'none'; return; }
+  if (!courseId) { teeWrap.style.display = 'none'; saveTroundSetup(); return; }
   const course = allCourses.find(c => c.id === courseId);
   if (!course) return;
   teeSel.innerHTML = (course.tees ?? []).map(t =>
     `<option value="${t.name}">${t.name}</option>`).join('');
   teeWrap.style.display = '';
+  saveTroundSetup();
 });
 
-document.getElementById('tround-add-course-btn')?.addEventListener('click', () => {
+document.getElementById('tround-tee-select') ?.addEventListener('change', () => saveTroundSetup());
+document.getElementById('tround-date')        ?.addEventListener('change', () => saveTroundSetup());
   cwiz.returnTo = 'tournament-round'; openCourseWizard(null);
 });
 
@@ -2543,6 +2599,7 @@ function buildTournGroups(roundNumber) {
   groupsSel.onchange = () => {
     tournGroups = []; // force rebuild with new group count
     renderTournGroupsUI(parseInt(groupsSel.value));
+    saveTroundSetup();
   };
 
   renderTournGroupsUI(numGroups);
@@ -2661,6 +2718,7 @@ function renderTournGroupsUI(numGroups) {
 
     tournGroups = newGroups;
     renderTournGroupsUI(numGroups);
+    saveTroundSetup();
   });
 }
 
