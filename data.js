@@ -735,3 +735,52 @@ export function realtimeSubscribeTournament(tournamentId, onUpdate) {
     }, onUpdate)
     .subscribe();
 }
+
+// ================================================================
+// SCORE CHALLENGES
+// ================================================================
+
+export async function challengeCreate({ roundId, challengerId, challengerName, holeNumber }) {
+  const { data, error } = await sb
+    .from('score_challenges')
+    .insert({
+      round_id:         roundId,
+      challenger_id:    challengerId,
+      challenger_name:  challengerName,
+      hole_number:      holeNumber,
+      status:           'pending',
+    })
+    .select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function challengeUpdate(id, status) {
+  const { error } = await sb
+    .from('score_challenges')
+    .update({ status })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function challengesLoadPending(roundId) {
+  const { data, error } = await sb
+    .from('score_challenges')
+    .select('*')
+    .eq('round_id', roundId)
+    .eq('status', 'pending')
+    .order('created_at');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export function realtimeSubscribeChallenges(roundId, onChallenge) {
+  return sb.channel(`challenges:${roundId}`)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'score_challenges',
+      filter: `round_id=eq.${roundId}`,
+    }, payload => onChallenge(payload.new))
+    .subscribe();
+}

@@ -379,6 +379,11 @@
 
     <!-- Result flash (permanent bar - no layout shift) -->
     <div id="result-flash" class="result-flash result-flash-permanent">&#8203;</div>
+    <!-- Challenge banner (slides in when challenge received) -->
+    <div id="challenge-banner" class="hidden"
+      style="background:rgba(212,168,67,0.12);border-bottom:1px solid var(--gold-border);
+             padding:0.6rem 1rem;display:flex;align-items:center;gap:0.5rem;
+             font-size:0.82rem;color:var(--white);flex-wrap:wrap;"></div>
 
   </div><!-- /game-sticky-top -->
 
@@ -1064,6 +1069,42 @@
     <div class="hint mb-md">Based on last round performance vs field average.</div>
     <div id="hcp-adjust-rows" style="margin-bottom:1rem;"></div>
     <button class="btn btn-green" id="btn-hcp-adjust-confirm">APPLY & CONTINUE →</button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     HOLE EDIT MODAL
+     ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-hole-edit">
+  <div class="modal-box" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title" id="hole-edit-title">Edit Hole Score</div>
+      <button class="btn-close" id="btn-hole-edit-cancel">✕</button>
+    </div>
+    <div class="hint mb-md">Adjust the scores for this hole. All subsequent holes will be recalculated.</div>
+    <div id="hole-edit-inputs" style="margin-bottom:1rem;"></div>
+    <button class="btn btn-green" id="btn-hole-edit-confirm" style="width:100%;">
+      RECALCULATE →
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     HOLE EDIT DIFF MODAL
+     ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-hole-edit-diff">
+  <div class="modal-box" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title">Confirm Changes</div>
+    </div>
+    <div id="hole-edit-diff-content"
+      style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+             padding:0.75rem;margin-bottom:1rem;font-size:0.82rem;line-height:1.6;"></div>
+    <div class="two-col">
+      <button class="btn btn-outline" id="btn-hole-edit-diff-cancel">Cancel</button>
+      <button class="btn btn-green"   id="btn-hole-edit-diff-confirm">Apply Changes</button>
+    </div>
   </div>
 </div>
 
