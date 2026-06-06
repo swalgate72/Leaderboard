@@ -21,6 +21,7 @@ import {
   tournamentRoundsLoad, tournamentRoundCreate, tournamentRoundUpdate,
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
+  challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
 } from '../data.js';
 
 import {
@@ -824,6 +825,7 @@ async function teeOff() {
   // Other groups sync via realtime
   gameState = groupStates[0];
   gameState.allGroupStates = groupStates;
+  gameState.organiserId    = currentUser.id;
 
   const btn = document.getElementById('btn-tee-off');
   btn.disabled = true; btn.textContent = 'Starting…';
@@ -1381,7 +1383,13 @@ function renderScorecardOverlay() {
     `${gameState.courseName} -- ${gameState.teeName}`;
   document.getElementById('sc-overlay-sub').textContent =
     `${fmtLabel(gameState.format)} · ${gameState.log?.length ?? 0} holes played`;
-  document.getElementById('sc-overlay-body').innerHTML = buildScorecardHTML(gameState);
+  const isScorer = !gameState?.organiserId || gameState.organiserId === currentUser?.id;
+  document.getElementById('sc-overlay-body').innerHTML = buildScorecardHTML(gameState, {
+    showEdit:      isScorer,
+    showChallenge: !isScorer,
+  });
+  // Wire up challenge buttons for observers
+  if (!isScorer) attachChallengeBtnListeners();
 }
 
 // ----------------------------------------------------------------
@@ -1536,16 +1544,18 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
 // ================================================================
 // SCORECARD TABLE BUILDER
 // ================================================================
-function buildScorecardHTML(state) {
+function buildScorecardHTML(state, opts = {}) {
   const rows = buildScorecardRows(state);
   if (!rows.length) return '<p style="padding:0.5rem;color:var(--muted);">No holes recorded yet.</p>';
 
-  const fmt      = state.format;
-  const names    = state.names;
-  const isPairs  = ['foursomes','greensomes'].includes(fmt);
-  const dispNames = isPairs
+  const fmt        = state.format;
+  const names      = state.names;
+  const isPairs    = ['foursomes','greensomes'].includes(fmt);
+  const dispNames  = isPairs
     ? [`${names[0]} & ${names[1]}`, `${names[2] ?? ''} & ${names[3] ?? ''}`]
     : names;
+  const showEdit   = opts.showEdit ?? false;   // scorer can edit
+  const showChallenge = opts.showChallenge ?? false; // observer can challenge
 
   let html = '<table class="sc-table"><thead><tr>';
   html += '<th style="font-size:0.62rem;">H</th><th style="font-size:0.62rem;">Par</th><th style="font-size:0.62rem;">SI</th>';
@@ -1556,10 +1566,13 @@ function buildScorecardHTML(state) {
   });
   if (['match','betterball','csm','foursomes','greensomes'].includes(fmt)) html += '<th style="font-size:0.62rem;">Match</th>';
   if (['skins','itc','split6'].includes(fmt)) html += '<th style="font-size:0.62rem;">Result</th>';
+  if (showEdit || showChallenge) html += '<th style="font-size:0.62rem;width:28px;"></th>';
   html += '</tr></thead><tbody>';
 
+  const holeOffset = state.holeOffset ?? 0;
   let runMatch = 0;
-  rows.forEach(row => {
+  rows.forEach((row, ri) => {
+    const holeNum = holeOffset + ri + 1;
     html += `<tr><td style="color:var(--muted);font-size:0.72rem;">${row.holeDisplay}</td><td style="font-size:0.72rem;">${row.par}</td><td style="font-size:0.72rem;color:var(--muted);">${row.si}</td>`;
     row.players.forEach((p, pi) => {
       const won = p.won || p.isBest;
@@ -1569,6 +1582,13 @@ function buildScorecardHTML(state) {
     });
     if (row.matchStr) { runMatch += (row.result ?? 0); html += `<td class="sc-match">${row.matchStr}</td>`; }
     if (row.extra)    html += `<td style="color:var(--gold);font-size:0.7rem;">${row.extra}</td>`;
+    if (showEdit) {
+      html += `<td><button class="sc-edit-btn btn btn-ghost" data-hole="${holeNum}"
+        style="padding:0.1rem 0.3rem;font-size:0.7rem;" title="Edit hole ${holeNum}">✏️</button></td>`;
+    } else if (showChallenge) {
+      html += `<td><button class="challenge-hole-btn btn btn-ghost" data-hole="${holeNum}"
+        style="padding:0.1rem 0.3rem;font-size:0.65rem;color:var(--muted);" title="Challenge hole ${holeNum}">⚠️</button></td>`;
+    }
     html += '</tr>';
   });
 
@@ -1590,6 +1610,7 @@ function buildScorecardHTML(state) {
     dispNames.forEach(() => { html += '<td></td>'; });
     if (['match','betterball','csm','foursomes','greensomes'].includes(fmt)) html += '<td></td>';
   }
+  if (showEdit || showChallenge) html += '<td></td>';
   html += '</tr></tbody></table>';
   return html;
 }
@@ -2582,6 +2603,7 @@ document.getElementById('tround-course-select')?.addEventListener('change', e =>
 
 document.getElementById('tround-tee-select') ?.addEventListener('change', () => saveTroundSetup());
 document.getElementById('tround-date')        ?.addEventListener('change', () => saveTroundSetup());
+document.getElementById('tround-add-course-btn')?.addEventListener('click', () => {
   cwiz.returnTo = 'tournament-round'; openCourseWizard(null);
 });
 
@@ -3121,4 +3143,347 @@ async function saveTournamentScores() {
   } catch (err) {
     console.error('saveTournamentScores error', err);
   }
+}
+
+// ================================================================
+// SCORE CHALLENGE SYSTEM
+// ================================================================
+
+let challengeRealtimeCh = null;
+let pendingChallengeId  = null; // challenge being reviewed by scorer
+
+// ── Subscribe to incoming challenges (scorer side) ───────────────
+function subscribeChallenges() {
+  if (!roundId || !currentUser) return;
+  if (challengeRealtimeCh) realtimeUnsubscribe(challengeRealtimeCh);
+  challengeRealtimeCh = realtimeSubscribeChallenges(roundId, onChallengeReceived);
+}
+
+function onChallengeReceived(challenge) {
+  // Only show to scorer (organiser)
+  if (!gameState || !roundId) return;
+  showChallengeBanner(challenge);
+}
+
+function showChallengeBanner(challenge) {
+  const banner = document.getElementById('challenge-banner');
+  if (!banner) return;
+  pendingChallengeId = challenge.id;
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:0.75rem;flex:1;">
+      <span style="font-size:1.1rem;">⚠️</span>
+      <span><strong>${challenge.challenger_name}</strong> is challenging Hole ${challenge.hole_number} score</span>
+    </div>
+    <div style="display:flex;gap:0.4rem;flex-shrink:0;">
+      <button class="btn btn-primary" id="btn-challenge-review"
+        style="padding:0.3rem 0.75rem;font-size:0.78rem;"
+        data-hole="${challenge.hole_number}" data-cid="${challenge.id}">
+        Review
+      </button>
+      <button class="btn btn-ghost" id="btn-challenge-dismiss"
+        style="padding:0.3rem 0.75rem;font-size:0.78rem;"
+        data-cid="${challenge.id}">
+        Dismiss
+      </button>
+    </div>`;
+  banner.classList.remove('hidden');
+
+  document.getElementById('btn-challenge-review')?.addEventListener('click', async () => {
+    banner.classList.add('hidden');
+    const hole = parseInt(document.getElementById('btn-challenge-review').dataset.hole);
+    await challengeUpdate(challenge.id, 'accepted');
+    openHoleEdit(hole);
+  });
+
+  document.getElementById('btn-challenge-dismiss')?.addEventListener('click', async () => {
+    banner.classList.add('hidden');
+    await challengeUpdate(challenge.id, 'dismissed');
+  });
+}
+
+// ── Observer challenge button (in scorecard overlay) ─────────────
+function renderScorecardWithChallenges(state) {
+  const isScorer = currentUser?.id === state?.organiserId;
+  const rows     = buildScorecardRows(state);
+  const fmt      = state.format;
+
+  let html = buildScorecardHTML(state);
+
+  // If observer (not scorer) and round is active, add challenge buttons
+  if (!isScorer && state.status !== 'completed') {
+    // Replace the scorecard HTML with one that has challenge buttons per row
+    const log = state.log ?? [];
+    const holeOffset = state.holeOffset ?? 0;
+
+    html += `<div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:0.75rem;">
+      <div style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;
+                  color:var(--muted);margin-bottom:0.5rem;">Challenge a Score</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:0.35rem;">
+        ${log.map((e, i) => `
+          <button class="btn btn-outline challenge-hole-btn" data-hole="${holeOffset + i + 1}"
+            style="padding:0.3rem 0.4rem;font-size:0.75rem;">
+            H${holeOffset + i + 1}
+          </button>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  return html;
+}
+
+// ── Wire up challenge buttons in scorecard overlay ────────────────
+function attachChallengeBtnListeners() {
+  document.querySelectorAll('.challenge-hole-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const hole = parseInt(btn.dataset.hole);
+      if (!confirm(`Challenge the score recorded for Hole ${hole}?`)) return;
+      try {
+        const myName = currentProfile
+          ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+          : 'A player';
+        await challengeCreate({
+          roundId:       roundId,
+          challengerId:  currentUser.id,
+          challengerName: myName,
+          holeNumber:    hole,
+        });
+        btn.textContent = 'Sent!';
+        btn.disabled = true;
+        btn.style.color = 'var(--green)';
+      } catch (err) {
+        alert('Could not send challenge: ' + err.message);
+      }
+    });
+  });
+}
+
+// ── Hole edit mode (scorer opens specific hole to edit) ───────────
+function openHoleEdit(holeNumber) {
+  const holeOffset = gameState.holeOffset ?? 0;
+  const holeIdx    = holeNumber - holeOffset - 1; // 0-based index in log
+  const log        = gameState.log ?? [];
+
+  if (holeIdx < 0 || holeIdx >= log.length) {
+    alert(`Hole ${holeNumber} has not been played yet.`);
+    return;
+  }
+
+  // Show edit modal
+  const modal = document.getElementById('modal-hole-edit');
+  if (!modal) return;
+
+  const entry = log[holeIdx];
+  const par   = gameState.par[holeIdx];
+  const si    = gameState.si[holeIdx];
+
+  document.getElementById('hole-edit-title').textContent =
+    `Edit Hole ${holeNumber} (Par ${par}, SI ${si})`;
+
+  // Build score inputs for each player
+  const inputsEl = document.getElementById('hole-edit-inputs');
+  inputsEl.innerHTML = gameState.names.map((name, pi) => `
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+      <span style="flex:1;font-size:0.88rem;color:${pHex(pi)};">${name}</span>
+      <div class="counter" style="gap:0.3rem;">
+        <button class="c-btn" data-pi="${pi}" data-dir="-1"
+          style="width:32px;height:32px;font-size:1rem;">-</button>
+        <div class="c-val" id="edit-cv-${pi}"
+          style="width:40px;text-align:center;font-size:1.1rem;font-weight:700;">
+          ${entry.grosses?.[pi] ?? par}
+        </div>
+        <button class="c-btn" data-pi="${pi}" data-dir="1"
+          style="width:32px;height:32px;font-size:1rem;">+</button>
+      </div>
+    </div>`).join('');
+
+  // Wire counter buttons
+  inputsEl.querySelectorAll('.c-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pi    = parseInt(btn.dataset.pi);
+      const valEl = document.getElementById(`edit-cv-${pi}`);
+      let v = parseInt(valEl.textContent) + parseInt(btn.dataset.dir);
+      valEl.textContent = Math.max(1, Math.min(15, v));
+    });
+  });
+
+  // Store which hole we're editing
+  modal.dataset.holeIdx = holeIdx;
+  modal.dataset.holeNumber = holeNumber;
+  modal.classList.add('open');
+}
+
+document.getElementById('btn-hole-edit-confirm')?.addEventListener('click', async () => {
+  const modal    = document.getElementById('modal-hole-edit');
+  const holeIdx  = parseInt(modal.dataset.holeIdx);
+  const holeNum  = parseInt(modal.dataset.holeNumber);
+
+  // Read new scores
+  const newGrosses = gameState.names.map((_, pi) => {
+    return parseInt(document.getElementById(`edit-cv-${pi}`)?.textContent ?? '0');
+  });
+
+  modal.classList.remove('hidden');
+  modal.classList.remove('open');
+
+  // ── CASCADE RECALCULATION ──────────────────────────────────────
+  // Rebuild gameState from scratch up to (but not including) holeIdx
+  // then replay from holeIdx with new grosses, then replay remaining holes
+  const log         = gameState.log ?? [];
+  const originalLog = [...log];
+
+  // Rebuild state up to holeIdx
+  let rebuiltState = buildInitialState({
+    format:          gameState.format,
+    names:           gameState.names,
+    handicapIndexes: gameState.handicapIndexes,
+    playingHandicaps: gameState.playingHandicaps,
+    matchHandicaps:  gameState.matchHandicaps,
+    allowancePct:    gameState.allowancePct ?? 100,
+    si:              gameState.si,
+    par:             gameState.par,
+    numHoles:        gameState.numHoles,
+    holeOffset:      gameState.holeOffset ?? 0,
+    courseName:      gameState.courseName,
+    teeName:         gameState.teeName,
+    tournamentId:    gameState.tournamentId,
+    tournamentRoundId: gameState.tournamentRoundId,
+    groupNumber:     gameState.groupNumber,
+  });
+
+  // Replay holes 0..holeIdx-1 with original scores
+  for (let i = 0; i < holeIdx; i++) {
+    rebuiltState = processHole(rebuiltState, originalLog[i].grosses);
+  }
+
+  // Snapshot totals before edit (for diff)
+  const beforeTotals  = [...(rebuiltState.totals ?? [])];
+  const beforeMatch   = rebuiltState.matchScore ?? 0;
+  const beforeSkins   = [...(rebuiltState.skins ?? [])];
+  const beforeRunning = [...(rebuiltState.runningPts ?? [])];
+
+  // Process the edited hole
+  rebuiltState = processHole(rebuiltState, newGrosses);
+
+  // Replay holes holeIdx+1..end with original scores
+  for (let i = holeIdx + 1; i < originalLog.length; i++) {
+    rebuiltState = processHole(rebuiltState, originalLog[i].grosses);
+  }
+
+  // Preserve allGroupStates reference
+  rebuiltState.allGroupStates = gameState.allGroupStates;
+  rebuiltState.organiserId    = gameState.organiserId;
+
+  // ── DIFF SUMMARY ───────────────────────────────────────────────
+  const fmt      = gameState.format;
+  const isStroke = fmt === 'stroke';
+  const isSkins  = fmt === 'skins';
+  const isITC    = fmt === 'itc';
+  const isMatch  = ['match','betterball','csm','foursomes','greensomes'].includes(fmt);
+  const isS6     = fmt === 'split6';
+
+  let diffLines = [`<div style="font-weight:700;margin-bottom:0.5rem;">Changes after editing Hole ${holeNum}:</div>`];
+
+  gameState.names.forEach((name, pi) => {
+    const newTotal = rebuiltState.totals?.[pi] ?? 0;
+    const oldTotal = beforeTotals[pi] ?? 0;
+    const delta    = newTotal - oldTotal;
+    if (delta !== 0) {
+      const label = isStroke ? 'shots' : 'pts';
+      const sign  = delta > 0 ? '+' : '';
+      const col   = isStroke
+        ? (delta < 0 ? 'var(--green)' : 'var(--red)')
+        : (delta > 0 ? 'var(--green)' : 'var(--red)');
+      diffLines.push(`<div style="color:${col};">${name}: ${oldTotal} -> ${newTotal} (${sign}${delta} ${label})</div>`);
+    }
+  });
+
+  if (isMatch) {
+    const oldM = beforeMatch;
+    const newM = rebuiltState.matchScore ?? 0;
+    if (oldM !== newM) {
+      diffLines.push(`<div>Match score: ${oldM > 0 ? '+' : ''}${oldM} -> ${newM > 0 ? '+' : ''}${newM}</div>`);
+    }
+  }
+
+  if (isSkins) {
+    gameState.names.forEach((name, pi) => {
+      const oldS = beforeSkins[pi] ?? 0;
+      const newS = rebuiltState.skins?.[pi] ?? 0;
+      if (oldS !== newS) {
+        diffLines.push(`<div>${name} skins: ${oldS} -> ${newS}</div>`);
+      }
+    });
+  }
+
+  if (isS6) {
+    gameState.names.forEach((name, pi) => {
+      const oldR = beforeRunning[pi] ?? 0;
+      const newR = rebuiltState.runningPts?.[pi] ?? 0;
+      if (oldR !== newR) {
+        const sign = (newR - oldR) > 0 ? '+' : '';
+        diffLines.push(`<div>${name} running pts: ${oldR} -> ${newR} (${sign}${newR-oldR})</div>`);
+      }
+    });
+  }
+
+  if (diffLines.length === 1) {
+    diffLines.push('<div style="color:var(--muted);">No change to running totals.</div>');
+  }
+
+  // Show diff modal
+  const diffModal = document.getElementById('modal-hole-edit-diff');
+  document.getElementById('hole-edit-diff-content').innerHTML =
+    diffLines.join('');
+  diffModal.dataset.rebuiltState = JSON.stringify({
+    // Store the rebuilt state temporarily
+    _pendingRebuild: true,
+  });
+  // Store in closure
+  diffModal._rebuiltState = rebuiltState;
+  diffModal.classList.add('open');
+});
+
+document.getElementById('btn-hole-edit-cancel')?.addEventListener('click', () => {
+  document.getElementById('modal-hole-edit').classList.remove('open');
+});
+
+document.getElementById('btn-hole-edit-diff-confirm')?.addEventListener('click', async () => {
+  const diffModal   = document.getElementById('modal-hole-edit-diff');
+  const rebuiltState = diffModal._rebuiltState;
+  diffModal.classList.remove('open');
+
+  if (!rebuiltState) return;
+
+  // Apply the rebuilt state
+  gameState = rebuiltState;
+
+  // Save to Supabase
+  await saveRoundState();
+
+  // Re-render game screen
+  renderGameHeader();
+  renderScoreHeader();
+  document.getElementById('result-flash').innerHTML = '&nbsp;';
+
+  alert('Score updated and scorecard recalculated.');
+});
+
+document.getElementById('btn-hole-edit-diff-cancel')?.addEventListener('click', () => {
+  document.getElementById('modal-hole-edit-diff').classList.remove('open');
+});
+
+// ── Scorer self-edit: edit pencil on scorecard ────────────────────
+document.getElementById('scorecard-overlay')?.addEventListener('click', e => {
+  const editBtn = e.target.closest('.sc-edit-btn');
+  if (!editBtn) return;
+  const hole = parseInt(editBtn.dataset.hole);
+  document.getElementById('scorecard-overlay').classList.remove('open');
+  openHoleEdit(hole);
+});
+
+// Subscribe to challenges when entering game screen
+const _origEnterGameScreen = enterGameScreen;
+function enterGameScreen() {
+  _origEnterGameScreen();
+  subscribeChallenges();
 }
