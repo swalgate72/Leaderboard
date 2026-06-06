@@ -2540,7 +2540,10 @@ function buildTournGroups(roundNumber) {
   groupsSel.innerHTML = Array.from({ length: Math.min(numPlayers, 20) }, (_, i) =>
     `<option value="${i+1}"${i+1 === numGroups ? ' selected' : ''}>${i+1}</option>`).join('');
 
-  groupsSel.onchange = () => renderTournGroupsUI(parseInt(groupsSel.value));
+  groupsSel.onchange = () => {
+    tournGroups = []; // force rebuild with new group count
+    renderTournGroupsUI(parseInt(groupsSel.value));
+  };
 
   renderTournGroupsUI(numGroups);
 }
@@ -2549,20 +2552,21 @@ function renderTournGroupsUI(numGroups) {
   const players = activeTournPlayers.filter(p => !p.excluded);
   const ppg     = Math.ceil(players.length / numGroups);
 
-  document.getElementById('tround-ppg').textContent =
-    `~${ppg} per group`;
+  document.getElementById('tround-ppg').textContent = `~${ppg} per group`;
 
-  // Build default groups from standings
-  const standings = buildStandings(
-    activeTournPlayers, activeTournRounds, activeTournAllScores, activeTournament.format
-  );
-  tournGroups = buildDefaultGroups(standings, numGroups, ppg);
+  // Only rebuild default groups if numGroups changed or tournGroups is empty/wrong size
+  if (!tournGroups.length || tournGroups.length !== numGroups) {
+    const standings = buildStandings(
+      activeTournPlayers, activeTournRounds, activeTournAllScores, activeTournament.format
+    );
+    tournGroups = buildDefaultGroups(standings, numGroups, ppg);
 
-  // Ensure all players are assigned
-  const assigned = new Set(tournGroups.flatMap(g => g.players));
-  players.forEach(p => {
-    if (!assigned.has(p.id)) tournGroups[0].players.push(p.id);
-  });
+    // Ensure all players are assigned
+    const assigned = new Set(tournGroups.flatMap(g => g.players));
+    players.forEach(p => {
+      if (!assigned.has(p.id)) tournGroups[0].players.push(p.id);
+    });
+  }
 
   const container = document.getElementById('tround-groups-container');
   container.innerHTML = `
