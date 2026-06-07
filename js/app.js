@@ -1510,7 +1510,7 @@ function showEndRound() {
     podiumEl.appendChild(card);
   }
 
-  document.getElementById('er-scorecard').innerHTML = buildScorecardHTML(gameState);
+  document.getElementById('er-scorecard').innerHTML = buildEndRoundScorecard(gameState);
 }
 
 document.getElementById('btn-back-to-game')?.addEventListener('click', () => {
@@ -1546,6 +1546,77 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
 // ================================================================
 // SCORECARD TABLE BUILDER
 // ================================================================
+// ----------------------------------------------------------------
+// END-ROUND SCORECARD — shows Gross, Net, Points per player
+// ----------------------------------------------------------------
+function buildEndRoundScorecard(state) {
+  const rows    = buildScorecardRows(state);
+  if (!rows.length) return '<p style="color:var(--muted);">No holes recorded.</p>';
+  const fmt     = state.format;
+  const names   = state.names;
+  const isPairs = ['foursomes','greensomes'].includes(fmt);
+  const dispNames = isPairs
+    ? [`${names[0]} & ${names[1]}`, `${names[2]??''} & ${names[3]??''}`]
+    : names;
+  const isStableford = fmt === 'stableford';
+  const isStroke     = fmt === 'stroke';
+  const showPts      = isStableford;
+  const showNet      = isStroke || isStableford;
+
+  // Header
+  let html = '<table class="sc-table" style="width:100%;font-size:0.75rem;"><thead><tr>';
+  html += '<th>H</th><th>Par</th><th>SI</th>';
+  dispNames.forEach((nm, i) => {
+    html += `<th style="color:${pHex(i)};">${nm.split(' ')[0]}</th>`;
+    if (showNet) html += `<th style="color:${pHex(i)};opacity:0.7;">Net</th>`;
+    if (showPts) html += `<th style="color:${pHex(i)};opacity:0.7;">Pts</th>`;
+  });
+  if (['match','betterball','csm','foursomes','greensomes'].includes(fmt)) html += '<th>Match</th>';
+  if (['skins','itc','split6'].includes(fmt)) html += '<th>Result</th>';
+  html += '</tr></thead><tbody>';
+
+  // Rows
+  rows.forEach(row => {
+    html += `<tr>
+      <td style="color:var(--muted);">${row.holeDisplay}</td>
+      <td>${row.par}</td>
+      <td style="color:var(--muted);">${row.si}</td>`;
+    row.players.forEach((p, pi) => {
+      const won = p.won || p.isBest;
+      html += `<td style="font-weight:${won?'700':'500'};color:${won?pHex(pi):''}">${p.gross??'--'}</td>`;
+      if (showNet) html += `<td style="color:var(--muted);">${p.net??'--'}</td>`;
+      if (showPts) html += `<td style="color:var(--gold);font-weight:600;">${p.pts??'--'}</td>`;
+    });
+    if (row.matchStr) html += `<td>${row.matchStr}</td>`;
+    if (row.extra)    html += `<td style="color:var(--gold);font-size:0.7rem;">${row.extra}</td>`;
+    html += '</tr>';
+  });
+
+  // Totals row
+  html += '<tr style="border-top:2px solid var(--border);font-weight:700;"><td colspan="3" style="color:var(--gold);">Total</td>';
+  dispNames.forEach((_, i) => {
+    // Gross total
+    const grossTotal = rows.reduce((s, r) => s + (r.players[i]?.gross ?? 0), 0);
+    html += `<td style="font-weight:700;">${grossTotal||'--'}</td>`;
+    // Net total
+    if (showNet) {
+      const netTotal = isStroke
+        ? (state.totals?.[i] ?? '--')
+        : rows.reduce((s, r) => s + (r.players[i]?.net ?? 0), 0);
+      html += `<td style="color:var(--green);font-weight:700;">${netTotal}</td>`;
+    }
+    // Points total
+    if (showPts) {
+      const ptsTotal = state.totals?.[i] ?? '--';
+      html += `<td style="color:var(--gold);font-weight:700;">${ptsTotal}</td>`;
+    }
+  });
+  if (['match','betterball','csm','foursomes','greensomes'].includes(fmt)) html += '<td></td>';
+  if (['skins','itc','split6'].includes(fmt)) html += '<td></td>';
+  html += '</tr></tbody></table>';
+  return html;
+}
+
 function buildScorecardHTML(state, opts = {}) {
   const rows = buildScorecardRows(state);
   if (!rows.length) return '<p style="padding:0.5rem;color:var(--muted);">No holes recorded yet.</p>';
@@ -1629,15 +1700,29 @@ function showProfile() {
   document.getElementById('prof-mobile').value    = p.mobile        ?? '';
   document.getElementById('prof-hcp').value       = p.hcp           ?? '';
   document.getElementById('prof-whs').value       = p.whs           ?? '';
-  // Privacy checkboxes
-  document.getElementById('prof-share-name-search').checked    = p.share_name           ?? true;
-  document.getElementById('prof-share-name-friends').checked   = p.friends_see_name     ?? true;
-  document.getElementById('prof-share-hcp-search').checked     = p.share_hcp            ?? true;
-  document.getElementById('prof-share-hcp-friends').checked    = p.friends_see_hcp      ?? true;
-  document.getElementById('prof-share-mobile-search').checked  = p.share_mobile         ?? false;
-  document.getElementById('prof-share-mobile-friends').checked = p.friends_see_mobile   ?? false;
-  document.getElementById('prof-share-email-search').checked   = p.share_email          ?? false;
-  document.getElementById('prof-share-email-friends').checked  = p.friends_see_email    ?? false;
+
+  // Privacy toggle buttons
+  const privacyDefaults = {
+    'prof-share-name-search':    p.share_name           ?? true,
+    'prof-share-name-friends':   p.friends_see_name     ?? true,
+    'prof-share-hcp-search':     p.share_hcp            ?? true,
+    'prof-share-hcp-friends':    p.friends_see_hcp      ?? true,
+    'prof-share-mobile-search':  p.share_mobile         ?? false,
+    'prof-share-mobile-friends': p.friends_see_mobile   ?? false,
+    'prof-share-email-search':   p.share_email          ?? false,
+    'prof-share-email-friends':  p.friends_see_email    ?? false,
+  };
+  Object.entries(privacyDefaults).forEach(([id, val]) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.dataset.checked = val ? 'true' : 'false';
+    btn.classList.toggle('active', val);
+    btn.onclick = () => {
+      const isNowActive = btn.dataset.checked !== 'true';
+      btn.dataset.checked = isNowActive ? 'true' : 'false';
+      btn.classList.toggle('active', isNowActive);
+    };
+  });
 
   const initials = `${(p.first_name ?? '?')[0]}${(p.last_name ?? '')[0] ?? ''}`.toUpperCase();
   document.getElementById('profile-avatar').textContent = initials;
@@ -1674,14 +1759,14 @@ document.getElementById('btn-save-profile')?.addEventListener('click', async () 
     mobile:             document.getElementById('prof-mobile').value.trim(),
     hcp:                parseFloat(document.getElementById('prof-hcp').value) || null,
     whs:                document.getElementById('prof-whs').value.trim(),
-    share_name:         document.getElementById('prof-share-name-search').checked,
-    friends_see_name:   document.getElementById('prof-share-name-friends').checked,
-    share_hcp:          document.getElementById('prof-share-hcp-search').checked,
-    friends_see_hcp:    document.getElementById('prof-share-hcp-friends').checked,
-    share_mobile:       document.getElementById('prof-share-mobile-search').checked,
-    friends_see_mobile: document.getElementById('prof-share-mobile-friends').checked,
-    share_email:        document.getElementById('prof-share-email-search').checked,
-    friends_see_email:  document.getElementById('prof-share-email-friends').checked,
+    share_name:         document.getElementById('prof-share-name-search')?.dataset.checked   === 'true',
+    friends_see_name:   document.getElementById('prof-share-name-friends')?.dataset.checked  === 'true',
+    share_hcp:          document.getElementById('prof-share-hcp-search')?.dataset.checked    === 'true',
+    friends_see_hcp:    document.getElementById('prof-share-hcp-friends')?.dataset.checked   === 'true',
+    share_mobile:       document.getElementById('prof-share-mobile-search')?.dataset.checked === 'true',
+    friends_see_mobile: document.getElementById('prof-share-mobile-friends')?.dataset.checked=== 'true',
+    share_email:        document.getElementById('prof-share-email-search')?.dataset.checked  === 'true',
+    friends_see_email:  document.getElementById('prof-share-email-friends')?.dataset.checked === 'true',
     home_course_id: document.getElementById('prof-course-select').value || null,
   };
   const btn = document.getElementById('btn-save-profile');
