@@ -3801,18 +3801,13 @@ function getPrivacyLevel(searchable, friendsOnly) {
 }
 
 function setPrivacyRadio(groupId, level) {
-  const group = document.getElementById(groupId);
-  if (!group) return;
-  group.querySelectorAll('.priv-btn').forEach(btn => {
-    btn.classList.toggle('selected', btn.dataset.val === level);
-  });
+  const sel = document.getElementById(groupId);
+  if (sel) sel.value = level;
 }
 
 function getPrivacyRadio(groupId) {
-  const group = document.getElementById(groupId);
-  if (!group) return 'private';
-  const selected = group.querySelector('.priv-btn.selected');
-  return selected?.dataset.val ?? 'private';
+  const sel = document.getElementById(groupId);
+  return sel?.value ?? 'private';
 }
 
 // Scorecard tab navigation — event delegation
