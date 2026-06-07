@@ -541,6 +541,11 @@
 
     </div>
 
+    <!-- Contact Preferences button -->
+    <button class="btn btn-outline" id="btn-open-privacy" style="width:100%;margin-bottom:0.75rem;">
+      🔒 Contact Preferences
+    </button>
+
     <div class="card">
       <div class="card-title">Home Club</div>
       <div class="field">
@@ -1135,6 +1140,92 @@
       <button class="btn btn-outline" id="btn-hole-edit-diff-cancel">Cancel</button>
       <button class="btn btn-green"   id="btn-hole-edit-diff-confirm">Apply Changes</button>
     </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     PRIVACY SETTINGS SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-privacy" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="privacy-back">← Back</button>
+    <h2>Contact Preferences</h2>
+  </div>
+  <div style="padding:1rem;max-width:520px;margin:0 auto;">
+
+    <div class="hint mb-md" style="line-height:1.6;">
+      Control who can see each piece of your information.
+      <strong>Public</strong> = anyone can find you by searching.
+      <strong>Friends</strong> = only confirmed friends can see it.
+      <strong>Private</strong> = hidden from everyone.
+    </div>
+
+    <!-- Username - always public -->
+    <div class="card mb-sm">
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="flex:1;">
+          <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">Username</div>
+          <div id="pv-username" style="font-size:1rem;font-weight:600;">—</div>
+        </div>
+        <div style="padding:0.3rem 0.75rem;border:1px solid var(--gold-border,rgba(212,168,67,0.4));
+                    border-radius:4px;font-size:0.75rem;color:var(--gold);background:rgba(212,168,67,0.1);">
+          🌍 Always Public
+        </div>
+      </div>
+      <div style="font-size:0.7rem;color:var(--muted);margin-top:0.5rem;">
+        Your username is always public so friends can search for you. It contains no personal information.
+      </div>
+    </div>
+
+    <!-- Name -->
+    <div class="card mb-sm">
+      <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">Name</div>
+      <div id="pv-name" style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">—</div>
+      <div class="radio-group" id="pv-name-radio" data-field="name">
+        <label class="radio-opt"><input type="radio" name="pv-name" value="public"> <span>🌍 Public</span></label>
+        <label class="radio-opt"><input type="radio" name="pv-name" value="friends"> <span>👥 Friends only</span></label>
+        <label class="radio-opt"><input type="radio" name="pv-name" value="private"> <span>🔒 Private</span></label>
+      </div>
+    </div>
+
+    <!-- Handicap -->
+    <div class="card mb-sm">
+      <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">Handicap Index</div>
+      <div id="pv-hcp" style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">—</div>
+      <div class="radio-group" id="pv-hcp-radio" data-field="hcp">
+        <label class="radio-opt"><input type="radio" name="pv-hcp" value="public"> <span>🌍 Public</span></label>
+        <label class="radio-opt"><input type="radio" name="pv-hcp" value="friends"> <span>👥 Friends only</span></label>
+        <label class="radio-opt"><input type="radio" name="pv-hcp" value="private"> <span>🔒 Private</span></label>
+      </div>
+    </div>
+
+    <!-- Mobile -->
+    <div class="card mb-sm">
+      <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">Mobile</div>
+      <div id="pv-mobile" style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">—</div>
+      <div class="radio-group" id="pv-mobile-radio" data-field="mobile">
+        <label class="radio-opt"><input type="radio" name="pv-mobile" value="public"> <span>🌍 Public</span></label>
+        <label class="radio-opt"><input type="radio" name="pv-mobile" value="friends"> <span>👥 Friends only</span></label>
+        <label class="radio-opt"><input type="radio" name="pv-mobile" value="private"> <span>🔒 Private</span></label>
+      </div>
+    </div>
+
+    <!-- Email -->
+    <div class="card mb-sm">
+      <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">Email</div>
+      <div id="pv-email" style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">—</div>
+      <div class="radio-group" id="pv-email-radio" data-field="email">
+        <label class="radio-opt"><input type="radio" name="pv-email" value="public"> <span>🌍 Public</span></label>
+        <label class="radio-opt"><input type="radio" name="pv-email" value="friends"> <span>👥 Friends only</span></label>
+        <label class="radio-opt"><input type="radio" name="pv-email" value="private"> <span>🔒 Private</span></label>
+      </div>
+    </div>
+
+    <button class="btn btn-green" id="btn-save-privacy" style="width:100%;margin-top:0.5rem;">
+      SAVE PREFERENCES
+    </button>
+
   </div>
 </div>
 
