@@ -237,14 +237,21 @@ document.getElementById('tab-signup')?.addEventListener('click', () => {
 });
 
 document.getElementById('btn-signin')?.addEventListener('click', async () => {
-  const email = document.getElementById('si-email').value.trim();
-  const pw    = document.getElementById('si-password').value;
+  let identifier = document.getElementById('si-email').value.trim();
+  const pw       = document.getElementById('si-password').value;
   clearMsg('auth-error'); clearMsg('auth-success');
-  if (!email || !pw) { setMsg('auth-error', 'Please enter your email and password.'); return; }
+  if (!identifier || !pw) { setMsg('auth-error', 'Please enter your username/email and password.'); return; }
   const btn = document.getElementById('btn-signin');
   btn.disabled = true; btn.textContent = 'Signing in…';
   try {
-    await authSignIn(email, pw);
+    // If not an email address, treat as username — look up the associated email
+    if (!identifier.includes('@') || identifier.startsWith('@')) {
+      const username = identifier.replace(/^@/, '').toLowerCase();
+      const user = await profileFindByUsername(username);
+      if (!user?.email) throw new Error('No account found with that username.');
+      identifier = user.email;
+    }
+    await authSignIn(identifier, pw);
   } catch (err) {
     setMsg('auth-error', err.message || 'Sign in failed.');
     btn.disabled = false; btn.textContent = 'SIGN IN →';
@@ -1889,6 +1896,7 @@ document.getElementById('btn-save-profile')?.addEventListener('click', async () 
     share_email:        document.getElementById('prof-share-email-search')?.dataset.checked  === 'true',
     friends_see_email:  document.getElementById('prof-share-email-friends')?.dataset.checked === 'true',
     home_course_id: document.getElementById('prof-course-select').value || null,
+    email:          currentUser?.email ?? null,
   };
   const btn = document.getElementById('btn-save-profile');
   btn.disabled = true; btn.textContent = 'Saving…';
@@ -3743,15 +3751,27 @@ function getPrivacyLevel(searchable, friendsOnly) {
 function setPrivacyRadio(groupId, level) {
   const group = document.getElementById(groupId);
   if (!group) return;
-  group.querySelectorAll('input[type="radio"]').forEach(r => {
-    r.checked = r.value === level;
+  group.querySelectorAll('.priv-btn').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.val === level);
   });
 }
 
-function getPrivacyRadio(name) {
-  const checked = document.querySelector(`input[name="${name}"]:checked`);
-  return checked?.value ?? 'private';
+function getPrivacyRadio(groupId) {
+  const group = document.getElementById(groupId);
+  if (!group) return 'private';
+  const selected = group.querySelector('.priv-btn.selected');
+  return selected?.dataset.val ?? 'private';
 }
+
+// Wire up privacy buttons
+document.querySelectorAll('.priv-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const groupId = btn.closest('.priv-btn-group')?.id;
+    if (!groupId) return;
+    document.getElementById(groupId)?.querySelectorAll('.priv-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
 
 function showPrivacySettings() {
   const p = currentProfile ?? {};
@@ -3777,10 +3797,10 @@ document.getElementById('btn-open-privacy')?.addEventListener('click', () => sho
 document.getElementById('privacy-back')?.addEventListener('click', () => showProfile());
 
 document.getElementById('btn-save-privacy')?.addEventListener('click', async () => {
-  const nameLevel   = getPrivacyRadio('pv-name');
-  const hcpLevel    = getPrivacyRadio('pv-hcp');
-  const mobileLevel = getPrivacyRadio('pv-mobile');
-  const emailLevel  = getPrivacyRadio('pv-email');
+  const nameLevel   = getPrivacyRadio('pv-name-radio');
+  const hcpLevel    = getPrivacyRadio('pv-hcp-radio');
+  const mobileLevel = getPrivacyRadio('pv-mobile-radio');
+  const emailLevel  = getPrivacyRadio('pv-email-radio');
 
   const updates = {
     share_name:           nameLevel   === 'public',
