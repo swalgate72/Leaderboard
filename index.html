@@ -1178,44 +1178,52 @@
     <div class="card mb-sm">
       <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">Name</div>
       <div id="pv-name" style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">—</div>
-      <div class="priv-btn-group" id="pv-name-radio">
-        <button type="button" class="priv-btn" data-field="name" data-val="private">🔒 Private</button>
-        <button type="button" class="priv-btn" data-field="name" data-val="friends">👥 Friends</button>
-        <button type="button" class="priv-btn" data-field="name" data-val="public">🌍 Public</button>
-      </div>
+      <select id="pv-name-radio" style="width:100%;background:var(--surface2);border:1px solid var(--border);
+        border-radius:var(--radius-sm);padding:0.65rem 0.85rem;color:var(--white);
+        font-size:0.9rem;cursor:pointer;appearance:auto;">
+        <option value="private">🔒 Private — only you</option>
+        <option value="friends">👥 Friends only</option>
+        <option value="public">🌍 Public — anyone can find you</option>
+      </select>
     </div>
 
     <!-- Handicap -->
     <div class="card mb-sm">
       <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">Handicap Index</div>
       <div id="pv-hcp" style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">—</div>
-      <div class="priv-btn-group" id="pv-hcp-radio">
-        <button type="button" class="priv-btn" data-field="hcp" data-val="private">🔒 Private</button>
-        <button type="button" class="priv-btn" data-field="hcp" data-val="friends">👥 Friends</button>
-        <button type="button" class="priv-btn" data-field="hcp" data-val="public">🌍 Public</button>
-      </div>
+      <select id="pv-hcp-radio" style="width:100%;background:var(--surface2);border:1px solid var(--border);
+        border-radius:var(--radius-sm);padding:0.65rem 0.85rem;color:var(--white);
+        font-size:0.9rem;cursor:pointer;appearance:auto;">
+        <option value="private">🔒 Private — only you</option>
+        <option value="friends">👥 Friends only</option>
+        <option value="public">🌍 Public — anyone can find you</option>
+      </select>
     </div>
 
     <!-- Mobile -->
     <div class="card mb-sm">
       <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">Mobile</div>
       <div id="pv-mobile" style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">—</div>
-      <div class="priv-btn-group" id="pv-mobile-radio">
-        <button type="button" class="priv-btn" data-field="mobile" data-val="private">🔒 Private</button>
-        <button type="button" class="priv-btn" data-field="mobile" data-val="friends">👥 Friends</button>
-        <button type="button" class="priv-btn" data-field="mobile" data-val="public">🌍 Public</button>
-      </div>
+      <select id="pv-mobile-radio" style="width:100%;background:var(--surface2);border:1px solid var(--border);
+        border-radius:var(--radius-sm);padding:0.65rem 0.85rem;color:var(--white);
+        font-size:0.9rem;cursor:pointer;appearance:auto;">
+        <option value="private">🔒 Private — only you</option>
+        <option value="friends">👥 Friends only</option>
+        <option value="public">🌍 Public — anyone can find you</option>
+      </select>
     </div>
 
     <!-- Email -->
     <div class="card mb-sm">
       <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">Email</div>
       <div id="pv-email" style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">—</div>
-      <div class="priv-btn-group" id="pv-email-radio">
-        <button type="button" class="priv-btn" data-field="email" data-val="private">🔒 Private</button>
-        <button type="button" class="priv-btn" data-field="email" data-val="friends">👥 Friends</button>
-        <button type="button" class="priv-btn" data-field="email" data-val="public">🌍 Public</button>
-      </div>
+      <select id="pv-email-radio" style="width:100%;background:var(--surface2);border:1px solid var(--border);
+        border-radius:var(--radius-sm);padding:0.65rem 0.85rem;color:var(--white);
+        font-size:0.9rem;cursor:pointer;appearance:auto;">
+        <option value="private">🔒 Private — only you</option>
+        <option value="friends">👥 Friends only</option>
+        <option value="public">🌍 Public — anyone can find you</option>
+      </select>
     </div>
 
     <button class="btn btn-green" id="btn-save-privacy" style="width:100%;margin-top:0.5rem;">
