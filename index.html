@@ -41,7 +41,7 @@
     <div id="form-signin">
       <div class="field">
         <label>Email</label>
-        <input id="si-email" type="email" placeholder="you@email.com" autocomplete="email">
+        <input id="si-email" type="text" placeholder="@username or email" autocomplete="username">
       </div>
       <div class="field">
         <label>Password</label>
@@ -536,7 +536,7 @@
         <button type="button" id="prof-share-email-friends" class="privacy-btn" data-checked="false">&#128101; Friends</button>
       </div>
       <div class="field" style="margin:0;">
-        <input id="prof-email" type="email" autocomplete="email">
+        <input id="prof-email" type="text" autocomplete="username">
       </div>
 
     </div>
@@ -1182,10 +1182,10 @@
     <div class="card mb-sm">
       <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">Name</div>
       <div id="pv-name" style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">—</div>
-      <div class="radio-group" id="pv-name-radio" data-field="name">
-        <label class="radio-opt"><input type="radio" name="pv-name" value="public"> <span>🌍 Public</span></label>
-        <label class="radio-opt"><input type="radio" name="pv-name" value="friends"> <span>👥 Friends only</span></label>
-        <label class="radio-opt"><input type="radio" name="pv-name" value="private"> <span>🔒 Private</span></label>
+      <div class="priv-btn-group" id="pv-name-radio">
+        <button type="button" class="priv-btn" data-field="name" data-val="private">🔒 Private</button>
+        <button type="button" class="priv-btn" data-field="name" data-val="friends">👥 Friends</button>
+        <button type="button" class="priv-btn" data-field="name" data-val="public">🌍 Public</button>
       </div>
     </div>
 
@@ -1193,10 +1193,10 @@
     <div class="card mb-sm">
       <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">Handicap Index</div>
       <div id="pv-hcp" style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">—</div>
-      <div class="radio-group" id="pv-hcp-radio" data-field="hcp">
-        <label class="radio-opt"><input type="radio" name="pv-hcp" value="public"> <span>🌍 Public</span></label>
-        <label class="radio-opt"><input type="radio" name="pv-hcp" value="friends"> <span>👥 Friends only</span></label>
-        <label class="radio-opt"><input type="radio" name="pv-hcp" value="private"> <span>🔒 Private</span></label>
+      <div class="priv-btn-group" id="pv-hcp-radio">
+        <button type="button" class="priv-btn" data-field="hcp" data-val="private">🔒 Private</button>
+        <button type="button" class="priv-btn" data-field="hcp" data-val="friends">👥 Friends</button>
+        <button type="button" class="priv-btn" data-field="hcp" data-val="public">🌍 Public</button>
       </div>
     </div>
 
@@ -1204,10 +1204,10 @@
     <div class="card mb-sm">
       <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">Mobile</div>
       <div id="pv-mobile" style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">—</div>
-      <div class="radio-group" id="pv-mobile-radio" data-field="mobile">
-        <label class="radio-opt"><input type="radio" name="pv-mobile" value="public"> <span>🌍 Public</span></label>
-        <label class="radio-opt"><input type="radio" name="pv-mobile" value="friends"> <span>👥 Friends only</span></label>
-        <label class="radio-opt"><input type="radio" name="pv-mobile" value="private"> <span>🔒 Private</span></label>
+      <div class="priv-btn-group" id="pv-mobile-radio">
+        <button type="button" class="priv-btn" data-field="mobile" data-val="private">🔒 Private</button>
+        <button type="button" class="priv-btn" data-field="mobile" data-val="friends">👥 Friends</button>
+        <button type="button" class="priv-btn" data-field="mobile" data-val="public">🌍 Public</button>
       </div>
     </div>
 
@@ -1215,10 +1215,10 @@
     <div class="card mb-sm">
       <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;">Email</div>
       <div id="pv-email" style="font-size:1rem;font-weight:600;margin-bottom:0.75rem;">—</div>
-      <div class="radio-group" id="pv-email-radio" data-field="email">
-        <label class="radio-opt"><input type="radio" name="pv-email" value="public"> <span>🌍 Public</span></label>
-        <label class="radio-opt"><input type="radio" name="pv-email" value="friends"> <span>👥 Friends only</span></label>
-        <label class="radio-opt"><input type="radio" name="pv-email" value="private"> <span>🔒 Private</span></label>
+      <div class="priv-btn-group" id="pv-email-radio">
+        <button type="button" class="priv-btn" data-field="email" data-val="private">🔒 Private</button>
+        <button type="button" class="priv-btn" data-field="email" data-val="friends">👥 Friends</button>
+        <button type="button" class="priv-btn" data-field="email" data-val="public">🌍 Public</button>
       </div>
     </div>
 
