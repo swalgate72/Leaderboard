@@ -784,3 +784,14 @@ export function realtimeSubscribeChallenges(roundId, onChallenge) {
     }, payload => onChallenge(payload.new))
     .subscribe();
 }
+
+// ── Find profile by username ──────────────────────────────────────
+export async function profileFindByUsername(username) {
+  const { data, error } = await sb
+    .from('profiles')
+    .select('*')
+    .eq('username', username.toLowerCase())
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
