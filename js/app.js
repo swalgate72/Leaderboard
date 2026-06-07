@@ -482,11 +482,12 @@ function populateNumPlayerSelect() {
   if (label) label.textContent = isPairs ? 'Number of Pairs' : fmt === 'best2' ? 'Players per Group' : 'Number of Players';
 
   sel.innerHTML = '';
-  let min = 2, max = 12;
+  let min = 1, max = 12;
   if (fmt === 'split6')                                                { min = 3; max = 3; }
-  else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ min = 2; max = 6; } // pairs
+  else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ min = 2; max = 6; }
   else if (fmt === 'match')                                            { min = 2; max = 2; }
-  else if (fmt === 'best2')                                            { min = 3; max = 4; } // players per group
+  else if (fmt === 'best2')                                            { min = 3; max = 4; }
+  else if (['stableford','stroke'].includes(fmt))                      { min = 1; max = 12; }
   else                                                                 { min = 2; max = 12; }
 
   for (let n = min; n <= max; n++) {
