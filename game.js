@@ -429,17 +429,21 @@ export function processHole(state, grosses) {
   switch (format) {
 
     case 'stableford': {
-      const pts   = grosses.map((g, pi) => stablefordPoints(g, indivStrokesOnHole(state.playingHandicaps[pi], si), par));
+      const extras = grosses.map((_, pi) => indivStrokesOnHole(state.playingHandicaps[pi], si));
+      const pts    = grosses.map((g, pi) => stablefordPoints(g, extras[pi], par));
       const totals = (next.totals ?? []).map((t, i) => t + pts[i]);
-      entry.holePts    = pts;
+      entry.extras      = extras;
+      entry.holePts     = pts;
       entry.totalsAfter = totals;
       next.totals = totals;
       break;
     }
 
     case 'stroke': {
-      const nets   = grosses.map((g, pi) => g - indivStrokesOnHole(state.playingHandicaps[pi], si));
+      const extras = grosses.map((_, pi) => indivStrokesOnHole(state.playingHandicaps[pi], si));
+      const nets   = grosses.map((g, i) => g - extras[i]);
       const totals = (next.totals ?? []).map((t, i) => t + nets[i]);
+      entry.extras      = extras;
       entry.nets        = nets;
       entry.totalsAfter = totals;
       next.totals = totals;
