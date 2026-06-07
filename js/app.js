@@ -6,7 +6,7 @@
 import {
   authSignIn, authSignUp, authSignOut, authSignInWithGoogle,
   authForgotPassword, authOnStateChange, authGetUser,
-  profileLoad, profileSave, profileFindByEmail,
+  profileLoad, profileSave, profileFindByEmail, profileFindByUsername,
   coursesLoadAll, courseLoadById, courseSave, courseDelete, coursesEnsureDefaults,
   roundCreate, roundSaveState, roundComplete, roundAbandon, roundDelete,
   roundsLoadActive, roundLoadById, roundsLoadHistory,
@@ -1621,12 +1621,22 @@ function buildScorecardHTML(state, opts = {}) {
 // ================================================================
 function showProfile() {
   const p = currentProfile ?? {};
-  document.getElementById('prof-fname').value  = p.first_name  ?? '';
-  document.getElementById('prof-lname').value  = p.last_name   ?? '';
-  document.getElementById('prof-email').value  = currentUser?.email ?? '';
-  document.getElementById('prof-mobile').value = p.mobile      ?? '';
-  document.getElementById('prof-hcp').value    = p.hcp         ?? '';
-  document.getElementById('prof-whs').value    = p.whs ?? '';
+  document.getElementById('prof-username').value  = p.username      ?? '';
+  document.getElementById('prof-fname').value     = p.first_name    ?? '';
+  document.getElementById('prof-lname').value     = p.last_name     ?? '';
+  document.getElementById('prof-email').value     = currentUser?.email ?? '';
+  document.getElementById('prof-mobile').value    = p.mobile        ?? '';
+  document.getElementById('prof-hcp').value       = p.hcp           ?? '';
+  document.getElementById('prof-whs').value       = p.whs           ?? '';
+  // Privacy checkboxes
+  document.getElementById('prof-share-name-search').checked    = p.share_name           ?? true;
+  document.getElementById('prof-share-name-friends').checked   = p.friends_see_name     ?? true;
+  document.getElementById('prof-share-hcp-search').checked     = p.share_hcp            ?? true;
+  document.getElementById('prof-share-hcp-friends').checked    = p.friends_see_hcp      ?? true;
+  document.getElementById('prof-share-mobile-search').checked  = p.share_mobile         ?? false;
+  document.getElementById('prof-share-mobile-friends').checked = p.friends_see_mobile   ?? false;
+  document.getElementById('prof-share-email-search').checked   = p.share_email          ?? false;
+  document.getElementById('prof-share-email-friends').checked  = p.friends_see_email    ?? false;
 
   const initials = `${(p.first_name ?? '?')[0]}${(p.last_name ?? '')[0] ?? ''}`.toUpperCase();
   document.getElementById('profile-avatar').textContent = initials;
@@ -1657,11 +1667,20 @@ function populateProfileCourseSelect() {
 document.getElementById('btn-save-profile')?.addEventListener('click', async () => {
   const profile = {
     id: currentUser.id,
-    first_name: document.getElementById('prof-fname').value.trim(),
-    last_name:  document.getElementById('prof-lname').value.trim(),
-    mobile:     document.getElementById('prof-mobile').value.trim(),
-    hcp:        parseFloat(document.getElementById('prof-hcp').value) || null,
-    whs:        document.getElementById('prof-whs').value.trim(),
+    username:           document.getElementById('prof-username').value.trim().toLowerCase().replace(/\s+/g,'') || null,
+    first_name:         document.getElementById('prof-fname').value.trim(),
+    last_name:          document.getElementById('prof-lname').value.trim(),
+    mobile:             document.getElementById('prof-mobile').value.trim(),
+    hcp:                parseFloat(document.getElementById('prof-hcp').value) || null,
+    whs:                document.getElementById('prof-whs').value.trim(),
+    share_name:         document.getElementById('prof-share-name-search').checked,
+    friends_see_name:   document.getElementById('prof-share-name-friends').checked,
+    share_hcp:          document.getElementById('prof-share-hcp-search').checked,
+    friends_see_hcp:    document.getElementById('prof-share-hcp-friends').checked,
+    share_mobile:       document.getElementById('prof-share-mobile-search').checked,
+    friends_see_mobile: document.getElementById('prof-share-mobile-friends').checked,
+    share_email:        document.getElementById('prof-share-email-search').checked,
+    friends_see_email:  document.getElementById('prof-share-email-friends').checked,
     home_course_id: document.getElementById('prof-course-select').value || null,
   };
   const btn = document.getElementById('btn-save-profile');
@@ -1734,13 +1753,20 @@ async function renderFriendsList() {
     return;
   }
   listEl.innerHTML = allFriends.map(f => {
-    const init = f.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    const displayName = f.name || f.username || 'Unknown';
+    const init = displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    // Show only fields the friend has chosen to share with friends
+    const details = [];
+    if (f.hcp != null && f.friends_see_hcp !== false) details.push(`HCP ${fmtHandicap(f.hcp)}`);
+    if (f.mobile && f.friends_see_mobile)  details.push(f.mobile);
+    if (f.email && f.friends_see_email)    details.push(f.email);
+    if (f.username) details.unshift(`@${f.username}`);
     return `
       <div class="friend-item">
         <div class="friend-avatar">${init}</div>
         <div class="friend-info">
-          <div class="friend-name">${f.name}</div>
-          <div class="friend-sub">HCP ${fmtHandicap(f.hcp)}</div>
+          <div class="friend-name">${displayName}</div>
+          <div class="friend-sub" style="line-height:1.5;">${details.join(' · ')}</div>
         </div>
         <button class="btn btn-ghost" style="font-size:0.72rem;border-color:var(--red-border);color:var(--red);"
           data-remove="${f.friendshipId}">Remove</button>
@@ -1757,17 +1783,28 @@ async function renderFriendsList() {
 }
 
 document.getElementById('btn-search-friend')?.addEventListener('click', async () => {
-  const email = document.getElementById('friend-search-email').value.trim();
-  if (!email) return;
+  const query = document.getElementById('friend-search-email').value.trim();
+  if (!query) return;
   hide('friend-search-result'); hide('friend-search-empty');
   try {
-    const user = await profileFindByEmail(email);
+    // Try username first, then email
+    let user = null;
+    if (query.startsWith('@') || !query.includes('@')) {
+      const username = query.replace(/^@/, '').toLowerCase();
+      user = await profileFindByUsername(username);
+    }
+    if (!user) user = await profileFindByEmail(query);
+
     if (!user || user.id === currentUser.id) {
-      document.getElementById('friend-search-empty').textContent = 'No user found with that email.';
+      document.getElementById('friend-search-empty').textContent = 'No user found with that username or email.';
       show('friend-search-empty'); return;
     }
-    document.getElementById('friend-found-name').textContent =
-      `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() || email;
+    // Show only searchable info
+    const nameStr = user.share_name !== false
+      ? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
+      : user.username ? `@${user.username}` : 'Player';
+    const hcpStr  = user.share_hcp !== false && user.hcp != null ? ` · HCP ${fmtHandicap(user.hcp)}` : '';
+    document.getElementById('friend-found-name').textContent = nameStr + hcpStr;
     show('friend-search-result');
     document.getElementById('btn-send-request').onclick = async () => {
       await friendRequestSend(currentUser.id, user.id);
@@ -1789,9 +1826,11 @@ document.getElementById('friends-back')?.addEventListener('click', () => showHom
 const APP_URL = 'https://leaderboard-ten-wheat.vercel.app';
 
 function buildInviteMessage() {
-  const myName = currentProfile
-    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
-    : 'A friend';
+  const myName = currentProfile?.username
+    ? `@${currentProfile.username}`
+    : currentProfile
+      ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim() || 'A friend'
+      : 'A friend';
   return `You have been invited to the Leaderboard Golf Score App by ${myName}.\n\n` +
     `Download it here: ${APP_URL}\n\n` +
     `📱 To install as an app:\n` +
