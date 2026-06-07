@@ -216,7 +216,14 @@ async function onSignedIn(user) {
     allCourses     = await coursesLoadAll();
     allFriends     = await friendsLoad(user.id);
     subscribeToFriendRequests();
-    await showHome();
+
+    // Auto-resume if there's an active round in progress
+    const actives = await roundsLoadActive(user.id);
+    if (actives?.length > 0) {
+      await resumeRound(actives[0].id);
+    } else {
+      await showHome();
+    }
   } catch (err) {
     console.error('onSignedIn error', err);
     showScreen('screen-home');
@@ -654,6 +661,7 @@ function buildPlayerForms() {
 function makePlayerInputEl(pi, isMe) {
   const row = document.createElement('div');
   row.className = 'player-slot';
+  const courseHcp = setup.players[pi].courseHandicap ?? setup.players[pi].hcpIndex ?? '';
   row.innerHTML = `
     <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
       <span class="dot" style="background:${pHex(pi % 8)};"></span>
@@ -663,18 +671,25 @@ function makePlayerInputEl(pi, isMe) {
         border-bottom:1px solid var(--border);" autocomplete="off">
       ${!isMe ? `<button class="btn btn-ghost" style="padding:0.25rem 0.6rem;font-size:0.8rem;" data-pick="${pi}">👤</button>` : ''}
     </div>
-    <div class="field" style="margin:0;width:110px;">
-      <label>HCP Index</label>
-      <input id="phcp-${pi}" type="number" step="0.1" min="0" max="54"
-        placeholder="0.0" value="${setup.players[pi].hcpIndex}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+      <div class="field" style="margin:0;">
+        <label>HCP Index</label>
+        <input id="phcp-${pi}" type="number" step="0.1" min="0" max="54"
+          placeholder="0.0" value="${setup.players[pi].hcpIndex}">
+      </div>
+      <div class="field" style="margin:0;">
+        <label>Course HCP</label>
+        <input id="pchcp-${pi}" type="number" step="1" min="0" max="54"
+          placeholder="0" value="${courseHcp}"
+          style="border-color:var(--gold-border);">
+      </div>
+    </div>
+    <div style="font-size:0.62rem;color:var(--muted);margin-top:3px;">
+      Course HCP may differ from index (slope/rating adjustment)
     </div>`;
 
   row.querySelector(`#pname-${pi}`)?.addEventListener('input', e => {
     setup.players[pi].name = e.target.value.trim();
-    // Update scorer button label if this is the scorer
-    const scorerBtn = document.querySelector(`[data-scorer-pi="${pi}"]`);
-    if (scorerBtn) scorerBtn.textContent = e.target.value.trim() || `Player ${pi+1}`;
-    // Refresh scorer radio for this group
     const g = setup.players[pi].groupNumber;
     const radios = document.getElementById(`scorer-radios-g${g}`);
     if (radios) {
@@ -684,6 +699,16 @@ function makePlayerInputEl(pi, isMe) {
   });
   row.querySelector(`#phcp-${pi}`)?.addEventListener('input', e => {
     setup.players[pi].hcpIndex = parseFloat(e.target.value) || 0;
+    // Auto-update course hcp if not manually set
+    const cEl = document.getElementById(`pchcp-${pi}`);
+    if (cEl && !setup.players[pi].courseHcpManual) {
+      cEl.value = Math.round(parseFloat(e.target.value) || 0);
+      setup.players[pi].courseHandicap = Math.round(parseFloat(e.target.value) || 0);
+    }
+  });
+  row.querySelector(`#pchcp-${pi}`)?.addEventListener('input', e => {
+    setup.players[pi].courseHandicap = parseInt(e.target.value) || 0;
+    setup.players[pi].courseHcpManual = true; // user has overridden
   });
   const pickBtn = row.querySelector(`[data-pick="${pi}"]`);
   if (pickBtn) pickBtn.addEventListener('click', () => openFriendPicker(pi));
@@ -732,8 +757,9 @@ document.getElementById('setup-abandon-2')        ?.addEventListener('click', ()
 
 document.getElementById('btn-setup-players-next')?.addEventListener('click', () => {
   for (let i = 0; i < setup.numPlayers; i++) {
-    setup.players[i].name     = document.getElementById(`pname-${i}`)?.value.trim() || `Player ${i+1}`;
-    setup.players[i].hcpIndex = parseFloat(document.getElementById(`phcp-${i}`)?.value) || 0;
+    setup.players[i].name          = document.getElementById(`pname-${i}`)?.value.trim() || `Player ${i+1}`;
+    setup.players[i].hcpIndex      = parseFloat(document.getElementById(`phcp-${i}`)?.value) || 0;
+    setup.players[i].courseHandicap = parseInt(document.getElementById(`pchcp-${i}`)?.value) || setup.players[i].hcpIndex || 0;
   }
   buildSetupReview(); showScreen('screen-setup-review');
 });
@@ -765,7 +791,7 @@ function buildSetupReview() {
           ${p.name || `Player ${i+1}`}
         </span>
         <span style="color:var(--muted);font-size:0.75rem;">
-          HCP ${fmtHandicap(p.hcpIndex)} · Playing ${hcpObj[i]?.playingHandicap ?? 0}
+          HCP ${fmtHandicap(p.hcpIndex)} · Course ${fmtHandicap(p.courseHandicap ?? p.hcpIndex)} · Playing ${hcpObj[i]?.playingHandicap ?? 0}
         </span>
       </div>`;
   });
@@ -791,7 +817,8 @@ async function teeOff() {
   // Remember last used tee for this course
   try { localStorage.setItem(`lb-last-tee-${setup.courseId}`, tee.name); } catch {}
 
-  const hcpArr = setup.players.map(p => p.hcpIndex || 0);
+  // Use Course Handicap if set, otherwise fall back to HCP Index
+  const hcpArr = setup.players.map(p => p.courseHandicap ?? p.hcpIndex || 0);
   const hcpObj = calcHandicaps(hcpArr, setup.hcpPct);
 
   // For foursomes/greensomes override pair handicaps using official rules
@@ -1567,6 +1594,228 @@ function buildLandscapeScorecard(state, opts = {}) {
   const holeOffset = state.holeOffset ?? 0;
   const numHoles   = state.numHoles ?? 18;
   const isFull18   = numHoles === 18;
+
+  const isStableford = fmt === 'stableford';
+  const isStroke     = fmt === 'stroke';
+  const showPts      = isStableford;
+
+  // Build per-player data
+  const playerRows = names.map((name, pi) => {
+    const grosses = log.map(e => e.grosses?.[pi] ?? null);
+    const nets    = log.map(e => {
+      const g = e.grosses?.[pi];
+      if (g == null) return null;
+      return g - (e.extras?.[pi] ?? 0);
+    });
+    const pts = log.map(e => e.holePts?.[pi] ?? null);
+
+    const grossTotal  = grosses.reduce((s, v) => s + (v ?? 0), 0);
+    const netTotal    = nets.reduce((s, v) => s + (v ?? 0), 0);
+    const ptsTotal    = isStableford ? (state.totals?.[pi] ?? 0) : null;
+    const front9Gross = grosses.slice(0, 9).reduce((s, v) => s + (v ?? 0), 0);
+    const back9Gross  = grosses.slice(9).reduce((s, v)   => s + (v ?? 0), 0);
+    const front9Net   = nets.slice(0, 9).reduce((s, v)   => s + (v ?? 0), 0);
+    const back9Net    = nets.slice(9).reduce((s, v)      => s + (v ?? 0), 0);
+    const front9Pts   = isStableford ? pts.slice(0, 9).reduce((s, v) => s + (v ?? 0), 0) : null;
+    const back9Pts    = isStableford ? pts.slice(9).reduce((s, v)   => s + (v ?? 0), 0) : null;
+
+    return {
+      pi, name, grosses, nets, pts,
+      grossTotal, netTotal, ptsTotal,
+      front9Gross, back9Gross, front9Net, back9Net, front9Pts, back9Pts,
+      score: isStroke ? netTotal : (isStableford ? ptsTotal : grossTotal),
+    };
+  });
+
+  const sorted = [...playerRows].sort((a, b) =>
+    isStroke ? a.netTotal - b.netTotal : b.score - a.score
+  );
+
+  const front9Par = par.slice(0, 9).reduce((s, v) => s + v, 0);
+  const back9Par  = par.slice(9).reduce((s, v) => s + v, 0);
+  const totalPar  = par.reduce((s, v) => s + v, 0);
+
+  // Build one table per section (F9, B9, Total)
+  function buildSection(holeStart, holeEnd, label) {
+    const holes = Array.from({ length: holeEnd - holeStart }, (_, i) => holeStart + i);
+    const sectionPar = holes.reduce((s, i) => s + (par[i] ?? 0), 0);
+
+    let t = `<table style="border-collapse:collapse;width:100%;font-size:0.82rem;">`;
+
+    // Hole numbers header
+    t += `<thead><tr>
+      <td style="padding:0.4rem 0.5rem;font-size:0.7rem;color:var(--muted);min-width:90px;font-weight:600;">${label}</td>`;
+    holes.forEach(i => {
+      t += `<td style="text-align:center;padding:0.35rem 0.2rem;font-weight:700;color:var(--muted);font-size:0.7rem;min-width:28px;">${holeOffset + i + 1}</td>`;
+    });
+    t += `<td style="text-align:center;padding:0.35rem 0.5rem;font-weight:700;color:var(--muted);font-size:0.7rem;background:var(--surface);">Tot</td>`;
+    t += '</tr>';
+
+    // Par row
+    t += `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:0.3rem 0.5rem;font-size:0.7rem;color:var(--muted);">Par</td>`;
+    holes.forEach(i => {
+      t += `<td style="text-align:center;padding:0.3rem 0.2rem;color:var(--muted);font-size:0.78rem;">${par[i] ?? ''}</td>`;
+    });
+    t += `<td style="text-align:center;padding:0.3rem 0.5rem;color:var(--muted);font-weight:600;background:var(--surface);">${sectionPar}</td>`;
+    t += '</tr></thead><tbody>';
+
+    // Player rows
+    sorted.forEach((row, rank) => {
+      const isLead = rank === 0 && log.length > 0;
+      const bg = isLead ? 'rgba(212,168,67,0.07)' : '';
+      const nameCol = pHex(row.pi);
+
+      // Gross row
+      t += `<tr style="background:${bg};border-top:1px solid var(--border);">
+        <td style="padding:0.45rem 0.5rem;font-weight:700;color:${nameCol};font-size:0.82rem;white-space:nowrap;">
+          ${rank + 1}. ${row.name.split(' ')[0]}
+        </td>`;
+      holes.forEach(i => {
+        const g = row.grosses[i] ?? null;
+        const p = par[i] ?? 0;
+        const d = g != null ? g - p : null;
+        const col = d == null ? '' : d < 0 ? 'var(--green)' : d > 1 ? 'var(--red)' : '';
+        t += `<td style="text-align:center;padding:0.4rem 0.2rem;font-weight:600;color:${col};font-size:0.88rem;">${g ?? ''}</td>`;
+      });
+      // Section subtotal (gross)
+      const sectionGross = holes.reduce((s, i) => s + (row.grosses[i] ?? 0), 0);
+      t += `<td style="text-align:center;padding:0.4rem 0.5rem;font-weight:700;color:${nameCol};background:var(--surface);">${sectionGross || ''}</td>`;
+      t += '</tr>';
+
+      // Net row
+      const hasNets = holes.some(i => row.nets[i] != null);
+      if (hasNets) {
+        t += `<tr style="background:${bg};">
+          <td style="padding:0.2rem 0.5rem;font-size:0.65rem;color:var(--muted);padding-left:1.2rem;">net</td>`;
+        holes.forEach(i => {
+          t += `<td style="text-align:center;padding:0.2rem;font-size:0.72rem;color:var(--muted);">${row.nets[i] ?? ''}</td>`;
+        });
+        const sectionNet = holes.reduce((s, i) => s + (row.nets[i] ?? 0), 0);
+        t += `<td style="text-align:center;padding:0.2rem 0.5rem;font-size:0.72rem;color:var(--green);font-weight:600;background:var(--surface);">${sectionNet || ''}</td>`;
+        t += '</tr>';
+      }
+
+      // Points row (stableford)
+      if (showPts) {
+        const hasPts = holes.some(i => row.pts[i] != null);
+        if (hasPts) {
+          t += `<tr style="background:${bg};">
+            <td style="padding:0.2rem 0.5rem;font-size:0.65rem;color:var(--muted);padding-left:1.2rem;">pts</td>`;
+          holes.forEach(i => {
+            t += `<td style="text-align:center;padding:0.2rem;font-size:0.72rem;color:var(--gold);font-weight:600;">${row.pts[i] ?? ''}</td>`;
+          });
+          const sectionPts = holes.reduce((s, i) => s + (row.pts[i] ?? 0), 0);
+          t += `<td style="text-align:center;padding:0.2rem 0.5rem;font-size:0.72rem;color:var(--gold);font-weight:700;background:var(--surface);">${sectionPts || ''}</td>`;
+          t += '</tr>';
+        }
+      }
+    });
+
+    t += '</tbody></table>';
+    return t;
+  }
+
+  // Build total summary table
+  function buildTotals() {
+    let t = `<table style="border-collapse:collapse;width:100%;font-size:0.82rem;margin-top:0.5rem;">
+      <thead><tr>
+        <td style="padding:0.4rem 0.5rem;font-size:0.7rem;color:var(--muted);font-weight:600;min-width:90px;">Summary</td>
+        ${isFull18 ? '<td style="text-align:center;padding:0.35rem 0.3rem;color:var(--muted);font-size:0.7rem;">Out</td><td style="text-align:center;padding:0.35rem 0.3rem;color:var(--muted);font-size:0.7rem;">In</td>' : ''}
+        <td style="text-align:center;padding:0.35rem 0.5rem;color:var(--gold);font-size:0.7rem;font-weight:700;">Total</td>
+        ${isStroke ? '<td style="text-align:center;padding:0.35rem 0.3rem;color:var(--green);font-size:0.7rem;">Net</td>' : ''}
+        ${showPts  ? '<td style="text-align:center;padding:0.35rem 0.3rem;color:var(--gold);font-size:0.7rem;">Pts</td>' : ''}
+      </tr></thead><tbody>`;
+
+    sorted.forEach((row, rank) => {
+      const isLead = rank === 0 && log.length > 0;
+      const bg = isLead ? 'rgba(212,168,67,0.07)' : '';
+      const nameCol = pHex(row.pi);
+      t += `<tr style="background:${bg};border-top:1px solid var(--border);">
+        <td style="padding:0.45rem 0.5rem;font-weight:700;color:${nameCol};font-size:0.82rem;">
+          ${rank + 1}. ${row.name.split(' ')[0]}
+        </td>
+        ${isFull18 ? `<td style="text-align:center;padding:0.4rem 0.3rem;font-weight:600;">${row.front9Gross||''}</td><td style="text-align:center;padding:0.4rem 0.3rem;font-weight:600;">${row.back9Gross||''}</td>` : ''}
+        <td style="text-align:center;padding:0.4rem 0.5rem;font-weight:700;color:${nameCol};">${row.grossTotal||''}</td>
+        ${isStroke ? `<td style="text-align:center;padding:0.4rem 0.3rem;font-weight:700;color:var(--green);">${row.netTotal||''}</td>` : ''}
+        ${showPts  ? `<td style="text-align:center;padding:0.4rem 0.3rem;font-weight:700;color:var(--gold);">${row.ptsTotal??''}</td>` : ''}
+      </tr>`;
+    });
+
+    t += '</tbody></table>';
+    return t;
+  }
+
+  // Paginated sections with tab buttons
+  const sections = isFull18
+    ? [
+        { id: 'sc-f9',  label: 'Front 9', html: buildSection(0, 9,  'Front 9') },
+        { id: 'sc-b9',  label: 'Back 9',  html: buildSection(9, 18, 'Back 9')  },
+        { id: 'sc-tot', label: 'Total',   html: buildTotals() },
+      ]
+    : [
+        { id: 'sc-all', label: '9 Holes', html: buildSection(0, numHoles, '9 Holes') },
+        { id: 'sc-tot', label: 'Total',   html: buildTotals() },
+      ];
+
+  const tabs = sections.map((s, i) =>
+    `<button class="sc-tab-btn ${i === 0 ? 'active' : ''}" data-target="${s.id}"
+      style="flex:1;padding:0.6rem 0.4rem;font-size:0.82rem;font-weight:600;
+             background:${i === 0 ? 'var(--surface)' : 'transparent'};
+             border:none;border-bottom:2px solid ${i === 0 ? 'var(--gold)' : 'transparent'};
+             color:${i === 0 ? 'var(--gold)' : 'var(--muted)'};cursor:pointer;">
+      ${s.label}
+    </button>`
+  ).join('');
+
+  const panels = sections.map((s, i) =>
+    `<div id="${s.id}" class="sc-panel" style="display:${i === 0 ? 'block' : 'none'};
+      overflow-x:auto;-webkit-overflow-scrolling:touch;
+      touch-action:pan-x pan-y pinch-zoom;">
+      ${s.html}
+    </div>`
+  ).join('');
+
+  return `
+    <div style="position:sticky;top:0;z-index:10;background:var(--bg);
+                display:flex;border-bottom:1px solid var(--border);margin-bottom:0.5rem;">
+      ${tabs}
+    </div>
+    ${panels}
+    <style>
+      .sc-tab-btn:focus { outline: none; }
+    </style>
+    <script>
+      (function() {
+        document.querySelectorAll('.sc-tab-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.sc-tab-btn').forEach(b => {
+              b.style.background = 'transparent';
+              b.style.borderBottomColor = 'transparent';
+              b.style.color = 'var(--muted)';
+            });
+            btn.style.background = 'var(--surface)';
+            btn.style.borderBottomColor = 'var(--gold)';
+            btn.style.color = 'var(--gold)';
+            document.querySelectorAll('.sc-panel').forEach(p => p.style.display = 'none');
+            document.getElementById(btn.dataset.target).style.display = 'block';
+          });
+        });
+      })();
+    </script>`;
+}
+
+function buildEndRoundScorecard(state) {
+  return buildLandscapeScorecard(state);
+}
+  const fmt        = state.format;
+  const names      = state.names;
+  const log        = state.log ?? [];
+  const par        = state.par ?? [];
+  const si         = state.si  ?? [];
+  const holeOffset = state.holeOffset ?? 0;
+  const numHoles   = state.numHoles ?? 18;
+  const isFull18   = numHoles === 18;
   const isFront9   = holeOffset === 0  && numHoles === 9;
   const isBack9    = holeOffset === 9  && numHoles === 9;
 
@@ -1739,10 +1988,6 @@ function buildLandscapeScorecard(state, opts = {}) {
 
   html += '</table></div>';
   return html;
-}
-
-function buildEndRoundScorecard(state) {
-  return buildLandscapeScorecard(state);
 }
 
 function buildScorecardHTML(state, opts = {}) {
