@@ -3763,14 +3763,14 @@ function getPrivacyRadio(groupId) {
   return selected?.dataset.val ?? 'private';
 }
 
-// Wire up privacy buttons
-document.querySelectorAll('.priv-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const groupId = btn.closest('.priv-btn-group')?.id;
-    if (!groupId) return;
-    document.getElementById(groupId)?.querySelectorAll('.priv-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-  });
+// Privacy button clicks — use event delegation on document
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.priv-btn');
+  if (!btn) return;
+  const group = btn.closest('.priv-btn-group');
+  if (!group) return;
+  group.querySelectorAll('.priv-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
 });
 
 function showPrivacySettings() {
