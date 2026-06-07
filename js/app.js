@@ -3729,3 +3729,84 @@ document.getElementById('scorecard-overlay')?.addEventListener('click', e => {
 });
 
 // Challenge subscription is now called directly in enterGameScreen above
+
+// ================================================================
+// PRIVACY SETTINGS SCREEN
+// ================================================================
+
+function getPrivacyLevel(searchable, friendsOnly) {
+  if (searchable) return 'public';
+  if (friendsOnly) return 'friends';
+  return 'private';
+}
+
+function setPrivacyRadio(groupId, level) {
+  const group = document.getElementById(groupId);
+  if (!group) return;
+  group.querySelectorAll('input[type="radio"]').forEach(r => {
+    r.checked = r.value === level;
+  });
+}
+
+function getPrivacyRadio(name) {
+  const checked = document.querySelector(`input[name="${name}"]:checked`);
+  return checked?.value ?? 'private';
+}
+
+function showPrivacySettings() {
+  const p = currentProfile ?? {};
+
+  // Populate current values
+  document.getElementById('pv-username').textContent = p.username ? `@${p.username}` : '(not set)';
+  document.getElementById('pv-name').textContent     =
+    [p.first_name, p.last_name].filter(Boolean).join(' ') || '(not set)';
+  document.getElementById('pv-hcp').textContent      = p.hcp != null ? `${p.hcp}` : '(not set)';
+  document.getElementById('pv-mobile').textContent   = p.mobile || '(not set)';
+  document.getElementById('pv-email').textContent    = currentUser?.email || '(not set)';
+
+  // Set radio buttons from stored preferences
+  setPrivacyRadio('pv-name-radio',   getPrivacyLevel(p.share_name,   p.friends_see_name));
+  setPrivacyRadio('pv-hcp-radio',    getPrivacyLevel(p.share_hcp,    p.friends_see_hcp));
+  setPrivacyRadio('pv-mobile-radio', getPrivacyLevel(p.share_mobile, p.friends_see_mobile));
+  setPrivacyRadio('pv-email-radio',  getPrivacyLevel(p.share_email,  p.friends_see_email));
+
+  showScreen('screen-privacy');
+}
+
+document.getElementById('btn-open-privacy')?.addEventListener('click', () => showPrivacySettings());
+document.getElementById('privacy-back')?.addEventListener('click', () => showProfile());
+
+document.getElementById('btn-save-privacy')?.addEventListener('click', async () => {
+  const nameLevel   = getPrivacyRadio('pv-name');
+  const hcpLevel    = getPrivacyRadio('pv-hcp');
+  const mobileLevel = getPrivacyRadio('pv-mobile');
+  const emailLevel  = getPrivacyRadio('pv-email');
+
+  const updates = {
+    share_name:           nameLevel   === 'public',
+    friends_see_name:     nameLevel   === 'public' || nameLevel   === 'friends',
+    share_hcp:            hcpLevel    === 'public',
+    friends_see_hcp:      hcpLevel    === 'public' || hcpLevel    === 'friends',
+    share_mobile:         mobileLevel === 'public',
+    friends_see_mobile:   mobileLevel === 'public' || mobileLevel === 'friends',
+    share_email:          emailLevel  === 'public',
+    friends_see_email:    emailLevel  === 'public' || emailLevel  === 'friends',
+  };
+
+  const btn = document.getElementById('btn-save-privacy');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    await profileSave(currentUser.id, updates);
+    // Update local profile cache
+    Object.assign(currentProfile, updates);
+    btn.textContent = 'Saved!';
+    setTimeout(() => {
+      btn.textContent = 'SAVE PREFERENCES';
+      btn.disabled = false;
+    }, 1500);
+  } catch (err) {
+    alert('Could not save: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = 'SAVE PREFERENCES';
+  }
+});
