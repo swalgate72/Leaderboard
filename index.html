@@ -484,87 +484,56 @@
 
       <!-- Username -->
       <div class="field">
-        <label>Username <span style="font-size:0.65rem;color:var(--muted);">searchable handle &mdash; no personal info needed</span></label>
+        <label>Username <span style="font-size:0.65rem;color:var(--muted);">searchable handle</span></label>
         <input id="prof-username" type="text" placeholder="e.g. stevewalgate72" autocomplete="off"
           style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;letter-spacing:0.04em;">
       </div>
 
       <div style="font-size:0.68rem;color:var(--muted);margin-bottom:0.75rem;line-height:1.5;">
-        Tick who can see each field: &nbsp;
-        <span style="font-size:0.8rem;">&#128269;</span> = anyone &nbsp;|&nbsp;
-        <span style="font-size:0.8rem;">&#128101;</span> = confirmed friends only
+        Tap buttons to control visibility:
+        &#128269; = anyone can find you &nbsp;|&nbsp; &#128101; = confirmed friends only
       </div>
 
-      <!-- Name row -->
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;">
+      <!-- Name -->
+      <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.25rem;">
         <span style="flex:1;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">Name</span>
-        <span style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;">
-          <input type="checkbox" id="prof-share-name-search" style="accent-color:var(--gold);width:18px;height:18px;cursor:pointer;flex-shrink:0;">
-          <span style="cursor:pointer;" onclick="document.getElementById('prof-share-name-search').click()">&#128269;</span>
-        </span>
-        <span style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;">
-          <input type="checkbox" id="prof-share-name-friends" style="accent-color:var(--gold);width:18px;height:18px;cursor:pointer;flex-shrink:0;">
-          <span style="cursor:pointer;" onclick="document.getElementById('prof-share-name-friends').click()">&#128101;</span>
-        </span>
+        <button type="button" id="prof-share-name-search" class="privacy-btn" data-checked="false">&#128269; Anyone</button>
+        <button type="button" id="prof-share-name-friends" class="privacy-btn" data-checked="false">&#128101; Friends</button>
       </div>
       <div class="two-col" style="margin-bottom:0.75rem;">
-        <div class="field" style="margin:0;">
-          <input id="prof-fname" type="text" placeholder="First name" autocomplete="given-name">
-        </div>
-        <div class="field" style="margin:0;">
-          <input id="prof-lname" type="text" placeholder="Last name" autocomplete="family-name">
-        </div>
+        <div class="field" style="margin:0;"><input id="prof-fname" type="text" placeholder="First name" autocomplete="given-name"></div>
+        <div class="field" style="margin:0;"><input id="prof-lname" type="text" placeholder="Last name" autocomplete="family-name"></div>
       </div>
 
-      <!-- HCP row -->
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;">
+      <!-- Handicap -->
+      <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.25rem;">
         <span style="flex:1;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">Handicap Index</span>
-        <span style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;">
-          <input type="checkbox" id="prof-share-hcp-search" style="accent-color:var(--gold);width:18px;height:18px;cursor:pointer;flex-shrink:0;">
-          <span style="cursor:pointer;" onclick="document.getElementById('prof-share-hcp-search').click()">&#128269;</span>
-        </span>
-        <span style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;">
-          <input type="checkbox" id="prof-share-hcp-friends" style="accent-color:var(--gold);width:18px;height:18px;cursor:pointer;flex-shrink:0;">
-          <span style="cursor:pointer;" onclick="document.getElementById('prof-share-hcp-friends').click()">&#128101;</span>
-        </span>
+        <button type="button" id="prof-share-hcp-search" class="privacy-btn" data-checked="false">&#128269; Anyone</button>
+        <button type="button" id="prof-share-hcp-friends" class="privacy-btn" data-checked="false">&#128101; Friends</button>
       </div>
       <div class="two-col" style="margin-bottom:0.75rem;">
-        <div class="field" style="margin:0;">
-          <input id="prof-hcp" type="number" placeholder="12.4" step="0.1" min="0" max="54">
-        </div>
+        <div class="field" style="margin:0;"><input id="prof-hcp" type="number" placeholder="12.4" step="0.1" min="0" max="54"></div>
         <div class="field" style="margin:0;">
           <label style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">WHS Number</label>
           <input id="prof-whs" type="text" placeholder="e.g. 123456">
         </div>
       </div>
 
-      <!-- Mobile row -->
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;">
+      <!-- Mobile -->
+      <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.25rem;">
         <span style="flex:1;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">Mobile</span>
-        <span style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;">
-          <input type="checkbox" id="prof-share-mobile-search" style="accent-color:var(--gold);width:18px;height:18px;cursor:pointer;flex-shrink:0;">
-          <span style="cursor:pointer;" onclick="document.getElementById('prof-share-mobile-search').click()">&#128269;</span>
-        </span>
-        <span style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;">
-          <input type="checkbox" id="prof-share-mobile-friends" style="accent-color:var(--gold);width:18px;height:18px;cursor:pointer;flex-shrink:0;">
-          <span style="cursor:pointer;" onclick="document.getElementById('prof-share-mobile-friends').click()">&#128101;</span>
-        </span>
+        <button type="button" id="prof-share-mobile-search" class="privacy-btn" data-checked="false">&#128269; Anyone</button>
+        <button type="button" id="prof-share-mobile-friends" class="privacy-btn" data-checked="false">&#128101; Friends</button>
       </div>
       <div class="field" style="margin-bottom:0.75rem;">
         <input id="prof-mobile" type="tel" placeholder="+447700900000">
       </div>
 
-      <!-- Email row -->
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;">
+      <!-- Email -->
+      <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.25rem;">
         <span style="flex:1;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">Email</span>
-        <span style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;">
-          <input type="checkbox" id="prof-share-email-search" style="accent-color:var(--gold);width:18px;height:18px;cursor:pointer;flex-shrink:0;">
-          <span style="cursor:pointer;" onclick="document.getElementById('prof-share-email-search').click()">&#128269;</span>
-        </span>
-        <span style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;">
-          <input type="checkbox" id="prof-share-email-friends" style="accent-color:var(--gold);width:18px;height:18px;cursor:pointer;flex-shrink:0;">
-          <span style="cursor:pointer;" onclick="document.getElementById('prof-share-email-friends').click()">&#128101;</span>
-        </span>
+        <button type="button" id="prof-share-email-search" class="privacy-btn" data-checked="false">&#128269; Anyone</button>
+        <button type="button" id="prof-share-email-friends" class="privacy-btn" data-checked="false">&#128101; Friends</button>
       </div>
       <div class="field" style="margin:0;">
         <input id="prof-email" type="email" autocomplete="email">
