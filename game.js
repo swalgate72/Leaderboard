@@ -350,6 +350,11 @@ export function buildInitialState({
   holeOffset,
   courseName,
   teeName,
+  tournamentId      = null,
+  tournamentRoundId = null,
+  groupNumber       = null,
+  totalGroups       = null,
+  organiserId       = null,
 }) {
   const nPlayers = names.length;
   const base = {
@@ -361,11 +366,16 @@ export function buildInitialState({
     allowancePct,
     si,
     par,
-    numHoles:   numHoles   ?? 18,
-    holeOffset: holeOffset ?? 0,
+    numHoles:         numHoles   ?? 18,
+    holeOffset:       holeOffset ?? 0,
     courseName,
     teeName,
-    hole: 0,  // 0-based index into si/par arrays
+    tournamentId,
+    tournamentRoundId,
+    groupNumber,
+    totalGroups,
+    organiserId,
+    hole: 0,
     log:  [],
   };
 
