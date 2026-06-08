@@ -2793,13 +2793,26 @@ function renderTrcStandings() {
 
 // Wire up buttons
 document.getElementById('trc-next-round-btn')?.addEventListener('click', () => showTournamentRoundSetup());
-document.getElementById('trc-manage-btn')    ?.addEventListener('click', () => showTournamentDetail(activeTournament.id));
 document.getElementById('trc-home-btn')      ?.addEventListener('click', () => showHome());
-document.getElementById('trc-share-btn')     ?.addEventListener('click', () => {
+document.getElementById('trc-home-btn2')     ?.addEventListener('click', () => showHome());
+document.getElementById('trc-share-btn')     ?.addEventListener('click', async () => {
   const url = buildTournamentViewUrl(APP_URL, activeTournament.id);
-  const msg = `${activeTournament.name} leaderboard: ${url}`;
-  if (navigator.share) navigator.share({ title: activeTournament.name, text: msg, url }).catch(() => {});
-  else navigator.clipboard.writeText(msg).then(() => alert('Link copied!'));
+  const copied = document.getElementById('trc-share-copied');
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: activeTournament.name,
+        text:  `${activeTournament.name} — final leaderboard`,
+        url,
+      });
+    } catch {}
+  } else {
+    await navigator.clipboard.writeText(url);
+    if (copied) {
+      copied.style.display = 'block';
+      setTimeout(() => { copied.style.display = 'none'; }, 3000);
+    }
+  }
 });
 
 async function showTournamentDetail(tournamentId) {
