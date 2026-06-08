@@ -588,10 +588,21 @@ export function realtimeUnsubscribe(channel) {
 // TOURNAMENTS
 // ================================================================
 
-export async function tournamentCreate({ organiserId, name, format, numRounds, hcpMode, scoringMode }) {
+export async function tournamentCreate({ organiserId, name, format, numRounds, hcpMode, scoringMode, tournamentType, teamSize, teamRotation, teamFormat }) {
   const { data, error } = await sb
     .from('tournaments')
-    .insert({ organiser_id: organiserId, name, format, num_rounds: numRounds, hcp_mode: hcpMode, scoring_mode: scoringMode ?? 'cumulative', status: 'active' })
+    .insert({
+      organiser_id:      organiserId,
+      name, format,
+      num_rounds:        numRounds,
+      hcp_mode:          hcpMode,
+      scoring_mode:      scoringMode ?? 'cumulative',
+      tournament_type:   tournamentType ?? 'individual',
+      team_size:         teamSize ?? null,
+      team_rotation:     teamRotation ?? null,
+      team_format:       teamFormat ?? null,
+      status:            'active',
+    })
     .select().single();
   if (error) throw error;
   return data;
@@ -794,4 +805,73 @@ export async function profileFindByUsername(username) {
     .maybeSingle();
   if (error) throw error;
   return data;
+}
+
+// ================================================================
+// TOURNAMENT TEAMS
+// ================================================================
+
+export async function tournamentTeamsCreate(tournamentId, teams) {
+  // teams: [{name, playerIds: [uuid]}]
+  const rows = teams.map(t => ({ tournament_id: tournamentId, name: t.name }));
+  const { data, error } = await sb.from('tournament_teams').insert(rows).select();
+  if (error) throw error;
+  // Assign players to teams
+  for (let i = 0; i < data.length; i++) {
+    const teamId = data[i].id;
+    const pids   = teams[i].playerIds ?? [];
+    if (pids.length) {
+      const { error: e2 } = await sb
+        .from('tournament_players')
+        .update({ team_id: teamId })
+        .in('id', pids);
+      if (e2) throw e2;
+    }
+  }
+  return data;
+}
+
+export async function tournamentTeamsLoad(tournamentId) {
+  const { data, error } = await sb
+    .from('tournament_teams')
+    .select('*')
+    .eq('tournament_id', tournamentId)
+    .order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function tournamentTeamUpdate(id, updates) {
+  const { error } = await sb.from('tournament_teams').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+// ── Round-level team assignments ─────────────────────────────────
+
+export async function roundTeamsCreate(tournamentRoundId, roundTeams) {
+  // roundTeams: [{teamId, playerIds, format, name}]
+  const rows = roundTeams.map(t => ({
+    tournament_round_id: tournamentRoundId,
+    team_id:    t.teamId ?? null,
+    player_ids: t.playerIds,
+    format:     t.format,
+    name:       t.name,
+  }));
+  const { data, error } = await sb.from('tournament_round_teams').insert(rows).select();
+  if (error) throw error;
+  return data;
+}
+
+export async function roundTeamsLoad(tournamentRoundId) {
+  const { data, error } = await sb
+    .from('tournament_round_teams')
+    .select('*')
+    .eq('tournament_round_id', tournamentRoundId);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function roundTeamUpdate(id, updates) {
+  const { error } = await sb.from('tournament_round_teams').update(updates).eq('id', id);
+  if (error) throw error;
 }

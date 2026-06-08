@@ -238,3 +238,117 @@ export function buildMultiGroupLeaderboard(groupStates) {
   else rows.sort((a, b) => { if (a.holesPlayed !== b.holesPlayed) return b.holesPlayed - a.holesPlayed; return a.net - b.net; });
   return rows;
 }
+
+// ================================================================
+// TEAM TOURNAMENT STANDINGS
+// ================================================================
+
+/**
+ * Build team standings for a fixed-team tournament.
+ * Teams accumulate scores across rounds.
+ */
+export function buildTeamStandings(teams, players, rounds, allScores, format, scoringMode) {
+  const isStroke     = format === 'stroke';
+  const completedRnds = rounds.filter(r => r.status === 'completed');
+
+  const rows = teams.map(team => {
+    const teamPlayers = players.filter(p => p.team_id === team.id);
+    const roundResults = completedRnds.map(r => {
+      // Team score = best score among team members for this round (better ball / best 2 etc)
+      // For combined formats = sum of all members
+      const memberScores = teamPlayers.map(p => {
+        return allScores.find(s => s.tournament_round_id === r.id && s.tournament_player_id === p.id);
+      }).filter(Boolean);
+
+      if (!memberScores.length) return { roundId: r.id, score: null, played: false };
+
+      let roundScore = null;
+      if (isStroke) {
+        roundScore = Math.min(...memberScores.map(s => s.net_score ?? 999));
+      } else {
+        // Cumulative: sum of points; for better ball use best score
+        roundScore = Math.max(...memberScores.map(s => s.points ?? 0));
+      }
+      return { roundId: r.id, score: roundScore, played: true };
+    });
+
+    const total = roundResults.reduce((s, r) => s + (r.score ?? 0), 0);
+    return { teamId: team.id, name: team.name, teamPlayers, roundResults, total };
+  });
+
+  rows.sort((a, b) => isStroke ? a.total - b.total : b.total - a.total);
+
+  let pos = 1;
+  rows.forEach((r, i) => {
+    if (i > 0 && r.total === rows[i-1].total) r.position = rows[i-1].position;
+    else r.position = pos;
+    pos++;
+  });
+
+  return rows;
+}
+
+/**
+ * Build individual standings for a rotating-team tournament.
+ * Each player accumulates points from each round (shared with their group that round).
+ */
+export function buildRotatingStandings(players, rounds, allScores, scoringMode) {
+  const completedRnds = rounds.filter(r => r.status === 'completed');
+  const numPlayers    = players.filter(p => !p.excluded).length;
+
+  const roundPointsMap = {};
+  if (scoringMode === 'points_game') {
+    completedRnds.forEach(r => {
+      const rScores = allScores.filter(s => s.tournament_round_id === r.id && !s.absent);
+      const playerScores = rScores.map(s => ({
+        playerId: s.tournament_player_id,
+        score:    s.points ?? 0,
+      }));
+      roundPointsMap[r.id] = awardRoundPoints(playerScores, numPlayers, false);
+    });
+  }
+
+  const rows = players.filter(p => !p.excluded).map(p => {
+    const roundResults = completedRnds.map(r => {
+      const score = allScores.find(s => s.tournament_round_id === r.id && s.tournament_player_id === p.id);
+      const tournPts = scoringMode === 'points_game' ? (roundPointsMap[r.id]?.[p.id] ?? 0) : null;
+      return {
+        roundId: r.id,
+        pts:     score?.points    ?? null,
+        net:     score?.net_score ?? null,
+        tournPts,
+        played:  !!score && !score.absent,
+      };
+    });
+
+    const playedRounds = roundResults.filter(r => r.played);
+    let total = 0;
+    if (scoringMode === 'stroke')       total = playedRounds.reduce((s, r) => s + (r.net   ?? 0), 0);
+    else if (scoringMode === 'cumulative') total = playedRounds.reduce((s, r) => s + (r.pts  ?? 0), 0);
+    else                                total = playedRounds.reduce((s, r) => s + (r.tournPts ?? 0), 0);
+
+    return { playerId: p.id, name: p.name, currentHcp: p.current_hcp, roundResults, total, roundsPlayed: playedRounds.length };
+  });
+
+  const isStroke = scoringMode === 'stroke';
+  rows.sort((a, b) => {
+    if (a.roundsPlayed !== b.roundsPlayed) return b.roundsPlayed - a.roundsPlayed;
+    return isStroke ? a.total - b.total : b.total - a.total;
+  });
+
+  let pos = 1;
+  rows.forEach((r, i) => {
+    if (i > 0 && r.total === rows[i-1].total) r.position = rows[i-1].position;
+    else r.position = pos;
+    pos++;
+  });
+
+  return rows;
+}
+
+/**
+ * Generate default team name from player surnames
+ */
+export function defaultTeamName(playerNames) {
+  return playerNames.map(n => n.split(' ').pop()).join(' & ');
+}
