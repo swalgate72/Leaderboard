@@ -2546,11 +2546,18 @@ async function showTournaments() {
 // ----------------------------------------------------------------
 // TOURNAMENT SETUP -- STEP 1: DETAILS
 // ----------------------------------------------------------------
+document.getElementById('tourn-team-size')?.addEventListener('change', updateTournFormatOptions);
+
 function showTournamentSetup() {
-  document.getElementById('tourn-name').value      = '';
-  document.getElementById('tourn-format').value    = 'stableford';
+  document.getElementById('tourn-name').value       = '';
+  document.getElementById('tourn-format').value     = 'stableford';
   document.getElementById('tourn-num-rounds').value = '3';
-  document.getElementById('tourn-hcp-mode').value  = 'fixed';
+  document.getElementById('tourn-hcp-mode').value   = 'fixed';
+  document.getElementById('tourn-type').value       = 'individual';
+  document.getElementById('tourn-type-individual').classList.add('selected');
+  document.getElementById('tourn-type-team').classList.remove('selected');
+  document.getElementById('tourn-team-opts').style.display = 'none';
+  updateTournFormatOptions();
   showScreen('screen-tournament-setup');
 }
 
@@ -2965,6 +2972,21 @@ async function showTournamentRoundSetup() {
     teeWrap.style.display = 'none';
   }
 
+  // Show format picker for team tournaments
+  const formatCard = document.getElementById('tround-format-card');
+  const formatSel  = document.getElementById('tround-game-format');
+  if (activeTournament?.tournament_type === 'team' && formatCard && formatSel) {
+    formatCard.style.display = '';
+    const teamSize = activeTournament.team_size ?? 2;
+    const formats  = TEAM_FORMATS[teamSize] ?? TEAM_FORMATS[2];
+    const prevFmt  = activeTournRoundFmt ?? activeTournament.team_format ?? formats[0].value;
+    formatSel.innerHTML = formats.map(f =>
+      `<option value="${f.value}"${f.value === prevFmt ? ' selected' : ''}>${f.label}</option>`
+    ).join('');
+  } else if (formatCard) {
+    formatCard.style.display = 'none';
+  }
+
   // Handicap card
   const hcpCard = document.getElementById('tround-hcp-card');
   if (activeTournament.hcp_mode === 'adjustable' && roundNumber > 1) {
@@ -3192,6 +3214,12 @@ function renderTournGroupsUI(numGroups) {
 
 // ── Tee Off ──────────────────────────────────────────────────────
 document.getElementById('btn-tround-tee-off')?.addEventListener('click', async () => {
+  // Read round format (team tournaments can change each round)
+  if (activeTournament?.tournament_type === 'team') {
+    activeTournRoundFmt = document.getElementById('tround-game-format')?.value
+      ?? activeTournament.team_format;
+  }
+
   const courseId  = document.getElementById('tround-course-select').value;
   const teeName   = document.getElementById('tround-tee-select').value;
   const date      = document.getElementById('tround-date').value;
@@ -4044,7 +4072,44 @@ document.getElementById('btn-save-privacy')?.addEventListener('click', async () 
 let activeTournTeams    = [];  // tournament_teams rows
 let activeTournRoundFmt = null; // format chosen for current round
 
-// ── Tournament type toggle ────────────────────────────────────────
+const TEAM_FORMATS = {
+  2: [
+    { value: 'betterball',  label: 'Better Ball' },
+    { value: 'csm',         label: 'Combined Stableford' },
+    { value: 'foursomes',   label: 'Foursomes' },
+    { value: 'greensomes',  label: 'Greensomes' },
+  ],
+  3: [
+    { value: 'best2',       label: 'Best 2 of 3' },
+  ],
+  4: [
+    { value: 'best2',       label: 'Best 2 of 4' },
+  ],
+};
+
+function updateTournFormatOptions() {
+  const type     = document.getElementById('tourn-type')?.value ?? 'individual';
+  const teamSize = parseInt(document.getElementById('tourn-team-size')?.value) || 2;
+
+  // Show/hide the right format selector
+  const indivWrap = document.getElementById('tourn-indiv-format-wrap');
+  const teamWrap  = document.getElementById('tourn-team-format-wrap');
+  if (indivWrap) indivWrap.style.display = type === 'individual' ? '' : 'none';
+  if (teamWrap)  teamWrap.style.display  = type === 'team'       ? '' : 'none';
+
+  // Populate team formats based on size
+  if (type === 'team') {
+    const sel     = document.getElementById('tourn-team-format');
+    const formats = TEAM_FORMATS[teamSize] ?? TEAM_FORMATS[2];
+    if (sel) {
+      sel.innerHTML = formats.map(f =>
+        `<option value="${f.value}">${f.label}</option>`
+      ).join('');
+    }
+  }
+}
+
+// Wire up — call on type toggle and team size change
 document.addEventListener('click', e => {
   const btn = e.target.closest('#tourn-type-individual, #tourn-type-team');
   if (!btn) return;
@@ -4052,8 +4117,8 @@ document.addEventListener('click', e => {
   document.getElementById('tourn-type').value = val;
   document.getElementById('tourn-type-individual').classList.toggle('selected', val === 'individual');
   document.getElementById('tourn-type-team').classList.toggle('selected', val === 'team');
-  document.getElementById('tourn-team-opts').style.display       = val === 'team' ? '' : 'none';
-  document.getElementById('tourn-team-format-opts').style.display = val === 'team' ? '' : 'none';
+  document.getElementById('tourn-team-opts').style.display = val === 'team' ? '' : 'none';
+  updateTournFormatOptions();
 });
 
 // ── Override tournament creation to handle team type ─────────────
@@ -4156,13 +4221,14 @@ document.getElementById('btn-teams-confirm')?.addEventListener('click', async ()
 
 async function createTeamTournament(teams) {
   const name        = document.getElementById('tourn-name').value.trim();
-  const format      = document.getElementById('tourn-format').value;
   const teamFormat  = document.getElementById('tourn-team-format').value;
   const numRounds   = parseInt(document.getElementById('tourn-num-rounds').value);
   const hcpMode     = document.getElementById('tourn-hcp-mode').value;
   const scoringMode = document.getElementById('tourn-scoring-mode').value;
   const teamSize    = parseInt(document.getElementById('tourn-team-size').value);
   const rotation    = document.getElementById('tourn-rotation').value;
+  // Derive underlying scoring format from team format
+  const format      = ['foursomes','greensomes'].includes(teamFormat) ? 'stroke' : 'stableford';
 
   // Create tournament with team metadata
   const tourn = await tournamentCreate({
