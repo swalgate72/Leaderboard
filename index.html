@@ -929,26 +929,23 @@
         </div>
       </div>
 
-      <div class="field">
-        <label>Round Format</label>
+      <!-- Individual scoring format (shown for individual tournaments) -->
+      <div class="field" id="tourn-indiv-format-wrap">
+        <label>Scoring Format</label>
         <select id="tourn-format">
           <option value="stableford">Stableford</option>
           <option value="stroke">Stroke Play</option>
         </select>
       </div>
-      <div id="tourn-team-format-opts" style="display:none;">
-        <div class="field">
-          <label>Team Game Format</label>
-          <select id="tourn-team-format">
-            <option value="betterball">Better Ball</option>
-            <option value="csm">Combined Stableford</option>
-            <option value="foursomes">Foursomes</option>
-            <option value="greensomes">Greensomes</option>
-            <option value="best2">Best 2</option>
-          </select>
-          <div style="font-size:0.68rem;color:var(--muted);margin-top:0.25rem;">
-            Can be changed at the start of each round
-          </div>
+
+      <!-- Team game format (shown for team tournaments, updates with team size) -->
+      <div class="field" id="tourn-team-format-wrap" style="display:none;">
+        <label>Team Game Format</label>
+        <select id="tourn-team-format">
+          <!-- Populated dynamically based on team size -->
+        </select>
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:0.25rem;">
+          Can be changed at the start of each round
         </div>
       </div>
       <div class="field">
@@ -1070,6 +1067,15 @@
       <div class="card-title">Update Handicaps</div>
       <div class="hint mb-sm">Adjust any player handicaps before this round.</div>
       <div id="tround-hcp-rows"></div>
+    </div>
+
+    <!-- Round Format (team tournaments only) -->
+    <div class="card mb-sm" id="tround-format-card" style="display:none;">
+      <div class="card-title">Game Format</div>
+      <div class="hint mb-sm">Choose the format for this round. You can change it each round.</div>
+      <select id="tround-game-format" style="width:100%;background:var(--surface2);border:1px solid var(--border);
+        border-radius:var(--radius-sm);padding:0.65rem 0.85rem;color:var(--white);font-size:0.9rem;">
+      </select>
     </div>
 
     <!-- Group Setup -->
