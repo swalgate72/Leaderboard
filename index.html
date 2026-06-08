@@ -1225,5 +1225,36 @@
   </div>
 </div>
 
+
+<!-- ══════════════════════════════════════════
+     TOURNAMENT ROUND COMPLETE SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-tournament-round-complete" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="trc-home-btn">⌂ Home</button>
+    <h2 id="trc-title">Tournament</h2>
+  </div>
+  <div style="padding:1rem;max-width:520px;margin:0 auto;">
+
+    <!-- Round result summary -->
+    <div class="card mb-sm">
+      <div style="font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem;" id="trc-round-label">Round 1 Complete</div>
+      <div id="trc-round-result" style="font-size:0.85rem;line-height:1.6;"></div>
+    </div>
+
+    <!-- Tournament standings -->
+    <div style="font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:0.5rem;">Tournament Standings</div>
+    <div id="trc-standings" style="margin-bottom:1.5rem;overflow-x:auto;"></div>
+
+    <!-- Actions -->
+    <div style="display:grid;gap:0.5rem;">
+      <button class="btn btn-green" id="trc-next-round-btn">⛳ SET UP NEXT ROUND →</button>
+      <button class="btn btn-outline" id="trc-share-btn">🔗 Share Leaderboard</button>
+      <button class="btn btn-ghost" id="trc-manage-btn" style="font-size:0.82rem;">Manage Tournament</button>
+    </div>
+
+  </div>
+</div>
+
 </body>
 </html>
