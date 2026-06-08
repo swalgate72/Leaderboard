@@ -1568,7 +1568,7 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     const tournId = gameState.tournamentId;
     gameState = null;
     if (wasTournament) {
-      await showTournamentDetail(tournId);
+      await showTournamentRoundComplete(tournId);
     } else {
       await showHome();
     }
@@ -2679,6 +2679,128 @@ document.getElementById('btn-tourn-players-next')?.addEventListener('click', asy
 // TOURNAMENT DETAIL
 // ----------------------------------------------------------------
 document.getElementById('tournament-detail-back')?.addEventListener('click', () => showTournaments());
+
+// ----------------------------------------------------------------
+// TOURNAMENT ROUND COMPLETE SCREEN
+// ----------------------------------------------------------------
+async function showTournamentRoundComplete(tournamentId) {
+  showScreen('screen-tournament-round-complete');
+
+  // Load fresh data
+  activeTournament     = await tournamentLoadById(tournamentId);
+  activeTournPlayers   = await tournamentPlayersLoad(tournamentId);
+  activeTournRounds    = await tournamentRoundsLoad(tournamentId);
+  activeTournAllScores = await tournamentAllScoresLoad(tournamentId);
+
+  const completedRounds = activeTournRounds.filter(r => r.status === 'completed');
+  const lastRound       = completedRounds[completedRounds.length - 1];
+  const roundNum        = lastRound?.round_number ?? 1;
+  const totalRounds     = activeTournament.num_rounds;
+  const isComplete      = completedRounds.length >= totalRounds;
+
+  document.getElementById('trc-title').textContent = activeTournament.name;
+  document.getElementById('trc-round-label').textContent =
+    `Round ${roundNum} of ${totalRounds} — Complete`;
+
+  // Round result summary
+  if (lastRound) {
+    const lastScores = activeTournAllScores.filter(s => s.tournament_round_id === lastRound.id);
+    const isStroke   = activeTournament.format === 'stroke';
+    const sorted     = [...lastScores].filter(s => !s.absent).sort((a, b) =>
+      isStroke ? a.net_score - b.net_score : b.points - a.points
+    );
+    const resultLines = sorted.map((s, i) => {
+      const player = activeTournPlayers.find(p => p.id === s.tournament_player_id);
+      const score  = isStroke ? `${s.net_score} net` : `${s.points} pts`;
+      const medal  = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+      return `<div style="display:flex;justify-content:space-between;padding:0.3rem 0;
+               border-bottom:1px solid var(--border);font-size:0.85rem;">
+        <span>${medal} ${player?.name ?? '--'}</span>
+        <span style="color:var(--gold);font-weight:600;">${score}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('trc-round-result').innerHTML = resultLines ||
+      '<div style="color:var(--muted);">No scores recorded.</div>';
+  }
+
+  // Tournament standings
+  renderTrcStandings();
+
+  // Next round button
+  const nextBtn = document.getElementById('trc-next-round-btn');
+  if (isComplete) {
+    nextBtn.textContent = '🏆 Tournament Complete';
+    nextBtn.disabled    = true;
+    nextBtn.className   = 'btn btn-outline';
+  } else {
+    nextBtn.textContent = `⛳ SET UP ROUND ${roundNum + 1} →`;
+    nextBtn.disabled    = false;
+    nextBtn.className   = 'btn btn-green';
+  }
+}
+
+function renderTrcStandings() {
+  const scoringMode = activeTournament.scoring_mode ?? 'cumulative';
+  const standings   = buildStandings(
+    activeTournPlayers, activeTournRounds, activeTournAllScores,
+    activeTournament.format, scoringMode
+  );
+
+  const isStroke     = scoringMode === 'stroke';
+  const isPointsGame = scoringMode === 'points_game';
+  const modeLabel    = { cumulative: 'Pts', stroke: 'Net', points_game: 'T.Pts' }[scoringMode] ?? 'Total';
+
+  let html = `<table class="sc-table" style="width:100%;font-size:0.82rem;">
+    <thead><tr>
+      <th style="text-align:left;">Player</th>
+      <th>HCP</th>`;
+
+  activeTournRounds.filter(r => r.status === 'completed').forEach(r => {
+    const d = r.date ? new Date(r.date).toLocaleDateString('en-GB', { day:'numeric', month:'short' }) : `R${r.round_number}`;
+    html += `<th>${d}</th>`;
+  });
+  html += `<th style="color:var(--gold);">${modeLabel}</th>`;
+  if (isStroke) html += `<th style="color:var(--muted);">Gross</th>`;
+  html += '</tr></thead><tbody>';
+
+  standings.forEach((row, idx) => {
+    const isLead = idx === 0;
+    html += `<tr${isLead ? ' style="background:rgba(212,168,67,0.06);"' : ''}>
+      <td style="text-align:left;font-weight:${isLead?'700':'500'};color:${isLead?'var(--gold)':''};">
+        ${row.position}. ${row.name}
+      </td>
+      <td style="color:var(--muted);font-size:0.75rem;">${row.currentHcp}</td>`;
+
+    activeTournRounds.filter(r => r.status === 'completed').forEach(r => {
+      const rr = row.roundResults.find(x => x.roundId === r.id);
+      let val = '--';
+      if (!rr?.absent) {
+        if (isPointsGame)  val = rr?.tournPts ?? '--';
+        else if (isStroke) val = rr?.net      ?? '--';
+        else               val = rr?.pts      ?? '--';
+      }
+      html += `<td>${val}</td>`;
+    });
+
+    html += `<td style="color:var(--gold);font-weight:700;">${row.total ?? '--'}</td>`;
+    if (isStroke) html += `<td style="color:var(--muted);">${row.totalGross ?? '--'}</td>`;
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('trc-standings').innerHTML = html;
+}
+
+// Wire up buttons
+document.getElementById('trc-next-round-btn')?.addEventListener('click', () => showTournamentRoundSetup());
+document.getElementById('trc-manage-btn')    ?.addEventListener('click', () => showTournamentDetail(activeTournament.id));
+document.getElementById('trc-home-btn')      ?.addEventListener('click', () => showHome());
+document.getElementById('trc-share-btn')     ?.addEventListener('click', () => {
+  const url = buildTournamentViewUrl(APP_URL, activeTournament.id);
+  const msg = `${activeTournament.name} leaderboard: ${url}`;
+  if (navigator.share) navigator.share({ title: activeTournament.name, text: msg, url }).catch(() => {});
+  else navigator.clipboard.writeText(msg).then(() => alert('Link copied!'));
+});
 
 async function showTournamentDetail(tournamentId) {
   showScreen('screen-tournament-detail');
