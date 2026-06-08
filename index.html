@@ -896,11 +896,20 @@
         <input id="tourn-name" type="text" placeholder="e.g. Summer Cup 2026">
       </div>
       <div class="field">
-        <label>Format</label>
+        <label>Round Format</label>
         <select id="tourn-format">
           <option value="stableford">Stableford</option>
           <option value="stroke">Stroke Play</option>
         </select>
+      </div>
+      <div class="field">
+        <label>Tournament Scoring</label>
+        <select id="tourn-scoring-mode">
+          <option value="cumulative">Cumulative — add all round scores</option>
+          <option value="stroke">Total Stroke — total net shots, lowest wins</option>
+          <option value="points_game">Points per Game — rank points each round</option>
+        </select>
+        <div id="tourn-scoring-hint" style="font-size:0.68rem;color:var(--muted);margin-top:0.3rem;line-height:1.5;"></div>
       </div>
       <div class="field">
         <label>Number of Rounds</label>
@@ -941,7 +950,10 @@
       <div class="card-title">Players</div>
       <div class="hint mb-sm">Add all players who will take part. You can set groups before each round.</div>
       <div id="tourn-players-list"></div>
-      <button class="btn btn-outline mt-sm" id="btn-tourn-add-player">+ Add Player</button>
+      <div class="two-col mt-sm" style="gap:0.4rem;">
+        <button class="btn btn-outline" id="btn-tourn-add-player">+ Add Player</button>
+        <button class="btn btn-outline" id="btn-tourn-add-friend">👤 From Friends</button>
+      </div>
     </div>
     <button class="btn btn-green" id="btn-tourn-players-next">CREATE TOURNAMENT →</button>
   </div>

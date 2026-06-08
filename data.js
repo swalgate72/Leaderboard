@@ -588,10 +588,10 @@ export function realtimeUnsubscribe(channel) {
 // TOURNAMENTS
 // ================================================================
 
-export async function tournamentCreate({ organiserId, name, format, numRounds, hcpMode }) {
+export async function tournamentCreate({ organiserId, name, format, numRounds, hcpMode, scoringMode }) {
   const { data, error } = await sb
     .from('tournaments')
-    .insert({ organiser_id: organiserId, name, format, num_rounds: numRounds, hcp_mode: hcpMode, status: 'active' })
+    .insert({ organiser_id: organiserId, name, format, num_rounds: numRounds, hcp_mode: hcpMode, scoring_mode: scoringMode ?? 'cumulative', status: 'active' })
     .select().single();
   if (error) throw error;
   return data;
