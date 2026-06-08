@@ -715,8 +715,9 @@ function makePlayerInputEl(pi, isMe) {
   return row;
 }
 
-function openFriendPicker(playerIdx) {
-  fpCallback = ({ name, hcp, profileId }) => {
+function openFriendPicker(playerIdx, customCallback = null) {
+  fpCallback = customCallback ?? (({ name, hcp, profileId }) => {
+    if (playerIdx < 0 || playerIdx >= setup.players.length) return;
     setup.players[playerIdx].name      = name;
     setup.players[playerIdx].hcpIndex  = hcp;
     setup.players[playerIdx].profileId = profileId;
@@ -724,7 +725,7 @@ function openFriendPicker(playerIdx) {
     const hcpEl  = document.getElementById(`phcp-${playerIdx}`);
     if (nameEl) nameEl.value = name;
     if (hcpEl)  hcpEl.value  = hcp;
-  };
+  });
   document.getElementById('fp-title').textContent = `Pick Player ${playerIdx + 1}`;
   hide('fp-confirm'); show('fp-chips');
   const chips = document.getElementById('fp-chips');
@@ -2550,6 +2551,15 @@ function showTournamentSetup() {
   showScreen('screen-tournament-setup');
 }
 
+document.getElementById('tourn-scoring-mode')?.addEventListener('change', e => {
+  const hints = {
+    cumulative:   'Stableford points from every round add up. Highest total wins.',
+    stroke:       'Net shots from every round add up. Lowest total wins.',
+    points_game:  '1st place each round gets N pts (N = players), 2nd gets N-1, etc. Ties share points and skip ranks.',
+  };
+  document.getElementById('tourn-scoring-hint').textContent = hints[e.target.value] ?? '';
+});
+
 document.getElementById('tournament-setup-back')?.addEventListener('click', () => showTournaments());
 
 document.getElementById('btn-tourn-setup-next')?.addEventListener('click', () => {
@@ -2610,11 +2620,22 @@ function renderTournPlayerList() {
 document.getElementById('btn-tourn-add-player')?.addEventListener('click', () => {
   tournSetupPlayers.push({ name: '', hcp: 0, profileId: null });
   renderTournPlayerList();
-  // Focus the new name input
   setTimeout(() => {
     const last = document.getElementById(`tpname-${tournSetupPlayers.length - 1}`);
     last?.focus();
   }, 50);
+});
+
+document.getElementById('btn-tourn-add-friend')?.addEventListener('click', () => {
+  // Show friend picker modal reused from game setup
+  openFriendPicker(-1, (friend) => {
+    tournSetupPlayers.push({
+      name:      friend.name,
+      hcp:       friend.hcp ?? 0,
+      profileId: friend.profileId ?? null,
+    });
+    renderTournPlayerList();
+  });
 });
 
 document.getElementById('tournament-players-back')?.addEventListener('click', () => showScreen('screen-tournament-setup'));
@@ -2632,13 +2653,14 @@ document.getElementById('btn-tourn-players-next')?.addEventListener('click', asy
   btn.disabled = true; btn.textContent = 'Creating…';
 
   try {
-    const name      = document.getElementById('tourn-name').value.trim();
-    const format    = document.getElementById('tourn-format').value;
-    const numRounds = parseInt(document.getElementById('tourn-num-rounds').value);
-    const hcpMode   = document.getElementById('tourn-hcp-mode').value;
+    const name        = document.getElementById('tourn-name').value.trim();
+    const format      = document.getElementById('tourn-format').value;
+    const numRounds   = parseInt(document.getElementById('tourn-num-rounds').value);
+    const hcpMode     = document.getElementById('tourn-hcp-mode').value;
+    const scoringMode = document.getElementById('tourn-scoring-mode').value;
 
     const tourn = await tournamentCreate({
-      organiserId: currentUser.id, name, format, numRounds, hcpMode,
+      organiserId: currentUser.id, name, format, numRounds, hcpMode, scoringMode,
     });
 
     await tournamentPlayersAdd(tourn.id, tournSetupPlayers.map(p => ({
@@ -2689,12 +2711,14 @@ async function showTournamentDetail(tournamentId) {
 }
 
 function renderTournamentStandings() {
+  const scoringMode = activeTournament.scoring_mode ?? 'cumulative';
   const standings = buildStandings(
     activeTournPlayers, activeTournRounds, activeTournAllScores,
-    activeTournament.format
+    activeTournament.format, scoringMode
   );
 
-  const isStroke = activeTournament.format === 'stroke';
+  const isStroke      = scoringMode === 'stroke';
+  const isPointsGame  = scoringMode === 'points_game';
   const el = document.getElementById('td-standings');
 
   if (!standings.length) {
@@ -2702,7 +2726,8 @@ function renderTournamentStandings() {
     return;
   }
 
-  // Build header
+  const modeLabel = { cumulative: 'Pts', stroke: 'Net', points_game: 'T.Pts' }[scoringMode] ?? 'Total';
+
   let html = `<table class="sc-table" style="width:100%;font-size:0.75rem;">
     <thead><tr>
       <th style="text-align:left;">Player</th>
@@ -2713,11 +2738,8 @@ function renderTournamentStandings() {
     html += `<th title="${r.course_name ?? ''}">${d}</th>`;
   });
 
-  if (isStroke) {
-    html += '<th style="color:var(--green);">Net</th><th style="color:var(--muted);">Gross</th>';
-  } else {
-    html += '<th style="color:var(--gold);">Total</th>';
-  }
+  html += `<th style="color:var(--gold);">${modeLabel}</th>`;
+  if (isStroke) html += '<th style="color:var(--muted);">Gross</th>';
   html += '</tr></thead><tbody>';
 
   standings.forEach((row, idx) => {
@@ -2730,16 +2752,17 @@ function renderTournamentStandings() {
 
     activeTournRounds.filter(r => r.status === 'completed').forEach(r => {
       const rr = row.roundResults.find(x => x.roundId === r.id);
-      const val = rr?.absent ? '--' : isStroke ? (rr?.net ?? '--') : (rr?.pts ?? '--');
+      let val = '--';
+      if (!rr?.absent) {
+        if (isPointsGame)   val = rr?.tournPts ?? '--';
+        else if (isStroke)  val = rr?.net      ?? '--';
+        else                val = rr?.pts      ?? '--';
+      }
       html += `<td>${val}</td>`;
     });
 
-    if (isStroke) {
-      html += `<td style="color:var(--green);font-weight:600;">${row.total || '--'}</td>
-               <td style="color:var(--muted);">${row.totalGross || '--'}</td>`;
-    } else {
-      html += `<td style="color:var(--gold);font-weight:700;">${row.total || '--'}</td>`;
-    }
+    html += `<td style="color:var(--gold);font-weight:700;">${row.total || '--'}</td>`;
+    if (isStroke) html += `<td style="color:var(--muted);">${row.totalGross || '--'}</td>`;
     html += '</tr>';
   });
 
@@ -2813,13 +2836,15 @@ async function showTournamentRoundSetup() {
     coursesSel.appendChild(opt);
   });
 
-  // Tee dropdown
-  const teeWrap = document.getElementById('tround-tee-wrap');
-  const teeSel  = document.getElementById('tround-tee-select');
-  const savedCourse = allCourses.find(c => c.id === (saved?.courseId ?? ''));
-  if (savedCourse) {
-    teeSel.innerHTML = (savedCourse.tees ?? []).map(t =>
-      `<option value="${t.name}"${t.name === saved?.teeName ? ' selected' : ''}>${t.name}</option>`).join('');
+  // Tee dropdown — populate from saved state OR from currently selected course
+  const teeWrap    = document.getElementById('tround-tee-wrap');
+  const teeSel     = document.getElementById('tround-tee-select');
+  const selectedCourseId = coursesSel.value;
+  const activeCourse = allCourses.find(c => c.id === selectedCourseId);
+
+  if (activeCourse) {
+    teeSel.innerHTML = (activeCourse.tees ?? []).map(t =>
+      `<option value="${t.name}"${t.name === (saved?.teeName ?? activeTournRound?.tee_name) ? ' selected' : ''}>${t.name}</option>`).join('');
     teeWrap.style.display = '';
   } else {
     teeWrap.style.display = 'none';
@@ -3367,7 +3392,7 @@ async function handleTournamentViewLink(tournamentId) {
     document.getElementById('tview-meta').textContent  =
       `${fmtLabel(tourn.format)} · ${rounds.filter(r=>r.status==='completed').length} of ${tourn.num_rounds} rounds completed`;
 
-    const standings = buildStandings(players, rounds, scores, tourn.format);
+    const standings = buildStandings(players, rounds, scores, tourn.format, tourn.scoring_mode ?? 'cumulative');
     const isStroke  = tourn.format === 'stroke';
 
     let html = `<table class="sc-table" style="width:100%;font-size:0.78rem;">
