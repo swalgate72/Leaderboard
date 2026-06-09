@@ -3115,6 +3115,11 @@ async function showTournamentDetail(tournamentId) {
   const isCompleted     = activeTournament.status === 'completed';
   const isFixedComplete = activeTournament.num_rounds && completedRounds >= activeTournament.num_rounds;
 
+  // Show Live Leaderboard button only when a round is currently active
+  const hasActiveRound = activeTournRounds.some(r => r.status === 'active');
+  const liveBtn = document.getElementById('btn-view-leaderboard');
+  if (liveBtn) liveBtn.style.display = hasActiveRound ? '' : 'none';
+
   if (isCompleted || isFixedComplete) {
     btn.textContent = '✓ Tournament Complete';
     btn.disabled    = true;
@@ -3241,6 +3246,7 @@ function renderTournamentRoundsList() {
 // ----------------------------------------------------------------
 // START NEXT ROUND
 // ----------------------------------------------------------------
+document.getElementById('btn-view-leaderboard')?.addEventListener('click', () => showTournamentLive());
 document.getElementById('btn-start-next-round')?.addEventListener('click', () => showTournamentRoundSetup());
 document.getElementById('tround-back')          ?.addEventListener('click', () => showTournamentDetail(activeTournament.id));
 
@@ -3737,7 +3743,11 @@ document.getElementById('btn-delete-tournament')?.addEventListener('click', asyn
 // ----------------------------------------------------------------
 // TOURNAMENT LIVE LEADERBOARD
 // ----------------------------------------------------------------
-document.getElementById('tlive-back')?.addEventListener('click', () => showScreen('screen-game'));
+document.getElementById('tlive-back')?.addEventListener('click', () => {
+  if (gameState) showScreen('screen-game');
+  else if (activeTournament) showTournamentDetail(activeTournament.id);
+  else showScreen('screen-home');
+});
 document.getElementById('btn-game-leaderboard')?.addEventListener('click', () => {
   // If in a tournament round, show tournament leaderboard, else show regular
   if (gameState?.tournamentId) showTournamentLive();
