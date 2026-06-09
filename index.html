@@ -886,31 +886,93 @@
 <div id="screen-tournament-setup" class="screen">
   <div class="sticky-header">
     <button class="btn btn-ghost" id="tournament-setup-back">← Back</button>
-    <h2>New Tournament</h2>
+    <h2 id="tournament-setup-title">New Tournament</h2>
+    <button class="btn btn-ghost" id="tournament-setup-edit-btn" style="display:none;color:var(--gold);">Edit</button>
   </div>
   <div style="padding:1rem;max-width:520px;margin:0 auto;">
     <div class="card">
-      <div class="card-title">Tournament Details</div>
       <div class="field">
         <label>Tournament Name</label>
         <input id="tourn-name" type="text" placeholder="e.g. Summer Cup 2026">
       </div>
+
       <div class="field">
-        <label>Tournament Type</label>
+        <label>Type</label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
           <button type="button" id="tourn-type-individual" class="priv-btn selected" data-val="individual"
-            style="padding:1rem 0.5rem;font-size:1rem;">
-            👤 Individual
-          </button>
+            style="padding:1rem 0.5rem;font-size:1rem;">👤 Individual</button>
           <button type="button" id="tourn-type-team" class="priv-btn" data-val="team"
-            style="padding:1rem 0.5rem;font-size:1rem;">
-            👥 Team
-          </button>
+            style="padding:1rem 0.5rem;font-size:1rem;">👥 Team</button>
         </div>
         <input type="hidden" id="tourn-type" value="individual">
       </div>
 
-      <!-- Team options (shown only for team tournaments) -->
+      <div class="field">
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <label style="flex:1;margin:0;">Number of Rounds</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;cursor:pointer;">
+            <input type="checkbox" id="tourn-open-ended" style="accent-color:var(--gold);width:16px;height:16px;">
+            Open-ended
+          </label>
+        </div>
+        <select id="tourn-num-rounds" style="margin-top:0.4rem;">
+          <option value="2">2</option>
+          <option value="3" selected>3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="8">8</option>
+          <option value="10">10</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Tournament Scoring</label>
+        <select id="tourn-scoring-mode">
+          <option value="cumulative">Cumulative — add all round scores</option>
+          <option value="stroke">Total Stroke — total net shots, lowest wins</option>
+          <option value="points_game">Points per Game — rank points each round</option>
+        </select>
+        <div id="tourn-scoring-hint" style="font-size:0.68rem;color:var(--muted);margin-top:0.3rem;line-height:1.5;"></div>
+      </div>
+
+      <div class="field">
+        <label>Handicap Mode</label>
+        <select id="tourn-hcp-mode">
+          <option value="fixed">Fixed — locked at tournament start</option>
+          <option value="adjustable">Adjustable — update before each round</option>
+          <option value="auto">Auto — adjust after each round</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-green" id="btn-tourn-setup-next" style="width:100%;">NEXT: PLAYERS & SCORING →</button>
+  </div>
+</div>
+
+
+<div id="screen-tournament-players" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="tournament-players-back">← Back</button>
+    <h2 id="tourn-players-title">Players &amp; Scoring</h2>
+  </div>
+  <div style="padding:1rem;max-width:520px;margin:0 auto;">
+
+    <!-- Scoring format card -->
+    <div class="card mb-sm">
+      <div class="card-title">Scoring Format</div>
+
+      <!-- Individual scoring format -->
+      <div id="tourn-indiv-format-wrap">
+        <div class="field" style="margin:0;">
+          <label>Scoring Format</label>
+          <select id="tourn-format">
+            <option value="stableford">Stableford</option>
+            <option value="stroke">Stroke Play</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Team scoring format -->
       <div id="tourn-team-opts" style="display:none;">
         <div class="field">
           <label>Team Size</label>
@@ -923,97 +985,44 @@
         <div class="field">
           <label>Team Rotation</label>
           <select id="tourn-rotation">
-            <option value="fixed">Fixed teams — same partners every round</option>
+            <option value="fixed">Fixed — same partners every round</option>
             <option value="rotating">Rotating — re-group before each round</option>
           </select>
         </div>
-      </div>
-
-      <!-- Individual scoring format (shown for individual tournaments) -->
-      <div class="field" id="tourn-indiv-format-wrap">
-        <label>Scoring Format</label>
-        <select id="tourn-format">
-          <option value="stableford">Stableford</option>
-          <option value="stroke">Stroke Play</option>
-        </select>
-      </div>
-
-      <!-- Team game format (shown for team tournaments, updates with team size) -->
-      <div class="field" id="tourn-team-format-wrap" style="display:none;">
-        <label>Team Game Format</label>
-        <select id="tourn-team-format">
-          <!-- Populated dynamically based on team size -->
-        </select>
-        <div style="font-size:0.68rem;color:var(--muted);margin-top:0.25rem;">
-          Can be changed at the start of each round
+        <div class="field" id="tourn-team-format-wrap">
+          <label>Team Game Format</label>
+          <select id="tourn-team-format"></select>
+          <div style="font-size:0.68rem;color:var(--muted);margin-top:0.25rem;">Can be changed each round</div>
         </div>
       </div>
-      <div class="field">
-        <label>Tournament Scoring</label>
-        <select id="tourn-scoring-mode">
-          <option value="cumulative">Cumulative — add all round scores</option>
-          <option value="stroke">Total Stroke — total net shots, lowest wins</option>
-          <option value="points_game">Points per Game — rank points each round</option>
-        </select>
-        <div id="tourn-scoring-hint" style="font-size:0.68rem;color:var(--muted);margin-top:0.3rem;line-height:1.5;"></div>
-      </div>
-      <div class="field">
-        <label>Number of Rounds</label>
-        <select id="tourn-num-rounds">
-          <option value="2">2</option>
-          <option value="3" selected>3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-          <option value="6">6</option>
-          <option value="8">8</option>
-          <option value="10">10</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Handicap Mode</label>
-        <select id="tourn-hcp-mode">
-          <option value="fixed">Fixed — locked at tournament start</option>
-          <option value="adjustable">Adjustable — update before each round</option>
-          <option value="auto">Auto — adjust after each round</option>
-        </select>
-      </div>
-      <div class="hint">Auto mode: above average −0.5 per unit · below average +0.25 per unit</div>
     </div>
-    <button class="btn btn-green" id="btn-tourn-setup-next">NEXT: PLAYERS →</button>
-  </div>
-</div>
 
-<!-- ══════════════════════════════════════════
-     TOURNAMENT SETUP — STEP 2: PLAYERS
-     ══════════════════════════════════════════ -->
-<div id="screen-tournament-players" class="screen">
-  <div class="sticky-header">
-    <button class="btn btn-ghost" id="tournament-players-back">← Back</button>
-    <h2>Tournament Players</h2>
-  </div>
-  <div style="padding:1rem;max-width:520px;margin:0 auto;">
-    <div class="card">
+    <!-- Players card -->
+    <div class="card mb-sm">
       <div class="card-title">Players</div>
-      <div class="hint mb-sm">Add all players who will take part. You can set groups before each round.</div>
+      <div class="hint mb-sm">Add all players who will take part.</div>
       <div id="tourn-players-list"></div>
       <div class="two-col mt-sm" style="gap:0.4rem;">
         <button class="btn btn-outline" id="btn-tourn-add-player">+ Add Player</button>
         <button class="btn btn-outline" id="btn-tourn-add-friend">👤 From Friends</button>
       </div>
     </div>
-    <button class="btn btn-green" id="btn-tourn-players-next">CREATE TOURNAMENT →</button>
+
+    <button class="btn btn-green" id="btn-tourn-players-next" style="width:100%;">CREATE TOURNAMENT →</button>
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     TOURNAMENT DETAIL SCREEN
-     ══════════════════════════════════════════ -->
+
 <div id="screen-tournament-detail" class="screen">
   <div class="sticky-header">
     <button class="btn btn-ghost" id="tournament-detail-back">← Tournaments</button>
     <h2 id="td-tournament-name">Tournament</h2>
+    <button class="btn btn-ghost" id="btn-td-edit" style="color:var(--gold);">Edit</button>
   </div>
   <div style="padding:1rem;max-width:520px;margin:0 auto;">
+
+    <!-- Tournament meta -->
+    <div id="td-meta" style="font-size:0.72rem;color:var(--muted);margin-bottom:0.75rem;"></div>
 
     <!-- Standings -->
     <div style="font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:0.5rem;">Standings</div>
@@ -1027,14 +1036,43 @@
     <div style="display:grid;gap:0.5rem;">
       <button class="btn btn-green" id="btn-start-next-round">⛳ SET UP NEXT ROUND →</button>
       <button class="btn btn-outline" id="btn-share-tournament">🔗 Share Tournament Link</button>
+      <button class="btn btn-outline" id="btn-finish-tournament" style="border-color:var(--gold-border);color:var(--gold);">🏆 Finish Tournament</button>
       <button class="btn btn-danger" id="btn-delete-tournament">Delete Tournament</button>
     </div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     TOURNAMENT ROUND SETUP SCREEN
-     ══════════════════════════════════════════ -->
+<!-- Edit Tournament Name Modal -->
+<div class="modal-overlay" id="modal-edit-tournament">
+  <div class="modal-box" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title">Edit Tournament</div>
+      <button class="btn-close" id="edit-tournament-close">✕</button>
+    </div>
+    <div class="field">
+      <label>Tournament Name</label>
+      <input id="edit-tournament-name" type="text" placeholder="Tournament name">
+    </div>
+    <button class="btn btn-green" id="btn-edit-tournament-save" style="width:100%;">Save</button>
+  </div>
+</div>
+
+<!-- Finish Tournament Confirmation Modal -->
+<div class="modal-overlay" id="modal-finish-tournament">
+  <div class="modal-box" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title">Finish Tournament?</div>
+      <button class="btn-close" id="finish-tournament-close">✕</button>
+    </div>
+    <div class="hint mb-md">This will mark the tournament as complete. No more rounds can be added. The leaderboard will remain visible.</div>
+    <div class="two-col">
+      <button class="btn btn-outline" id="btn-finish-cancel">Cancel</button>
+      <button class="btn btn-green" id="btn-finish-confirm">🏆 Finish</button>
+    </div>
+  </div>
+</div>
+
+
 <div id="screen-tournament-round-setup" class="screen">
   <div class="sticky-header">
     <button class="btn btn-ghost" id="tround-back">← Back</button>
