@@ -2758,11 +2758,14 @@ async function showTournaments() {
 document.getElementById('tourn-team-size')?.addEventListener('change', updateTournFormatOptions);
 
 function showTournamentSetup() {
-  document.getElementById('tourn-name').value       = '';
-  document.getElementById('tourn-format').value     = 'stableford';
-  document.getElementById('tourn-num-rounds').value = '3';
-  document.getElementById('tourn-hcp-mode').value   = 'fixed';
-  document.getElementById('tourn-type').value       = 'individual';
+  document.getElementById('tourn-name').value         = '';
+  document.getElementById('tourn-format').value       = 'stableford';
+  document.getElementById('tourn-num-rounds').value   = '3';
+  document.getElementById('tourn-hcp-mode').value     = 'fixed';
+  document.getElementById('tourn-scoring-mode').value = 'cumulative';
+  document.getElementById('tourn-open-ended').checked = false;
+  document.getElementById('tourn-num-rounds').disabled = false;
+  document.getElementById('tourn-type').value         = 'individual';
   document.getElementById('tourn-type-individual').classList.add('selected');
   document.getElementById('tourn-type-team').classList.remove('selected');
   document.getElementById('tourn-team-opts').style.display = 'none';
@@ -2770,11 +2773,17 @@ function showTournamentSetup() {
   showScreen('screen-tournament-setup');
 }
 
+// Open-ended rounds toggle
+document.getElementById('tourn-open-ended')?.addEventListener('change', e => {
+  const sel = document.getElementById('tourn-num-rounds');
+  if (sel) sel.disabled = e.target.checked;
+});
+
 document.getElementById('tourn-scoring-mode')?.addEventListener('change', e => {
   const hints = {
-    cumulative:   'Stableford points from every round add up. Highest total wins.',
-    stroke:       'Net shots from every round add up. Lowest total wins.',
-    points_game:  '1st place each round gets N pts (N = players), 2nd gets N-1, etc. Ties share points and skip ranks.',
+    cumulative:  'Stableford points from every round add up. Highest total wins.',
+    stroke:      'Net shots from every round add up. Lowest total wins.',
+    points_game: '1st place each round gets N pts (N = players), 2nd gets N-1, etc. Ties share points and skip ranks.',
   };
   document.getElementById('tourn-scoring-hint').textContent = hints[e.target.value] ?? '';
 });
@@ -2786,6 +2795,41 @@ document.getElementById('btn-tourn-setup-next')?.addEventListener('click', () =>
   if (!name) { alert('Please enter a tournament name.'); return; }
   buildTournPlayerForms();
   showScreen('screen-tournament-players');
+});
+
+// ── Edit tournament name ─────────────────────────────────────────
+document.getElementById('btn-td-edit')?.addEventListener('click', () => {
+  document.getElementById('edit-tournament-name').value = activeTournament?.name ?? '';
+  document.getElementById('modal-edit-tournament').classList.add('open');
+});
+document.getElementById('edit-tournament-close')?.addEventListener('click', () => {
+  document.getElementById('modal-edit-tournament').classList.remove('open');
+});
+document.getElementById('btn-edit-tournament-save')?.addEventListener('click', async () => {
+  const newName = document.getElementById('edit-tournament-name').value.trim();
+  if (!newName) return;
+  await tournamentUpdate(activeTournament.id, { name: newName });
+  activeTournament.name = newName;
+  document.getElementById('td-tournament-name').textContent = newName;
+  document.getElementById('modal-edit-tournament').classList.remove('open');
+});
+
+// ── Finish tournament ────────────────────────────────────────────
+document.getElementById('btn-finish-tournament')?.addEventListener('click', () => {
+  document.getElementById('modal-finish-tournament').classList.add('open');
+});
+document.getElementById('finish-tournament-close')?.addEventListener('click', () =>
+  document.getElementById('modal-finish-tournament').classList.remove('open'));
+document.getElementById('btn-finish-cancel')?.addEventListener('click', () =>
+  document.getElementById('modal-finish-tournament').classList.remove('open'));
+document.getElementById('btn-finish-confirm')?.addEventListener('click', async () => {
+  document.getElementById('modal-finish-tournament').classList.remove('open');
+  await tournamentUpdate(activeTournament.id, { status: 'completed' });
+  activeTournament.status = 'completed';
+  // Disable next round button
+  const btn = document.getElementById('btn-start-next-round');
+  if (btn) { btn.textContent = '✓ Tournament Complete'; btn.disabled = true; }
+  await showTournamentDetail(activeTournament.id);
 });
 
 // ----------------------------------------------------------------
@@ -3039,6 +3083,16 @@ async function showTournamentDetail(tournamentId) {
 
   document.getElementById('td-tournament-name').textContent = activeTournament.name;
 
+  // Meta info
+  const metaEl = document.getElementById('td-meta');
+  if (metaEl) {
+    const typeLabel   = activeTournament.tournament_type === 'team' ? '👥 Team' : '👤 Individual';
+    const roundsLabel = activeTournament.num_rounds ? `${activeTournament.num_rounds} rounds` : 'Open-ended';
+    const modeLabel   = { cumulative: 'Cumulative', stroke: 'Total Stroke', points_game: 'Points per Game' }[activeTournament.scoring_mode] ?? '';
+    const statusLabel = activeTournament.status === 'completed' ? ' · ✓ Complete' : '';
+    metaEl.textContent = `${typeLabel} · ${roundsLabel} · ${modeLabel}${statusLabel}`;
+  }
+
   renderTournamentStandings();
   renderTournamentRoundsList();
 
@@ -3046,13 +3100,22 @@ async function showTournamentDetail(tournamentId) {
   const completedRounds = activeTournRounds.filter(r => r.status === 'completed').length;
   const nextRoundNum    = completedRounds + 1;
   const btn             = document.getElementById('btn-start-next-round');
-  if (completedRounds >= activeTournament.num_rounds) {
+  const isCompleted     = activeTournament.status === 'completed';
+  const isFixedComplete = activeTournament.num_rounds && completedRounds >= activeTournament.num_rounds;
+
+  if (isCompleted || isFixedComplete) {
     btn.textContent = '✓ Tournament Complete';
     btn.disabled    = true;
+    btn.className   = 'btn btn-outline';
   } else {
     btn.textContent = `⛳ SET UP ROUND ${nextRoundNum} →`;
     btn.disabled    = false;
+    btn.className   = 'btn btn-green';
   }
+
+  // Show/hide finish button — only show if not already completed
+  const finishBtn = document.getElementById('btn-finish-tournament');
+  if (finishBtn) finishBtn.style.display = isCompleted ? 'none' : '';
 }
 
 function renderTournamentStandings() {
@@ -3122,8 +3185,17 @@ function renderTournamentStandings() {
 }
 
 function renderTournamentRoundsList() {
-  const el = document.getElementById('td-rounds');
-  el.innerHTML = Array.from({ length: activeTournament.num_rounds }, (_, i) => {
+  const el          = document.getElementById('td-rounds');
+  const numRounds   = activeTournament.num_rounds;
+  const isOpenEnded = !numRounds;
+  const isCompleted = activeTournament.status === 'completed';
+
+  // How many slots to show
+  const displayCount = isOpenEnded
+    ? activeTournRounds.length + (isCompleted ? 0 : 1)
+    : numRounds;
+
+  el.innerHTML = Array.from({ length: displayCount }, (_, i) => {
     const r = activeTournRounds.find(x => x.round_number === i + 1);
     const statusBadge = !r
       ? `<span class="badge badge-blue">PENDING</span>`
@@ -4519,7 +4591,8 @@ document.getElementById('btn-tourn-players-next')?.addEventListener('click', asy
   try {
     const name        = document.getElementById('tourn-name').value.trim();
     const format      = document.getElementById('tourn-format').value;
-    const numRounds   = parseInt(document.getElementById('tourn-num-rounds').value);
+    const isOpenEnded = document.getElementById('tourn-open-ended').checked;
+    const numRounds   = isOpenEnded ? null : parseInt(document.getElementById('tourn-num-rounds').value);
     const hcpMode     = document.getElementById('tourn-hcp-mode').value;
     const scoringMode = document.getElementById('tourn-scoring-mode').value;
 
