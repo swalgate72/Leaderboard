@@ -908,22 +908,28 @@
       </div>
 
       <div class="field">
-        <div style="display:flex;align-items:center;gap:0.75rem;">
-          <label style="flex:1;margin:0;">Number of Rounds</label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;cursor:pointer;">
-            <input type="checkbox" id="tourn-open-ended" style="accent-color:var(--gold);width:16px;height:16px;">
-            Open-ended
-          </label>
+        <label>Number of Rounds</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:0.4rem;">
+          <button type="button" id="btn-fixed-rounds"
+            style="padding:0.55rem;border-radius:8px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-size:0.85rem;cursor:pointer;transition:all 0.15s;">
+            Fixed number
+          </button>
+          <button type="button" id="btn-open-ended"
+            style="padding:0.55rem;border-radius:8px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-size:0.85rem;cursor:pointer;transition:all 0.15s;">
+            Open-ended ∞
+          </button>
         </div>
-        <select id="tourn-num-rounds" style="margin-top:0.4rem;">
-          <option value="2">2</option>
-          <option value="3" selected>3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-          <option value="6">6</option>
-          <option value="8">8</option>
-          <option value="10">10</option>
+        <select id="tourn-num-rounds" style="margin-top:0.5rem;">
+          <option value="2">2 rounds</option>
+          <option value="3" selected>3 rounds</option>
+          <option value="4">4 rounds</option>
+          <option value="5">5 rounds</option>
+          <option value="6">6 rounds</option>
+          <option value="8">8 rounds</option>
+          <option value="10">10 rounds</option>
         </select>
+        <!-- hidden checkbox kept for JS compatibility -->
+        <input type="checkbox" id="tourn-open-ended" style="display:none;">
       </div>
 
       <div class="field">
