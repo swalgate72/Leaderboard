@@ -2780,6 +2780,7 @@ function showTournamentSetup() {
   document.getElementById('tourn-scoring-mode').value = 'cumulative';
   updateRoundsToggle(false);
   document.getElementById('tourn-type').value         = 'individual';
+  updateTournTypeToggle('individual');
   document.getElementById('tourn-type-individual').classList.add('selected');
   document.getElementById('tourn-type-team').classList.remove('selected');
   document.getElementById('tourn-team-opts').style.display = 'none';
@@ -2801,8 +2802,26 @@ function updateRoundsToggle(isOpenEnded) {
   if (btnOpen)  btnOpen.style.cssText  += isOpenEnded ? activeStyle   : inactiveStyle;
 }
 
-document.getElementById('btn-fixed-rounds')?.addEventListener('click', () => updateRoundsToggle(false));
-document.getElementById('btn-open-ended')?.addEventListener('click',   () => updateRoundsToggle(true));
+function updateTournTypeToggle(val) {
+  const btnInd  = document.getElementById('tourn-type-individual');
+  const btnTeam = document.getElementById('tourn-type-team');
+  const hidden  = document.getElementById('tourn-type');
+  if (hidden) hidden.value = val;
+  const activeStyle   = 'background:var(--green);color:#fff;border-color:var(--green);font-weight:600;';
+  const inactiveStyle = 'background:var(--card);color:var(--text);border-color:var(--border);font-weight:normal;';
+  if (btnInd)  btnInd.style.cssText  += val === 'individual' ? activeStyle : inactiveStyle;
+  if (btnTeam) btnTeam.style.cssText += val === 'team'       ? activeStyle : inactiveStyle;
+}
+
+document.getElementById('tourn-type-individual')?.addEventListener('click', () => {
+  updateTournTypeToggle('individual');
+  document.getElementById('tourn-team-opts').style.display = 'none';
+});
+document.getElementById('tourn-type-team')?.addEventListener('click', () => {
+  updateTournTypeToggle('team');
+  document.getElementById('tourn-team-opts').style.display = '';
+  updateTournFormatOptions();
+});
 
 document.getElementById('tourn-open-ended')?.addEventListener('change', e => {
   const sel = document.getElementById('tourn-num-rounds');
@@ -4469,17 +4488,8 @@ function updateTournFormatOptions() {
   }
 }
 
-// Wire up — call on type toggle and team size change
-document.addEventListener('click', e => {
-  const btn = e.target.closest('#tourn-type-individual, #tourn-type-team');
-  if (!btn) return;
-  const val = btn.dataset.val;
-  document.getElementById('tourn-type').value = val;
-  document.getElementById('tourn-type-individual').classList.toggle('selected', val === 'individual');
-  document.getElementById('tourn-type-team').classList.toggle('selected', val === 'team');
-  document.getElementById('tourn-team-opts').style.display = val === 'team' ? '' : 'none';
-  updateTournFormatOptions();
-});
+// Wire up — call on team size change
+
 
 // ── Override tournament creation to handle team type ─────────────
 const _origTournNext = document.getElementById('btn-tourn-setup-next');
