@@ -258,7 +258,7 @@ export function buildTeamStandings(teams, players, rounds, allScores, format, sc
       // For combined formats = sum of all members
       const memberScores = teamPlayers.map(p => {
         return allScores.find(s => s.tournament_round_id === r.id && s.tournament_player_id === p.id);
-      }).filter(Boolean);
+      }).filter(s => s && !s.absent);  // exclude absent players from team score
 
       if (!memberScores.length) return { roundId: r.id, score: null, played: false };
 
