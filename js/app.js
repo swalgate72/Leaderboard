@@ -2778,8 +2778,7 @@ function showTournamentSetup() {
   document.getElementById('tourn-num-rounds').value   = '3';
   document.getElementById('tourn-hcp-mode').value     = 'fixed';
   document.getElementById('tourn-scoring-mode').value = 'cumulative';
-  document.getElementById('tourn-open-ended').checked = false;
-  document.getElementById('tourn-num-rounds').disabled = false;
+  updateRoundsToggle(false);
   document.getElementById('tourn-type').value         = 'individual';
   document.getElementById('tourn-type-individual').classList.add('selected');
   document.getElementById('tourn-type-team').classList.remove('selected');
@@ -2789,6 +2788,22 @@ function showTournamentSetup() {
 }
 
 // Open-ended rounds toggle
+function updateRoundsToggle(isOpenEnded) {
+  const cbx     = document.getElementById('tourn-open-ended');
+  const sel     = document.getElementById('tourn-num-rounds');
+  const btnFixed = document.getElementById('btn-fixed-rounds');
+  const btnOpen  = document.getElementById('btn-open-ended');
+  if (cbx) cbx.checked = isOpenEnded;
+  if (sel) sel.style.display = isOpenEnded ? 'none' : '';
+  const activeStyle   = 'background:var(--green);color:#fff;border-color:var(--green);font-weight:600;';
+  const inactiveStyle = 'background:var(--card);color:var(--text);border-color:var(--border);font-weight:normal;';
+  if (btnFixed) btnFixed.style.cssText += isOpenEnded ? inactiveStyle : activeStyle;
+  if (btnOpen)  btnOpen.style.cssText  += isOpenEnded ? activeStyle   : inactiveStyle;
+}
+
+document.getElementById('btn-fixed-rounds')?.addEventListener('click', () => updateRoundsToggle(false));
+document.getElementById('btn-open-ended')?.addEventListener('click',   () => updateRoundsToggle(true));
+
 document.getElementById('tourn-open-ended')?.addEventListener('change', e => {
   const sel = document.getElementById('tourn-num-rounds');
   if (sel) sel.disabled = e.target.checked;
