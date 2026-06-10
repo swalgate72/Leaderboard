@@ -254,20 +254,21 @@ export function buildTeamStandings(teams, players, rounds, allScores, format, sc
   const rows = teams.map(team => {
     const teamPlayers = players.filter(p => p.team_id === team.id);
     const roundResults = completedRnds.map(r => {
-      // Team score = best score among team members for this round (better ball / best 2 etc)
-      // For combined formats = sum of all members
       const memberScores = teamPlayers.map(p => {
         return allScores.find(s => s.tournament_round_id === r.id && s.tournament_player_id === p.id);
-      }).filter(s => s && !s.absent);  // exclude absent players from team score
+      }).filter(s => s && !s.absent);  // exclude absent players
 
-      if (!memberScores.length) return { roundId: r.id, score: null, played: false };
+      // A team only earns a round score if at least 2 of their own members played.
+      // This prevents a cross-team scorer's points bleeding into the wrong team's total.
+      if (memberScores.length < 2) return { roundId: r.id, score: null, played: false };
 
       let roundScore = null;
       if (isStroke) {
         roundScore = Math.min(...memberScores.map(s => s.net_score ?? 999));
       } else {
-        // Cumulative: sum of points; for better ball use best score
-        roundScore = Math.max(...memberScores.map(s => s.points ?? 0));
+        // For best2/betterball: the team score is already stored on each member's row
+        // (all share the same group total), so just take the value from the first member.
+        roundScore = memberScores[0].points ?? 0;
       }
       return { roundId: r.id, score: roundScore, played: true };
     });
