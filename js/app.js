@@ -864,10 +864,13 @@ async function teeOff() {
   // Other groups sync via realtime
   gameState = groupStates[0];
   gameState.allGroupStates = groupStates;
-  gameState.organiserId     = currentUser.id;
-  // Store which profile is the designated scorer so non-scorer organisers become watchers
-  const designatedScorer    = setup.players.find(p => p.isScorer);
-  gameState.scorerProfileId = designatedScorer?.profileId ?? currentUser.id;
+  gameState.organiserId      = currentUser.id;
+  const designatedScorer     = setup.players.find(p => p.isScorer);
+  // Only fall back to organiser if nobody was designated scorer at all.
+  // If scorer has no profileId (guest player) scorerProfileId stays null → organiser becomes watcher too.
+  gameState.scorerProfileId  = designatedScorer
+    ? (designatedScorer.profileId ?? null)
+    : currentUser.id;
   gameState.playerProfileIds = setup.players.map(p => p.profileId ?? null);
 
   const btn = document.getElementById('btn-tee-off');
@@ -1128,10 +1131,13 @@ function renderHolePanel() {
   const backBtn = document.getElementById('btn-back-hole');
   if (backBtn) backBtn.disabled = (gameState.log?.length ?? 0) === 0;
 
-  // ── Watcher mode: non-scorer sees read-only view, no inputs ──────
-  const scorerPid   = gameState?.scorerProfileId;
-  const userIsScorer = scorerPid ? (scorerPid === currentUser?.id)
-                                 : (!gameState?.organiserId || gameState.organiserId === currentUser?.id);
+  // scorerProfileId === undefined → legacy round, fall back to organiser check
+  // scorerProfileId === null      → guest scorer designated, no logged-in user gets scorer UI
+  // scorerProfileId === string    → only that profile gets scorer UI
+  const scorerPid    = gameState?.scorerProfileId;
+  const userIsScorer = scorerPid === undefined
+    ? (!gameState?.organiserId || gameState.organiserId === currentUser?.id)
+    : (scorerPid !== null && scorerPid === currentUser?.id);
 
   const inputsEl = document.getElementById('game-inputs');
   inputsEl.innerHTML = '';
@@ -1487,8 +1493,9 @@ function renderScorecardOverlay() {
     `${fmtLabel(gameState.format)} · ${gameState.log?.length ?? 0} holes played`;
   // Current user can score if: they are the designated scorer, OR no scorer is specified (legacy rounds)
   const scorerPid = gameState?.scorerProfileId;
-  const isScorer  = scorerPid ? (scorerPid === currentUser?.id)
-                               : (!gameState?.organiserId || gameState.organiserId === currentUser?.id);
+  const isScorer  = scorerPid === undefined
+    ? (!gameState?.organiserId || gameState.organiserId === currentUser?.id)
+    : (scorerPid !== null && scorerPid === currentUser?.id);
   document.getElementById('sc-overlay-body').innerHTML = buildLandscapeScorecard(gameState, {
     showEdit:      isScorer,
     showChallenge: !isScorer,
@@ -3280,7 +3287,9 @@ async function _teeOffRound(tournId, courseId, teeName, date) {
 
   const designatedScorer     = setup.players.find(p => p.isScorer);
   gameState.organiserId      = currentUser.id;
-  gameState.scorerProfileId  = designatedScorer?.profileId ?? currentUser.id;
+  gameState.scorerProfileId  = designatedScorer
+    ? (designatedScorer.profileId ?? null)
+    : currentUser.id;
   gameState.playerProfileIds = setup.players.map(p => p.profileId ?? null);
 
   try { localStorage.setItem(`lb-last-tee-${courseId}`, teeName); } catch {}
@@ -3793,7 +3802,6 @@ document.getElementById('btn-view-leaderboard')?.addEventListener('click', () =>
 document.getElementById('btn-start-next-round')?.addEventListener('click', async () => {
   await showTournamentRoundSetup();
 });
-document.getElementById('tround-back')          ?.addEventListener('click', () => showTournamentDetail(activeTournament.id));
 
 async function showTournamentRoundSetup() {
   const completedRounds = activeTournRounds.filter(r => r.status === 'completed').length;
@@ -3927,167 +3935,6 @@ function restoreTroundSetup() {
   } catch { return null; }
 }
 
-function clearTroundSetup() {
-  if (!activeTournament) return;
-  try { localStorage.removeItem(`lb-tround-${activeTournament.id}`); } catch {}
-}
-
-document.getElementById('tround-course-select')?.addEventListener('change', e => {
-  const courseId = e.target.value;
-  const teeSel   = document.getElementById('tround-tee-select');
-  const teeWrap  = document.getElementById('tround-tee-wrap');
-  if (!courseId) { teeWrap.style.display = 'none'; saveTroundSetup(); return; }
-  const course = allCourses.find(c => c.id === courseId);
-  if (!course) return;
-  teeSel.innerHTML = (course.tees ?? []).map(t =>
-    `<option value="${t.name}">${t.name}</option>`).join('');
-  teeWrap.style.display = '';
-  saveTroundSetup();
-});
-
-document.getElementById('tround-tee-select') ?.addEventListener('change', () => saveTroundSetup());
-document.getElementById('tround-date')        ?.addEventListener('change', () => saveTroundSetup());
-document.getElementById('tround-add-course-btn')?.addEventListener('click', () => {
-  cwiz.returnTo = 'tournament-round'; openCourseWizard(null);
-});
-
-// ── Group builder for tournament round ──────────────────────────
-function buildTournGroups(roundNumber) {
-  const numPlayers = activeTournPlayers.filter(p => !p.excluded).length;
-  const numGroups  = Math.max(1, Math.ceil(numPlayers / 4));
-
-  // Populate groups select
-  const groupsSel = document.getElementById('tround-num-groups');
-  groupsSel.innerHTML = Array.from({ length: Math.min(numPlayers, 20) }, (_, i) =>
-    `<option value="${i+1}"${i+1 === numGroups ? ' selected' : ''}>${i+1}</option>`).join('');
-
-  groupsSel.onchange = () => {
-    tournGroups = []; // force rebuild with new group count
-    renderTournGroupsUI(parseInt(groupsSel.value));
-    saveTroundSetup();
-  };
-
-  renderTournGroupsUI(numGroups);
-}
-
-function renderTournGroupsUI(numGroups) {
-  const players = activeTournPlayers.filter(p => !p.excluded);
-  const ppg     = Math.ceil(players.length / numGroups);
-
-  document.getElementById('tround-ppg').textContent = `~${ppg} per group`;
-
-  // Only rebuild default groups if numGroups changed or tournGroups is empty/wrong size
-  if (!tournGroups.length || tournGroups.length !== numGroups) {
-    const standings = buildStandings(
-      activeTournPlayers, activeTournRounds, activeTournAllScores, activeTournament.format
-    );
-    tournGroups = buildDefaultGroups(standings, numGroups, ppg);
-
-    // Ensure all players are assigned
-    const assigned = new Set(tournGroups.flatMap(g => g.players));
-    players.forEach(p => {
-      if (!assigned.has(p.id)) tournGroups[0].players.push(p.id);
-    });
-  }
-
-  const container = document.getElementById('tround-groups-container');
-  container.innerHTML = `
-    <div style="margin-bottom:0.75rem;">
-      <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
-        <thead>
-          <tr>
-            <th style="text-align:left;padding:0.3rem 0.4rem;color:var(--muted);font-size:0.65rem;
-                       letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid var(--border);">
-              Player
-            </th>
-            <th style="padding:0.3rem 0.4rem;color:var(--muted);font-size:0.65rem;
-                       letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid var(--border);">
-              HCP
-            </th>
-            <th style="padding:0.3rem 0.4rem;color:var(--muted);font-size:0.65rem;
-                       letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid var(--border);
-                       text-align:center;">
-              Group
-            </th>
-            <th style="padding:0.3rem 0.4rem;color:var(--muted);font-size:0.65rem;
-                       letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid var(--border);
-                       text-align:center;">
-              Scorer
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          ${tournGroups.flatMap((g, gi) =>
-            g.players.map(pid => {
-              const p = players.find(x => x.id === pid);
-              if (!p) return '';
-              const isScorer = p.isGroupScorer;
-              return `<tr>
-                <td style="padding:0.4rem;font-size:0.85rem;">${p.name}</td>
-                <td style="padding:0.4rem;text-align:center;color:var(--muted);">${p.current_hcp}</td>
-                <td style="padding:0.4rem;text-align:center;">
-                  <input type="number" class="grp-input" data-pid="${pid}"
-                    value="${gi + 1}" min="1" max="${numGroups}"
-                    style="width:44px;background:var(--surface2);border:1px solid var(--border);
-                           border-radius:6px;padding:0.25rem;color:var(--white);
-                           font-size:0.85rem;text-align:center;">
-                </td>
-                <td style="padding:0.4rem;text-align:center;">
-                  <button class="scorer-btn btn btn-ghost" data-pid="${pid}" data-gi="${gi}"
-                    style="padding:0.2rem 0.5rem;font-size:0.7rem;
-                           ${isScorer ? 'color:var(--gold);border-color:var(--gold-border);' : ''}">
-                    ${isScorer ? '✓' : 'Set'}
-                  </button>
-                </td>
-              </tr>`;
-            })
-          ).join('')}
-        </tbody>
-      </table>
-    </div>
-    <button class="btn btn-outline" id="btn-amend-groups"
-      style="width:100%;margin-bottom:0.5rem;font-size:0.85rem;">
-      ✓ Amend Groups
-    </button>`;
-
-  // Wire up scorer buttons
-  container.querySelectorAll('.scorer-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const pid = btn.dataset.pid;
-      const gi  = parseInt(btn.dataset.gi);
-      tournGroups[gi].players.forEach(p => {
-        const player = activeTournPlayers.find(x => x.id === p);
-        if (player) player.isGroupScorer = false;
-      });
-      const player = activeTournPlayers.find(x => x.id === pid);
-      if (player) player.isGroupScorer = true;
-      renderTournGroupsUI(numGroups);
-    });
-  });
-
-  // Wire up Amend Groups button
-  document.getElementById('btn-amend-groups')?.addEventListener('click', () => {
-    // Read all group inputs and rebuild tournGroups
-    const newGroups = Array.from({length: numGroups}, (_, i) => ({
-      groupNumber: i + 1, players: [],
-    }));
-
-    container.querySelectorAll('.grp-input').forEach(inp => {
-      const pid      = inp.dataset.pid;
-      let   targetGi = parseInt(inp.value) - 1;
-      // Clamp to valid range
-      if (isNaN(targetGi) || targetGi < 0)           targetGi = 0;
-      if (targetGi >= numGroups)                      targetGi = numGroups - 1;
-      newGroups[targetGi].players.push(pid);
-    });
-
-    tournGroups = newGroups;
-    renderTournGroupsUI(numGroups);
-    saveTroundSetup();
-  });
-}
-
-// ── Tee Off ──────────────────────────────────────────────────────
 // ── Resume tournament round ───────────────────────────────────────
 async function resumeTournamentRound(troundId) {
   const tround = activeTournRounds.find(r => r.id === troundId);
@@ -4878,20 +4725,6 @@ function updateTournFormatOptions() {
 
 // Wire up — call on team size change
 
-
-// ── Round format picker modal ─────────────────────────────────────
-function showRoundFormatPicker(roundNumber, callback) {
-  const modal = document.getElementById('modal-round-format');
-  document.getElementById('round-format-title').textContent = `Round ${roundNumber} Format`;
-  const prevFmt = activeTournament?.team_format ?? 'betterball';
-  document.getElementById('round-format-select').value = prevFmt;
-  modal.classList.add('open');
-  document.getElementById('btn-round-format-confirm').onclick = () => {
-    activeTournRoundFmt = document.getElementById('round-format-select').value;
-    modal.classList.remove('open');
-    callback(activeTournRoundFmt);
-  };
-}
 
 // ── Team tournament standings ────────────────────────────────────
 function renderTeamStandings(containerEl) {
