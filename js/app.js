@@ -3016,9 +3016,18 @@ function renderGroupSlots(containerId, g, players, slotsPerGroup, onUpdate) {
   if (!el) return;
   const startIdx = g * slotsPerGroup;
 
+  // Ensure exactly one scorer per group — default to first slot if none set
+  const groupIdxs = Array.from({ length: slotsPerGroup }, (_, s) => startIdx + s);
+  const hasScorer = groupIdxs.some(i => players[i]?.isScorer);
+  if (!hasScorer && players[startIdx]) players[startIdx].isScorer = true;
+
   el.innerHTML = Array.from({ length: slotsPerGroup }, (_, s) => {
-    const idx = startIdx + s;
-    const p   = players[idx] ?? { name: '', hcp: 0, profileId: null };
+    const idx     = startIdx + s;
+    const p       = players[idx] ?? { name: '', hcp: 0, profileId: null, isScorer: false };
+    const isScorer = p.isScorer ?? false;
+    const scorerStyle = isScorer
+      ? 'background:var(--green);color:#fff;border-color:var(--green);'
+      : 'background:var(--card);color:var(--muted);border-color:var(--border);';
     return `
       <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
         <span class="dot" style="background:${pHex(idx % 8)};flex-shrink:0;"></span>
@@ -3030,8 +3039,11 @@ function renderGroupSlots(containerId, g, players, slotsPerGroup, onUpdate) {
           placeholder="HCP" min="0" max="54" step="0.1"
           style="width:55px;background:none;border:none;border-bottom:1px solid var(--border);
                  color:var(--white);font-size:0.82rem;outline:none;text-align:center;padding-bottom:2px;">
-        <button class="btn btn-ghost btn-pick-friend"
-          data-idx="${idx}" data-cid="${containerId}"
+        <button class="btn btn-ghost btn-set-scorer" data-idx="${idx}" data-g="${g}" data-cid="${containerId}"
+          style="padding:0.2rem 0.45rem;font-size:0.65rem;flex-shrink:0;border-radius:5px;
+                 border:1.5px solid;letter-spacing:0.04em;${scorerStyle}"
+          title="${isScorer ? 'Scorer' : 'Set as scorer'}">✏️</button>
+        <button class="btn btn-ghost btn-pick-friend" data-idx="${idx}" data-cid="${containerId}"
           style="padding:0.25rem 0.5rem;font-size:1rem;flex-shrink:0;opacity:0.7;"
           title="Pick from friends">👤</button>
       </div>`;
@@ -3047,6 +3059,17 @@ function renderGroupSlots(containerId, g, players, slotsPerGroup, onUpdate) {
     inp.addEventListener('input', e => { if (players[idx]) players[idx].hcp = parseFloat(e.target.value) || 0; onUpdate(players); });
   });
 
+  // Scorer toggle — clear group, set tapped player
+  el.querySelectorAll('.btn-set-scorer').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      groupIdxs.forEach(i => { if (players[i]) players[i].isScorer = false; });
+      if (players[idx]) players[idx].isScorer = true;
+      onUpdate(players);
+      renderGroupSlots(containerId, g, players, slotsPerGroup, onUpdate);
+    });
+  });
+
   // Friend picker per slot
   el.querySelectorAll('.btn-pick-friend').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -3054,13 +3077,7 @@ function renderGroupSlots(containerId, g, players, slotsPerGroup, onUpdate) {
       openFriendPicker(-1, (friend) => {
         players[idx] = { ...players[idx], name: friend.name, hcp: friend.hcp ?? 0, profileId: friend.profileId ?? null };
         onUpdate(players);
-        // Refresh just this group's slots
         renderGroupSlots(containerId, g, players, slotsPerGroup, onUpdate);
-        // Update the name/hcp inputs directly
-        const nameInp = document.getElementById(`gpname-${containerId}-${idx}`);
-        const hcpInp  = document.getElementById(`gphcp-${containerId}-${idx}`);
-        if (nameInp) nameInp.value = friend.name;
-        if (hcpInp)  hcpInp.value  = friend.hcp ?? 0;
       });
     });
   });
@@ -3226,15 +3243,19 @@ async function _teeOffRound(tournId, courseId, teeName, date) {
   setup.teeIdx     = course.tees.findIndex(t => t.name === teeName);
   setup.holes      = 18;
   setup.hcpPct     = 100;
-  setup.players    = groupPlayers.map((p, i) => ({
-    name:        p.name,
-    hcpIndex:    p.current_hcp,
-    groupNumber: myGroup.groupNumber,
-    profileId:   p.profile_id ?? null,
-    isScorer:    p.isGroupScorer ?? (i === 0),
-    mobile:      null,
-    tournamentPlayerId: p.id,
-  }));
+  setup.players    = groupPlayers.map((p, i) => {
+    // Find matching tournSetupPlayer to get isScorer flag
+    const sp = tournSetupPlayers.find(sp => sp._tournId === p.id || sp.profileId === p.profile_id);
+    return {
+      name:        p.name,
+      hcpIndex:    p.current_hcp,
+      groupNumber: myGroup.groupNumber,
+      profileId:   p.profile_id ?? null,
+      isScorer:    sp?.isScorer ?? p.isGroupScorer ?? (i === 0),
+      mobile:      null,
+      tournamentPlayerId: p.id,
+    };
+  });
   setup.numPlayers = setup.players.length;
   setup.numGroups  = 1;
 
