@@ -681,6 +681,16 @@ export async function tournamentRoundsLoad(tournamentId) {
   return data ?? [];
 }
 
+export async function tournamentRoundLoadById(troundId) {
+  const { data, error } = await sb
+    .from('tournament_rounds')
+    .select('*')
+    .eq('id', troundId)
+    .single();
+  if (error) throw error;
+  return data ?? null;
+}
+
 export async function tournamentRoundCreate({ tournamentId, roundNumber, courseName, teeName, date }) {
   const { data, error } = await sb
     .from('tournament_rounds')
