@@ -3582,6 +3582,29 @@ async function showTournamentDetail(tournamentId) {
 function renderTournamentStandings() {
   const el          = document.getElementById('td-standings');
   const scoringMode = activeTournament.scoring_mode ?? 'cumulative';
+  const format      = activeTournament.format ?? 'stableford';
+  const teamFormat  = activeTournament.team_format;
+
+  // Build a human-readable scoring descriptor
+  const formatLabels = {
+    stableford: 'Stableford pts', stroke: 'Net strokes',
+    best2: 'Best 2 of 3 pts', betterball: 'Better Ball pts',
+    foursomes: 'Foursomes strokes', greensomes: 'Greensomes strokes',
+    csm: 'CSM pts', split6: 'Split 6 pts',
+  };
+  const modeLabels = {
+    cumulative: 'cumulative', stroke: 'total strokes', points_game: 'points per game',
+  };
+  const fmtLabel  = formatLabels[teamFormat ?? format] ?? format;
+  const modeLabel = modeLabels[scoringMode] ?? scoringMode;
+  const subtitle  = `${fmtLabel} · ${modeLabel}`;
+
+  // Update the anchor label to include the subtitle
+  const anchor = document.getElementById('td-standings-anchor');
+  if (anchor) {
+    anchor.innerHTML = `Standings <span style="font-size:0.6rem;color:var(--muted);font-weight:normal;
+      letter-spacing:0.05em;text-transform:none;margin-left:0.5rem;">${subtitle}</span>`;
+  }
 
   // Team tournament — use team standings renderer
   if (activeTournament?.tournament_type === 'team') {
