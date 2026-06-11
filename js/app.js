@@ -3132,9 +3132,11 @@ async function _submitTournamentSetup(startNow) {
       tournGroups = Array.from({ length: numGroups }, (_, g) => ({ groupNumber: g + 1, players: [] }));
 
       const tourn = await _createTournamentAndPlayers(type);
+      // Wire groups: activeTournPlayers are returned in same order as tournSetupPlayers (filtered to named)
+      const namedSetup = tournSetupPlayers.filter(p => p.name);
       activeTournPlayers.forEach(tp => {
-        const si = tournSetupPlayers.findIndex(sp => sp.name === tp.name);
-        const gi = si >= 0 ? (tournSetupPlayers[si].groupIndex ?? 0) : 0;
+        const si = namedSetup.findIndex(sp => sp.name === tp.name);
+        const gi = si >= 0 ? Math.min(namedSetup[si].groupIndex ?? 0, numGroups - 1) : 0;
         if (tournGroups[gi]) tournGroups[gi].players.push(tp.id);
       });
       if (courseId) {
@@ -3256,14 +3258,17 @@ async function _teeOffRound(tournId, courseId, teeName, date) {
   setup.holes      = 18;
   setup.hcpPct     = 100;
   setup.players    = groupPlayers.map((p, i) => {
-    // Find matching tournSetupPlayer to get isScorer flag
-    const sp = tournSetupPlayers.find(sp => sp._tournId === p.id || sp.profileId === p.profile_id);
+    const sp = tournSetupPlayers.find(sp =>
+      (sp._tournId && sp._tournId === p.id) ||
+      (sp.profileId && sp.profileId === p.profile_id) ||
+      (sp.name && sp.name === p.name)
+    );
     return {
       name:        p.name,
       hcpIndex:    p.current_hcp,
       groupNumber: myGroup.groupNumber,
       profileId:   p.profile_id ?? null,
-      isScorer:    sp?.isScorer ?? p.isGroupScorer ?? (i === 0),
+      isScorer:    sp?.isScorer ?? (i === 0),
       mobile:      null,
       tournamentPlayerId: p.id,
     };
@@ -3341,7 +3346,7 @@ async function _createTournamentAndPlayers(type) {
     });
   }
 
-  const players = await tournamentPlayersAdd(tourn.id, tournSetupPlayers.map(p => ({
+  const players = await tournamentPlayersAdd(tourn.id, tournSetupPlayers.filter(p => p.name).map(p => ({
     name: p.name, profileId: p.profileId ?? null, startingHcp: p.hcp,
   })));
 
