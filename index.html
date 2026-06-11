@@ -1028,7 +1028,7 @@
 <div id="screen-tournament-players" class="screen">
   <div class="sticky-header">
     <button class="btn btn-ghost" id="tournament-players-back">← Back</button>
-    <h2 id="tourn-players-title">Players</h2>
+    <h2 id="tourn-players-title">Round 1 Setup</h2>
   </div>
   <div style="padding:1rem;max-width:520px;margin:0 auto;">
 
@@ -1052,10 +1052,28 @@
       </div>
     </div>
 
+    <!-- Handicaps (adjustable mode, round 2+) -->
+    <div class="card mb-sm" id="tround-hcp-card" style="display:none;">
+      <div class="card-title">Update Handicaps</div>
+      <div class="hint mb-sm">Adjust any player handicaps before this round.</div>
+      <div id="tround-hcp-rows"></div>
+    </div>
+
+    <!-- Round Format (team tournaments only) -->
+    <div class="card mb-sm" id="tround-format-card" style="display:none;">
+      <div class="card-title">Game Format</div>
+      <div class="hint mb-sm">Choose the format for this round. You can change it each round.</div>
+      <select id="tround-game-format" style="width:100%;background:var(--surface2);border:1px solid var(--border);
+        border-radius:var(--radius-sm);padding:0.65rem 0.85rem;color:var(--white);font-size:0.9rem;"></select>
+    </div>
+
     <!-- One card per group — rendered by JS -->
     <div id="tourn-group-cards"></div>
 
-    <button class="btn btn-green" id="btn-tourn-players-next" style="width:100%;">CREATE TOURNAMENT →</button>
+    <div style="display:grid;gap:0.5rem;">
+      <button class="btn btn-green" id="btn-tourn-players-next">⛳ START ROUND 1 NOW →</button>
+      <button class="btn btn-outline" id="btn-tourn-save-later">💾 Save &amp; Start Later</button>
+    </div>
   </div>
 </div>
 
@@ -1082,7 +1100,8 @@
     <!-- Actions -->
     <div style="display:grid;gap:0.5rem;">
       <button class="btn btn-primary" id="btn-view-leaderboard" style="display:none;">📊 Live Leaderboard →</button>
-      <button class="btn btn-green" id="btn-start-next-round">⛳ SET UP NEXT ROUND →</button>
+      <button class="btn btn-green" id="btn-start-next-round">⛳ START ROUND 1 →</button>
+      <button class="btn btn-outline" id="btn-edit-tournament-setup">✏️ Edit Tournament</button>
       <button class="btn btn-outline" id="btn-share-tournament">🔗 Share Tournament Link</button>
       <button class="btn btn-outline" id="btn-finish-tournament" style="border-color:var(--gold-border);color:var(--gold);">🏆 Finish Tournament</button>
       <button class="btn btn-danger" id="btn-delete-tournament">Delete Tournament</button>
@@ -1120,104 +1139,6 @@
   </div>
 </div>
 
-
-<div id="screen-tournament-confirm-players" class="screen">
-  <div class="sticky-header">
-    <button class="btn btn-ghost" id="tconfirm-back">← Back</button>
-    <h2 id="tconfirm-title">Confirm Players</h2>
-  </div>
-  <div style="padding:1rem;max-width:520px;margin:0 auto;">
-    <div class="hint mb-sm" id="tconfirm-hint">Same players and groups as last round. Any changes?</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem;">
-      <button type="button" id="btn-tconfirm-same"
-        style="padding:0.7rem;border-radius:8px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem;cursor:pointer;">
-        ✓ Same as before
-      </button>
-      <button type="button" id="btn-tconfirm-edit"
-        style="padding:0.7rem;border-radius:8px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem;cursor:pointer;">
-        ✏️ Edit players
-      </button>
-    </div>
-
-    <!-- Edit area — shown only when editing -->
-    <div id="tconfirm-edit-area" style="display:none;">
-      <div id="tconfirm-group-cards"></div>
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
-        <label style="font-size:0.8rem;color:var(--muted);white-space:nowrap;">Number of groups:</label>
-        <select id="tconfirm-num-groups" style="flex:1;">
-          <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-          <option value="4">4</option><option value="5">5</option><option value="6">6</option>
-        </select>
-      </div>
-    </div>
-
-    <button class="btn btn-green" id="btn-tconfirm-next" style="width:100%;">NEXT: ROUND SETUP →</button>
-  </div>
-</div>
-
-<div id="screen-tournament-round-setup" class="screen">
-  <div class="sticky-header">
-    <button class="btn btn-ghost" id="tround-back">← Back</button>
-    <h2 id="tround-title">Round Setup</h2>
-  </div>
-  <div style="padding:1rem;max-width:520px;margin:0 auto;">
-
-    <!-- Course & Date -->
-    <div class="card mb-sm">
-      <div class="card-title">Course & Date</div>
-      <div class="field">
-        <label>Select Course</label>
-        <div style="display:flex;gap:0.5rem;">
-          <select id="tround-course-select" style="flex:1;"></select>
-          <button id="tround-add-course-btn" style="background:var(--gold-dim);border:1px solid var(--gold-border);color:var(--gold);border-radius:var(--radius-sm);padding:0 0.85rem;font-size:1rem;flex-shrink:0;">＋</button>
-        </div>
-      </div>
-      <div id="tround-tee-wrap" class="field" style="display:none;">
-        <label>Tees</label>
-        <select id="tround-tee-select"></select>
-      </div>
-      <div class="field">
-        <label>Date</label>
-        <input id="tround-date" type="date">
-      </div>
-    </div>
-
-    <!-- Handicaps (adjustable mode) -->
-    <div class="card mb-sm" id="tround-hcp-card" style="display:none;">
-      <div class="card-title">Update Handicaps</div>
-      <div class="hint mb-sm">Adjust any player handicaps before this round.</div>
-      <div id="tround-hcp-rows"></div>
-    </div>
-
-    <!-- Round Format (team tournaments only) -->
-    <div class="card mb-sm" id="tround-format-card" style="display:none;">
-      <div class="card-title">Game Format</div>
-      <div class="hint mb-sm">Choose the format for this round. You can change it each round.</div>
-      <select id="tround-game-format" style="width:100%;background:var(--surface2);border:1px solid var(--border);
-        border-radius:var(--radius-sm);padding:0.65rem 0.85rem;color:var(--white);font-size:0.9rem;">
-      </select>
-    </div>
-
-    <!-- Group Setup -->
-    <div class="card mb-sm">
-      <div class="card-title">Groups</div>
-      <div class="two-col mb-sm">
-        <div class="field" style="margin:0;">
-          <label>Number of Groups</label>
-          <select id="tround-num-groups"></select>
-        </div>
-        <div class="field" style="margin:0;">
-          <label>Players per Group</label>
-          <div id="tround-ppg" style="padding:0.65rem 0;font-size:0.9rem;color:var(--muted);"></div>
-        </div>
-      </div>
-      <div class="hint mb-sm">Default order: lowest scorers in Group 1, highest in last group. Drag to rearrange.</div>
-      <div id="tround-groups-container"></div>
-    </div>
-
-    <button class="btn btn-green" id="btn-tround-tee-off">⛳ TEE OFF →</button>
-  </div>
-</div>
 
 <!-- ══════════════════════════════════════════
      TOURNAMENT LIVE LEADERBOARD
