@@ -414,19 +414,23 @@
 
   </div><!-- /hole-panel -->
 
-  <!-- Scorecard overlay (in-game) -->
-  <div id="scorecard-overlay" class="sc-overlay">
-    <div class="sc-overlay-head">
-      <div>
-        <div class="sc-overlay-title" id="sc-overlay-title">Scorecard</div>
-        <div class="eyebrow" id="sc-overlay-sub"></div>
-      </div>
-      <button class="btn btn-ghost" id="btn-close-scorecard">✕ Close</button>
-    </div>
-    <div class="sc-overlay-body" id="sc-overlay-body"></div>
-  </div>
+  <!-- Scorecard overlay placeholder (moved to app level below) -->
 
 </div><!-- /screen-game -->
+
+<!-- ══════════════════════════════════════════
+     SCORECARD OVERLAY (app-level, works from any screen)
+     ══════════════════════════════════════════ -->
+<div id="scorecard-overlay" class="sc-overlay">
+  <div class="sc-overlay-head">
+    <div>
+      <div class="sc-overlay-title" id="sc-overlay-title">Scorecard</div>
+      <div class="eyebrow" id="sc-overlay-sub"></div>
+    </div>
+    <button class="btn btn-ghost" id="btn-close-scorecard">✕ Close</button>
+  </div>
+  <div class="sc-overlay-body" id="sc-overlay-body"></div>
+</div>
 
 <!-- ══════════════════════════════════════════
      END ROUND SCREEN
