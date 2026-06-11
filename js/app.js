@@ -2969,7 +2969,7 @@ function buildGroupPlayerForms() {
 
   document.getElementById('tourn-date').value = new Date().toISOString().split('T')[0];
 
-  // Seed players: current user in group 0, rest empty
+  // Seed slots: current user in slot 0, rest blank — renderGroupCards will pad to full count
   const myName = currentProfile
     ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim() : '';
   tournSetupPlayers = [{ name: myName, hcp: currentProfile?.hcp ?? 0, profileId: currentUser.id, groupIndex: 0 }];
@@ -2980,73 +2980,89 @@ function buildGroupPlayerForms() {
 
 function renderGroupCards(containerId, numGroups, players, onUpdate) {
   const container = document.getElementById(containerId);
+  if (!container) return;
+
+  // Work out slots per group:
+  // For team tournaments: teamSize. For individual: total players / numGroups (min 1).
+  const type     = document.getElementById('tourn-type')?.value ?? 'individual';
+  const teamSize = parseInt(document.getElementById('tourn-team-size')?.value) || 2;
+  const slotsPerGroup = type === 'team'
+    ? teamSize
+    : Math.max(1, Math.ceil((players.length || numGroups) / numGroups));
+
+  // Ensure players array has exactly numGroups × slotsPerGroup entries
+  const totalSlots = numGroups * slotsPerGroup;
+  while (players.length < totalSlots) {
+    const gi = Math.floor(players.length / slotsPerGroup);
+    players.push({ name: '', hcp: 0, profileId: null, groupIndex: gi });
+  }
+  // Re-assign groupIndex by position
+  players.forEach((p, i) => { p.groupIndex = Math.floor(i / slotsPerGroup); });
+  onUpdate(players);
+
   container.innerHTML = '';
   for (let g = 0; g < numGroups; g++) {
-    const groupPlayers = players.filter(p => p.groupIndex === g);
     const card = document.createElement('div');
     card.className = 'card mb-sm';
-    card.innerHTML = `
-      <div class="card-title">Group ${g + 1}</div>
-      <div id="group-slots-${containerId}-${g}"></div>
-      <div class="two-col mt-sm" style="gap:0.4rem;">
-        <button class="btn btn-outline btn-add-player-group" data-g="${g}" data-cid="${containerId}">+ Add Player</button>
-        <button class="btn btn-outline btn-add-friend-group" data-g="${g}" data-cid="${containerId}">👤 From Friends</button>
-      </div>`;
+    card.innerHTML = `<div class="card-title">Group ${g + 1}</div>
+      <div id="group-slots-${containerId}-${g}"></div>`;
     container.appendChild(card);
-    renderGroupSlots(containerId, g, players, onUpdate);
+    renderGroupSlots(containerId, g, players, slotsPerGroup, onUpdate);
   }
-
-  container.querySelectorAll('.btn-add-player-group').forEach(btn => {
-    btn.addEventListener('click', () => {
-      players.push({ name: '', hcp: 0, profileId: null, groupIndex: parseInt(btn.dataset.g) });
-      onUpdate(players);
-      renderGroupCards(containerId, numGroups, players, onUpdate);
-    });
-  });
-  container.querySelectorAll('.btn-add-friend-group').forEach(btn => {
-    const gi = parseInt(btn.dataset.g);
-    btn.addEventListener('click', () => {
-      openFriendPicker(-1, (friend) => {
-        players.push({ name: friend.name, hcp: friend.hcp ?? 0, profileId: friend.profileId ?? null, groupIndex: gi });
-        onUpdate(players);
-        renderGroupCards(containerId, numGroups, players, onUpdate);
-      });
-    });
-  });
 }
 
-function renderGroupSlots(containerId, g, players, onUpdate) {
+function renderGroupSlots(containerId, g, players, slotsPerGroup, onUpdate) {
   const el = document.getElementById(`group-slots-${containerId}-${g}`);
   if (!el) return;
-  const groupPlayers = players.map((p, i) => ({ ...p, _idx: i })).filter(p => p.groupIndex === g);
-  el.innerHTML = groupPlayers.map(p => `
-    <div class="player-slot" style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.4rem;">
-      <span class="dot" style="background:${pHex(p._idx % 8)};flex-shrink:0;"></span>
-      <input id="gpname-${containerId}-${p._idx}" type="text" value="${p.name}" placeholder="Player name"
-        style="flex:1;background:none;border:none;border-bottom:1px solid var(--border);
-               color:var(--white);font-size:0.88rem;outline:none;">
-      <input id="gphcp-${containerId}-${p._idx}" type="number" value="${p.hcp}" placeholder="HCP" min="0" max="54" step="0.1"
-        style="width:60px;background:none;border:none;border-bottom:1px solid var(--border);
-               color:var(--white);font-size:0.82rem;outline:none;text-align:center;">
-      ${p._idx > 0 ? `<button class="btn btn-ghost" style="padding:0.2rem 0.5rem;font-size:0.75rem;color:var(--red);" data-remove-idx="${p._idx}" data-cid="${containerId}">✕</button>` : ''}
-    </div>`).join('');
+  const startIdx = g * slotsPerGroup;
 
-  el.querySelectorAll('[data-remove-idx]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.removeIdx);
-      players.splice(idx, 1);
-      // Re-index groupIndex if needed
-      onUpdate(players);
-      renderGroupCards(containerId, parseInt(el.closest('.card')?.parentElement?.dataset?.numgroups ?? tournSetupNumGroups), players, onUpdate);
-    });
-  });
+  el.innerHTML = Array.from({ length: slotsPerGroup }, (_, s) => {
+    const idx = startIdx + s;
+    const p   = players[idx] ?? { name: '', hcp: 0, profileId: null };
+    return `
+      <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
+        <span class="dot" style="background:${pHex(idx % 8)};flex-shrink:0;"></span>
+        <input id="gpname-${containerId}-${idx}" type="text" value="${p.name}"
+          placeholder="Player ${s + 1} name"
+          style="flex:1;background:none;border:none;border-bottom:1px solid var(--border);
+                 color:var(--white);font-size:0.88rem;outline:none;padding-bottom:2px;">
+        <input id="gphcp-${containerId}-${idx}" type="number" value="${p.hcp || ''}"
+          placeholder="HCP" min="0" max="54" step="0.1"
+          style="width:55px;background:none;border:none;border-bottom:1px solid var(--border);
+                 color:var(--white);font-size:0.82rem;outline:none;text-align:center;padding-bottom:2px;">
+        <button class="btn btn-ghost btn-pick-friend"
+          data-idx="${idx}" data-cid="${containerId}"
+          style="padding:0.25rem 0.5rem;font-size:1rem;flex-shrink:0;opacity:0.7;"
+          title="Pick from friends">👤</button>
+      </div>`;
+  }).join('');
+
+  // Wire up inputs
   el.querySelectorAll('[id^="gpname-"]').forEach(inp => {
     const idx = parseInt(inp.id.split('-').pop());
-    inp.addEventListener('input', e => { if (players[idx]) players[idx].name = e.target.value.trim(); });
+    inp.addEventListener('input', e => { if (players[idx]) players[idx].name = e.target.value.trim(); onUpdate(players); });
   });
   el.querySelectorAll('[id^="gphcp-"]').forEach(inp => {
     const idx = parseInt(inp.id.split('-').pop());
-    inp.addEventListener('input', e => { if (players[idx]) players[idx].hcp = parseFloat(e.target.value) || 0; });
+    inp.addEventListener('input', e => { if (players[idx]) players[idx].hcp = parseFloat(e.target.value) || 0; onUpdate(players); });
+  });
+
+  // Friend picker per slot
+  el.querySelectorAll('.btn-pick-friend').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      openFriendPicker(-1, (friend) => {
+        players[idx] = { ...players[idx], name: friend.name, hcp: friend.hcp ?? 0, profileId: friend.profileId ?? null };
+        onUpdate(players);
+        // Refresh just this group's slots
+        renderGroupSlots(containerId, g, players, slotsPerGroup, onUpdate);
+        // Update the name/hcp inputs directly
+        const nameInp = document.getElementById(`gpname-${containerId}-${idx}`);
+        const hcpInp  = document.getElementById(`gphcp-${containerId}-${idx}`);
+        if (nameInp) nameInp.value = friend.name;
+        if (hcpInp)  hcpInp.value  = friend.hcp ?? 0;
+      });
+    });
   });
 }
 
