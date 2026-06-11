@@ -3702,50 +3702,35 @@ function renderTournamentRoundsList() {
   });
 }
 
-// Show a completed round's scores in the live leaderboard screen
-function showTournamentRoundScorecard(tround) {
+// Show a completed round's hole-by-hole scorecard in the landscape overlay
+async function showTournamentRoundScorecard(tround) {
   if (!tround) return;
-  showScreen('screen-tournament-live');
-  const dateStr = tround.date
-    ? new Date(tround.date).toLocaleDateString('en-GB', {day:'numeric',month:'short'}) : '';
-  document.getElementById('tlive-title').textContent =
-    `R${tround.round_number} · ${tround.course_name ?? ''} · ${dateStr}`;
-  document.getElementById('tlive-meta').textContent =
-    `${activeTournament.name} · Round ${tround.round_number}`;
 
-  // Switch to tournament tab showing full standings
-  document.getElementById('tlive-tab-tournament').className = 'btn btn-primary';
-  document.getElementById('tlive-tab-round').className      = 'btn btn-outline';
-  document.getElementById('tlive-tournament-table').style.display = '';
-  document.getElementById('tlive-round-table').style.display      = 'none';
+  if (!tround.round_id) {
+    alert('No scorecard saved for this round yet.');
+    return;
+  }
 
-  // Render round-specific scores in the round tab
-  const roundScores = activeTournAllScores.filter(s => s.tournament_round_id === tround.id);
-  const roundTab = document.getElementById('tlive-round-table');
-  const players  = activeTournPlayers.filter(p => !p.excluded);
-  const sorted   = [...players]
-    .map(p => {
-      const s = roundScores.find(sc => sc.tournament_player_id === p.id);
-      return { name: p.name, hcp: p.current_hcp, pts: s?.points ?? null, absent: s?.absent };
-    })
-    .filter(p => !p.absent && p.pts !== null)
-    .sort((a, b) => b.pts - a.pts);
+  try {
+    const round = await roundLoadById(tround.round_id);
+    if (!round?.game_state) { alert('Scorecard not available.'); return; }
 
-  roundTab.innerHTML = sorted.length ? `
-    <table class="sc-table" style="width:100%;font-size:0.85rem;">
-      <thead><tr>
-        <th style="text-align:left;">Player</th>
-        <th style="text-align:right;">Pts</th>
-      </tr></thead>
-      <tbody>${sorted.map((p, i) => `
-        <tr${i === 0 ? ' style="background:var(--surface2);"' : ''}>
-          <td>${p.name}</td>
-          <td style="text-align:right;font-weight:600;color:var(--gold);">${p.pts}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>` : '<div style="color:var(--muted);font-size:0.85rem;">No scores recorded.</div>';
+    const state = round.game_state;
+    const dateStr = tround.date
+      ? new Date(tround.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})
+      : '';
 
-  renderTliveTournament();
+    document.getElementById('sc-overlay-title').textContent =
+      `R${tround.round_number} · ${tround.course_name ?? ''}`;
+    document.getElementById('sc-overlay-sub').textContent =
+      `${tround.tee_name ?? ''} · ${dateStr}`;
+    document.getElementById('sc-overlay-body').innerHTML =
+      buildLandscapeScorecard(state, { showEdit: false, showChallenge: false });
+
+    document.getElementById('scorecard-overlay').classList.add('open');
+  } catch (err) {
+    alert('Could not load scorecard: ' + err.message);
+  }
 }
 
 // ----------------------------------------------------------------
