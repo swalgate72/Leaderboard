@@ -899,10 +899,10 @@
       <div class="field">
         <label>Type</label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
-          <button type="button" id="tourn-type-individual" class="priv-btn selected" data-val="individual"
-            style="padding:1rem 0.5rem;font-size:1rem;">👤 Individual</button>
-          <button type="button" id="tourn-type-team" class="priv-btn" data-val="team"
-            style="padding:1rem 0.5rem;font-size:1rem;">👥 Team</button>
+          <button type="button" id="tourn-type-individual" data-val="individual"
+            style="padding:0.55rem;border-radius:8px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-size:0.85rem;cursor:pointer;transition:all 0.15s;">👤 Individual</button>
+          <button type="button" id="tourn-type-team" data-val="team"
+            style="padding:0.55rem;border-radius:8px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-size:0.85rem;cursor:pointer;transition:all 0.15s;">👥 Team</button>
         </div>
         <input type="hidden" id="tourn-type" value="individual">
       </div>
@@ -956,18 +956,18 @@
 </div>
 
 
-<div id="screen-tournament-players" class="screen">
+<!-- ══ STEP 2: FORMAT & GROUPS ══ -->
+<div id="screen-tournament-format" class="screen">
   <div class="sticky-header">
-    <button class="btn btn-ghost" id="tournament-players-back">← Back</button>
-    <h2 id="tourn-players-title">Players &amp; Scoring</h2>
+    <button class="btn btn-ghost" id="tournament-format-back">← Back</button>
+    <h2>Format &amp; Groups</h2>
   </div>
   <div style="padding:1rem;max-width:520px;margin:0 auto;">
 
-    <!-- Scoring format card -->
     <div class="card mb-sm">
       <div class="card-title">Scoring Format</div>
 
-      <!-- Individual scoring format -->
+      <!-- Individual -->
       <div id="tourn-indiv-format-wrap">
         <div class="field" style="margin:0;">
           <label>Scoring Format</label>
@@ -978,7 +978,7 @@
         </div>
       </div>
 
-      <!-- Team scoring format -->
+      <!-- Team -->
       <div id="tourn-team-opts" style="display:none;">
         <div class="field">
           <label>Team Size</label>
@@ -1003,16 +1003,57 @@
       </div>
     </div>
 
-    <!-- Players card -->
+    <!-- Number of groups -->
     <div class="card mb-sm">
-      <div class="card-title">Players</div>
-      <div class="hint mb-sm">Add all players who will take part.</div>
-      <div id="tourn-players-list"></div>
-      <div class="two-col mt-sm" style="gap:0.4rem;">
-        <button class="btn btn-outline" id="btn-tourn-add-player">+ Add Player</button>
-        <button class="btn btn-outline" id="btn-tourn-add-friend">👤 From Friends</button>
+      <div class="card-title">Player Groups</div>
+      <div class="hint mb-sm">How many groups will play simultaneously? Each group needs its own scorer.</div>
+      <div class="field" style="margin:0;">
+        <label>Number of Groups</label>
+        <select id="tourn-num-groups">
+          <option value="1">1 group</option>
+          <option value="2">2 groups</option>
+          <option value="3">3 groups</option>
+          <option value="4">4 groups</option>
+          <option value="5">5 groups</option>
+          <option value="6">6 groups</option>
+        </select>
       </div>
     </div>
+
+    <button class="btn btn-green" id="btn-tourn-format-next" style="width:100%;">NEXT: ADD PLAYERS →</button>
+  </div>
+</div>
+
+<!-- ══ STEP 3: PLAYERS PER GROUP ══ -->
+<div id="screen-tournament-players" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="tournament-players-back">← Back</button>
+    <h2 id="tourn-players-title">Players</h2>
+  </div>
+  <div style="padding:1rem;max-width:520px;margin:0 auto;">
+
+    <!-- Course selection at top -->
+    <div class="card mb-sm">
+      <div class="card-title">Course &amp; Date</div>
+      <div class="field">
+        <label>Select Course</label>
+        <div style="display:flex;gap:0.5rem;">
+          <select id="tourn-course-select" style="flex:1;"></select>
+          <button id="tourn-add-course-btn" style="background:var(--gold-dim);border:1px solid var(--gold-border);color:var(--gold);border-radius:var(--radius-sm);padding:0 0.85rem;font-size:1rem;flex-shrink:0;">＋</button>
+        </div>
+      </div>
+      <div id="tourn-tee-wrap" class="field" style="display:none;">
+        <label>Tees</label>
+        <select id="tourn-tee-select"></select>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Date</label>
+        <input id="tourn-date" type="date">
+      </div>
+    </div>
+
+    <!-- One card per group — rendered by JS -->
+    <div id="tourn-group-cards"></div>
 
     <button class="btn btn-green" id="btn-tourn-players-next" style="width:100%;">CREATE TOURNAMENT →</button>
   </div>
@@ -1079,6 +1120,40 @@
   </div>
 </div>
 
+
+<div id="screen-tournament-confirm-players" class="screen">
+  <div class="sticky-header">
+    <button class="btn btn-ghost" id="tconfirm-back">← Back</button>
+    <h2 id="tconfirm-title">Confirm Players</h2>
+  </div>
+  <div style="padding:1rem;max-width:520px;margin:0 auto;">
+    <div class="hint mb-sm" id="tconfirm-hint">Same players and groups as last round. Any changes?</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem;">
+      <button type="button" id="btn-tconfirm-same"
+        style="padding:0.7rem;border-radius:8px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem;cursor:pointer;">
+        ✓ Same as before
+      </button>
+      <button type="button" id="btn-tconfirm-edit"
+        style="padding:0.7rem;border-radius:8px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-size:0.9rem;cursor:pointer;">
+        ✏️ Edit players
+      </button>
+    </div>
+
+    <!-- Edit area — shown only when editing -->
+    <div id="tconfirm-edit-area" style="display:none;">
+      <div id="tconfirm-group-cards"></div>
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
+        <label style="font-size:0.8rem;color:var(--muted);white-space:nowrap;">Number of groups:</label>
+        <select id="tconfirm-num-groups" style="flex:1;">
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+          <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn btn-green" id="btn-tconfirm-next" style="width:100%;">NEXT: ROUND SETUP →</button>
+  </div>
+</div>
 
 <div id="screen-tournament-round-setup" class="screen">
   <div class="sticky-header">
