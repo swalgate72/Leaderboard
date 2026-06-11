@@ -3651,7 +3651,6 @@ function renderTournamentRoundsList() {
   const isOpenEnded = !numRounds;
   const isCompleted = activeTournament.status === 'completed';
 
-  // How many slots to show
   const displayCount = isOpenEnded
     ? activeTournRounds.length + (isCompleted ? 0 : 1)
     : numRounds;
@@ -3668,9 +3667,16 @@ function renderTournamentRoundsList() {
       ? `${r.course_name ?? '--'} · ${r.tee_name ?? ''} · ${r.date ? new Date(r.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : ''}`
       : 'Not started';
 
+    // Clickable if completed (scorecard) or active (resume); pending rows are inert
+    const clickable = r && (r.status === 'completed' || r.status === 'active');
+    const cursor    = clickable ? 'cursor:pointer;' : '';
+    const dataAttr  = r ? `data-round-id="${r.id}" data-round-status="${r.status}"` : '';
+
     return `
-      <div class="round-row" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;
-           background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:0.35rem;">
+      <div class="round-row" ${dataAttr}
+        style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;
+               background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+               margin-bottom:0.35rem;${cursor}">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:700;color:var(--gold);min-width:2rem;">
           R${i+1}
         </div>
@@ -3678,18 +3684,77 @@ function renderTournamentRoundsList() {
           <div style="font-size:0.85rem;">${sub}</div>
         </div>
         ${statusBadge}
-        ${r?.status === 'active' ? `<button class="btn btn-ghost" style="font-size:0.72rem;" data-resume-round="${r.id}">Resume</button>` : ''}
+        ${clickable ? `<span style="font-size:0.8rem;color:var(--muted);">›</span>` : ''}
       </div>`;
   }).join('');
 
-  el.querySelectorAll('[data-resume-round]').forEach(btn => {
-    btn.addEventListener('click', () => resumeTournamentRound(btn.dataset.resumeRound));
+  el.querySelectorAll('[data-round-id]').forEach(row => {
+    const status = row.dataset.roundStatus;
+    if (status === 'active') {
+      row.addEventListener('click', () => resumeTournamentRound(row.dataset.roundId));
+    } else if (status === 'completed') {
+      row.addEventListener('click', () => {
+        // Show the live leaderboard screen focused on this round
+        const tround = activeTournRounds.find(r => r.id === row.dataset.roundId);
+        showTournamentRoundScorecard(tround);
+      });
+    }
   });
+}
+
+// Show a completed round's scores in the live leaderboard screen
+function showTournamentRoundScorecard(tround) {
+  if (!tround) return;
+  showScreen('screen-tournament-live');
+  const dateStr = tround.date
+    ? new Date(tround.date).toLocaleDateString('en-GB', {day:'numeric',month:'short'}) : '';
+  document.getElementById('tlive-title').textContent =
+    `R${tround.round_number} · ${tround.course_name ?? ''} · ${dateStr}`;
+  document.getElementById('tlive-meta').textContent =
+    `${activeTournament.name} · Round ${tround.round_number}`;
+
+  // Switch to tournament tab showing full standings
+  document.getElementById('tlive-tab-tournament').className = 'btn btn-primary';
+  document.getElementById('tlive-tab-round').className      = 'btn btn-outline';
+  document.getElementById('tlive-tournament-table').style.display = '';
+  document.getElementById('tlive-round-table').style.display      = 'none';
+
+  // Render round-specific scores in the round tab
+  const roundScores = activeTournAllScores.filter(s => s.tournament_round_id === tround.id);
+  const roundTab = document.getElementById('tlive-round-table');
+  const players  = activeTournPlayers.filter(p => !p.excluded);
+  const sorted   = [...players]
+    .map(p => {
+      const s = roundScores.find(sc => sc.tournament_player_id === p.id);
+      return { name: p.name, hcp: p.current_hcp, pts: s?.points ?? null, absent: s?.absent };
+    })
+    .filter(p => !p.absent && p.pts !== null)
+    .sort((a, b) => b.pts - a.pts);
+
+  roundTab.innerHTML = sorted.length ? `
+    <table class="sc-table" style="width:100%;font-size:0.85rem;">
+      <thead><tr>
+        <th style="text-align:left;">Player</th>
+        <th style="text-align:right;">Pts</th>
+      </tr></thead>
+      <tbody>${sorted.map((p, i) => `
+        <tr${i === 0 ? ' style="background:var(--surface2);"' : ''}>
+          <td>${p.name}</td>
+          <td style="text-align:right;font-weight:600;color:var(--gold);">${p.pts}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>` : '<div style="color:var(--muted);font-size:0.85rem;">No scores recorded.</div>';
+
+  renderTliveTournament();
 }
 
 // ----------------------------------------------------------------
 // START NEXT ROUND
 // ----------------------------------------------------------------
+document.getElementById('btn-td-leaderboard')?.addEventListener('click', () => {
+  document.getElementById('td-standings-anchor')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 document.getElementById('btn-view-leaderboard')?.addEventListener('click', () => showTournamentLive());
 document.getElementById('btn-start-next-round')?.addEventListener('click', async () => {
   await showTournamentRoundSetup();
@@ -4073,7 +4138,7 @@ document.getElementById('btn-delete-tournament')?.addEventListener('click', asyn
 // TOURNAMENT LIVE LEADERBOARD
 // ----------------------------------------------------------------
 document.getElementById('tlive-back')?.addEventListener('click', () => {
-  if (gameState) showScreen('screen-game');
+  if (gameState?.tournamentId) showScreen('screen-game');
   else if (activeTournament) showTournamentDetail(activeTournament.id);
   else showScreen('screen-home');
 });
