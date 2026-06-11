@@ -3624,7 +3624,7 @@ function renderTournamentStandings() {
     return;
   }
 
-  const modeLabel = { cumulative: 'Pts', stroke: 'Net', points_game: 'T.Pts' }[scoringMode] ?? 'Total';
+  const colLabel = { cumulative: 'Pts', stroke: 'Net', points_game: 'T.Pts' }[scoringMode] ?? 'Total';
 
   let html = `<table class="sc-table" style="width:100%;font-size:0.75rem;">
     <thead><tr>
@@ -3636,7 +3636,7 @@ function renderTournamentStandings() {
     html += `<th title="${r.course_name ?? ''}">${d}</th>`;
   });
 
-  html += `<th style="color:var(--gold);">${modeLabel}</th>`;
+  html += `<th style="color:var(--gold);">${colLabel}</th>`;
   if (isStroke) html += '<th style="color:var(--muted);">Gross</th>';
   html += '</tr></thead><tbody>';
 
