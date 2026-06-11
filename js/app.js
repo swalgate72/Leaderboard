@@ -2823,6 +2823,9 @@ document.getElementById('tourn-type-team')?.addEventListener('click', () => {
   updateTournFormatOptions();
 });
 
+document.getElementById('btn-fixed-rounds')?.addEventListener('click', () => updateRoundsToggle(false));
+document.getElementById('btn-open-ended')?.addEventListener('click',   () => updateRoundsToggle(true));
+
 document.getElementById('tourn-open-ended')?.addEventListener('change', e => {
   const sel = document.getElementById('tourn-num-rounds');
   if (sel) sel.disabled = e.target.checked;
