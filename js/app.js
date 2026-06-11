@@ -18,7 +18,7 @@ import {
   realtimeSubscribeRound, realtimeSubscribeFriendRequests, realtimeUnsubscribe,
   tournamentCreate, tournamentsLoad, tournamentLoadById, tournamentUpdate, tournamentDelete,
   tournamentPlayersAdd, tournamentPlayersLoad, tournamentPlayerUpdate,
-  tournamentRoundsLoad, tournamentRoundCreate, tournamentRoundUpdate,
+  tournamentRoundsLoad, tournamentRoundLoadById, tournamentRoundCreate, tournamentRoundUpdate,
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
@@ -188,14 +188,15 @@ async function boot() {
   const params      = new URLSearchParams(window.location.search);
   const joinToken   = params.get('join');
   const tournViewId = params.get('tournament');
+  const troundParam = params.get('tround');
+  const groupParam  = params.get('group');
 
   if (tournViewId) {
-    // Public tournament view - no auth needed
     await handleTournamentViewLink(tournViewId);
     return;
   }
 
-  if (joinToken) { await handleJoinFlow(joinToken); return; }
+  if (joinToken) { await handleJoinFlow(joinToken, troundParam, groupParam); return; }
 
   authOnStateChange(async (event, user) => {
     if (user) await onSignedIn(user);
@@ -219,6 +220,20 @@ async function onSignedIn(user) {
     allCourses     = await coursesLoadAll();
     allFriends     = await friendsLoad(user.id);
     subscribeToFriendRequests();
+
+    // Check for a pending tournament round join (from auth redirect)
+    const joinToken  = sessionStorage.getItem('lb-join-token');
+    const joinTround = sessionStorage.getItem('lb-join-tround');
+    const joinGroup  = sessionStorage.getItem('lb-join-group');
+    if (joinToken) {
+      sessionStorage.removeItem('lb-join-token');
+      sessionStorage.removeItem('lb-join-tround');
+      sessionStorage.removeItem('lb-join-group');
+      if (joinTround && joinGroup) {
+        await joinTournamentRoundAsScorer(user, joinTround, parseInt(joinGroup));
+        return;
+      }
+    }
 
     // Auto-resume if there's an active round in progress
     const actives = await roundsLoadActive(user.id);
@@ -2719,7 +2734,7 @@ document.getElementById('cwiz-cancel')?.addEventListener('click', () => document
 // ================================================================
 // JOIN FLOW
 // ================================================================
-async function handleJoinFlow(token) {
+async function handleJoinFlow(token, troundId = null, groupNumber = null) {
   showScreen('screen-join');
   try {
     const invite = await smsInviteLookup(token);
@@ -2730,25 +2745,137 @@ async function handleJoinFlow(token) {
     }
     document.getElementById('join-invite-info').innerHTML = `
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.2rem;font-weight:700;color:var(--gold);margin-bottom:0.3rem;">${invite.inviter_name ?? 'Someone'} invited you</div>
-      <div style="font-size:0.72rem;color:var(--muted);">${invite.course_name ?? ''} · ${fmtLabel(invite.game_format ?? '')}</div>`;
+      <div style="font-size:0.72rem;color:var(--muted);">${invite.course_name ?? ''} · ${fmtLabel(invite.game_format ?? '')}</div>
+      ${troundId ? `<div style="font-size:0.72rem;color:var(--muted);margin-top:0.25rem;">Group ${groupNumber} scorer</div>` : ''}`;
     const user = await authGetUser();
     if (!user) {
       show('join-auth-prompt');
       document.getElementById('btn-join-auth').addEventListener('click', () => {
         sessionStorage.setItem('lb-join-token', token);
+        if (troundId) sessionStorage.setItem('lb-join-tround', troundId);
+        if (groupNumber) sessionStorage.setItem('lb-join-group', groupNumber);
         showScreen('screen-auth');
       });
     } else {
       show('join-confirm-prompt');
-      document.getElementById('btn-join-confirm').addEventListener('click', async () => {
+      document.getElementById('btn-join-confirm').onclick = async () => {
         await smsInviteAccept(invite.id);
         window.history.replaceState({}, '', '/');
-        await onSignedIn(user);
-      });
+        if (troundId && groupNumber) {
+          await joinTournamentRoundAsScorer(user, troundId, parseInt(groupNumber));
+        } else {
+          await onSignedIn(user);
+        }
+      };
     }
   } catch (err) {
     document.getElementById('join-invite-info').innerHTML =
       `<div style="color:var(--muted);">Error loading invite: ${err.message}</div>`;
+  }
+}
+
+// Called when a group scorer opens a tournament round invite link
+async function joinTournamentRoundAsScorer(user, troundId, groupNumber) {
+  try {
+    currentUser    = user;
+    currentProfile = await profileLoad(user.id);
+    allCourses     = await coursesLoadAll();
+    allFriends     = await friendsLoad(user.id);
+
+    // Load the tournament round and its tournament
+    const tround = await tournamentRoundLoadById(troundId);
+    if (!tround) { await onSignedIn(user); return; }
+
+    activeTournament     = await tournamentLoadById(tround.tournament_id);
+    activeTournPlayers   = await tournamentPlayersLoad(tround.tournament_id);
+    activeTournRounds    = await tournamentRoundsLoad(tround.tournament_id);
+    activeTournAllScores = await tournamentAllScoresLoad(tround.tournament_id);
+    activeTournRound     = tround;
+    if (activeTournament?.tournament_type === 'team') {
+      activeTournTeams = await tournamentTeamsLoad(tround.tournament_id);
+    }
+
+    // Load saved group assignments
+    const saved = restoreTroundSetup();
+    const groups = saved?.groups ?? [];
+    const myGroupData = groups.find(g => g.groupNumber === groupNumber) ?? groups[groupNumber - 1];
+    if (!myGroupData) { await onSignedIn(user); return; }
+
+    tournGroups = groups;
+
+    const groupPlayers = myGroupData.players
+      .map(pid => activeTournPlayers.find(p => p.id === pid))
+      .filter(Boolean);
+
+    if (!groupPlayers.length) { await onSignedIn(user); return; }
+
+    const course = allCourses.find(c => c.name === tround.course_name);
+    const tee    = course?.tees?.find(t => t.name === tround.tee_name);
+    if (!course || !tee) { await onSignedIn(user); return; }
+
+    const roundFormat = activeTournament.tournament_type === 'team'
+      ? (activeTournRoundFmt ?? activeTournament.team_format ?? activeTournament.format)
+      : activeTournament.format;
+
+    const hcpArr = groupPlayers.map(p => p.current_hcp);
+    const hcpObj = calcHandicaps(hcpArr, 100);
+
+    setup.scoring    = roundFormat;
+    setup.courseId   = course.id;
+    setup.teeIdx     = course.tees.findIndex(t => t.name === tround.tee_name);
+    setup.holes      = 18;
+    setup.hcpPct     = 100;
+    setup.numGroups  = 1;
+    setup.players    = groupPlayers.map((p, i) => ({
+      name:               p.name,
+      hcpIndex:           p.current_hcp,
+      groupNumber,
+      profileId:          p.profile_id ?? null,
+      isScorer:           p.profile_id === user.id || i === 0,
+      mobile:             null,
+      tournamentPlayerId: p.id,
+    }));
+    setup.numPlayers = setup.players.length;
+
+    gameState = buildInitialState({
+      format:           roundFormat,
+      names:            groupPlayers.map(p => p.name),
+      handicapIndexes:  hcpArr,
+      playingHandicaps: hcpObj.map(h => h.playingHandicap),
+      matchHandicaps:   hcpObj.map(h => h.matchHandicap),
+      allowancePct:     100,
+      si: tee.si, par: tee.par, numHoles: 18, holeOffset: 0,
+      courseName: course.name, teeName: tround.tee_name,
+      tournamentId:      activeTournament.id,
+      tournamentRoundId: tround.id,
+      groupNumber,
+    });
+
+    const designatedScorer    = setup.players.find(p => p.isScorer);
+    gameState.organiserId     = user.id;
+    gameState.scorerProfileId = designatedScorer
+      ? (designatedScorer.profileId ?? null) : user.id;
+    gameState.playerProfileIds = setup.players.map(p => p.profileId ?? null);
+
+    // Create this group's own rounds row
+    const { allGroupStates, ...stateToSave } = gameState;
+    roundId = await roundCreate({
+      organiserId:  user.id,
+      courseName:   course.name,
+      teeName:      tround.tee_name,
+      gameFormat:   roundFormat,
+      hcpAllowance: 100,
+      si: tee.si, par: tee.par, numHoles: 18, holeOffset: 0,
+      numGroups:    groups.length,
+      playerNames:  groupPlayers.map(p => p.name),
+      gameState:    stateToSave,
+    });
+
+    subscribeToRound(roundId);
+    enterGameScreen();
+  } catch (err) {
+    console.error('joinTournamentRoundAsScorer error', err);
+    await onSignedIn(user);
   }
 }
 
@@ -3313,7 +3440,78 @@ async function _teeOffRound(tournId, courseId, teeName, date) {
 
   await tournamentRoundUpdate(troundRecord.id, { round_id: roundId });
   subscribeToRound(roundId);
-  enterGameScreen();
+
+  // If there are other groups, show invite links for their scorers before starting
+  const otherGroups = tournGroups.filter(g => g.groupNumber !== myGroup.groupNumber);
+  if (otherGroups.length > 0) {
+    await showGroupInviteModal(otherGroups, troundRecord, course, roundFormat);
+  } else {
+    enterGameScreen();
+  }
+}
+
+async function showGroupInviteModal(otherGroups, troundRecord, course, roundFormat) {
+  const modal   = document.getElementById('modal-group-invites');
+  const listEl  = document.getElementById('group-invites-list');
+  const doneBtn = document.getElementById('btn-group-invites-done');
+  const myName  = currentProfile
+    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+    : 'Your organiser';
+
+  listEl.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;">Generating links…</div>';
+  modal.classList.add('open');
+
+  // Generate an invite + share link for each other group
+  const rows = await Promise.all(otherGroups.map(async g => {
+    try {
+      const scorerName = g.players
+        .map(pid => activeTournPlayers.find(p => p.id === pid)?.name)
+        .filter(Boolean).join(', ');
+
+      const invite = await smsInviteCreate({
+        roundId:   roundId,
+        inviterId: currentUser.id,
+        name:      myName,
+        mobile:    null,
+      });
+
+      const link = `${APP_URL}?join=${invite.token}&tround=${troundRecord.id}&group=${g.groupNumber}`;
+      const msg  = `${myName} has invited you to score Group ${g.groupNumber} on Leaderboard!\n\n${course.name} · ${fmtLabel(roundFormat)}\n\nJoin here: ${link}`;
+
+      return { groupNumber: g.groupNumber, scorerName, link, msg };
+    } catch { return null; }
+  }));
+
+  listEl.innerHTML = rows.filter(Boolean).map(r => `
+    <div style="padding:0.75rem;background:var(--surface2);border:1px solid var(--border);
+                border-radius:var(--radius-sm);margin-bottom:0.5rem;">
+      <div style="font-size:0.75rem;color:var(--muted);margin-bottom:0.35rem;">
+        GROUP ${r.groupNumber} · ${r.scorerName}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.35rem;">
+        <button class="btn btn-outline" style="font-size:0.75rem;padding:0.4rem;"
+          onclick="navigator.clipboard?.writeText(${JSON.stringify(r.link)}).then(()=>{this.textContent='✅ Copied';setTimeout(()=>{this.textContent='📋 Copy link'},1500)})">
+          📋 Copy link
+        </button>
+        <button class="btn btn-outline" style="font-size:0.75rem;padding:0.4rem;"
+          onclick="window.open('sms:?body='+encodeURIComponent(${JSON.stringify(r.msg)}))">
+          💬 SMS
+        </button>
+        <button class="btn btn-outline" style="font-size:0.75rem;padding:0.4rem;"
+          onclick="window.open('https://wa.me/?text='+encodeURIComponent(${JSON.stringify(r.msg)}))">
+          📱 WhatsApp
+        </button>
+      </div>
+    </div>`).join('');
+
+  doneBtn.onclick = () => {
+    modal.classList.remove('open');
+    enterGameScreen();
+  };
+  document.getElementById('group-invites-close').onclick = () => {
+    modal.classList.remove('open');
+    enterGameScreen();
+  };
 }
 
 document.getElementById('btn-tourn-players-next')?.addEventListener('click',
