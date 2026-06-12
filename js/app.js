@@ -1609,16 +1609,19 @@ function renderScorecardOverlay() {
     `${gameState.courseName} -- ${gameState.teeName}`;
   document.getElementById('sc-overlay-sub').textContent =
     `${fmtLabel(gameState.format)} · ${gameState.log?.length ?? 0} holes played`;
-  // Current user can score if: they are the designated scorer, OR no scorer is specified (legacy rounds)
   const scorerPid = gameState?.scorerProfileId;
   const isScorer  = scorerPid === undefined
     ? (!gameState?.organiserId || gameState.organiserId === currentUser?.id)
-    : (scorerPid !== null && scorerPid === currentUser?.id);
-  document.getElementById('sc-overlay-body').innerHTML = buildLandscapeScorecard(gameState, {
+    : (scorerPid !== '__unclaimed__' && scorerPid !== null && scorerPid === currentUser?.id);
+
+  // Merge all group states for a full-round view
+  const allStates = gameState.allGroupStates ?? [gameState];
+  const displayState = mergeGroupStates(allStates);
+
+  document.getElementById('sc-overlay-body').innerHTML = buildLandscapeScorecard(displayState, {
     showEdit:      isScorer,
     showChallenge: !isScorer,
   });
-  // Wire up challenge buttons for observers
   if (!isScorer) attachChallengeBtnListeners();
 }
 
@@ -1677,9 +1680,23 @@ function subscribeToRound(id) {
     const scorerPid = gameState?.scorerProfileId;
     const iAmScorer = scorerPid === undefined
       ? (!gameState?.organiserId || gameState.organiserId === currentUser?.id)
-      : (scorerPid !== null && scorerPid === currentUser?.id);
+      : (scorerPid !== '__unclaimed__' && scorerPid !== null && scorerPid === currentUser?.id);
     if (iAmScorer) return;
-    gameState = remote.game_state;
+
+    const incoming = remote.game_state;
+
+    // For multi-group: update the right group slot in allGroupStates
+    if (gameState?.allGroupStates?.length > 1 && incoming.groupNumber) {
+      const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === incoming.groupNumber);
+      if (idx >= 0) gameState.allGroupStates[idx] = { ...incoming, allGroupStates: undefined };
+      // If the incoming update is for our own group, update gameState too
+      if (incoming.groupNumber === gameState.groupNumber) {
+        gameState = { ...incoming, allGroupStates: gameState.allGroupStates };
+      }
+    } else {
+      gameState = incoming;
+    }
+
     renderScoreHeader();
     renderHolePanel();
   });
@@ -2123,6 +2140,34 @@ function buildTeamScorecard(state, { isFull18, log, par, si, holeOffset, numHole
 // ----------------------------------------------------------------
 // STANDARD SCORECARD — players as rows, holes as columns
 // ----------------------------------------------------------------
+// Merge multiple group states into one combined state for full-round scorecard display
+function mergeGroupStates(states) {
+  if (!states?.length) return null;
+  if (states.length === 1) return states[0];
+  const base = states[0];
+  return {
+    ...base,
+    names:           states.flatMap(s => s.names ?? []),
+    playingHandicaps:states.flatMap(s => s.playingHandicaps ?? []),
+    matchHandicaps:  states.flatMap(s => s.matchHandicaps ?? []),
+    totals:          states.flatMap(s => s.totals ?? []),
+    log: base.log?.map((_, hi) => {
+      // Merge each hole entry across groups
+      const merged = { grosses: [], extras: [], holePts: [], pars: [] };
+      states.forEach(s => {
+        const entry = s.log?.[hi] ?? {};
+        const n = (s.names ?? []).length;
+        for (let pi = 0; pi < n; pi++) {
+          merged.grosses.push(entry.grosses?.[pi] ?? null);
+          merged.extras.push(entry.extras?.[pi] ?? null);
+          merged.holePts.push(entry.holePts?.[pi] ?? null);
+        }
+      });
+      return { ...base.log[hi], ...merged };
+    }) ?? [],
+  };
+}
+
 function buildLandscapeScorecard(state, opts = {}) {
   const fmt        = state.format;
   const names      = state.names;
@@ -2774,7 +2819,8 @@ function showHistoryDetail(rid, rounds) {
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold);">${summary.winner ?? 'Completed'}</div>
         <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">${summary.summary ?? ''}</div>
       </div>`;
-    document.getElementById('hd-scorecard').innerHTML = buildLandscapeScorecard(state);
+    const allStates = state.allGroupStates ?? [state];
+    document.getElementById('hd-scorecard').innerHTML = buildLandscapeScorecard(mergeGroupStates(allStates));
   }
 
   // Wire up delete button
@@ -4309,6 +4355,8 @@ async function showTournamentRoundScorecard(tround) {
     if (!round?.game_state) { alert('Scorecard not available.'); return; }
 
     const state = round.game_state;
+    const allStates = state.allGroupStates ?? [state];
+    const displayState = mergeGroupStates(allStates);
     const dateStr = tround.date
       ? new Date(tround.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})
       : '';
@@ -4318,7 +4366,7 @@ async function showTournamentRoundScorecard(tround) {
     document.getElementById('sc-overlay-sub').textContent =
       `${tround.tee_name ?? ''} · ${dateStr}`;
     document.getElementById('sc-overlay-body').innerHTML =
-      buildLandscapeScorecard(state, { showEdit: false, showChallenge: false });
+      buildLandscapeScorecard(displayState, { showEdit: false, showChallenge: false });
 
     document.getElementById('scorecard-overlay').classList.add('open');
   } catch (err) {
