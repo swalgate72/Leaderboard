@@ -941,6 +941,7 @@ async function teeOff() {
         const scorer = setup.players.slice(start, end).find(p => p.isScorer) ?? setup.players[start];
         if (scorer?.profileId) otherGroupScorers.push({ groupNumber: g + 1, scorer });
       }
+      console.log('[invite] numGroups:', setup.numGroups, 'otherGroupScorers:', otherGroupScorers);
       if (otherGroupScorers.length > 0) {
         await showRegularGameInviteModal(otherGroupScorers, course, tee, fmt);
         return; // enterGameScreen called from modal done button
@@ -3573,6 +3574,7 @@ async function _teeOffRound(tournId, courseId, teeName, date) {
 }
 
 async function showRegularGameInviteModal(otherGroupScorers, course, tee, fmt) {
+  console.log('[invite] showRegularGameInviteModal called', otherGroupScorers);
   const modal   = document.getElementById('modal-group-invites');
   const listEl  = document.getElementById('group-invites-list');
   const doneBtn = document.getElementById('btn-group-invites-done');
@@ -3613,7 +3615,9 @@ async function showRegularGameInviteModal(otherGroupScorers, course, tee, fmt) {
         statusEl.style.color = 'var(--green)';
       }
     } catch (err) {
-      if (statusEl) { statusEl.textContent = `⚠️ Could not send: ${err.message}`; statusEl.style.color = 'var(--red)'; }
+      console.error('[invite] smsInviteCreate failed:', err);
+      if (statusEl) { statusEl.textContent = `⚠️ Error: ${err.message}`; statusEl.style.color = 'var(--red)'; }
+    }
     }
   }));
 
