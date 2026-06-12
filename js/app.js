@@ -13,7 +13,7 @@ import {
   roundPlayersSave, roundPlayersLoad,
   friendsLoad, friendRequestsLoadPending,
   friendRequestSend, friendRequestAccept, friendRequestDecline, friendRemove,
-  smsInviteCreate, gameInviteLoad, smsInviteLookup, smsInviteAccept,
+  smsInviteCreate, gameInviteLoad, gameInvitesPollPending, smsInviteLookup, smsInviteAccept,
   smsBuildInviteLink, smsBuildMessage,
   realtimeSubscribeRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   tournamentCreate, tournamentsLoad, tournamentLoadById, tournamentUpdate, tournamentDelete,
@@ -1621,15 +1621,47 @@ function subscribeToFriendRequests() {
 
 let _pendingGameInvite = null;
 
+let _gameInviteChannel = null;
+let _gameInvitePollTimer = null;
+let _lastInviteCheck = null;
+
 function subscribeToGameInvites() {
-  realtimeSubscribeGameInvites(currentUser.id, async (row) => {
-    // Load full invite details
+  if (_gameInviteChannel) {
+    try { _gameInviteChannel.unsubscribe(); } catch {}
+  }
+
+  _gameInviteChannel = realtimeSubscribeGameInvites(currentUser.id, async (row) => {
+    console.log('[invite] realtime fired', row);
     try {
       const invite = await gameInviteLoad(row.id);
       if (!invite || invite.status === 'accepted') return;
       showGameInviteBanner(invite);
-    } catch {}
+    } catch (e) { console.error('[invite] load error', e); }
   });
+
+  // Log subscription status after 2s
+  setTimeout(() => {
+    const state = _gameInviteChannel?.state;
+    console.log('[invite] channel state:', state);
+    if (state !== 'joined' && state !== 'SUBSCRIBED') {
+      console.warn('[invite] realtime not connected, starting poll fallback');
+      startInvitePoll();
+    }
+  }, 2000);
+}
+
+async function startInvitePoll() {
+  if (_gameInvitePollTimer) return;
+  _lastInviteCheck = new Date().toISOString();
+  _gameInvitePollTimer = setInterval(async () => {
+    try {
+      const rows = await gameInvitesPollPending(currentUser.id, _lastInviteCheck);
+      if (rows.length) {
+        _lastInviteCheck = new Date().toISOString();
+        for (const row of rows) showGameInviteBanner(row);
+      }
+    } catch {}
+  }, 5000);
 }
 
 function showGameInviteBanner(invite) {
@@ -1657,6 +1689,7 @@ document.getElementById('btn-game-invite-join')?.addEventListener('click', async
   const invite = _pendingGameInvite;
   if (!invite) return;
   hideGameInviteBanner();
+  if (_gameInvitePollTimer) { clearInterval(_gameInvitePollTimer); _gameInvitePollTimer = null; }
   try {
     await smsInviteAccept(invite.id);
     if (invite.tournament_round_id && invite.group_number) {
