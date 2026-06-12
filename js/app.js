@@ -1003,9 +1003,12 @@ function screenLog(msg) {
     el.id = 'screen-log';
     el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.9);' +
       'color:#0f0;font-size:10px;font-family:monospace;padding:4px;z-index:99999;' +
-      'max-height:150px;overflow-y:auto;';
+      'max-height:80px;overflow-y:auto;';
+    el.title = 'Tap to hide';
+    el.addEventListener('click', () => el.style.display = 'none');
     document.body.appendChild(el);
   }
+  el.style.display = '';
   el.innerHTML += '<div>' + new Date().toISOString().slice(11,19) + ' ' + msg + '</div>';
   el.scrollTop = el.scrollHeight;
 }
