@@ -599,8 +599,10 @@ export function realtimeSubscribeRound(roundId, onUpdate) {
     .channel(`round:${roundId}`)
     .on(
       'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'rounds', filter: `id=eq.${roundId}` },
-      payload => onUpdate(payload.new)
+      { event: 'UPDATE', schema: 'public', table: 'rounds' },
+      payload => {
+        if (payload.new?.id === roundId) onUpdate(payload.new);
+      }
     )
     .subscribe();
 }
