@@ -597,14 +597,19 @@ export function smsBuildMessage({ inviterName, courseName, teeName, formatLabel,
 export function realtimeSubscribeRound(roundId, onUpdate) {
   return sb
     .channel(`round:${roundId}`)
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'rounds' },
-      payload => {
-        if (payload.new?.id === roundId) onUpdate(payload.new);
-      }
-    )
+    .on('broadcast', { event: 'score_update' }, payload => {
+      onUpdate(payload.payload);
+    })
     .subscribe();
+}
+
+export async function realtimeBroadcastRound(channel, gameState) {
+  if (!channel) return;
+  await channel.send({
+    type: 'broadcast',
+    event: 'score_update',
+    payload: { game_state: gameState },
+  });
 }
 
 // Subscribe to incoming friend requests
