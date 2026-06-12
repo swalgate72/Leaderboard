@@ -1620,10 +1620,17 @@ async function saveRoundState() {
 function subscribeToRound(id) {
   realtimeUnsubscribe(realtimeCh);
   realtimeCh = realtimeSubscribeRound(id, remote => {
-    if (remote?.game_state && remote.game_state.hole !== gameState.hole) {
-      gameState = remote.game_state;
-      renderScoreHeader(); renderHolePanel();
-    }
+    if (!remote?.game_state) return;
+    // Scorers ignore incoming updates (their local state is authoritative)
+    // Watchers always re-render to show latest scores
+    const scorerPid = gameState?.scorerProfileId;
+    const iAmScorer = scorerPid === undefined
+      ? (!gameState?.organiserId || gameState.organiserId === currentUser?.id)
+      : (scorerPid !== null && scorerPid === currentUser?.id);
+    if (iAmScorer) return;
+    gameState = remote.game_state;
+    renderScoreHeader();
+    renderHolePanel();
   });
 }
 
