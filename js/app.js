@@ -891,12 +891,10 @@ async function teeOff() {
   gameState = groupStates[0];
   gameState.allGroupStates = groupStates;
 
-  // Store profileIds and scorerProfileId per group state
+  // Store profileIds and scorerProfileId per group state using groupNumber property
   for (let g = 0; g < setup.numGroups; g++) {
-    const start = g * playersPerGroup;
-    const end   = Math.min(start + playersPerGroup, setup.numPlayers);
-    const groupPlayers = setup.players.slice(start, end);
-    // Only store non-null profileIds to avoid cross-group false matches
+    const groupNum     = g + 1;
+    const groupPlayers = setup.players.filter(p => p.groupNumber === groupNum);
     groupStates[g].playerProfileIds = groupPlayers
       .map(p => p.profileId ?? null)
       .filter(id => id !== null);
