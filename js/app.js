@@ -992,6 +992,21 @@ async function teeOff() {
 // ================================================================
 // RESUME
 // ================================================================
+function screenLog(msg) {
+  console.log(msg);
+  let el = document.getElementById('screen-log');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'screen-log';
+    el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.9);' +
+      'color:#0f0;font-size:10px;font-family:monospace;padding:4px;z-index:99999;' +
+      'max-height:150px;overflow-y:auto;';
+    document.body.appendChild(el);
+  }
+  el.innerHTML += '<div>' + new Date().toISOString().slice(11,19) + ' ' + msg + '</div>';
+  el.scrollTop = el.scrollHeight;
+}
+
 async function resumeRound(id) {
   try {
     const round = await roundLoadById(id);
@@ -999,27 +1014,25 @@ async function resumeRound(id) {
     roundId = id;
     let gs = round.game_state;
 
-    console.log('[resume] allGroupStates length:', gs?.allGroupStates?.length);
-    console.log('[resume] currentUser.id:', currentUser?.id);
-    console.log('[resume] top-level scorerProfileId:', gs?.scorerProfileId);
+    screenLog('groups:' + (gs?.allGroupStates?.length ?? 'none'));
+    screenLog('myId:' + currentUser?.id?.slice(0,8));
+    screenLog('topScorer:' + (gs?.scorerProfileId?.slice(0,8) ?? 'null'));
     if (gs?.allGroupStates) {
       gs.allGroupStates.forEach((s, i) => {
-        console.log(`[resume] group ${i} playerProfileIds:`, s.playerProfileIds, 'scorerProfileId:', s.scorerProfileId);
+        screenLog('g' + i + ' pids:' + (s.playerProfileIds ?? []).map(p => p?.slice(0,6) ?? 'null').join(','));
+        screenLog('g' + i + ' scorer:' + (s.scorerProfileId?.slice(0,8) ?? 'null'));
       });
     }
 
-    // If multi-group, find the state belonging to the current user's group
     if (gs?.allGroupStates?.length > 1 && currentUser) {
       const myGroup = gs.allGroupStates.find(s =>
         s.playerProfileIds?.includes(currentUser.id)
       );
-      console.log('[resume] myGroup found:', !!myGroup, 'scorerProfileId:', myGroup?.scorerProfileId);
-      if (myGroup) {
-        gs = { ...myGroup, allGroupStates: gs.allGroupStates };
-      }
+      screenLog('myGroup:' + (myGroup ? 'found scorer:' + myGroup.scorerProfileId?.slice(0,8) : 'NOT FOUND'));
+      if (myGroup) gs = { ...myGroup, allGroupStates: gs.allGroupStates };
     }
     gameState = gs;
-    console.log('[resume] final scorerProfileId:', gameState?.scorerProfileId);
+    screenLog('finalScorer:' + (gameState?.scorerProfileId?.slice(0,8) ?? 'null'));
     // If this is a tournament round, reload tournament globals so
     // saveTournamentScores has activeTournPlayers when the round ends.
     if (gameState?.tournamentId) {
