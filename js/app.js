@@ -212,6 +212,8 @@ function onSignedOut() {
   showScreen('screen-auth');
 }
 
+let _joiningViaInvite = false;
+
 async function onSignedIn(user) {
   currentUser = user;
   try {
@@ -235,6 +237,9 @@ async function onSignedIn(user) {
         return;
       }
     }
+
+    // Skip auto-resume if we're in the middle of joining via in-app invite
+    if (_joiningViaInvite) return;
 
     // Auto-resume if there's an active round in progress
     const actives = await roundsLoadActive(user.id);
@@ -1734,6 +1739,7 @@ document.getElementById('btn-game-invite-join')?.addEventListener('click', async
   if (!invite) return;
   hideGameInviteBanner();
   if (_gameInvitePollTimer) { clearInterval(_gameInvitePollTimer); _gameInvitePollTimer = null; }
+  _joiningViaInvite = true; // prevent auto-resume from overriding this join
   try {
     await smsInviteAccept(invite.id);
     if (invite.tournament_round_id && invite.group_number) {
@@ -1743,6 +1749,8 @@ document.getElementById('btn-game-invite-join')?.addEventListener('click', async
     }
   } catch (err) {
     alert('Could not join: ' + err.message);
+  } finally {
+    _joiningViaInvite = false;
   }
 });
 
