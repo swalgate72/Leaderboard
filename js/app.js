@@ -1020,8 +1020,7 @@ async function resumeRound(id) {
     if (!round) return;
     roundId = id;
     let gs = round.game_state;
-
-    screenLog('groups:' + (gs?.allGroupStates?.length ?? 'none'));
+    screenLog('resuming:' + id.slice(0,8) + ' groups:' + (gs?.allGroupStates?.length ?? 'none'));
     screenLog('myId:' + currentUser?.id?.slice(0,8));
     screenLog('topScorer:' + (gs?.scorerProfileId?.slice(0,8) ?? 'null'));
     if (gs?.allGroupStates) {
