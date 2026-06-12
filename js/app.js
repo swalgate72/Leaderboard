@@ -662,7 +662,17 @@ function buildPlayerForms() {
       btn.className = `btn ${setup.players[pi].isScorer ? 'btn-primary' : 'btn-outline'}`;
       btn.style.cssText = 'padding:0.3rem 0.75rem;font-size:0.82rem;width:auto;';
       btn.dataset.pi = pi;
-      btn.textContent = setup.players[pi].name || `Player ${pi + 1}`;
+      btn.textContent = setup.players[pi].name || `Player ${pi - start + 1}`;
+      // Keep label in sync as name is typed
+      const nameInp = document.getElementById(`pname-${pi}`);
+      if (nameInp) {
+        nameInp.addEventListener('input', () => {
+          if (!setup.players[pi].isScorer) // only update if not currently selected
+            btn.textContent = nameInp.value.trim() || `Player ${pi - start + 1}`;
+          else
+            btn.textContent = nameInp.value.trim() || `Player ${pi - start + 1}`;
+        });
+      }
       btn.addEventListener('click', () => {
         // Clear scorer for this group, set new one
         for (let p = start; p < end; p++) setup.players[p].isScorer = false;
@@ -918,6 +928,22 @@ async function teeOff() {
       mobile:          p.mobile ?? null,
     })));
     subscribeToRound(roundId);
+
+    // Multi-group: invite other group scorers via in-app notification
+    if (setup.numGroups > 1) {
+      const ppg = Math.ceil(setup.numPlayers / setup.numGroups);
+      const otherGroupScorers = [];
+      for (let g = 1; g < setup.numGroups; g++) {
+        const start  = g * ppg;
+        const end    = Math.min(start + ppg, setup.numPlayers);
+        const scorer = setup.players.slice(start, end).find(p => p.isScorer) ?? setup.players[start];
+        if (scorer?.profileId) otherGroupScorers.push({ groupNumber: g + 1, scorer });
+      }
+      if (otherGroupScorers.length > 0) {
+        await showRegularGameInviteModal(otherGroupScorers, course, tee, fmt);
+        return; // enterGameScreen called from modal done button
+      }
+    }
     enterGameScreen();
   } catch (err) {
     alert('Could not start round: ' + (err.message ?? err));
@@ -933,7 +959,17 @@ async function resumeRound(id) {
   try {
     const round = await roundLoadById(id);
     if (!round) return;
-    roundId = id; gameState = round.game_state;
+    roundId = id;
+    let gs = round.game_state;
+
+    // If multi-group, find the state belonging to the current user's group
+    if (gs?.allGroupStates?.length > 1 && currentUser) {
+      const myGroup = gs.allGroupStates.find(s =>
+        s.playerProfileIds?.includes(currentUser.id)
+      );
+      if (myGroup) gs = { ...myGroup, allGroupStates: gs.allGroupStates };
+    }
+    gameState = gs;
     // If this is a tournament round, reload tournament globals so
     // saveTournamentScores has activeTournPlayers when the round ends.
     if (gameState?.tournamentId) {
@@ -3499,6 +3535,57 @@ async function _teeOffRound(tournId, courseId, teeName, date) {
   } else {
     enterGameScreen();
   }
+}
+
+async function showRegularGameInviteModal(otherGroupScorers, course, tee, fmt) {
+  const modal   = document.getElementById('modal-group-invites');
+  const listEl  = document.getElementById('group-invites-list');
+  const doneBtn = document.getElementById('btn-group-invites-done');
+  const myName  = currentProfile
+    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+    : 'Your organiser';
+
+  listEl.innerHTML = otherGroupScorers.map(({ groupNumber, scorer }) => `
+    <div style="padding:0.75rem;background:var(--surface2);border:1px solid var(--border);
+                border-radius:var(--radius-sm);margin-bottom:0.75rem;">
+      <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;
+                  letter-spacing:0.1em;margin-bottom:0.3rem;">
+        Group ${groupNumber} scorer · ${scorer.name}
+      </div>
+      <div id="reg-invite-status-${groupNumber}"
+        style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem;">
+        Sending invite…
+      </div>
+    </div>`).join('');
+
+  modal.classList.add('open');
+
+  // Send invites immediately since we already know who the scorers are
+  await Promise.all(otherGroupScorers.map(async ({ groupNumber, scorer }) => {
+    const statusEl = document.getElementById(`reg-invite-status-${groupNumber}`);
+    try {
+      await smsInviteCreate({
+        roundId:            roundId,
+        inviterId:          currentUser.id,
+        name:               myName,
+        mobile:             null,
+        recipientProfileId: scorer.profileId,
+        tournamentRoundId:  null,
+        groupNumber,
+      });
+      if (statusEl) {
+        statusEl.textContent = `✅ Invite sent to ${scorer.name}`;
+        statusEl.style.color = 'var(--green)';
+      }
+    } catch (err) {
+      if (statusEl) { statusEl.textContent = `⚠️ Could not send: ${err.message}`; statusEl.style.color = 'var(--red)'; }
+    }
+  }));
+
+  doneBtn.onclick = () => { modal.classList.remove('open'); enterGameScreen(); };
+  document.getElementById('group-invites-close').onclick = () => {
+    modal.classList.remove('open'); enterGameScreen();
+  };
 }
 
 async function showGroupInviteModal(otherGroups, troundRecord, course, roundFormat) {
