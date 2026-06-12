@@ -914,6 +914,13 @@ async function teeOff() {
   btn.disabled = true; btn.textContent = 'Starting…';
   try {
     const { allGroupStates, ...stateToSave } = gameState;
+    // Include group states so resumeRound can identify each user's group
+    if (allGroupStates?.length > 1) {
+      stateToSave.allGroupStates = allGroupStates.map(gs => {
+        const { allGroupStates: _, ...stripped } = gs;
+        return stripped;
+      });
+    }
     roundId = await roundCreate({
       organiserId:  currentUser.id,
       courseName:   course.name,
@@ -997,7 +1004,10 @@ async function resumeRound(id) {
       const myGroup = gs.allGroupStates.find(s =>
         s.playerProfileIds?.includes(currentUser.id)
       );
-      if (myGroup) gs = { ...myGroup, allGroupStates: gs.allGroupStates };
+      if (myGroup) {
+        // Use the group's own state but keep allGroupStates for reference
+        gs = { ...myGroup, allGroupStates: gs.allGroupStates };
+      }
     }
     gameState = gs;
     // If this is a tournament round, reload tournament globals so
@@ -1619,6 +1629,14 @@ async function saveRoundState() {
   badge?.classList.remove('hidden');
   try {
     const { allGroupStates, ...stateToSave } = gameState;
+    // Persist allGroupStates (stripped of their own nested references) so
+    // resumeRound can find the correct group state for each user
+    if (allGroupStates?.length > 1) {
+      stateToSave.allGroupStates = allGroupStates.map(gs => {
+        const { allGroupStates: _, ...stripped } = gs;
+        return stripped;
+      });
+    }
     await roundSaveState(roundId, stateToSave, stateToSave.names);
     await realtimeBroadcastRound(realtimeCh, stateToSave);
   }
