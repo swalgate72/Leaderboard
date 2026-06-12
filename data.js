@@ -528,6 +528,19 @@ export async function smsInviteCreate({ roundId, roundPlayerId, inviterId, name,
   return data; // { id, token }
 }
 
+export async function gameInvitesPollPending(userId, since) {
+  const { data, error } = await sb
+    .from('sms_invites')
+    .select('*')
+    .eq('recipient_profile_id', userId)
+    .eq('status', 'pending')
+    .gt('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(5);
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function gameInviteLoad(inviteId) {
   const { data, error } = await sb
     .from('sms_invites')
