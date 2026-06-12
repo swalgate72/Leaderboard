@@ -645,14 +645,7 @@ function buildPlayerForms() {
       }
     }
 
-    // Scorer checkbox for this group
-    const scorerWrap = document.createElement('div');
-    scorerWrap.style.cssText = 'margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--border);';
-    scorerWrap.innerHTML = `
-      <div style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.35rem;">Scorer for Group ${g}</div>
-      <div id="scorer-radios-g${g}" style="display:flex;flex-wrap:wrap;gap:0.4rem;"></div>`;
-    groupEl.appendChild(scorerWrap);
-
+    // Scorer selection removed — players claim scorer role via the in-app invite banner
     container.appendChild(groupEl);
   }
 
@@ -891,26 +884,26 @@ async function teeOff() {
   gameState = groupStates[0];
   gameState.allGroupStates = groupStates;
 
-  // Store profileIds and scorerProfileId per group state using groupNumber property
+  // Store profileIds per group. scorerProfileId starts as '__unclaimed__' —
+  // first person to tap Score in the invite banner claims it.
   for (let g = 0; g < setup.numGroups; g++) {
     const groupNum     = g + 1;
     const groupPlayers = setup.players.filter(p => p.groupNumber === groupNum);
     groupStates[g].playerProfileIds = groupPlayers
       .map(p => p.profileId ?? null)
       .filter(id => id !== null);
-    const groupScorer = groupPlayers.find(p => p.isScorer);
-    groupStates[g].scorerProfileId  = groupScorer
-      ? (groupScorer.profileId ?? null)
-      : (groupPlayers[0]?.profileId ?? null);
-    groupStates[g].organiserId = currentUser.id;
+    groupStates[g].scorerProfileId = '__unclaimed__';
+    groupStates[g].groupNumber     = groupNum;
+    groupStates[g].organiserId     = currentUser.id;
   }
 
   gameState.organiserId      = currentUser.id;
-  const designatedScorer     = setup.players.find(p => p.isScorer);
-  gameState.scorerProfileId  = designatedScorer
-    ? (designatedScorer.profileId ?? null)
-    : currentUser.id;
-  gameState.playerProfileIds = setup.players.map(p => p.profileId ?? null);
+  // Organiser is scorer for group 1 (their own group)
+  gameState.scorerProfileId  = currentUser.id;
+  gameState.playerProfileIds = setup.players
+    .filter(p => p.groupNumber === 1)
+    .map(p => p.profileId ?? null)
+    .filter(Boolean);
 
   const btn = document.getElementById('btn-tee-off');
   btn.disabled = true; btn.textContent = 'Starting…';
@@ -1250,13 +1243,14 @@ function renderHolePanel() {
   const backBtn = document.getElementById('btn-back-hole');
   if (backBtn) backBtn.disabled = (gameState.log?.length ?? 0) === 0;
 
-  // scorerProfileId === undefined → legacy round, fall back to organiser check
-  // scorerProfileId === null      → guest scorer designated, no logged-in user gets scorer UI
-  // scorerProfileId === string    → only that profile gets scorer UI
+  // scorerProfileId === undefined  → legacy round, fall back to organiser check
+  // scorerProfileId === null        → guest scorer, no logged-in user gets scorer UI  
+  // scorerProfileId === '__unclaimed__' → nobody claimed yet, show "Become Scorer" button
+  // scorerProfileId === string      → only that profile gets scorer UI
   const scorerPid    = gameState?.scorerProfileId;
   const userIsScorer = scorerPid === undefined
     ? (!gameState?.organiserId || gameState.organiserId === currentUser?.id)
-    : (scorerPid !== null && scorerPid === currentUser?.id);
+    : (scorerPid !== '__unclaimed__' && scorerPid !== null && scorerPid === currentUser?.id);
 
   const inputsEl = document.getElementById('game-inputs');
   inputsEl.innerHTML = '';
@@ -1265,17 +1259,22 @@ function renderHolePanel() {
   const backHoleBtn = document.getElementById('btn-back-hole');
 
   if (!userIsScorer) {
-    // Show who the scorer is and current hole info — no inputs
-    const scorerName = gameState.names?.find((_, i) => {
-      const pid = gameState.playerProfileIds?.[i];
-      return pid && pid === scorerPid;
-    }) ?? 'another player';
+    const isUnclaimed = scorerPid === '__unclaimed__';
     inputsEl.innerHTML = `
       <div style="text-align:center;padding:2rem 1rem;color:var(--muted);">
         <div style="font-size:2rem;margin-bottom:0.5rem;">👁</div>
         <div style="font-size:0.9rem;font-weight:600;color:var(--text);margin-bottom:0.25rem;">Watching</div>
-        <div style="font-size:0.8rem;">Scores are being entered by the scorer.<br>Use the scorecard or leaderboard to follow along.</div>
+        <div style="font-size:0.8rem;margin-bottom:${isUnclaimed ? '1rem' : '0'};">Scores are being entered by the scorer.<br>Use the scorecard or leaderboard to follow along.</div>
+        ${isUnclaimed ? `<button id="btn-become-scorer" class="btn btn-outline" style="font-size:0.85rem;">✏️ Become Scorer</button>` : ''}
       </div>`;
+    if (isUnclaimed) {
+      document.getElementById('btn-become-scorer')?.addEventListener('click', async () => {
+        // Claim scorer role
+        gameState.scorerProfileId = currentUser.id;
+        await saveRoundState();
+        renderHolePanel();
+      });
+    }
     if (recordBtn)   { recordBtn.style.display   = 'none'; }
     if (backHoleBtn) { backHoleBtn.style.display  = 'none'; }
     toggle('btn-finish-early', false);
@@ -1765,25 +1764,88 @@ function hideGameInviteBanner() {
 
 document.getElementById('btn-game-invite-dismiss')?.addEventListener('click', hideGameInviteBanner);
 
-document.getElementById('btn-game-invite-join')?.addEventListener('click', async () => {
+document.getElementById('btn-game-invite-score')?.addEventListener('click', async () => {
   const invite = _pendingGameInvite;
   if (!invite) return;
   hideGameInviteBanner();
   if (_gameInvitePollTimer) { clearInterval(_gameInvitePollTimer); _gameInvitePollTimer = null; }
-  _joiningViaInvite = true; // prevent auto-resume from overriding this join
+  _joiningViaInvite = true;
   try {
     await smsInviteAccept(invite.id);
     if (invite.tournament_round_id && invite.group_number) {
       await joinTournamentRoundAsScorer(currentUser, invite.tournament_round_id, invite.group_number);
     } else if (invite.round_id) {
-      await resumeRound(invite.round_id);
+      // Join as scorer — claim the scorer role
+      await _joinRoundWithRole(invite.round_id, invite.group_number ?? 1, true);
     }
-  } catch (err) {
-    alert('Could not join: ' + err.message);
-  } finally {
-    _joiningViaInvite = false;
-  }
+  } catch (err) { alert('Could not join: ' + err.message); }
+  finally { _joiningViaInvite = false; }
 });
+
+document.getElementById('btn-game-invite-watch')?.addEventListener('click', async () => {
+  const invite = _pendingGameInvite;
+  if (!invite) return;
+  hideGameInviteBanner();
+  if (_gameInvitePollTimer) { clearInterval(_gameInvitePollTimer); _gameInvitePollTimer = null; }
+  _joiningViaInvite = true;
+  try {
+    await smsInviteAccept(invite.id);
+    if (invite.round_id) {
+      await _joinRoundWithRole(invite.round_id, invite.group_number ?? 1, false);
+    }
+  } catch (err) { alert('Could not join: ' + err.message); }
+  finally { _joiningViaInvite = false; }
+});
+
+async function _joinRoundWithRole(roundId, groupNumber, asScorer) {
+  const round = await roundLoadById(roundId);
+  if (!round) return;
+
+  let gs = round.game_state;
+
+  // Find this user's group state
+  let myGroupState = null;
+  if (gs?.allGroupStates?.length > 1) {
+    myGroupState = gs.allGroupStates.find(s => s.groupNumber === groupNumber)
+      ?? gs.allGroupStates[groupNumber - 1];
+  } else {
+    myGroupState = gs;
+  }
+
+  if (!myGroupState) return;
+
+  // Check if scorer already claimed for this group
+  const scorerAlreadyClaimed = myGroupState.scorerProfileId &&
+    myGroupState.scorerProfileId !== '__unclaimed__';
+
+  if (asScorer && scorerAlreadyClaimed && myGroupState.scorerProfileId !== currentUser.id) {
+    // Someone else already claimed scorer — demote to watcher silently
+    asScorer = false;
+  }
+
+  // Set scorerProfileId on this group's state
+  if (asScorer) {
+    myGroupState.scorerProfileId = currentUser.id;
+    // Update in allGroupStates too
+    if (gs?.allGroupStates?.length > 1) {
+      const idx = gs.allGroupStates.findIndex(s => s.groupNumber === groupNumber);
+      if (idx >= 0) gs.allGroupStates[idx].scorerProfileId = currentUser.id;
+    }
+    // Save back to DB
+    const { allGroupStates, ...stateToSave } = gs;
+    if (allGroupStates?.length > 1) {
+      stateToSave.allGroupStates = allGroupStates.map(s => {
+        const { allGroupStates: _, ...stripped } = s;
+        return stripped;
+      });
+    }
+    await roundSaveState(roundId, stateToSave, stateToSave.names);
+  }
+
+  // Now resume into the correct group state
+  window._roundId = roundId;
+  await resumeRound(roundId);
+}
 
 // ----------------------------------------------------------------
 // ABANDON
