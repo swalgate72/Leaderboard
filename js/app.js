@@ -13,7 +13,7 @@ import {
   roundPlayersSave, roundPlayersLoad,
   friendsLoad, friendRequestsLoadPending,
   friendRequestSend, friendRequestAccept, friendRequestDecline, friendRemove,
-  smsInviteCreate, gameInviteLoad, realtimeSubscribeGameInvites, smsInviteLookup, smsInviteAccept,
+  smsInviteCreate, gameInviteLoad, smsInviteLookup, smsInviteAccept,
   smsBuildInviteLink, smsBuildMessage,
   realtimeSubscribeRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   tournamentCreate, tournamentsLoad, tournamentLoadById, tournamentUpdate, tournamentDelete,
