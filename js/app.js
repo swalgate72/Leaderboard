@@ -857,6 +857,7 @@ async function teeOff() {
   const matchHcps   = hcpObj.map(h => h.matchHandicap);
 
   const playersPerGroup = Math.ceil(setup.numPlayers / setup.numGroups);
+  screenLog('teeOff numGroups:' + setup.numGroups + ' numPlayers:' + setup.numPlayers + ' ppg:' + playersPerGroup);
 
   // Build one game state per group
   const groupStates = [];
