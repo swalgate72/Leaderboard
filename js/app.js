@@ -13,9 +13,9 @@ import {
   roundPlayersSave, roundPlayersLoad,
   friendsLoad, friendRequestsLoadPending,
   friendRequestSend, friendRequestAccept, friendRequestDecline, friendRemove,
-  smsInviteCreate, smsInviteLookup, smsInviteAccept,
+  smsInviteCreate, gameInviteLoad, realtimeSubscribeGameInvites, smsInviteLookup, smsInviteAccept,
   smsBuildInviteLink, smsBuildMessage,
-  realtimeSubscribeRound, realtimeSubscribeFriendRequests, realtimeUnsubscribe,
+  realtimeSubscribeRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   tournamentCreate, tournamentsLoad, tournamentLoadById, tournamentUpdate, tournamentDelete,
   tournamentPlayersAdd, tournamentPlayersLoad, tournamentPlayerUpdate,
   tournamentRoundsLoad, tournamentRoundLoadById, tournamentRoundCreate, tournamentRoundUpdate,
@@ -220,6 +220,7 @@ async function onSignedIn(user) {
     allCourses     = await coursesLoadAll();
     allFriends     = await friendsLoad(user.id);
     subscribeToFriendRequests();
+    subscribeToGameInvites();
 
     // Check for a pending tournament round join (from auth redirect)
     const joinToken  = sessionStorage.getItem('lb-join-token');
@@ -1579,6 +1580,56 @@ function subscribeToFriendRequests() {
     }
   });
 }
+
+let _pendingGameInvite = null;
+
+function subscribeToGameInvites() {
+  realtimeSubscribeGameInvites(currentUser.id, async (row) => {
+    // Load full invite details
+    try {
+      const invite = await gameInviteLoad(row.id);
+      if (!invite || invite.status === 'accepted') return;
+      showGameInviteBanner(invite);
+    } catch {}
+  });
+}
+
+function showGameInviteBanner(invite) {
+  _pendingGameInvite = invite;
+  const banner   = document.getElementById('game-invite-banner');
+  const titleEl  = document.getElementById('game-invite-banner-title');
+  const subEl    = document.getElementById('game-invite-banner-sub');
+  titleEl.textContent = `${invite.name ?? 'Someone'} invited you to score`;
+  subEl.textContent   = invite.group_number
+    ? `Group ${invite.group_number} scorer`
+    : 'Tap to join';
+  banner.style.display = '';
+  // Auto-dismiss after 60 seconds if not acted on
+  setTimeout(() => { if (_pendingGameInvite?.id === invite.id) hideGameInviteBanner(); }, 60000);
+}
+
+function hideGameInviteBanner() {
+  _pendingGameInvite = null;
+  document.getElementById('game-invite-banner').style.display = 'none';
+}
+
+document.getElementById('btn-game-invite-dismiss')?.addEventListener('click', hideGameInviteBanner);
+
+document.getElementById('btn-game-invite-join')?.addEventListener('click', async () => {
+  const invite = _pendingGameInvite;
+  if (!invite) return;
+  hideGameInviteBanner();
+  try {
+    await smsInviteAccept(invite.id);
+    if (invite.tournament_round_id && invite.group_number) {
+      await joinTournamentRoundAsScorer(currentUser, invite.tournament_round_id, invite.group_number);
+    } else if (invite.round_id) {
+      await resumeRound(invite.round_id);
+    }
+  } catch (err) {
+    alert('Could not join: ' + err.message);
+  }
+});
 
 // ----------------------------------------------------------------
 // ABANDON
@@ -3458,59 +3509,71 @@ async function showGroupInviteModal(otherGroups, troundRecord, course, roundForm
     ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
     : 'Your organiser';
 
-  listEl.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;">Generating links…</div>';
+  // Build one card per other group
+  listEl.innerHTML = otherGroups.map(g => {
+    const playerNames = g.players
+      .map(pid => activeTournPlayers.find(p => p.id === pid)?.name)
+      .filter(Boolean).join(', ');
+    return `
+      <div style="padding:0.75rem;background:var(--surface2);border:1px solid var(--border);
+                  border-radius:var(--radius-sm);margin-bottom:0.75rem;">
+        <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;
+                    letter-spacing:0.1em;margin-bottom:0.3rem;">
+          Group ${g.groupNumber} · ${playerNames}
+        </div>
+        <div id="group-invite-status-${g.groupNumber}"
+          style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem;">
+          No scorer invited yet
+        </div>
+        <button class="btn btn-outline btn-invite-scorer" data-g="${g.groupNumber}"
+          style="width:100%;font-size:0.85rem;">
+          👤 Invite Scorer from Friends
+        </button>
+      </div>`;
+  }).join('');
+
+  // Wire up friend picker per group
+  listEl.querySelectorAll('.btn-invite-scorer').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const gNum = parseInt(btn.dataset.g);
+      const g    = otherGroups.find(x => x.groupNumber === gNum);
+      openFriendPicker(-1, async (friend) => {
+        if (!friend.profileId) {
+          alert('This friend needs to have a Leaderboard account to receive an in-app invite.');
+          return;
+        }
+        btn.disabled = true; btn.textContent = 'Sending…';
+        try {
+          await smsInviteCreate({
+            roundId:             roundId,
+            inviterId:           currentUser.id,
+            name:                myName,
+            mobile:              null,
+            recipientProfileId:  friend.profileId,
+            tournamentRoundId:   troundRecord.id,
+            groupNumber:         gNum,
+          });
+          const statusEl = document.getElementById(`group-invite-status-${gNum}`);
+          if (statusEl) {
+            statusEl.textContent = `✅ Invite sent to ${friend.name}`;
+            statusEl.style.color = 'var(--green)';
+          }
+          btn.textContent = '✅ Sent — invite another?';
+          btn.disabled = false;
+        } catch (err) {
+          alert('Could not send invite: ' + err.message);
+          btn.disabled = false;
+          btn.textContent = '👤 Invite Scorer from Friends';
+        }
+      });
+    });
+  });
+
   modal.classList.add('open');
 
-  // Generate an invite + share link for each other group
-  const rows = await Promise.all(otherGroups.map(async g => {
-    try {
-      const scorerName = g.players
-        .map(pid => activeTournPlayers.find(p => p.id === pid)?.name)
-        .filter(Boolean).join(', ');
-
-      const invite = await smsInviteCreate({
-        roundId:   roundId,
-        inviterId: currentUser.id,
-        name:      myName,
-        mobile:    null,
-      });
-
-      const link = `${APP_URL}?join=${invite.token}&tround=${troundRecord.id}&group=${g.groupNumber}`;
-      const msg  = `${myName} has invited you to score Group ${g.groupNumber} on Leaderboard!\n\n${course.name} · ${fmtLabel(roundFormat)}\n\nJoin here: ${link}`;
-
-      return { groupNumber: g.groupNumber, scorerName, link, msg };
-    } catch { return null; }
-  }));
-
-  listEl.innerHTML = rows.filter(Boolean).map(r => `
-    <div style="padding:0.75rem;background:var(--surface2);border:1px solid var(--border);
-                border-radius:var(--radius-sm);margin-bottom:0.5rem;">
-      <div style="font-size:0.75rem;color:var(--muted);margin-bottom:0.35rem;">
-        GROUP ${r.groupNumber} · ${r.scorerName}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.35rem;">
-        <button class="btn btn-outline" style="font-size:0.75rem;padding:0.4rem;"
-          onclick="navigator.clipboard?.writeText(${JSON.stringify(r.link)}).then(()=>{this.textContent='✅ Copied';setTimeout(()=>{this.textContent='📋 Copy link'},1500)})">
-          📋 Copy link
-        </button>
-        <button class="btn btn-outline" style="font-size:0.75rem;padding:0.4rem;"
-          onclick="window.open('sms:?body='+encodeURIComponent(${JSON.stringify(r.msg)}))">
-          💬 SMS
-        </button>
-        <button class="btn btn-outline" style="font-size:0.75rem;padding:0.4rem;"
-          onclick="window.open('https://wa.me/?text='+encodeURIComponent(${JSON.stringify(r.msg)}))">
-          📱 WhatsApp
-        </button>
-      </div>
-    </div>`).join('');
-
-  doneBtn.onclick = () => {
-    modal.classList.remove('open');
-    enterGameScreen();
-  };
+  doneBtn.onclick = () => { modal.classList.remove('open'); enterGameScreen(); };
   document.getElementById('group-invites-close').onclick = () => {
-    modal.classList.remove('open');
-    enterGameScreen();
+    modal.classList.remove('open'); enterGameScreen();
   };
 }
 
