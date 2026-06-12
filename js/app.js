@@ -657,22 +657,17 @@ function buildPlayerForms() {
     const end   = Math.min(g * playersPerGroup, setup.numPlayers);
     const radios = document.getElementById(`scorer-radios-g${g}`);
     if (!radios) continue;
+
+    // Ensure exactly one scorer per group — default to first in group
+    const hasScorer = setup.players.slice(start, end).some(p => p.isScorer);
+    if (!hasScorer) setup.players[start].isScorer = true;
+
     for (let pi = start; pi < end; pi++) {
       const btn = document.createElement('button');
       btn.className = `btn ${setup.players[pi].isScorer ? 'btn-primary' : 'btn-outline'}`;
       btn.style.cssText = 'padding:0.3rem 0.75rem;font-size:0.82rem;width:auto;';
       btn.dataset.pi = pi;
       btn.textContent = setup.players[pi].name || `Player ${pi - start + 1}`;
-      // Keep label in sync as name is typed
-      const nameInp = document.getElementById(`pname-${pi}`);
-      if (nameInp) {
-        nameInp.addEventListener('input', () => {
-          if (!setup.players[pi].isScorer) // only update if not currently selected
-            btn.textContent = nameInp.value.trim() || `Player ${pi - start + 1}`;
-          else
-            btn.textContent = nameInp.value.trim() || `Player ${pi - start + 1}`;
-        });
-      }
       btn.addEventListener('click', () => {
         // Clear scorer for this group, set new one
         for (let p = start; p < end; p++) setup.players[p].isScorer = false;
@@ -752,7 +747,7 @@ function openFriendPicker(playerIdx, customCallback = null) {
     setup.players[playerIdx].profileId = profileId;
     const nameEl = document.getElementById(`pname-${playerIdx}`);
     const hcpEl  = document.getElementById(`phcp-${playerIdx}`);
-    if (nameEl) nameEl.value = name;
+    if (nameEl) { nameEl.value = name; nameEl.dispatchEvent(new Event('input')); }
     if (hcpEl)  hcpEl.value  = hcp;
   });
   document.getElementById('fp-title').textContent = `Pick Player ${playerIdx + 1}`;
@@ -887,9 +882,16 @@ async function teeOff() {
   }
 
   // Active state is always group 0 (the scorer's group)
-  // Other groups sync via realtime
   gameState = groupStates[0];
   gameState.allGroupStates = groupStates;
+
+  // Store profileIds per group so resumeRound can find the right group for each user
+  for (let g = 0; g < setup.numGroups; g++) {
+    const start = g * Math.ceil(setup.numPlayers / setup.numGroups);
+    const end   = Math.min(start + Math.ceil(setup.numPlayers / setup.numGroups), setup.numPlayers);
+    groupStates[g].playerProfileIds = setup.players.slice(start, end).map(p => p.profileId ?? null);
+  }
+
   gameState.organiserId      = currentUser.id;
   const designatedScorer     = setup.players.find(p => p.isScorer);
   // Only fall back to organiser if nobody was designated scorer at all.
