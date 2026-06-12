@@ -509,20 +509,44 @@ export async function friendRemove(friendshipId) {
 // SMS INVITES
 // ================================================================
 
-export async function smsInviteCreate({ roundId, roundPlayerId, inviterId, name, mobile }) {
+export async function smsInviteCreate({ roundId, roundPlayerId, inviterId, name, mobile, recipientProfileId, tournamentRoundId, groupNumber }) {
   const { data, error } = await sb
     .from('sms_invites')
     .insert({
-      round_id:        roundId,
-      round_player_id: roundPlayerId ?? null,
-      inviter_id:      inviterId,
+      round_id:             roundId,
+      round_player_id:      roundPlayerId ?? null,
+      inviter_id:           inviterId,
       name,
-      mobile,
+      mobile:               mobile ?? null,
+      recipient_profile_id: recipientProfileId ?? null,
+      tournament_round_id:  tournamentRoundId ?? null,
+      group_number:         groupNumber ?? null,
     })
     .select('id, token')
     .single();
   if (error) throw error;
   return data; // { id, token }
+}
+
+export async function gameInviteLoad(inviteId) {
+  const { data, error } = await sb
+    .from('sms_invites')
+    .select('id, token, inviter_id, name, round_id, recipient_profile_id, tournament_round_id, group_number, status')
+    .eq('id', inviteId)
+    .single();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export function realtimeSubscribeGameInvites(userId, onInvite) {
+  return sb
+    .channel(`game_invites:${userId}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'sms_invites', filter: `recipient_profile_id=eq.${userId}` },
+      payload => onInvite(payload.new)
+    )
+    .subscribe();
 }
 
 export async function smsInviteLookup(token) {
