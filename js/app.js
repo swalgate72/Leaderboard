@@ -1611,57 +1611,33 @@ document.getElementById('mw-end-match')?.addEventListener('click', () => {
 // ----------------------------------------------------------------
 async function saveRoundState() {
   if (!roundId || !gameState) return;
-  screenLog('[save] saving hole:' + gameState.hole);
   const badge = document.getElementById('game-sync-badge');
   badge?.classList.remove('hidden');
   try {
     const { allGroupStates, ...stateToSave } = gameState;
     await roundSaveState(roundId, stateToSave, stateToSave.names);
-    // Broadcast to watchers directly via Supabase broadcast
     await realtimeBroadcastRound(realtimeCh, stateToSave);
-    screenLog('[save] saved + broadcast OK');
   }
-  catch (err) { console.error('[save] saveRoundState error', err); screenLog('[save] error: ' + err.message); }
+  catch (err) { console.error('saveRoundState error', err); }
   finally { badge?.classList.add('hidden'); }
 }
 
 function subscribeToRound(id) {
   realtimeUnsubscribe(realtimeCh);
-  screenLog('[round] subscribing to: ' + id.slice(0,8));
   realtimeCh = realtimeSubscribeRound(id, remote => {
-    screenLog('[round] broadcast fired! has game_state: ' + !!remote?.game_state);
     if (!remote?.game_state) return;
     const scorerPid = gameState?.scorerProfileId;
     const iAmScorer = scorerPid === undefined
       ? (!gameState?.organiserId || gameState.organiserId === currentUser?.id)
       : (scorerPid !== null && scorerPid === currentUser?.id);
-    screenLog('[round] iAmScorer: ' + iAmScorer);
     if (iAmScorer) return;
     gameState = remote.game_state;
     renderScoreHeader();
     renderHolePanel();
   });
-  setTimeout(() => {
-    const state = realtimeCh?.state ?? realtimeCh?.socket?.connectionState?.();
-    screenLog('[round] channel state after 3s: ' + JSON.stringify(state));
-  }, 3000);
-  screenLog('[round] subscribed to roundId: ' + id.slice(0,8));
 }
 
-function screenLog(msg) {
-  console.log(msg);
-  let el = document.getElementById('screen-log');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'screen-log';
-    el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.85);' +
-      'color:#0f0;font-size:10px;font-family:monospace;padding:4px;z-index:99999;' +
-      'max-height:120px;overflow-y:auto;';
-    document.body.appendChild(el);
-  }
-  el.innerHTML += '<div>' + new Date().toISOString().slice(11,19) + ' ' + msg + '</div>';
-  el.scrollTop = el.scrollHeight;
-}
+function screenLog() {} // removed
 
 function subscribeToFriendRequests() {
   realtimeSubscribeFriendRequests(currentUser.id, async () => {
