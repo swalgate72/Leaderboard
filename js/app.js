@@ -1606,14 +1606,15 @@ document.getElementById('mw-end-match')?.addEventListener('click', () => {
 // ----------------------------------------------------------------
 async function saveRoundState() {
   if (!roundId || !gameState) return;
+  console.log('[save] saving to roundId:', roundId, 'hole:', gameState.hole);
   const badge = document.getElementById('game-sync-badge');
   badge?.classList.remove('hidden');
   try {
-    // Strip allGroupStates to avoid circular JSON serialisation
     const { allGroupStates, ...stateToSave } = gameState;
     await roundSaveState(roundId, stateToSave, stateToSave.names);
+    console.log('[save] saved OK');
   }
-  catch (err) { console.error('saveRoundState error', err); }
+  catch (err) { console.error('[save] saveRoundState error', err); }
   finally { badge?.classList.add('hidden'); }
 }
 
