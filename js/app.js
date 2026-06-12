@@ -999,17 +999,27 @@ async function resumeRound(id) {
     roundId = id;
     let gs = round.game_state;
 
+    console.log('[resume] allGroupStates length:', gs?.allGroupStates?.length);
+    console.log('[resume] currentUser.id:', currentUser?.id);
+    console.log('[resume] top-level scorerProfileId:', gs?.scorerProfileId);
+    if (gs?.allGroupStates) {
+      gs.allGroupStates.forEach((s, i) => {
+        console.log(`[resume] group ${i} playerProfileIds:`, s.playerProfileIds, 'scorerProfileId:', s.scorerProfileId);
+      });
+    }
+
     // If multi-group, find the state belonging to the current user's group
     if (gs?.allGroupStates?.length > 1 && currentUser) {
       const myGroup = gs.allGroupStates.find(s =>
         s.playerProfileIds?.includes(currentUser.id)
       );
+      console.log('[resume] myGroup found:', !!myGroup, 'scorerProfileId:', myGroup?.scorerProfileId);
       if (myGroup) {
-        // Use the group's own state but keep allGroupStates for reference
         gs = { ...myGroup, allGroupStates: gs.allGroupStates };
       }
     }
     gameState = gs;
+    console.log('[resume] final scorerProfileId:', gameState?.scorerProfileId);
     // If this is a tournament round, reload tournament globals so
     // saveTournamentScores has activeTournPlayers when the round ends.
     if (gameState?.tournamentId) {
