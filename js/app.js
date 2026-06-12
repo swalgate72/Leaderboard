@@ -15,7 +15,7 @@ import {
   friendRequestSend, friendRequestAccept, friendRequestDecline, friendRemove,
   smsInviteCreate, gameInviteLoad, gameInvitesPollPending, smsInviteLookup, smsInviteAccept,
   smsBuildInviteLink, smsBuildMessage,
-  realtimeSubscribeRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
+  realtimeSubscribeRound, realtimeBroadcastRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   tournamentCreate, tournamentsLoad, tournamentLoadById, tournamentUpdate, tournamentDelete,
   tournamentPlayersAdd, tournamentPlayersLoad, tournamentPlayerUpdate,
   tournamentRoundsLoad, tournamentRoundLoadById, tournamentRoundCreate, tournamentRoundUpdate,
@@ -1611,15 +1611,17 @@ document.getElementById('mw-end-match')?.addEventListener('click', () => {
 // ----------------------------------------------------------------
 async function saveRoundState() {
   if (!roundId || !gameState) return;
-  console.log('[save] saving to roundId:', roundId, 'hole:', gameState.hole);
+  screenLog('[save] saving hole:' + gameState.hole);
   const badge = document.getElementById('game-sync-badge');
   badge?.classList.remove('hidden');
   try {
     const { allGroupStates, ...stateToSave } = gameState;
     await roundSaveState(roundId, stateToSave, stateToSave.names);
-    console.log('[save] saved OK');
+    // Broadcast to watchers directly via Supabase broadcast
+    await realtimeBroadcastRound(realtimeCh, stateToSave);
+    screenLog('[save] saved + broadcast OK');
   }
-  catch (err) { console.error('[save] saveRoundState error', err); }
+  catch (err) { console.error('[save] saveRoundState error', err); screenLog('[save] error: ' + err.message); }
   finally { badge?.classList.add('hidden'); }
 }
 
@@ -1627,7 +1629,7 @@ function subscribeToRound(id) {
   realtimeUnsubscribe(realtimeCh);
   screenLog('[round] subscribing to: ' + id.slice(0,8));
   realtimeCh = realtimeSubscribeRound(id, remote => {
-    screenLog('[round] fired! game_state: ' + !!remote?.game_state);
+    screenLog('[round] broadcast fired! has game_state: ' + !!remote?.game_state);
     if (!remote?.game_state) return;
     const scorerPid = gameState?.scorerProfileId;
     const iAmScorer = scorerPid === undefined
@@ -1639,7 +1641,6 @@ function subscribeToRound(id) {
     renderScoreHeader();
     renderHolePanel();
   });
-  // Check subscription status after 3 seconds
   setTimeout(() => {
     const state = realtimeCh?.state ?? realtimeCh?.socket?.connectionState?.();
     screenLog('[round] channel state after 3s: ' + JSON.stringify(state));
