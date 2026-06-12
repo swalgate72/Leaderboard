@@ -890,17 +890,21 @@ async function teeOff() {
   gameState = groupStates[0];
   gameState.allGroupStates = groupStates;
 
-  // Store profileIds per group so resumeRound can find the right group for each user
+  // Store profileIds and scorerProfileId per group state
   for (let g = 0; g < setup.numGroups; g++) {
-    const start = g * Math.ceil(setup.numPlayers / setup.numGroups);
-    const end   = Math.min(start + Math.ceil(setup.numPlayers / setup.numGroups), setup.numPlayers);
-    groupStates[g].playerProfileIds = setup.players.slice(start, end).map(p => p.profileId ?? null);
+    const start = g * playersPerGroup;
+    const end   = Math.min(start + playersPerGroup, setup.numPlayers);
+    const groupPlayers = setup.players.slice(start, end);
+    groupStates[g].playerProfileIds = groupPlayers.map(p => p.profileId ?? null);
+    const groupScorer = groupPlayers.find(p => p.isScorer);
+    groupStates[g].scorerProfileId  = groupScorer
+      ? (groupScorer.profileId ?? null)
+      : (groupPlayers[0]?.profileId ?? null);
+    groupStates[g].organiserId = currentUser.id;
   }
 
   gameState.organiserId      = currentUser.id;
   const designatedScorer     = setup.players.find(p => p.isScorer);
-  // Only fall back to organiser if nobody was designated scorer at all.
-  // If scorer has no profileId (guest player) scorerProfileId stays null → organiser becomes watcher too.
   gameState.scorerProfileId  = designatedScorer
     ? (designatedScorer.profileId ?? null)
     : currentUser.id;
