@@ -1639,6 +1639,11 @@ function subscribeToRound(id) {
     renderScoreHeader();
     renderHolePanel();
   });
+  // Check subscription status after 3 seconds
+  setTimeout(() => {
+    const state = realtimeCh?.state ?? realtimeCh?.socket?.connectionState?.();
+    screenLog('[round] channel state after 3s: ' + JSON.stringify(state));
+  }, 3000);
   screenLog('[round] subscribed to roundId: ' + id.slice(0,8));
 }
 
