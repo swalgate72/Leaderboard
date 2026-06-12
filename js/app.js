@@ -931,22 +931,40 @@ async function teeOff() {
     })));
     subscribeToRound(roundId);
 
-    // Multi-group: invite other group scorers via in-app notification
+    const myName = currentProfile
+      ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+      : 'Your organiser';
+
     if (setup.numGroups > 1) {
+      // Multi-group: invite modal for other groups (shows friend picker per group)
       const ppg = Math.ceil(setup.numPlayers / setup.numGroups);
-      const otherGroupScorers = [];
+      const otherGroupPlayers = [];
       for (let g = 1; g < setup.numGroups; g++) {
-        const start  = g * ppg;
-        const end    = Math.min(start + ppg, setup.numPlayers);
-        const scorer = setup.players.slice(start, end).find(p => p.isScorer) ?? setup.players[start];
-        if (scorer?.profileId) otherGroupScorers.push({ groupNumber: g + 1, scorer });
+        const start   = g * ppg;
+        const end     = Math.min(start + ppg, setup.numPlayers);
+        const members = setup.players.slice(start, end).filter(p => p.profileId && p.profileId !== currentUser.id);
+        members.forEach(p => otherGroupPlayers.push({ groupNumber: g + 1, scorer: p }));
       }
-      console.log('[invite] numGroups:', setup.numGroups, 'otherGroupScorers:', otherGroupScorers);
-      if (otherGroupScorers.length > 0) {
-        await showRegularGameInviteModal(otherGroupScorers, course, tee, fmt);
-        return; // enterGameScreen called from modal done button
+      if (otherGroupPlayers.length > 0) {
+        await showRegularGameInviteModal(otherGroupPlayers, course, tee, fmt);
+        return;
+      }
+    } else {
+      // Single group: notify all players who have the app (profileId set) except the organiser
+      const playersToNotify = setup.players.filter(
+        p => p.profileId && p.profileId !== currentUser.id
+      );
+      for (const p of playersToNotify) {
+        try {
+          await smsInviteCreate({
+            roundId, inviterId: currentUser.id, name: myName,
+            mobile: null, recipientProfileId: p.profileId,
+            tournamentRoundId: null, groupNumber: 1,
+          });
+        } catch (e) { console.error('[invite] notify failed for', p.name, e); }
       }
     }
+
     enterGameScreen();
   } catch (err) {
     alert('Could not start round: ' + (err.message ?? err));
@@ -1667,15 +1685,15 @@ async function startInvitePoll() {
 
 function showGameInviteBanner(invite) {
   _pendingGameInvite = invite;
-  const banner   = document.getElementById('game-invite-banner');
-  const titleEl  = document.getElementById('game-invite-banner-title');
-  const subEl    = document.getElementById('game-invite-banner-sub');
-  titleEl.textContent = `${invite.name ?? 'Someone'} invited you to score`;
+  const banner  = document.getElementById('game-invite-banner');
+  const titleEl = document.getElementById('game-invite-banner-title');
+  const subEl   = document.getElementById('game-invite-banner-sub');
+  const isScorer = invite.is_scorer ?? false; // set per recipient when created
+  titleEl.textContent = `${invite.name ?? 'Someone'} started a round`;
   subEl.textContent   = invite.group_number
-    ? `Group ${invite.group_number} scorer`
+    ? `Group ${invite.group_number} · Tap to join`
     : 'Tap to join';
   banner.style.display = '';
-  // Auto-dismiss after 60 seconds if not acted on
   setTimeout(() => { if (_pendingGameInvite?.id === invite.id) hideGameInviteBanner(); }, 60000);
 }
 
