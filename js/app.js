@@ -1682,7 +1682,7 @@ function subscribeToRound(id) {
   });
 }
 
-function screenLog() {} // removed
+// screenLog defined above
 
 function subscribeToFriendRequests() {
   realtimeSubscribeFriendRequests(currentUser.id, async () => {
