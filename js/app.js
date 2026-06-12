@@ -3618,7 +3618,6 @@ async function showRegularGameInviteModal(otherGroupScorers, course, tee, fmt) {
       console.error('[invite] smsInviteCreate failed:', err);
       if (statusEl) { statusEl.textContent = `⚠️ Error: ${err.message}`; statusEl.style.color = 'var(--red)'; }
     }
-    }
   }));
 
   doneBtn.onclick = () => { modal.classList.remove('open'); enterGameScreen(); };
