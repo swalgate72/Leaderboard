@@ -895,7 +895,10 @@ async function teeOff() {
     const start = g * playersPerGroup;
     const end   = Math.min(start + playersPerGroup, setup.numPlayers);
     const groupPlayers = setup.players.slice(start, end);
-    groupStates[g].playerProfileIds = groupPlayers.map(p => p.profileId ?? null);
+    // Only store non-null profileIds to avoid cross-group false matches
+    groupStates[g].playerProfileIds = groupPlayers
+      .map(p => p.profileId ?? null)
+      .filter(id => id !== null);
     const groupScorer = groupPlayers.find(p => p.isScorer);
     groupStates[g].scorerProfileId  = groupScorer
       ? (groupScorer.profileId ?? null)
@@ -1026,7 +1029,7 @@ async function resumeRound(id) {
 
     if (gs?.allGroupStates?.length > 1 && currentUser) {
       const myGroup = gs.allGroupStates.find(s =>
-        s.playerProfileIds?.includes(currentUser.id)
+        s.playerProfileIds?.some(pid => pid && pid === currentUser.id)
       );
       screenLog('myGroup:' + (myGroup ? 'found scorer:' + myGroup.scorerProfileId?.slice(0,8) : 'NOT FOUND'));
       if (myGroup) gs = { ...myGroup, allGroupStates: gs.allGroupStates };
