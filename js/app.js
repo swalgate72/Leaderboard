@@ -2232,7 +2232,6 @@ function buildTeamScorecard(state, { isFull18, log, par, si, holeOffset, numHole
 // Merge multiple group states into one combined state for full-round scorecard display
 function mergeGroupStates(states, currentState) {
   if (!states?.length) return currentState ?? null;
-  // Replace the current group's slot with the live gameState so own scores show
   let merged = states;
   if (currentState?.groupNumber) {
     merged = states.map(s =>
@@ -2240,10 +2239,10 @@ function mergeGroupStates(states, currentState) {
     );
   }
   if (merged.length === 1) return merged[0];
-  // Sort by groupNumber so merge order is always correct
   const sorted = [...merged].sort((a, b) => (a.groupNumber ?? 0) - (b.groupNumber ?? 0));
-  screenLog('merge g0#' + sorted[0]?.groupNumber + '=' + sorted[0]?.names?.slice(0,2).join(','));
-  screenLog('merge g1#' + sorted[1]?.groupNumber + '=' + sorted[1]?.names?.slice(0,2).join(','));
+  screenLog('mg0#' + sorted[0]?.groupNumber + ' log:' + (sorted[0]?.log?.length ?? 'none') + ' names:' + sorted[0]?.names?.join(','));
+  screenLog('mg1#' + sorted[1]?.groupNumber + ' log:' + (sorted[1]?.log?.length ?? 'none') + ' names:' + sorted[1]?.names?.join(','));
+  screenLog('cur#' + currentState?.groupNumber + ' log:' + (currentState?.log?.length ?? 'none'));
   const base = sorted[0];
   return {
     ...base,
