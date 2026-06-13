@@ -1901,21 +1901,36 @@ document.getElementById('abandon-confirm')?.addEventListener('click', async () =
 // ================================================================
 // END ROUND SCREEN
 // ================================================================
-function showEndRound() {
+async function showEndRound() {
+  // Fetch latest state from DB to ensure we have all groups' data
+  if (roundId && gameState?.allGroupStates?.length > 1) {
+    try {
+      const latest = await roundLoadById(roundId);
+      if (latest?.game_state?.allGroupStates?.length > 1) {
+        gameState.allGroupStates = latest.game_state.allGroupStates;
+      }
+    } catch {}
+  }
+
   showScreen('screen-end-round');
-  const fmt     = gameState.format;
-  const summary = getResultSummary(gameState);
+
+  // Merge all group states for full-round results
+  const allStates   = gameState.allGroupStates?.length > 1
+    ? gameState.allGroupStates : [gameState];
+  const merged      = mergeGroupStates(allStates);
+  const fmt         = merged.format;
+  const summary     = getResultSummary(merged);
 
   document.getElementById('er-format').textContent = fmtLabel(fmt);
   document.getElementById('er-result').textContent = summary.winner ?? 'Completed';
-  document.getElementById('er-sub').textContent    = `${gameState.courseName} · ${gameState.teeName} Tees · ${gameState.log?.length ?? 0} holes`;
+  document.getElementById('er-sub').textContent    = `${merged.courseName} · ${merged.teeName} Tees · ${merged.log?.length ?? 0} holes`;
 
   // Podium
   const podiumEl = document.getElementById('er-podium');
   podiumEl.innerHTML = '';
   if (summary.scores?.length) {
     summary.scores.forEach((s, rank) => {
-      const orig = gameState.names.indexOf(s.nm);
+      const orig = merged.names.indexOf(s.nm);
       const col  = pHex(orig >= 0 ? orig : rank);
       const card = document.createElement('div');
       card.className = `podium-card rank-${rank + 1}`;
@@ -1941,7 +1956,7 @@ function showEndRound() {
     podiumEl.appendChild(card);
   }
 
-  document.getElementById('er-scorecard').innerHTML = buildEndRoundScorecard(gameState);
+  document.getElementById('er-scorecard').innerHTML = buildEndRoundScorecard(merged);
 }
 
 document.getElementById('btn-back-to-game')?.addEventListener('click', () => {
@@ -1952,8 +1967,16 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
   const btn = document.getElementById('btn-confirm-end');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    const { allGroupStates, ...stateToSave } = gameState;
-    await roundComplete(roundId, stateToSave);
+    // Save merged state so history shows all players across all groups
+    const allStates = gameState.allGroupStates?.length > 1
+      ? gameState.allGroupStates : [gameState];
+    const merged = mergeGroupStates(allStates);
+    // Keep allGroupStates in the completed record for future reference
+    const { allGroupStates, ...baseState } = gameState;
+    merged.allGroupStates = allStates.map(s => {
+      const { allGroupStates: _, ...stripped } = s; return stripped;
+    });
+    await roundComplete(roundId, merged);
     // If this was a tournament round, save tournament scores too
     if (gameState.tournamentId) {
       await saveTournamentScores();
