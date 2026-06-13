@@ -1719,11 +1719,17 @@ async function saveRoundState() {
   badge?.classList.remove('hidden');
   try {
     const { allGroupStates, ...stateToSave } = gameState;
-    // Persist allGroupStates (stripped of their own nested references) so
-    // resumeRound can find the correct group state for each user
     if (allGroupStates?.length > 1) {
+      // Only save individual group states — never a merged state
+      // A group state should have names.length <= numPlayers/numGroups
+      const expectedPerGroup = Math.ceil(gameState.names?.length / allGroupStates.length) || 4;
       stateToSave.allGroupStates = allGroupStates.map(gs => {
         const { allGroupStates: _, ...stripped } = gs;
+        // Safety: if a slot has too many names it's a merged state — skip it
+        if (stripped.names?.length > expectedPerGroup * 1.5) {
+          // Return original group state from initial setup
+          return { ...stripped, names: stripped.names?.slice(0, expectedPerGroup) };
+        }
         return stripped;
       });
     }
@@ -2011,15 +2017,24 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
   const btn = document.getElementById('btn-confirm-end');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    // Save merged state so history shows all players across all groups
-    const allStates = gameState.allGroupStates?.length > 1
-      ? gameState.allGroupStates : [gameState];
-    const merged = mergeGroupStates(allStates, gameState);
-    // Keep allGroupStates in the completed record for future reference
-    const { allGroupStates, ...baseState } = gameState;
-    merged.allGroupStates = allStates.map(s => {
-      const { allGroupStates: _, ...stripped } = s; return stripped;
-    });
+    // Build allGroupStates with clean individual group states
+    const rawGroups = gameState.allGroupStates?.length > 1
+      ? gameState.allGroupStates.map(s => {
+          const { allGroupStates: _, ...stripped } = s;
+          // Replace current group's slot with live gameState (has latest scores)
+          if (stripped.groupNumber === gameState.groupNumber) {
+            const { allGroupStates: __, ...liveStripped } = gameState;
+            return liveStripped;
+          }
+          return stripped;
+        })
+      : null;
+
+    // Build merged state for top-level (so history shows all players)
+    const allStates = rawGroups ?? [gameState];
+    const merged = mergeGroupStates(allStates);
+    if (rawGroups) merged.allGroupStates = rawGroups;
+
     await roundComplete(roundId, merged);
     // If this was a tournament round, save tournament scores too
     if (gameState.tournamentId) {
