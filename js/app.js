@@ -1684,24 +1684,41 @@ function subscribeToRound(id) {
   realtimeUnsubscribe(realtimeCh);
   realtimeCh = realtimeSubscribeRound(id, remote => {
     if (!remote?.game_state) return;
+    const incoming = remote.game_state;
+
+    // Don't process our own broadcasts
+    if (incoming.organiserId === currentUser?.id &&
+        incoming.groupNumber === gameState?.groupNumber) return;
+
     const scorerPid = gameState?.scorerProfileId;
     const iAmScorer = scorerPid === undefined
       ? (!gameState?.organiserId || gameState.organiserId === currentUser?.id)
       : (scorerPid !== '__unclaimed__' && scorerPid !== null && scorerPid === currentUser?.id);
-    if (iAmScorer) return;
 
-    const incoming = remote.game_state;
+    screenLog('recv g:' + incoming.groupNumber + ' mine:' + gameState?.groupNumber + ' scorer:' + iAmScorer);
 
-    // For multi-group: update the right group slot in allGroupStates
-    if (gameState?.allGroupStates?.length > 1 && incoming.groupNumber) {
+    // Always update other groups in allGroupStates (scorers need this for the scorecard)
+    if (gameState?.allGroupStates?.length > 1 && incoming.groupNumber &&
+        incoming.groupNumber !== gameState.groupNumber) {
       const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === incoming.groupNumber);
       if (idx >= 0) gameState.allGroupStates[idx] = { ...incoming, allGroupStates: undefined };
-      // If the incoming update is for our own group, update gameState too
+    }
+
+    // Scorers don't replace their own gameState
+    if (iAmScorer) return;
+
+    // Watchers/other-group scorers update gameState for their own group updates
+    if (gameState?.allGroupStates?.length > 1) {
       if (incoming.groupNumber === gameState.groupNumber) {
+        // Update to latest version of our group, preserving allGroupStates
         gameState = { ...incoming, allGroupStates: gameState.allGroupStates };
       }
+      // Other group updates already handled above — just re-render
     } else {
+      // Single group — replace entirely, preserving allGroupStates if we have it
+      const saved = gameState?.allGroupStates;
       gameState = incoming;
+      if (saved?.length > 1 && !gameState.allGroupStates) gameState.allGroupStates = saved;
     }
 
     renderScoreHeader();
