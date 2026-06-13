@@ -334,17 +334,20 @@ async function showHome() {
   renderLogos();
   try {
     const actives = await roundsLoadActive(currentUser.id);
-    if (actives.length === 1) {
+
+    // Also check localStorage for a round the user joined (e.g. as group 2 scorer)
+    let storedRoundId = null;
+    try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
+    if (storedRoundId && !actives.some(r => r.id === storedRoundId)) {
+      const stored = await roundLoadById(storedRoundId);
+      if (stored?.status === 'active') actives.unshift(stored);
+      else try { localStorage.removeItem('lb-active-round'); } catch {}
+    }
+
+    if (actives.length > 0) {
       const r = actives[0];
       document.getElementById('resume-title').textContent = `${r.course_name} · ${r.tee_name} Tees`;
       document.getElementById('resume-sub').textContent   = `${fmtLabel(r.game_format)} · ${r.player_names?.join(', ') ?? ''}`;
-      roundId = r.id;
-      show('home-resume-banner');
-    } else if (actives.length > 1) {
-      // Multiple active rounds — show the most recent one with a count hint
-      const r = actives[0];
-      document.getElementById('resume-title').textContent = `${r.course_name} · ${r.tee_name} Tees`;
-      document.getElementById('resume-sub').textContent   = `${fmtLabel(r.game_format)} · +${actives.length - 1} more active round${actives.length > 2 ? 's' : ''}`;
       roundId = r.id;
       show('home-resume-banner');
     } else {
