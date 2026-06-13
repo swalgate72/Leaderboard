@@ -1677,7 +1677,7 @@ function renderScorecardOverlay() {
 
   // Merge all group states for a full-round view
   const allStates = gameState.allGroupStates ?? [gameState];
-  const displayState = mergeGroupStates(allStates);
+  const displayState = mergeGroupStates(allStates, gameState);
 
   document.getElementById('sc-overlay-body').innerHTML = buildLandscapeScorecard(displayState, {
     showEdit:      isScorer,
@@ -1961,7 +1961,7 @@ async function showEndRound() {
   // Merge all group states for full-round results
   const allStates   = gameState.allGroupStates?.length > 1
     ? gameState.allGroupStates : [gameState];
-  const merged      = mergeGroupStates(allStates);
+  const merged      = mergeGroupStates(allStates, gameState);
   const fmt         = merged.format;
   const summary     = getResultSummary(merged);
 
@@ -2014,7 +2014,7 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     // Save merged state so history shows all players across all groups
     const allStates = gameState.allGroupStates?.length > 1
       ? gameState.allGroupStates : [gameState];
-    const merged = mergeGroupStates(allStates);
+    const merged = mergeGroupStates(allStates, gameState);
     // Keep allGroupStates in the completed record for future reference
     const { allGroupStates, ...baseState } = gameState;
     merged.allGroupStates = allStates.map(s => {
@@ -2230,11 +2230,18 @@ function buildTeamScorecard(state, { isFull18, log, par, si, holeOffset, numHole
 // STANDARD SCORECARD — players as rows, holes as columns
 // ----------------------------------------------------------------
 // Merge multiple group states into one combined state for full-round scorecard display
-function mergeGroupStates(states) {
-  if (!states?.length) return null;
-  if (states.length === 1) return states[0];
+function mergeGroupStates(states, currentState) {
+  if (!states?.length) return currentState ?? null;
+  // Replace the current group's slot with the live gameState so own scores show
+  let merged = states;
+  if (currentState?.groupNumber) {
+    merged = states.map(s =>
+      s.groupNumber === currentState.groupNumber ? { ...currentState, allGroupStates: undefined } : s
+    );
+  }
+  if (merged.length === 1) return merged[0];
   // Sort by groupNumber so merge order is always correct
-  const sorted = [...states].sort((a, b) => (a.groupNumber ?? 0) - (b.groupNumber ?? 0));
+  const sorted = [...merged].sort((a, b) => (a.groupNumber ?? 0) - (b.groupNumber ?? 0));
   screenLog('merge g0#' + sorted[0]?.groupNumber + '=' + sorted[0]?.names?.slice(0,2).join(','));
   screenLog('merge g1#' + sorted[1]?.groupNumber + '=' + sorted[1]?.names?.slice(0,2).join(','));
   const base = sorted[0];
@@ -2912,7 +2919,7 @@ function showHistoryDetail(rid, rounds) {
         <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">${summary.summary ?? ''}</div>
       </div>`;
     const allStates = state.allGroupStates ?? [state];
-    document.getElementById('hd-scorecard').innerHTML = buildLandscapeScorecard(mergeGroupStates(allStates));
+    document.getElementById('hd-scorecard').innerHTML = buildLandscapeScorecard(mergeGroupStates(allStates, state));
   }
 
   // Wire up delete button
@@ -4448,7 +4455,7 @@ async function showTournamentRoundScorecard(tround) {
 
     const state = round.game_state;
     const allStates = state.allGroupStates ?? [state];
-    const displayState = mergeGroupStates(allStates);
+    const displayState = mergeGroupStates(allStates, state);
     const dateStr = tround.date
       ? new Date(tround.date).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})
       : '';
