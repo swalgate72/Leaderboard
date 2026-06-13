@@ -1755,8 +1755,11 @@ function subscribeToRound(id) {
     // Always update other groups in allGroupStates (scorers need this for the scorecard)
     if (gameState?.allGroupStates?.length > 1 && incoming.groupNumber &&
         incoming.groupNumber !== gameState.groupNumber) {
-      const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === incoming.groupNumber);
-      if (idx >= 0) gameState.allGroupStates[idx] = { ...incoming, allGroupStates: undefined };
+      let idx = gameState.allGroupStates.findIndex(s => s.groupNumber === incoming.groupNumber);
+      if (idx < 0) idx = incoming.groupNumber - 1; // fall back to position
+      if (idx >= 0 && idx < gameState.allGroupStates.length) {
+        gameState.allGroupStates[idx] = { ...incoming, allGroupStates: undefined };
+      }
     }
 
     // Scorers don't replace their own gameState
@@ -2230,19 +2233,20 @@ function buildTeamScorecard(state, { isFull18, log, par, si, holeOffset, numHole
 function mergeGroupStates(states) {
   if (!states?.length) return null;
   if (states.length === 1) return states[0];
-  screenLog('merge g0#' + states[0]?.groupNumber + '=' + states[0]?.names?.slice(0,2).join(','));
-  screenLog('merge g1#' + states[1]?.groupNumber + '=' + states[1]?.names?.slice(0,2).join(','));
-  const base = states[0];
+  // Sort by groupNumber so merge order is always correct
+  const sorted = [...states].sort((a, b) => (a.groupNumber ?? 0) - (b.groupNumber ?? 0));
+  screenLog('merge g0#' + sorted[0]?.groupNumber + '=' + sorted[0]?.names?.slice(0,2).join(','));
+  screenLog('merge g1#' + sorted[1]?.groupNumber + '=' + sorted[1]?.names?.slice(0,2).join(','));
+  const base = sorted[0];
   return {
     ...base,
-    names:           states.flatMap(s => s.names ?? []),
-    playingHandicaps:states.flatMap(s => s.playingHandicaps ?? []),
-    matchHandicaps:  states.flatMap(s => s.matchHandicaps ?? []),
-    totals:          states.flatMap(s => s.totals ?? []),
+    names:           sorted.flatMap(s => s.names ?? []),
+    playingHandicaps:sorted.flatMap(s => s.playingHandicaps ?? []),
+    matchHandicaps:  sorted.flatMap(s => s.matchHandicaps ?? []),
+    totals:          sorted.flatMap(s => s.totals ?? []),
     log: base.log?.map((_, hi) => {
-      // Merge each hole entry across groups
       const merged = { grosses: [], extras: [], holePts: [], pars: [] };
-      states.forEach(s => {
+      sorted.forEach(s => {
         const entry = s.log?.[hi] ?? {};
         const n = (s.names ?? []).length;
         for (let pi = 0; pi < n; pi++) {
