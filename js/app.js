@@ -1026,7 +1026,10 @@ async function resumeRound(id) {
         s.playerProfileIds?.some(pid => pid && pid === currentUser.id)
       );
       screenLog('myGroup:' + (myGroup ? 'found scorer:' + myGroup.scorerProfileId?.slice(0,8) : 'NOT FOUND'));
-      if (myGroup) gs = { ...myGroup, allGroupStates: gs.allGroupStates };
+      if (myGroup) {
+        gs = { ...myGroup, allGroupStates: gs.allGroupStates };
+        screenLog('allGS after resume: ' + gs.allGroupStates.map(s => 'g'+s.groupNumber+'='+s.names?.[0]).join('|'));
+      }
     }
     gameState = gs;
     screenLog('finalScorer:' + (gameState?.scorerProfileId?.slice(0,8) ?? 'null'));
@@ -2146,7 +2149,8 @@ function buildTeamScorecard(state, { isFull18, log, par, si, holeOffset, numHole
 function mergeGroupStates(states) {
   if (!states?.length) return null;
   if (states.length === 1) return states[0];
-  screenLog('merge: ' + states.map((s,i) => 'g'+i+'='+s.names?.join(',')?.slice(0,20)).join(' | '));
+  screenLog('merge g0#' + states[0]?.groupNumber + '=' + states[0]?.names?.slice(0,2).join(','));
+  screenLog('merge g1#' + states[1]?.groupNumber + '=' + states[1]?.names?.slice(0,2).join(','));
   const base = states[0];
   return {
     ...base,
