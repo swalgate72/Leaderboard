@@ -2144,6 +2144,7 @@ function buildTeamScorecard(state, { isFull18, log, par, si, holeOffset, numHole
 function mergeGroupStates(states) {
   if (!states?.length) return null;
   if (states.length === 1) return states[0];
+  screenLog('merge: ' + states.map((s,i) => 'g'+i+'='+s.names?.join(',')?.slice(0,20)).join(' | '));
   const base = states[0];
   return {
     ...base,
