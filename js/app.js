@@ -243,7 +243,17 @@ async function onSignedIn(user) {
 
     // Auto-resume if there's an active round in progress
     const actives = await roundsLoadActive(user.id);
-    if (actives?.length > 0) {
+
+    // Also check localStorage for a round joined as group scorer/watcher
+    let storedRoundId = null;
+    try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
+    if (storedRoundId && !actives.some(r => r.id === storedRoundId)) {
+      const stored = await roundLoadById(storedRoundId);
+      if (stored?.status === 'active') actives.unshift(stored);
+      else try { localStorage.removeItem('lb-active-round'); } catch {}
+    }
+
+    if (actives.length > 0) {
       await resumeRound(actives[0].id);
     } else {
       await showHome();
@@ -334,17 +344,20 @@ async function showHome() {
   renderLogos();
   try {
     const actives = await roundsLoadActive(currentUser.id);
-    if (actives.length === 1) {
+
+    // Also check localStorage for a round the user joined (e.g. as group 2 scorer)
+    let storedRoundId = null;
+    try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
+    if (storedRoundId && !actives.some(r => r.id === storedRoundId)) {
+      const stored = await roundLoadById(storedRoundId);
+      if (stored?.status === 'active') actives.unshift(stored);
+      else try { localStorage.removeItem('lb-active-round'); } catch {}
+    }
+
+    if (actives.length > 0) {
       const r = actives[0];
       document.getElementById('resume-title').textContent = `${r.course_name} · ${r.tee_name} Tees`;
       document.getElementById('resume-sub').textContent   = `${fmtLabel(r.game_format)} · ${r.player_names?.join(', ') ?? ''}`;
-      roundId = r.id;
-      show('home-resume-banner');
-    } else if (actives.length > 1) {
-      // Multiple active rounds — show the most recent one with a count hint
-      const r = actives[0];
-      document.getElementById('resume-title').textContent = `${r.course_name} · ${r.tee_name} Tees`;
-      document.getElementById('resume-sub').textContent   = `${fmtLabel(r.game_format)} · +${actives.length - 1} more active round${actives.length > 2 ? 's' : ''}`;
       roundId = r.id;
       show('home-resume-banner');
     } else {
@@ -1269,35 +1282,50 @@ function renderHolePanel() {
   const backHoleBtn = document.getElementById('btn-back-hole');
 
   if (!userIsScorer) {
-    const isUnclaimed = scorerPid === '__unclaimed__';
+    const isUnclaimed = scorerPid === '__unclaimed__' || !scorerPid;
+    const iClaimed    = false; // current user is watcher
+
     inputsEl.innerHTML = `
-      <div style="text-align:center;padding:2rem 1rem;color:var(--muted);">
-        <div style="font-size:2rem;margin-bottom:0.5rem;">👁</div>
-        <div style="font-size:0.9rem;font-weight:600;color:var(--text);margin-bottom:0.25rem;">Watching</div>
-        <div style="font-size:0.8rem;margin-bottom:${isUnclaimed ? '1rem' : '0'};">Scores are being entered by the scorer.<br>Use the scorecard or leaderboard to follow along.</div>
-        ${isUnclaimed ? `<button id="btn-become-scorer" class="btn btn-outline" style="font-size:0.85rem;">✏️ Become Scorer</button>` : ''}
+      <div style="text-align:center;padding:1.5rem 1rem 1rem;">
+        <div style="font-size:2rem;margin-bottom:0.4rem;">👁</div>
+        <div style="font-size:0.9rem;font-weight:600;color:var(--text);margin-bottom:0.75rem;">Watching</div>
+        <div id="btn-scorer-claim-wrap">
+          ${isUnclaimed
+            ? `<button id="btn-claim-scorer" class="btn btn-outline"
+                style="width:100%;font-size:0.9rem;padding:0.65rem;border-color:var(--green);color:var(--green);">
+                ✏️ I am the scorer
+              </button>`
+            : `<button class="btn btn-outline" disabled
+                style="width:100%;font-size:0.85rem;padding:0.6rem;opacity:0.4;cursor:not-allowed;">
+                ✏️ Scorer already claimed
+              </button>`
+          }
+        </div>
       </div>`;
-    if (isUnclaimed) {
-      document.getElementById('btn-become-scorer')?.addEventListener('click', async () => {
-        gameState.scorerProfileId = currentUser.id;
-        // Also update in allGroupStates so other devices see the claim
-        if (gameState.allGroupStates?.length > 1) {
-          const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === gameState.groupNumber);
-          if (idx >= 0) gameState.allGroupStates[idx].scorerProfileId = currentUser.id;
-        }
-        await saveRoundState();
-        renderHolePanel();
-      });
-    }
-    if (recordBtn)   { recordBtn.style.display   = 'none'; }
-    if (backHoleBtn) { backHoleBtn.style.display  = 'none'; }
+
+    document.getElementById('btn-claim-scorer')?.addEventListener('click', async () => {
+      gameState.scorerProfileId = currentUser.id;
+      if (gameState.allGroupStates?.length > 1) {
+        const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === gameState.groupNumber);
+        if (idx >= 0) gameState.allGroupStates[idx].scorerProfileId = currentUser.id;
+      }
+      await saveRoundState();
+      renderHolePanel(); // re-render into scorer mode
+    });
+
+    if (recordBtn)   recordBtn.style.display   = 'none';
+    if (backHoleBtn) backHoleBtn.style.display  = 'none';
     toggle('btn-finish-early', false);
     return;
   }
 
-  // Restore buttons in case we previously hid them
-  if (recordBtn)   { recordBtn.style.display   = ''; }
-  if (backHoleBtn) { backHoleBtn.style.display  = ''; }
+  // ── Scorer mode — show Pass scoring button ───────────────────────
+  // Restore buttons
+  if (recordBtn)   recordBtn.style.display   = '';
+  if (backHoleBtn) backHoleBtn.style.display  = '';
+
+  // Add Pass scoring button below inputs (injected after makePlayerInputRow calls)
+  // We'll add it at the end after inputs are rendered
 
   const isFoursome = fmt === 'foursomes' || fmt === 'greensomes';
   const isPairs    = ['betterball','csm','foursomes','greensomes'].includes(fmt);
@@ -1348,6 +1376,25 @@ function renderHolePanel() {
   }
 
   toggle('btn-finish-early', (gameState.log?.length ?? 0) > 0);
+
+  // Add Pass scoring button for scorer so they can hand off
+  const passWrap = document.createElement('div');
+  passWrap.style.cssText = 'margin-top:0.75rem;text-align:center;';
+  passWrap.innerHTML = `<button id="btn-pass-scoring" class="btn btn-ghost"
+    style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0.75rem;border:1px solid var(--border);border-radius:6px;">
+    ↩ Pass scoring to another player
+  </button>`;
+  inputsEl.appendChild(passWrap);
+
+  document.getElementById('btn-pass-scoring')?.addEventListener('click', async () => {
+    gameState.scorerProfileId = '__unclaimed__';
+    if (gameState.allGroupStates?.length > 1) {
+      const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === gameState.groupNumber);
+      if (idx >= 0) gameState.allGroupStates[idx].scorerProfileId = '__unclaimed__';
+    }
+    await saveRoundState();
+    renderHolePanel(); // re-render into watcher mode
+  });
 }
 
 function makePlayerInputRow(pi, h, par) {
@@ -1813,7 +1860,7 @@ function hideGameInviteBanner() {
 
 document.getElementById('btn-game-invite-dismiss')?.addEventListener('click', hideGameInviteBanner);
 
-document.getElementById('btn-game-invite-score')?.addEventListener('click', async () => {
+document.getElementById('btn-game-invite-join')?.addEventListener('click', async () => {
   const invite = _pendingGameInvite;
   if (!invite) return;
   hideGameInviteBanner();
@@ -1824,22 +1871,7 @@ document.getElementById('btn-game-invite-score')?.addEventListener('click', asyn
     if (invite.tournament_round_id && invite.group_number) {
       await joinTournamentRoundAsScorer(currentUser, invite.tournament_round_id, invite.group_number);
     } else if (invite.round_id) {
-      // Join as scorer — claim the scorer role
-      await _joinRoundWithRole(invite.round_id, invite.group_number ?? 1, true);
-    }
-  } catch (err) { alert('Could not join: ' + err.message); }
-  finally { _joiningViaInvite = false; }
-});
-
-document.getElementById('btn-game-invite-watch')?.addEventListener('click', async () => {
-  const invite = _pendingGameInvite;
-  if (!invite) return;
-  hideGameInviteBanner();
-  if (_gameInvitePollTimer) { clearInterval(_gameInvitePollTimer); _gameInvitePollTimer = null; }
-  _joiningViaInvite = true;
-  try {
-    await smsInviteAccept(invite.id);
-    if (invite.round_id) {
+      // Always join as watcher — scorer is claimed via "I am the scorer" button
       await _joinRoundWithRole(invite.round_id, invite.group_number ?? 1, false);
     }
   } catch (err) { alert('Could not join: ' + err.message); }
