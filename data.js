@@ -345,15 +345,29 @@ export async function roundDelete(roundId) {
   if (error) throw error;
 }
 
-export async function roundsLoadActive(organiserId) {
-  const { data, error } = await sb
+export async function roundsLoadActive(userId) {
+  // Find rounds where user is organiser
+  const { data: ownRounds, error: e1 } = await sb
     .from('rounds')
     .select('id, course_name, tee_name, game_format, player_names, game_state, started_at, updated_at')
-    .eq('organiser_id', organiserId)
+    .eq('organiser_id', userId)
     .eq('status', 'active')
     .order('updated_at', { ascending: false });
-  if (error) throw error;
-  return data ?? [];
+  if (e1) throw e1;
+
+  // Also find rounds where user is a player (joined as group scorer/watcher)
+  const { data: playerRounds, error: e2 } = await sb
+    .from('round_players')
+    .select('round_id, rounds!inner(id, course_name, tee_name, game_format, player_names, game_state, started_at, updated_at)')
+    .eq('profile_id', userId)
+    .eq('rounds.status', 'active');
+
+  const joined = (playerRounds ?? [])
+    .map(r => r.rounds)
+    .filter(r => r && !(ownRounds ?? []).some(o => o.id === r.id)); // dedupe
+
+  return [...(ownRounds ?? []), ...joined]
+    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
 }
 
 export async function roundLoadById(roundId) {
