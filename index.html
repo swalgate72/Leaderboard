@@ -1122,29 +1122,20 @@
 <!-- In-app Game Invite Notification Banner -->
 <div id="game-invite-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;
   background:var(--green);color:#fff;padding:0.85rem 1rem;box-shadow:0 2px 12px rgba(0,0,0,0.3);">
-  <div style="max-width:520px;margin:0 auto;">
-    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
-      <div style="font-size:1.4rem;flex-shrink:0;">⛳</div>
-      <div style="flex:1;">
-        <div id="game-invite-banner-title" style="font-weight:700;font-size:0.95rem;"></div>
-        <div id="game-invite-banner-sub" style="font-size:0.75rem;opacity:0.85;"></div>
-      </div>
-      <button id="btn-game-invite-dismiss"
-        style="background:none;border:none;color:#fff;font-size:1.1rem;cursor:pointer;
-               opacity:0.7;flex-shrink:0;padding:0.2rem;">✕</button>
+  <div style="max-width:520px;margin:0 auto;display:flex;align-items:center;gap:0.75rem;">
+    <div style="font-size:1.4rem;flex-shrink:0;">⛳</div>
+    <div style="flex:1;">
+      <div id="game-invite-banner-title" style="font-weight:700;font-size:0.95rem;"></div>
+      <div id="game-invite-banner-sub" style="font-size:0.75rem;opacity:0.85;"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
-      <button id="btn-game-invite-score" class="btn"
-        style="background:#fff;color:var(--green);font-weight:700;font-size:0.85rem;
-               padding:0.5rem;border-radius:6px;">
-        ✏️ Score
-      </button>
-      <button id="btn-game-invite-watch" class="btn"
-        style="background:rgba(255,255,255,0.2);color:#fff;font-weight:600;font-size:0.85rem;
-               padding:0.5rem;border-radius:6px;border:1.5px solid rgba(255,255,255,0.5);">
-        👁 Watch
-      </button>
-    </div>
+    <button id="btn-game-invite-join" class="btn"
+      style="background:#fff;color:var(--green);font-weight:700;font-size:0.8rem;
+             padding:0.4rem 0.85rem;flex-shrink:0;border-radius:6px;">
+      Join
+    </button>
+    <button id="btn-game-invite-dismiss"
+      style="background:none;border:none;color:#fff;font-size:1.1rem;cursor:pointer;
+             opacity:0.7;flex-shrink:0;padding:0.2rem;">✕</button>
   </div>
 </div>
 
