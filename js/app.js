@@ -1269,8 +1269,12 @@ function renderHolePanel() {
       </div>`;
     if (isUnclaimed) {
       document.getElementById('btn-become-scorer')?.addEventListener('click', async () => {
-        // Claim scorer role
         gameState.scorerProfileId = currentUser.id;
+        // Also update in allGroupStates so other devices see the claim
+        if (gameState.allGroupStates?.length > 1) {
+          const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === gameState.groupNumber);
+          if (idx >= 0) gameState.allGroupStates[idx].scorerProfileId = currentUser.id;
+        }
         await saveRoundState();
         renderHolePanel();
       });
@@ -1840,23 +1844,21 @@ async function _joinRoundWithRole(roundId, groupNumber, asScorer) {
     asScorer = false;
   }
 
-  // Set scorerProfileId on this group's state
+  // Set scorerProfileId on this group's state and save to DB
   if (asScorer) {
-    myGroupState.scorerProfileId = currentUser.id;
-    // Update in allGroupStates too
     if (gs?.allGroupStates?.length > 1) {
       const idx = gs.allGroupStates.findIndex(s => s.groupNumber === groupNumber);
       if (idx >= 0) gs.allGroupStates[idx].scorerProfileId = currentUser.id;
+    } else {
+      gs.scorerProfileId = currentUser.id;
     }
-    // Save back to DB
-    const { allGroupStates, ...stateToSave } = gs;
-    if (allGroupStates?.length > 1) {
-      stateToSave.allGroupStates = allGroupStates.map(s => {
-        const { allGroupStates: _, ...stripped } = s;
-        return stripped;
-      });
-    }
-    await roundSaveState(roundId, stateToSave, stateToSave.names);
+    // Save the updated top-level state back to DB
+    const { allGroupStates, ...topState } = gs;
+    topState.allGroupStates = (allGroupStates ?? []).map(s => {
+      const { allGroupStates: _, ...stripped } = s;
+      return stripped;
+    });
+    await roundSaveState(roundId, topState, topState.names);
   }
 
   // Now resume into the correct group state
