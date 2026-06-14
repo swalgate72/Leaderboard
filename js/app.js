@@ -75,6 +75,7 @@ const setup = {
 
 let roundId    = null;
 let gameState  = null;
+const _sessionId = Math.random().toString(36).slice(2);
 let realtimeCh = null;
 let abandonSource = null;
 
@@ -94,10 +95,120 @@ function show(id)  { document.getElementById(id)?.classList.remove('hidden'); }
 function hide(id)  { document.getElementById(id)?.classList.add('hidden'); }
 function toggle(id, on) { on ? show(id) : hide(id); }
 
+const SETUP_SCREENS = [
+  'screen-setup-course', 'screen-setup-players', 'screen-setup-review',
+];
+
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const el = document.getElementById(id);
   if (el) { el.classList.add('active'); window.scrollTo(0, 0); }
+
+  // Persist setup-flow screens so backgrounding the app doesn't lose progress
+  if (SETUP_SCREENS.includes(id)) {
+    saveSetupState(id);
+  } else if (id !== 'screen-game') {
+    // Leaving the setup flow for a non-game screen — clear persisted setup
+    try { localStorage.removeItem('lb-setup-state'); } catch {}
+  }
+}
+
+function saveSetupState(screenId) {
+  try {
+    localStorage.setItem('lb-setup-state', JSON.stringify({
+      screen: screenId,
+      setup: setup,
+      tournSetupPlayers: typeof tournSetupPlayers !== 'undefined' ? tournSetupPlayers : null,
+      tournSetupNumGroups: typeof tournSetupNumGroups !== 'undefined' ? tournSetupNumGroups : null,
+    }));
+  } catch {}
+}
+
+function restoreSetupState() {
+  try {
+    const raw = localStorage.getItem('lb-setup-state');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function clearSetupState() {
+  try { localStorage.removeItem('lb-setup-state'); } catch {}
+}
+
+// Attempt to restore an in-progress round setup after app reload.
+// Returns true if a screen was restored, false otherwise.
+async function tryRestoreSetupState() {
+  const saved = restoreSetupState();
+  if (!saved?.screen || !saved?.setup) return false;
+
+  // Don't restore if it's a tournament setup we can't easily rebuild,
+  // or if the saved state is stale (e.g. courseId no longer exists)
+  if (saved.setup.courseId && !allCourses.some(c => c.id === saved.setup.courseId)) {
+    clearSetupState();
+    return false;
+  }
+
+  // Restore the setup object
+  Object.assign(setup, saved.setup);
+
+  try {
+    if (saved.screen === 'screen-setup-course') {
+      const fmt = setup.scoring;
+      document.getElementById('setup-course-format-label').textContent = FORMAT_LABELS[fmt] ?? fmt;
+      populateCourseSelect();
+      populateNumPlayerSelect();
+      populateNumGroupSelect();
+      document.getElementById('setup-hcp-pct').value = setup.hcpPct ?? 100;
+      // Re-select the saved course/tee
+      if (setup.courseId) {
+        document.getElementById('setup-course-select').value = setup.courseId;
+        onCourseSelectChange();
+        const teeSel = document.getElementById('setup-tee-select');
+        if (teeSel) teeSel.value = String(setup.teeIdx ?? 0);
+      }
+      document.getElementById('setup-num-players').value = String(
+        setup.playersPerGroup ?? (setup.numPlayers / (setup.numGroups || 1))
+      );
+      document.getElementById('setup-num-groups').value = String(setup.numGroups ?? 1);
+      showScreen('screen-setup-course');
+    } else if (saved.screen === 'screen-setup-players') {
+      buildPlayerForms();
+      showScreen('screen-setup-players');
+    } else if (saved.screen === 'screen-setup-review') {
+      buildPlayerForms(); // ensure setup.players populated for review calc
+      buildSetupReview();
+      showScreen('screen-setup-review');
+    } else {
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('tryRestoreSetupState error', err);
+    clearSetupState();
+    return false;
+  }
+}
+
+// Periodically autosave setup state while on a setup screen, so in-progress
+// typing (course/player names/HCPs) survives the app being backgrounded.
+setInterval(() => {
+  const active = document.querySelector('.screen.active');
+  if (active && SETUP_SCREENS.includes(active.id)) {
+    // Capture current player input values before saving
+    syncSetupPlayersFromDOM();
+    saveSetupState(active.id);
+  }
+}, 3000);
+
+// Read current values from player input fields into setup.players
+function syncSetupPlayersFromDOM() {
+  setup.players.forEach((p, i) => {
+    const nameEl = document.getElementById(`pname-${i}`);
+    const hcpEl  = document.getElementById(`phcp-${i}`);
+    if (nameEl && nameEl.value !== undefined) p.name = nameEl.value;
+    if (hcpEl  && hcpEl.value  !== undefined) p.hcpIndex = parseFloat(hcpEl.value) || 0;
+  });
 }
 
 function setMsg(id, msg, isError = false) {
@@ -256,7 +367,9 @@ async function onSignedIn(user) {
     if (actives.length > 0) {
       await resumeRound(actives[0].id);
     } else {
-      await showHome();
+      // Check for an in-progress setup flow to restore
+      const restored = await tryRestoreSetupState();
+      if (!restored) await showHome();
     }
   } catch (err) {
     console.error('onSignedIn error', err);
@@ -446,7 +559,7 @@ function showFormatPicker(category) {
   showScreen('screen-setup-format');
 }
 
-document.getElementById('setup-format-back')?.addEventListener('click', () => showHome());
+document.getElementById('setup-format-back')?.addEventListener('click', () => { clearSetupState(); showHome(); });
 
 // ================================================================
 // SETUP -- STEP 1: COURSE
@@ -1077,6 +1190,7 @@ async function resumeRound(id) {
 // GAME SCREEN
 // ================================================================
 function enterGameScreen() {
+  clearSetupState();
   showScreen('screen-game');
   renderGameTopBar();
   renderScoreHeader();
@@ -1436,21 +1550,88 @@ function makePlayerInputRow(pi, h, par) {
       <div class="gi-prev" id="gi-prev-${pi}" style="font-size:0.58rem;color:var(--muted);min-height:1em;margin-top:2px;letter-spacing:0.03em;">${prevLabel}</div>
     </div>
     <div>
-      <div class="counter">
-        <button class="c-btn" data-pi="${pi}" data-dir="-1">−</button>
-        <div class="c-val" id="cv${pi}">${par}</div>
-        <button class="c-btn" data-pi="${pi}" data-dir="1">＋</button>
+      <div id="cv${pi}" data-value="" data-pickup="0"
+        class="score-btn" data-pi="${pi}"
+        style="min-width:64px;min-height:52px;display:flex;align-items:center;justify-content:center;
+               border:2px solid var(--border);border-radius:10px;background:var(--surface2);
+               font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:800;
+               color:var(--muted);cursor:pointer;user-select:none;">
+        Score
       </div>
     </div>`;
 
-  row.querySelectorAll('.c-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const valEl = document.getElementById(`cv${pi}`);
-      let v = parseInt(valEl.textContent) + parseInt(btn.dataset.dir);
-      valEl.textContent = Math.max(1, Math.min(15, v));
-    });
+  row.querySelector('.score-btn')?.addEventListener('click', () => {
+    openScorePicker(pi, h, par);
   });
   return row;
+}
+
+// ── Score Picker Modal ────────────────────────────────────────────
+function openScorePicker(pi, h, par) {
+  const cvEl = document.getElementById(`cv${pi}`);
+  const current = cvEl?.dataset.value;
+
+  document.getElementById('sp-player-name').textContent = gameState.names[pi];
+  document.getElementById('sp-context').textContent = `Hole ${h + 1} · Par ${par}`;
+
+  const gridEl = document.getElementById('sp-grid');
+  // Show a reasonable range around par
+  const min = 1, max = Math.max(par + 4, 8);
+  gridEl.innerHTML = Array.from({ length: max - min + 1 }, (_, i) => {
+    const v = min + i;
+    const isCurrent = current && parseInt(current) === v;
+    const relToPar  = v - par;
+    let label = String(v);
+    return `<button class="sp-num-btn" data-val="${v}"
+      style="padding:0.85rem 0.5rem;border-radius:10px;font-family:'Barlow Condensed',sans-serif;
+             font-size:1.5rem;font-weight:800;border:2px solid ${isCurrent ? 'var(--green)' : 'var(--border)'};
+             background:${isCurrent ? 'var(--green)' : 'var(--surface2)'};
+             color:${isCurrent ? '#fff' : 'var(--text)'};cursor:pointer;">
+      ${label}
+    </button>`;
+  }).join('');
+
+  gridEl.querySelectorAll('.sp-num-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = parseInt(btn.dataset.val, 10);
+      setScoreValue(pi, h, par, v, false);
+      closeScorePicker();
+    });
+  });
+
+  document.getElementById('sp-pickup').onclick = () => {
+    // Pickup = par + handicap strokes received on this hole + 1
+    // (one worse than the score that would earn a Stableford point)
+    const fmt   = gameState.format;
+    const isIndiv = ['stableford','stroke'].includes(fmt);
+    const extra = isIndiv
+      ? indivStrokesOnHole(gameState.playingHandicaps[pi], gameState.si[h])
+      : strokesOnHole(gameState.matchHandicaps[pi], gameState.si[h]);
+    const pickupVal = par + extra + 1;
+    setScoreValue(pi, h, par, pickupVal, true);
+    closeScorePicker();
+  };
+
+  document.getElementById('sp-cancel').onclick = closeScorePicker;
+  document.getElementById('modal-score-picker').classList.add('open');
+}
+
+function closeScorePicker() {
+  document.getElementById('modal-score-picker').classList.remove('open');
+}
+
+function setScoreValue(pi, h, par, value, isPickup) {
+  const cvEl = document.getElementById(`cv${pi}`);
+  if (!cvEl) return;
+  cvEl.dataset.value  = String(value);
+  cvEl.dataset.pickup = isPickup ? '1' : '0';
+  cvEl.textContent    = String(value);
+  cvEl.style.color       = '#fff';
+  cvEl.style.background  = isPickup ? 'var(--gold)' : 'var(--green)';
+  cvEl.style.borderColor = isPickup ? 'var(--gold)' : 'var(--green)';
+  if (isPickup) {
+    cvEl.innerHTML = `${value}<span style="font-size:0.6rem;display:block;font-weight:600;">PICKUP</span>`;
+  }
 }
 
 // ----------------------------------------------------------------
@@ -1472,7 +1653,8 @@ function recordHole() {
     grosses = [vA, vB];
   } else {
     for (let i = 0; i < gameState.names.length; i++) {
-      const v = parseInt(document.getElementById(`cv${i}`)?.textContent, 10);
+      const el = document.getElementById(`cv${i}`);
+      const v  = parseInt(el?.dataset?.value, 10);
       if (!v || v < 1) { alert(`Please enter a score for ${gameState.names[i]}.`); return; }
       grosses.push(v);
     }
@@ -1734,7 +1916,7 @@ async function saveRoundState() {
       });
     }
     await roundSaveState(roundId, stateToSave, stateToSave.names);
-    await realtimeBroadcastRound(realtimeCh, stateToSave);
+    await realtimeBroadcastRound(realtimeCh, stateToSave, _sessionId);
   }
   catch (err) { console.error('saveRoundState error', err); }
   finally { badge?.classList.add('hidden'); }
@@ -1745,11 +1927,11 @@ function subscribeToRound(id) {
   realtimeUnsubscribe(realtimeCh);
   realtimeCh = realtimeSubscribeRound(id, remote => {
     if (!remote?.game_state) return;
-    const incoming = remote.game_state;
 
-    // Don't process our own broadcasts
-    if (incoming.organiserId === currentUser?.id &&
-        incoming.groupNumber === gameState?.groupNumber) return;
+    // Ignore our own broadcasts (tagged with our session ID)
+    if (remote._senderSession === _sessionId) return;
+
+    const incoming = remote.game_state;
 
     const scorerPid = gameState?.scorerProfileId;
     const iAmScorer = scorerPid === undefined
