@@ -486,7 +486,7 @@
     <!-- Hero header -->
     <div class="home-hero">
       <div class="home-hero-top">
-        <div class="home-hero-club" id="profile-email-display">YOUR ACCOUNT</div>
+        <div class="home-hero-club">YOUR ACCOUNT</div>
         <div class="home-hero-avatar" id="profile-avatar">?</div>
       </div>
       <div class="home-hero-title" id="profile-name">Welcome</div>
@@ -527,7 +527,10 @@
 
       <!-- Handicap -->
       <div class="two-col" style="margin-bottom:0.75rem;">
-        <div class="field" style="margin:0;"><input id="prof-hcp" type="number" placeholder="12.4" step="0.1" min="0" max="54"></div>
+        <div class="field" style="margin:0;">
+          <label>Handicap Index</label>
+          <input id="prof-hcp" type="number" placeholder="12.4" step="0.1" min="0" max="54">
+        </div>
         <div class="field" style="margin:0;">
           <label>WHS Number</label>
           <input id="prof-whs" type="text" placeholder="e.g. 123456">
@@ -555,21 +558,16 @@
           <button class="btn btn-ghost" id="prof-add-course-btn">＋</button>
         </div>
       </div>
-    </div>
 
-    <div class="card">
-      <div class="card-title">Theme</div>
-      <div class="two-col" style="margin:0;">
-        <button class="theme-btn active" id="btn-theme-dark"
-          style="background:#0e1a12;">
-          <div style="font-size:1.2rem;">🌙</div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:800;color:#d4a843;letter-spacing:0.08em;margin-top:3px;">DARK</div>
-        </button>
-        <button class="theme-btn" id="btn-theme-light"
-          style="background:#f0ebe0;">
-          <div style="font-size:1.2rem;">☀️</div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:800;color:#8a6412;letter-spacing:0.08em;margin-top:3px;">LIGHT</div>
-        </button>
+      <!-- Course handicaps for the selected home club -->
+      <div id="prof-course-hcp-section" class="hidden mt-md">
+        <div class="field" style="margin-bottom:0.75rem;">
+          <label>Handicap Index</label>
+          <input id="prof-course-hcp-index" type="number" step="0.1" min="0" max="54" placeholder="12.4" disabled
+            style="opacity:0.7;">
+        </div>
+        <label style="display:block;margin-bottom:0.5rem;">Course Handicap by Tee</label>
+        <div id="prof-course-hcp-tees" style="display:grid;gap:0.6rem;"></div>
       </div>
     </div>
 
