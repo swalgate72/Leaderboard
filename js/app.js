@@ -511,19 +511,20 @@ async function showHome() {
     }
   } catch { hide('home-resume-banner'); }
 
-  // Populate Best Score / Rounds stats + Recent Rounds list
-  loadHomeStatsAndRecent(myName);
+  // Populate Best Score / Rounds stats + Active games/tournaments
+  loadHomeStatsAndActive(myName);
 }
 
-async function loadHomeStatsAndRecent(myName) {
-  const roundsEl   = document.getElementById('home-stat-rounds');
-  const bestEl     = document.getElementById('home-stat-best');
-  const recentEl   = document.getElementById('home-recent-rounds');
+async function loadHomeStatsAndActive(myName) {
+  const roundsEl = document.getElementById('home-stat-rounds');
+  const bestEl   = document.getElementById('home-stat-best');
+  const activeEl = document.getElementById('home-active-list');
+
+  // Best score / rounds played
   try {
     const rounds = await roundsLoadHistory(currentUser.id);
     if (roundsEl) roundsEl.textContent = String(rounds.length);
 
-    // Find best Stableford score for "my" name across history
     let best = null;
     rounds.forEach(r => {
       const state = r.game_state;
@@ -533,46 +534,64 @@ async function loadHomeStatsAndRecent(myName) {
       if (mine && (best === null || mine.score > best)) best = mine.score;
     });
     if (bestEl) bestEl.textContent = best != null ? `${best} pts` : '--';
-
-    // Render recent rounds (up to 3)
-    if (recentEl) {
-      if (!rounds.length) {
-        recentEl.innerHTML = '<div class="home-recent-empty">No rounds played yet.</div>';
-      } else {
-        const recent = rounds.slice(0, 3);
-        recentEl.innerHTML = recent.map(r => {
-          const date = r.completed_at
-            ? new Date(r.completed_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
-            : '--';
-          const state   = r.game_state;
-          const summary = state ? getResultSummary(state) : null;
-          const mine    = summary?.scores?.find(s => s.nm === myName);
-          let scoreLabel = '--';
-          if (mine != null) {
-            scoreLabel = state.format === 'stableford' ? `${mine.score} pts`
-              : state.format === 'stroke' ? `${mine.score}`
-              : `${mine.score}`;
-          } else if (summary?.summary) {
-            scoreLabel = summary.summary;
-          }
-          return `
-            <div class="home-recent-row" data-rid="${r.id}">
-              <div class="home-recent-flag">⛳</div>
-              <div class="home-recent-body">
-                <div class="home-recent-course">${r.course_name ?? '--'}</div>
-                <div class="home-recent-meta">${date} · ${fmtLabel(r.game_format)}</div>
-              </div>
-              <div class="home-recent-score">${scoreLabel}</div>
-            </div>`;
-        }).join('');
-        recentEl.querySelectorAll('.home-recent-row').forEach(row => {
-          row.addEventListener('click', () => showHistoryDetail(row.dataset.rid, rounds));
-        });
-      }
-    }
   } catch {
-    if (recentEl) recentEl.innerHTML = '<div class="home-recent-empty">Could not load rounds.</div>';
+    if (roundsEl) roundsEl.textContent = '--';
+    if (bestEl) bestEl.textContent = '--';
   }
+
+  // Active games + tournaments
+  if (!activeEl) return;
+  activeEl.innerHTML = '';
+  try {
+    const [actives, tournaments] = await Promise.all([
+      roundsLoadActive(currentUser.id).catch(() => []),
+      tournamentsLoad(currentUser.id).catch(() => []),
+    ]);
+
+    let storedRoundId = null;
+    try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
+    if (storedRoundId && !actives.some(r => r.id === storedRoundId)) {
+      const stored = await roundLoadById(storedRoundId).catch(() => null);
+      if (stored?.status === 'active') actives.unshift(stored);
+    }
+
+    const activeTournaments = tournaments.filter(t => t.status !== 'completed');
+
+    const rows = [];
+    actives.forEach(r => {
+      rows.push(`
+        <div class="home-active-row" data-kind="round" data-id="${r.id}">
+          <div class="home-active-icon">⛳</div>
+          <div class="home-active-body">
+            <div class="home-active-title">${r.course_name ?? 'Active round'}</div>
+            <div class="home-active-sub">${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees</div>
+          </div>
+          <div class="home-active-chevron">›</div>
+        </div>`);
+    });
+    activeTournaments.forEach(t => {
+      rows.push(`
+        <div class="home-active-row" data-kind="tournament" data-id="${t.id}">
+          <div class="home-active-icon">🏆</div>
+          <div class="home-active-body">
+            <div class="home-active-title">${t.name}</div>
+            <div class="home-active-sub">${fmtLabel(t.format)} · ${t.num_rounds} rounds</div>
+          </div>
+          <div class="home-active-chevron">›</div>
+        </div>`);
+    });
+
+    activeEl.innerHTML = rows.join('');
+    activeEl.querySelectorAll('.home-active-row').forEach(row => {
+      row.addEventListener('click', () => {
+        if (row.dataset.kind === 'round') {
+          resumeRound(row.dataset.id);
+        } else {
+          showTournamentDetail(row.dataset.id);
+        }
+      });
+    });
+  } catch {}
 }
 
 // Bottom nav active-state helper
