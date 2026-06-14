@@ -3010,6 +3010,7 @@ document.getElementById('btn-theme-light')?.addEventListener('click', () => appl
 // ================================================================
 async function showFriends() {
   showScreen('screen-friends');
+  setActiveBottomNav('nav-friends');
   await loadFriendRequests();
   await renderFriendsList();
 }
@@ -3073,7 +3074,7 @@ async function renderFriendsList() {
           <div class="friend-name">${displayName}</div>
           <div class="friend-sub" style="line-height:1.5;">${details.join(' · ')}</div>
         </div>
-        <button class="btn btn-ghost" style="font-size:0.72rem;border-color:var(--red-border);color:var(--red);"
+        <button class="btn btn-ghost" style="font-size:0.85rem;border-color:var(--red-border);color:var(--red);"
           data-remove="${f.friendshipId}">Remove</button>
       </div>`;
   }).join('');
