@@ -1378,7 +1378,7 @@ function renderHolePanel() {
     `<span class="si-big">SI ${si} · Par ${par}</span>`;
 
   const backBtn = document.getElementById('btn-back-hole');
-  if (backBtn) backBtn.disabled = (gameState.log?.length ?? 0) === 0;
+  if (backBtn) backBtn.disabled = h === 0;
 
   // scorerProfileId === undefined  → legacy round, fall back to organiser check
   // scorerProfileId === null        → guest scorer, no logged-in user gets scorer UI  
@@ -1394,6 +1394,11 @@ function renderHolePanel() {
 
   const recordBtn  = document.getElementById('btn-record-hole');
   const backHoleBtn = document.getElementById('btn-back-hole');
+
+  if (recordBtn) {
+    const isPast = h < (gameState.log?.length ?? 0);
+    recordBtn.textContent = isPast ? 'UPDATE HOLE →' : 'RECORD HOLE →';
+  }
 
   if (!userIsScorer) {
     const isUnclaimed = scorerPid === '__unclaimed__' || !scorerPid;
@@ -1524,18 +1529,29 @@ function makePlayerInputRow(pi, h, par) {
   const inChair = fmt === 'itc' && gameState.chair === pi;
 
   // Look up previous hole score for this player if available
-  const prevEntry = gameState.log?.length > 0 ? gameState.log[gameState.log.length - 1] : null;
+  const prevEntry = h > 0 ? gameState.log?.[h - 1] : null;
   const prevGross = prevEntry?.grosses?.[pi];
   const prevPts   = prevEntry?.holePts?.[pi];
   const prevNet   = prevEntry?.nets?.[pi];
   let prevLabel = '';
   if (prevEntry && prevGross != null) {
-    const prevH = prevEntry.h1 ?? (gameState.log.length);
+    const prevH = h; // 1-indexed hole number of the previous hole
     if (fmt === 'stableford' && prevPts != null) prevLabel = `H${prevH}: ${prevGross} gross · ${prevPts}pts`;
     else if (fmt === 'stroke' && prevNet != null) prevLabel = `H${prevH}: ${prevGross} gross · ${prevNet} net`;
     else if (fmt === 'split6' && prevEntry.holePts?.[pi] != null) prevLabel = `H${prevH}: ${prevGross} gross · ${prevEntry.holePts[pi]}pts`;
     else prevLabel = `H${prevH}: ${prevGross}`;
   }
+
+  // If this hole already has a recorded entry (user went back to edit it),
+  // pre-fill the score button with that value
+  const existingEntry = gameState.log?.[h];
+  const existingGross = existingEntry?.grosses?.[pi];
+
+  const hasExisting = existingGross != null;
+  const scoreBtnVal   = hasExisting ? String(existingGross) : 'Score';
+  const scoreBtnStyle = hasExisting
+    ? 'border:2px solid var(--green);background:var(--green);color:#fff;'
+    : 'border:2px solid var(--border);background:var(--surface2);color:var(--muted);';
 
   const row = document.createElement('div');
   row.className = `gi-row${inChair ? ' in-chair' : ''}`;
@@ -1550,13 +1566,13 @@ function makePlayerInputRow(pi, h, par) {
       <div class="gi-prev" id="gi-prev-${pi}" style="font-size:0.58rem;color:var(--muted);min-height:1em;margin-top:2px;letter-spacing:0.03em;">${prevLabel}</div>
     </div>
     <div>
-      <div id="cv${pi}" data-value="" data-pickup="0"
+      <div id="cv${pi}" data-value="${hasExisting ? existingGross : ''}" data-pickup="0"
         class="score-btn" data-pi="${pi}"
         style="min-width:64px;min-height:52px;display:flex;align-items:center;justify-content:center;
-               border:2px solid var(--border);border-radius:10px;background:var(--surface2);
+               border-radius:10px;
                font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:800;
-               color:var(--muted);cursor:pointer;user-select:none;">
-        Score
+               cursor:pointer;user-select:none;${scoreBtnStyle}">
+        ${scoreBtnVal}
       </div>
     </div>`;
 
@@ -1661,7 +1677,16 @@ function recordHole() {
   }
 
   const prevGroupStates = gameState.allGroupStates;
-  gameState = processHole(gameState, grosses);
+  const isEditingPast = h < (gameState.log?.length ?? 0);
+
+  if (isEditingPast) {
+    // Re-recording a hole we'd gone back to — edit in place and recalc
+    gameState = editHole(gameState, h, grosses);
+    gameState.hole = h + 1; // move forward to the next hole
+  } else {
+    gameState = processHole(gameState, grosses);
+  }
+
   if (prevGroupStates) {
     gameState.allGroupStates = prevGroupStates;
     gameState.allGroupStates[0] = gameState;
@@ -1687,11 +1712,9 @@ function recordHole() {
 }
 
 document.getElementById('btn-back-hole')?.addEventListener('click', () => {
-  if ((gameState.log?.length ?? 0) === 0) return;
-  const prevGS = gameState.allGroupStates;
-  gameState = undoHole(gameState);
-  if (prevGS) gameState.allGroupStates = prevGS;
-  renderScoreHeader(); renderHolePanel(); saveRoundState();
+  if (gameState.hole <= 0) return;
+  gameState.hole -= 1;
+  renderScoreHeader(); renderHolePanel();
 });
 
 document.getElementById('btn-finish-early')?.addEventListener('click', () => showEndRound());
