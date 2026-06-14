@@ -97,8 +97,7 @@
 
     <!-- Hero card -->
     <div class="home-hero">
-      <div class="home-hero-top">
-        <div class="home-hero-club" id="home-hero-club">YOUR CLUB</div>
+      <div class="home-hero-top" style="justify-content:flex-end;">
         <div class="home-hero-avatar" id="home-hero-avatar">--</div>
       </div>
       <div class="home-hero-title">Leaderboard</div>
@@ -206,11 +205,18 @@
      SETUP — FORMAT PICKER
      ══════════════════════════════════════════ -->
 <div id="screen-setup-format" class="screen">
-  <div class="sticky-header">
-    <button class="btn btn-ghost" id="setup-format-back">← Back</button>
-    <h2 id="setup-format-screen-title">Select Format</h2>
-  </div>
-  <div style="padding:1rem;max-width:520px;margin:0 auto;" id="setup-format-list">
+  <div style="padding: 0 0 2rem; max-width: 480px; margin: 0 auto;">
+
+    <!-- Hero header -->
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="setup-format-back" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+      </div>
+      <div class="home-hero-title" id="setup-format-screen-title">Select Format</div>
+    </div>
+
+    <div style="padding:0 1rem;" id="setup-format-list"></div>
+
   </div>
 </div>
 
@@ -218,11 +224,16 @@
      SETUP — STEP 1: COURSE
      ══════════════════════════════════════════ -->
 <div id="screen-setup-course" class="screen">
-  <div class="sticky-header">
-    <button class="btn btn-ghost" id="setup-course-back">← Back</button>
-    <h2 id="setup-course-format-label">Stroke Play</h2>
-    <button class="btn btn-ghost btn-danger-ghost" id="setup-abandon-1">Abandon</button>
-  </div>
+  <div style="padding: 0 0 2rem; max-width: 480px; margin: 0 auto;">
+
+    <!-- Hero header -->
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="setup-course-back" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+        <button class="btn btn-ghost btn-danger-ghost" id="setup-abandon-1" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">Abandon</button>
+      </div>
+      <div class="home-hero-title" id="setup-course-format-label">Stroke Play</div>
+    </div>
 
   <div class="page-pad-sm" style="padding-top:1rem;">
     <div class="step-progress" id="step-progress-1">
@@ -287,17 +298,23 @@
 
     <button class="btn btn-green btn-full" id="btn-setup-course-next">NEXT: PLAYERS →</button>
   </div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════
      SETUP — STEP 2: PLAYERS
      ══════════════════════════════════════════ -->
 <div id="screen-setup-players" class="screen">
-  <div class="sticky-header">
-    <button class="btn btn-ghost" id="setup-players-back">← Back</button>
-    <h2>Players</h2>
-    <button class="btn btn-ghost btn-danger-ghost" id="setup-abandon-2">Abandon</button>
-  </div>
+  <div style="padding: 0 0 2rem; max-width: 480px; margin: 0 auto;">
+
+    <!-- Hero header -->
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="setup-players-back" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+        <button class="btn btn-ghost btn-danger-ghost" id="setup-abandon-2" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">Abandon</button>
+      </div>
+      <div class="home-hero-title">Players</div>
+    </div>
 
   <div class="page-pad-sm" style="padding-top:1rem;">
     <div class="step-progress" id="step-progress-2">
@@ -313,17 +330,23 @@
       <button class="btn btn-green" style="flex:2;" id="btn-setup-players-next">NEXT: REVIEW →</button>
     </div>
   </div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════
      SETUP — STEP 3: REVIEW & TEE OFF
      ══════════════════════════════════════════ -->
 <div id="screen-setup-review" class="screen">
-  <div class="sticky-header">
-    <button class="btn btn-ghost" id="setup-review-back">← Back</button>
-    <h2>Review</h2>
-    <button class="btn btn-ghost btn-danger-ghost" id="setup-abandon-3">Abandon</button>
-  </div>
+  <div style="padding: 0 0 2rem; max-width: 480px; margin: 0 auto;">
+
+    <!-- Hero header -->
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="setup-review-back" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+        <button class="btn btn-ghost btn-danger-ghost" id="setup-abandon-3" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">Abandon</button>
+      </div>
+      <div class="home-hero-title">Review</div>
+    </div>
 
   <div class="page-pad-sm" style="padding-top:1rem;">
     <div class="step-progress">
@@ -340,6 +363,7 @@
     <button class="btn btn-play" id="btn-tee-off">⛳ TEE OFF →</button>
 
     <button class="btn btn-outline mt-sm" id="btn-review-back">← Back</button>
+  </div>
   </div>
 </div>
 
