@@ -563,7 +563,7 @@ async function loadHomeStatsAndActive(myName) {
         <div class="home-active-row" data-kind="round" data-id="${r.id}">
           <div class="home-active-icon">⛳</div>
           <div class="home-active-body">
-            <div class="home-active-title">${r.course_name ?? 'Active round'}</div>
+            <div class="home-active-title">Active Game — ${r.course_name ?? 'Round'}</div>
             <div class="home-active-sub">${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees</div>
           </div>
           <div class="home-active-chevron">›</div>
@@ -574,7 +574,7 @@ async function loadHomeStatsAndActive(myName) {
         <div class="home-active-row" data-kind="tournament" data-id="${t.id}">
           <div class="home-active-icon">🏆</div>
           <div class="home-active-body">
-            <div class="home-active-title">${t.name}</div>
+            <div class="home-active-title">Active Tournament — ${t.name}</div>
             <div class="home-active-sub">${fmtLabel(t.format)} · ${t.num_rounds} rounds</div>
           </div>
           <div class="home-active-chevron">›</div>
@@ -3202,6 +3202,7 @@ document.getElementById('invite-close')?.addEventListener('click', () => {
 // ================================================================
 async function showHistory() {
   showScreen('screen-history');
+  setActiveBottomNav('nav-history');
   historyFilter = 'all';
   const sel = document.getElementById('history-format-select');
   if (sel) sel.value = 'all';
@@ -3224,17 +3225,17 @@ async function loadHistory() {
       const state   = r.game_state;
       const summary = state ? getResultSummary(state) : null;
       return `
-        <div class="history-item" data-rid="${r.id}">
-          <div class="hi-icon">⛳</div>
-          <div class="hi-body">
-            <div class="hi-date">${date} · ${r.course_name ?? '--'}</div>
-            <div class="hi-title">${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees</div>
-            ${summary?.winner ? `<div class="hi-winner">🏆 ${summary.winner}</div>` : ''}
+        <div class="history-card" data-rid="${r.id}">
+          <div class="history-card-icon">⛳</div>
+          <div class="history-card-body">
+            <div class="history-card-date">${date}</div>
+            <div class="history-card-title">${r.course_name ?? '--'}</div>
+            <div class="history-card-winner">${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees${summary?.winner ? ` · 🏆 ${summary.winner}` : ''}</div>
           </div>
-          <div class="hi-arrow">›</div>
+          <div class="history-card-chevron">›</div>
         </div>`;
     }).join('');
-    listEl.querySelectorAll('.history-item').forEach(item => {
+    listEl.querySelectorAll('.history-card').forEach(item => {
       item.addEventListener('click', () => showHistoryDetail(item.dataset.rid, filtered));
     });
   } catch (err) { listEl.innerHTML = `<div class="history-empty">${err.message}</div>`; }
