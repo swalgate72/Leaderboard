@@ -2910,6 +2910,7 @@ function buildScorecardHTML(state, opts = {}) {
 // PROFILE SCREEN
 // ================================================================
 function showProfile() {
+  setActiveBottomNav('nav-profile');
   const p = currentProfile ?? {};
   document.getElementById('prof-username').value  = p.username      ?? '';
   document.getElementById('prof-fname').value     = p.first_name    ?? '';
@@ -2946,11 +2947,10 @@ function showProfile() {
   document.getElementById('profile-avatar').textContent = initials;
   document.getElementById('profile-name').textContent   =
     `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Welcome';
-  document.getElementById('profile-email-display').textContent = currentUser?.email ?? '';
+  document.getElementById('profile-email-display').textContent = (currentUser?.email ?? 'YOUR ACCOUNT').toUpperCase();
 
   const hcpEl = document.getElementById('profile-hcp');
-  if (p.hcp != null) { hcpEl.textContent = `HCP ${fmtHandicap(p.hcp)}`; hcpEl.classList.remove('hidden'); }
-  else hcpEl.classList.add('hidden');
+  if (hcpEl) hcpEl.textContent = p.hcp != null ? fmtHandicap(p.hcp) : '--';
 
   populateProfileCourseSelect();
   renderLogos();
