@@ -475,8 +475,8 @@ async function showHome() {
   if (avatarEl) avatarEl.textContent = initials || '--';
 
   const hcpEl = document.getElementById('home-stat-hcp');
-  if (hcpEl) hcpEl.textContent = currentProfile?.handicap_index != null
-    ? Number(currentProfile.handicap_index).toFixed(1) : '--';
+  if (hcpEl) hcpEl.textContent = currentProfile?.hcp != null
+    ? fmtHandicap(currentProfile.hcp) : '--';
 
   const clubEl = document.getElementById('home-hero-club');
   try {
@@ -2947,12 +2947,12 @@ function showProfile() {
   document.getElementById('profile-avatar').textContent = initials;
   document.getElementById('profile-name').textContent   =
     `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Welcome';
-  document.getElementById('profile-email-display').textContent = (currentUser?.email ?? 'YOUR ACCOUNT').toUpperCase();
 
   const hcpEl = document.getElementById('profile-hcp');
   if (hcpEl) hcpEl.textContent = p.hcp != null ? fmtHandicap(p.hcp) : '--';
 
   populateProfileCourseSelect();
+  renderCourseHandicapSection();
   renderLogos();
   showScreen('screen-profile');
 }
@@ -2967,6 +2967,49 @@ function populateProfileCourseSelect() {
     sel.appendChild(opt);
   });
 }
+
+// Show / build the per-tee course handicap inputs for the selected home club
+function renderCourseHandicapSection() {
+  const section  = document.getElementById('prof-course-hcp-section');
+  const teesWrap = document.getElementById('prof-course-hcp-tees');
+  const idxEl    = document.getElementById('prof-course-hcp-index');
+  if (!section || !teesWrap) return;
+
+  const courseId = document.getElementById('prof-course-select')?.value || null;
+  const course   = courseId ? allCourses.find(c => c.id === courseId) : null;
+
+  if (!course) {
+    section.classList.add('hidden');
+    teesWrap.innerHTML = '';
+    return;
+  }
+
+  section.classList.remove('hidden');
+
+  // Handicap Index — mirrors the main Handicap Index field
+  const hcpVal = currentProfile?.hcp ?? '';
+  if (idxEl) idxEl.value = hcpVal;
+
+  const saved = currentProfile?.home_course_handicaps ?? {};
+  teesWrap.innerHTML = (course.tees ?? []).map(t => {
+    const safeId = `prof-course-hcp-${t.name.replace(/\s+/g,'-').toLowerCase()}`;
+    const val = saved[t.name] ?? '';
+    return `
+      <div class="field" style="margin:0;">
+        <label>${t.name}</label>
+        <input id="${safeId}" data-tee="${t.name}" class="prof-course-hcp-input"
+          type="number" step="1" min="0" max="54" placeholder="e.g. ${fmtHandicap(currentProfile?.hcp ?? 0)}"
+          value="${val}">
+      </div>`;
+  }).join('');
+}
+
+document.getElementById('prof-course-select')?.addEventListener('change', renderCourseHandicapSection);
+
+document.getElementById('prof-hcp')?.addEventListener('input', e => {
+  const idxEl = document.getElementById('prof-course-hcp-index');
+  if (idxEl) idxEl.value = e.target.value;
+});
 
 document.getElementById('btn-save-profile')?.addEventListener('click', async () => {
   const profile = {
@@ -2987,6 +3030,16 @@ document.getElementById('btn-save-profile')?.addEventListener('click', async () 
     friends_see_email:  document.getElementById('prof-share-email-friends')?.dataset.checked === 'true',
     home_course_id: document.getElementById('prof-course-select').value || null,
     email:          currentUser?.email ?? null,
+    home_course_handicaps: (() => {
+      const result = { ...(currentProfile?.home_course_handicaps ?? {}) };
+      document.querySelectorAll('.prof-course-hcp-input').forEach(input => {
+        const tee = input.dataset.tee;
+        const v   = parseFloat(input.value);
+        if (input.value.trim() === '') delete result[tee];
+        else result[tee] = v;
+      });
+      return result;
+    })(),
   };
   const btn = document.getElementById('btn-save-profile');
   btn.disabled = true; btn.textContent = 'Saving…';
