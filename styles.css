@@ -1870,6 +1870,7 @@ html.light .home-hero {
 }
 .mode-card-sub {
   font-size: 1rem;
+  font-weight: 700;
   color: var(--muted2);
   line-height: 1.3;
 }
