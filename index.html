@@ -578,16 +578,21 @@
      FRIENDS SCREEN
      ══════════════════════════════════════════ -->
 <div id="screen-friends" class="screen">
-  <div class="sticky-header">
-    <button class="btn btn-ghost" id="friends-back">← Back</button>
-    <h2>Friends <span id="friend-req-badge" class="badge badge-gold hidden">0</span></h2>
-  </div>
+  <div style="padding: 0 0 5.5rem; max-width: 480px; margin: 0 auto;">
 
-  <div class="page-pad" style="padding-top:1rem;">
+    <!-- Hero header -->
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <div class="home-hero-club">YOUR NETWORK</div>
+      </div>
+      <div class="home-hero-title">Friends <span id="friend-req-badge" class="badge badge-gold hidden" style="font-size:1rem;vertical-align:middle;">0</span></div>
+    </div>
+
+    <div style="padding: 0 1rem;">
 
     <!-- Pending requests -->
     <div id="friend-requests-section" class="hidden mb-md">
-      <div class="card-title mb-sm">Pending Requests</div>
+      <div class="home-section-label">Pending Requests</div>
       <div id="friend-requests-list"></div>
     </div>
 
@@ -596,11 +601,11 @@
       <div class="card-title">Add Friend by Email</div>
       <div class="field">
         <label>Email Address</label>
-        <input id="friend-search-email" type="email" placeholder="@username or email">
+        <input id="friend-search-email" type="email" placeholder="@username or email" style="font-size:1.05rem;padding:0.8rem 0.9rem;">
       </div>
       <div id="friend-search-result" class="hidden"
         style="background:var(--surface2);border:1px solid var(--gold-border);border-radius:var(--radius-sm);padding:0.65rem 0.85rem;margin-bottom:0.65rem;">
-        <div id="friend-found-name" style="font-size:0.88rem;margin-bottom:0.5rem;"></div>
+        <div id="friend-found-name" style="font-size:1rem;margin-bottom:0.5rem;"></div>
         <button class="btn btn-primary" style="padding:0.45rem 1rem;width:auto;" id="btn-send-request">Send Request</button>
       </div>
       <div id="friend-search-empty" class="hidden hint mb-sm"></div>
@@ -610,14 +615,15 @@
     <!-- Invite to Leaderboard -->
     <div class="card mt-md">
       <div class="card-title">Invite to Leaderboard</div>
-      <div class="card-sub mb-sm">Send someone a link to join — includes instructions to install the app on their phone.</div>
+      <div class="card-sub mb-sm" style="font-size:0.85rem;">Send someone a link to join — includes instructions to install the app on their phone.</div>
       <button class="btn btn-green btn-full" id="btn-open-invite">📲 Send Invite</button>
     </div>
 
     <!-- Friends list -->
-    <div class="card-title mb-sm">Your Friends</div>
-    <div id="friends-list"></div>
+    <div class="home-section-label mt-md">Your Friends</div>
+    <div id="friends-list" style="display:grid;gap:0.75rem;"></div>
 
+    </div>
   </div>
 </div>
 
