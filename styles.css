@@ -1778,11 +1778,11 @@ html.light .home-hero {
   margin-bottom: 0.5rem;
 }
 .home-hero-club {
-  font-size: 0.7rem;
-  letter-spacing: 0.18em;
+  font-size: 1.6rem;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.6);
-  font-weight: 600;
+  color: rgba(255,255,255,0.8);
+  font-weight: 800;
 }
 .home-hero-avatar {
   width: 42px; height: 42px;
@@ -1811,18 +1811,20 @@ html.light .home-hero {
 .home-hero-stat {
   background: rgba(255,255,255,0.08);
   border-radius: var(--radius-sm);
-  padding: 0.6rem 0.5rem;
+  padding: 0.65rem 0.55rem;
   text-align: left;
 }
 .home-hero-stat-label {
-  font-size: 0.65rem;
-  color: rgba(255,255,255,0.65);
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: rgba(255,255,255,0.8);
   margin-bottom: 0.15rem;
+  line-height: 1.1;
 }
 .home-hero-stat-value {
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 800;
-  font-size: 1.35rem;
+  font-size: 1.9rem;
   color: #fff;
 }
 
