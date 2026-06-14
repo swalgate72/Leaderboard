@@ -1126,9 +1126,9 @@ function screenLog(msg) {
   if (!el) {
     el = document.createElement('div');
     el.id = 'screen-log';
-    el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.9);' +
-      'color:#0f0;font-size:10px;font-family:monospace;padding:4px;z-index:99999;' +
-      'max-height:80px;overflow-y:auto;';
+    el.style.cssText = 'position:fixed;bottom:0;left:0;width:55%;background:rgba(0,0,0,0.85);' +
+      'color:#0f0;font-size:8px;font-family:monospace;padding:2px 4px;z-index:50;' +
+      'max-height:32px;overflow-y:auto;border-top-right-radius:6px;';
     el.title = 'Tap to hide';
     el.addEventListener('click', () => el.style.display = 'none');
     document.body.appendChild(el);
