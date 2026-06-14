@@ -667,31 +667,39 @@
      HISTORY SCREEN
      ══════════════════════════════════════════ -->
 <div id="screen-history" class="screen">
-  <div class="sticky-header">
-    <button class="btn btn-ghost" id="history-back">← Back</button>
-    <h2>History</h2>
-  </div>
+  <div style="padding: 0 0 5.5rem; max-width: 480px; margin: 0 auto;">
 
-  <div style="padding:0.75rem 1rem 0;max-width:520px;margin:0 auto;">
-    <div class="field" style="margin:0;">
-      <select id="history-format-select">
-        <option value="all">All formats</option>
-        <option value="stableford">Stableford</option>
-        <option value="stroke">Stroke Play</option>
-        <option value="match">Match Play</option>
-        <option value="split6">Split 6</option>
-        <option value="betterball">Better Ball</option>
-        <option value="csm">Combined Score</option>
-        <option value="skins">Skins</option>
-        <option value="itc">In the Chair</option>
-        <option value="foursomes">Foursomes</option>
-        <option value="greensomes">Greensomes</option>
-      </select>
+    <!-- Hero header -->
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <div class="home-hero-club">YOUR ROUNDS</div>
+      </div>
+      <div class="home-hero-title">History</div>
     </div>
-    <div id="history-count" class="eyebrow mt-sm mb-sm"></div>
-  </div>
 
-  <div style="padding:0 1rem 2rem;max-width:520px;margin:0 auto;" id="history-list"></div>
+    <div style="padding: 0 1rem;">
+
+      <div class="field" style="margin:0 0 0.75rem;">
+        <select id="history-format-select" style="font-size:1.05rem;padding:0.8rem 0.9rem;">
+          <option value="all">All formats</option>
+          <option value="stableford">Stableford</option>
+          <option value="stroke">Stroke Play</option>
+          <option value="match">Match Play</option>
+          <option value="split6">Split 6</option>
+          <option value="betterball">Better Ball</option>
+          <option value="csm">Combined Score</option>
+          <option value="skins">Skins</option>
+          <option value="itc">In the Chair</option>
+          <option value="foursomes">Foursomes</option>
+          <option value="greensomes">Greensomes</option>
+        </select>
+      </div>
+      <div id="history-count" class="home-section-label" style="margin-bottom:0.85rem;"></div>
+
+      <div id="history-list" style="display:grid;gap:0.85rem;"></div>
+
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════
