@@ -93,10 +93,32 @@
      HOME SCREEN
      ══════════════════════════════════════════ -->
 <div id="screen-home" class="screen">
-  <div style="padding: 1.5rem 1rem 1rem; max-width: 480px; margin: 0 auto;">
+  <div style="padding: 0 0 5.5rem; max-width: 480px; margin: 0 auto;">
 
-    <!-- Logo -->
-    <div class="logo-wrap mb-md" id="home-logo"></div>
+    <!-- Hero card -->
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <div class="home-hero-club" id="home-hero-club">YOUR CLUB</div>
+        <div class="home-hero-avatar" id="home-hero-avatar">--</div>
+      </div>
+      <div class="home-hero-title">Leaderboard</div>
+      <div class="home-hero-stats">
+        <div class="home-hero-stat">
+          <div class="home-hero-stat-label">Handicap</div>
+          <div class="home-hero-stat-value" id="home-stat-hcp">--</div>
+        </div>
+        <div class="home-hero-stat">
+          <div class="home-hero-stat-label">Best Score</div>
+          <div class="home-hero-stat-value" id="home-stat-best">--</div>
+        </div>
+        <div class="home-hero-stat">
+          <div class="home-hero-stat-label">Rounds</div>
+          <div class="home-hero-stat-value" id="home-stat-rounds">--</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding: 0 1rem;">
 
     <!-- Resume banner (shown if active round exists) -->
     <div id="home-resume-banner" class="resume-banner hidden">
@@ -111,76 +133,71 @@
       </div>
     </div>
 
-    <!-- Three big game mode buttons -->
-    <div style="display:grid;gap:0.75rem;margin-bottom:1rem;">
+    <div class="home-section-label">Select Game Mode</div>
 
-      <button id="btn-solo-scoring"
-        style="padding:1.4rem 1.25rem;background:var(--surface);border:1px solid var(--border);
-               border-radius:var(--radius);text-align:left;cursor:pointer;transition:border-color 0.15s;width:100%;"
-        onmouseover="this.style.borderColor='var(--gold-border)'"
-        onmouseout="this.style.borderColor='var(--border)'">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.5rem;font-weight:800;
-                    color:var(--gold);letter-spacing:0.06em;margin-bottom:0.2rem;">
-          ⛳ Single Player Scoring
+    <!-- Three big game mode cards -->
+    <div style="display:grid;gap:0.75rem;margin-bottom:1.5rem;">
+
+      <button id="btn-solo-scoring" class="mode-card mode-card-primary">
+        <div class="mode-card-icon">🎯</div>
+        <div class="mode-card-body">
+          <div class="mode-card-title">Single Player</div>
+          <div class="mode-card-sub">Stableford · Stroke · Match Play</div>
+          <div class="mode-card-sub2">Skins · In the Chair · Split 6</div>
         </div>
-        <div style="font-size:0.75rem;color:var(--muted);">
-          Stableford · Stroke · Match Play · Skins · In the Chair · Split 6
-        </div>
+        <div class="mode-card-chevron">›</div>
       </button>
 
-      <button id="btn-team-scoring"
-        style="padding:1.4rem 1.25rem;background:var(--surface);border:1px solid var(--border);
-               border-radius:var(--radius);text-align:left;cursor:pointer;transition:border-color 0.15s;width:100%;"
-        onmouseover="this.style.borderColor='var(--gold-border)'"
-        onmouseout="this.style.borderColor='var(--border)'">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.5rem;font-weight:800;
-                    color:var(--gold);letter-spacing:0.06em;margin-bottom:0.2rem;">
-          🤝 Pairs / Team Scoring
+      <button id="btn-team-scoring" class="mode-card">
+        <div class="mode-card-icon">🤝</div>
+        <div class="mode-card-body">
+          <div class="mode-card-title">Pairs &amp; Teams</div>
+          <div class="mode-card-sub">Better Ball · Combined · Foursomes</div>
+          <div class="mode-card-sub2">Greensomes · Best 2</div>
         </div>
-        <div style="font-size:0.75rem;color:var(--muted);">
-          Better Ball · Combined · Foursomes · Greensomes · Best 2
-        </div>
+        <div class="mode-card-chevron">›</div>
       </button>
 
-      <button id="btn-tournament-mode"
-        style="padding:1.4rem 1.25rem;background:var(--surface);border:1px solid var(--border);
-               border-radius:var(--radius);text-align:left;cursor:pointer;transition:border-color 0.15s;width:100%;"
-        onmouseover="this.style.borderColor='var(--blue-border)'"
-        onmouseout="this.style.borderColor='var(--border)'">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.5rem;font-weight:800;
-                    color:var(--blue);letter-spacing:0.06em;margin-bottom:0.2rem;">
-          🏆 Tournament Mode
+      <button id="btn-tournament-mode" class="mode-card">
+        <div class="mode-card-icon">🏆</div>
+        <div class="mode-card-body">
+          <div class="mode-card-title">Tournament</div>
+          <div class="mode-card-sub">Multi-round competitions</div>
+          <div class="mode-card-sub2">Cumulative standings</div>
         </div>
-        <div style="font-size:0.75rem;color:var(--muted);">Multi-round competitions · cumulative standings</div>
+        <div class="mode-card-chevron">›</div>
       </button>
 
     </div>
 
-    <!-- Bottom nav -->
-    <div class="home-nav mt-md">
-      <button class="home-nav-btn" id="nav-profile">
-        <div class="nav-icon">👤</div>
-        <div class="nav-label">Profile</div>
-      </button>
-      <button class="home-nav-btn" id="nav-friends">
-        <div class="nav-icon">👥</div>
-        <div class="nav-label">Friends</div>
-      </button>
-      <button class="home-nav-btn" id="nav-history">
-        <div class="nav-icon">📋</div>
-        <div class="nav-label">History</div>
-      </button>
-      <button class="home-nav-btn" id="nav-course">
-        <div class="nav-icon">🏌️</div>
-        <div class="nav-label">Course</div>
-      </button>
-      <button class="home-nav-btn" id="nav-theme">
-        <div class="nav-icon" id="theme-icon">🌙</div>
-        <div class="nav-label">Theme</div>
-      </button>
+    <!-- Recent rounds -->
+    <div class="home-section-label">Recent Rounds</div>
+    <div id="home-recent-rounds" class="home-recent-list">
+      <div class="home-recent-empty">Loading…</div>
     </div>
 
+    </div>
   </div>
+</div>
+
+<!-- Bottom tab bar (persistent on home + key screens) -->
+<div class="bottom-nav" id="bottom-nav" style="display:none;">
+  <button class="bottom-nav-btn active" id="nav-play" data-screen="screen-home">
+    <div class="bottom-nav-icon">🚩</div>
+    <div class="bottom-nav-label">Play</div>
+  </button>
+  <button class="bottom-nav-btn" id="nav-history" data-screen="screen-history">
+    <div class="bottom-nav-icon">🕐</div>
+    <div class="bottom-nav-label">History</div>
+  </button>
+  <button class="bottom-nav-btn" id="nav-friends" data-screen="screen-friends">
+    <div class="bottom-nav-icon">👥</div>
+    <div class="bottom-nav-label">Friends</div>
+  </button>
+  <button class="bottom-nav-btn" id="nav-profile" data-screen="screen-profile">
+    <div class="bottom-nav-icon">👤</div>
+    <div class="bottom-nav-label">Profile</div>
+  </button>
 </div>
 
 <!-- ══════════════════════════════════════════
