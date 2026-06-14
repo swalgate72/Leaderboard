@@ -478,16 +478,6 @@ async function showHome() {
   if (hcpEl) hcpEl.textContent = currentProfile?.hcp != null
     ? fmtHandicap(currentProfile.hcp) : '--';
 
-  const clubEl = document.getElementById('home-hero-club');
-  try {
-    if (currentProfile?.home_course_id) {
-      const course = allCourses?.find(c => c.id === currentProfile.home_course_id);
-      if (clubEl) clubEl.textContent = (course?.name ?? 'YOUR CLUB').toUpperCase();
-    } else if (clubEl) {
-      clubEl.textContent = 'LEADERBOARD';
-    }
-  } catch {}
-
   try {
     const actives = await roundsLoadActive(currentUser.id);
 
@@ -647,22 +637,17 @@ function showFormatPicker(category) {
     category === 'solo' ? 'Single Player Scoring' : 'Pairs / Team Scoring';
 
   const list = document.getElementById('setup-format-list');
-  list.innerHTML = formats.map(f => `
-    <div class="format-option-card" data-fmt="${f.key}"
-      style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-             padding:1rem 1.25rem;margin-bottom:0.5rem;cursor:pointer;transition:border-color 0.15s;
-             display:flex;align-items:center;gap:0.75rem;">
-      <div style="font-size:1.8rem;flex-shrink:0;">${f.icon}</div>
-      <div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.2rem;font-weight:700;
-                    letter-spacing:0.06em;color:var(--gold);">${f.label}</div>
-        <div style="font-size:0.72rem;color:var(--muted);margin-top:1px;">${f.desc}</div>
+  list.innerHTML = `<div style="display:grid;gap:0.85rem;margin-top:1.5rem;">` + formats.map(f => `
+    <div class="mode-card" data-fmt="${f.key}">
+      <div class="mode-card-icon">${f.icon}</div>
+      <div class="mode-card-body">
+        <div class="mode-card-title">${f.label}</div>
+        <div class="mode-card-sub">${f.desc}</div>
       </div>
-    </div>`).join('');
+      <div class="mode-card-chevron">›</div>
+    </div>`).join('') + `</div>`;
 
-  list.querySelectorAll('.format-option-card').forEach(card => {
-    card.addEventListener('mouseenter', () => card.style.borderColor = 'var(--gold-border)');
-    card.addEventListener('mouseleave', () => card.style.borderColor = 'var(--border)');
+  list.querySelectorAll('.mode-card').forEach(card => {
     card.addEventListener('click', () => {
       const fmt = card.dataset.fmt;
       setup.scoring  = fmt;
