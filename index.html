@@ -480,34 +480,41 @@
 <!-- ══════════════════════════════════════════
      PROFILE SCREEN
      ══════════════════════════════════════════ -->
-<div id="screen-profile" class="screen centered">
-  <div class="profile-hero">
-    <div class="logo-wrap" id="profile-logo"></div>
-    <div class="profile-avatar" id="profile-avatar">?</div>
-    <div class="profile-name"   id="profile-name">Welcome</div>
-    <div class="profile-hcp hidden" id="profile-hcp"></div>
-    <div class="flex items-center justify-between mt-sm" style="width:100%;max-width:480px;padding:0 0.5rem;">
-      <div class="sync-badge synced" id="profile-sync">
-        <div class="sync-dot"></div>
-        <span id="profile-sync-text">Synced</span>
-      </div>
-      <div class="eyebrow" id="profile-email-display"></div>
-    </div>
-  </div>
+<div id="screen-profile" class="screen">
+  <div style="padding: 0 0 5.5rem; max-width: 480px; margin: 0 auto;">
 
-  <div class="page-pad-sm">
+    <!-- Hero header -->
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <div class="home-hero-club" id="profile-email-display">YOUR ACCOUNT</div>
+        <div class="home-hero-avatar" id="profile-avatar">?</div>
+      </div>
+      <div class="home-hero-title" id="profile-name">Welcome</div>
+      <div class="home-hero-stats" style="grid-template-columns:1fr 1fr;">
+        <div class="home-hero-stat">
+          <div class="home-hero-stat-label">Sync Status</div>
+          <div class="home-hero-stat-value" id="profile-sync-text" style="font-size:1.05rem;">Synced</div>
+        </div>
+        <div class="home-hero-stat">
+          <div class="home-hero-stat-label">Handicap</div>
+          <div class="home-hero-stat-value" id="profile-hcp">--</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-pad-sm">
 
     <div class="card">
       <div class="card-title">Your Details</div>
 
       <!-- Username -->
       <div class="field">
-        <label>Username <span style="font-size:0.65rem;color:var(--muted);">searchable handle</span></label>
+        <label>Username <span style="font-size:0.85rem;color:var(--muted);font-weight:600;">searchable handle</span></label>
         <input id="prof-username" type="text" placeholder="e.g. stevewalgate72" autocomplete="off"
           style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;letter-spacing:0.04em;">
       </div>
 
-      <div style="font-size:0.68rem;color:var(--muted);margin-bottom:0.75rem;line-height:1.5;">
+      <div style="font-size:0.95rem;font-weight:600;color:var(--muted2);margin-bottom:0.75rem;line-height:1.5;">
         Tap buttons to control visibility:
         &#128269; = anyone can find you &nbsp;|&nbsp; &#128101; = confirmed friends only
       </div>
@@ -522,7 +529,7 @@
       <div class="two-col" style="margin-bottom:0.75rem;">
         <div class="field" style="margin:0;"><input id="prof-hcp" type="number" placeholder="12.4" step="0.1" min="0" max="54"></div>
         <div class="field" style="margin:0;">
-          <label style="font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">WHS Number</label>
+          <label>WHS Number</label>
           <input id="prof-whs" type="text" placeholder="e.g. 123456">
         </div>
       </div>
@@ -544,7 +551,7 @@
       <div class="field">
         <label>Select from saved courses</label>
         <div class="flex gap-sm">
-          <select id="prof-course-select" style="flex:1;"></select>
+          <select id="prof-course-select" style="flex:1;font-size:1.05rem;"></select>
           <button class="btn btn-ghost" id="prof-add-course-btn">＋</button>
         </div>
       </div>
@@ -556,21 +563,21 @@
         <button class="theme-btn active" id="btn-theme-dark"
           style="background:#0e1a12;">
           <div style="font-size:1.2rem;">🌙</div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.85rem;font-weight:700;color:#d4a843;letter-spacing:0.08em;margin-top:3px;">DARK</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:800;color:#d4a843;letter-spacing:0.08em;margin-top:3px;">DARK</div>
         </button>
         <button class="theme-btn" id="btn-theme-light"
           style="background:#f0ebe0;">
           <div style="font-size:1.2rem;">☀️</div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.85rem;font-weight:700;color:#8a6412;letter-spacing:0.08em;margin-top:3px;">LIGHT</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:800;color:#8a6412;letter-spacing:0.08em;margin-top:3px;">LIGHT</div>
         </button>
       </div>
     </div>
 
     <button class="btn btn-primary btn-full" id="btn-save-profile">SAVE PROFILE</button>
-    <button class="btn btn-outline mt-sm"    id="btn-profile-home">← Home</button>
     <button class="btn btn-outline mt-sm" id="btn-open-privacy" style="width:100%;">🔒 Contact Preferences</button>
     <button class="btn btn-danger  mt-sm"    id="btn-sign-out" style="width:100%;">SIGN OUT</button>
 
+    </div>
   </div>
 </div>
 

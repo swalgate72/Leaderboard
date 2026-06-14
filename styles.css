@@ -2014,3 +2014,48 @@ html.light .bottom-nav-btn.active {
   color: var(--muted);
   flex-shrink: 0;
 }
+
+/* Friends screen: bigger, bolder labels/text */
+#screen-friends .card-title {
+  font-size: 2.2rem;
+  letter-spacing: 0.02em;
+  font-weight: 800;
+}
+#screen-friends .card-sub {
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: var(--muted2);
+  line-height: 1.35;
+}
+#screen-friends .field > label {
+  font-size: 1.6rem;
+  letter-spacing: 0.01em;
+  font-weight: 800;
+  color: var(--muted2);
+  text-transform: none;
+}
+#screen-friends .friend-sub {
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+#screen-friends input {
+  font-size: 1.1rem;
+}
+
+/* Profile screen: bigger, bolder labels/text (matches Friends) */
+#screen-profile .card-title {
+  font-size: 1.3rem;
+  letter-spacing: 0.04em;
+  font-weight: 800;
+}
+#screen-profile .field > label {
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  font-weight: 800;
+  color: var(--muted2);
+  text-transform: none;
+}
+#screen-profile input,
+#screen-profile select {
+  font-size: 1.1rem;
+}
