@@ -99,10 +99,17 @@ const SETUP_SCREENS = [
   'screen-setup-course', 'screen-setup-players', 'screen-setup-review',
 ];
 
+const BOTTOM_NAV_SCREENS = [
+  'screen-home', 'screen-history', 'screen-friends', 'screen-profile',
+];
+
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const el = document.getElementById(id);
   if (el) { el.classList.add('active'); window.scrollTo(0, 0); }
+
+  const bottomNav = document.getElementById('bottom-nav');
+  if (bottomNav) bottomNav.style.display = BOTTOM_NAV_SCREENS.includes(id) ? 'flex' : 'none';
 
   // Persist setup-flow screens so backgrounding the app doesn't lose progress
   if (SETUP_SCREENS.includes(id)) {
@@ -455,6 +462,32 @@ document.getElementById('btn-sign-out')?.addEventListener('click', async () => {
 async function showHome() {
   showScreen('screen-home');
   renderLogos();
+  setActiveBottomNav('nav-play');
+
+  // Populate hero card
+  const myName = currentProfile
+    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+    : '';
+  const initials = myName
+    ? myName.split(' ').filter(Boolean).map(w => w[0]).slice(0,2).join('').toUpperCase()
+    : '--';
+  const avatarEl = document.getElementById('home-hero-avatar');
+  if (avatarEl) avatarEl.textContent = initials || '--';
+
+  const hcpEl = document.getElementById('home-stat-hcp');
+  if (hcpEl) hcpEl.textContent = currentProfile?.handicap_index != null
+    ? Number(currentProfile.handicap_index).toFixed(1) : '--';
+
+  const clubEl = document.getElementById('home-hero-club');
+  try {
+    if (currentProfile?.home_course_id) {
+      const course = allCourses?.find(c => c.id === currentProfile.home_course_id);
+      if (clubEl) clubEl.textContent = (course?.name ?? 'YOUR CLUB').toUpperCase();
+    } else if (clubEl) {
+      clubEl.textContent = 'LEADERBOARD';
+    }
+  } catch {}
+
   try {
     const actives = await roundsLoadActive(currentUser.id);
 
@@ -477,6 +510,76 @@ async function showHome() {
       hide('home-resume-banner'); roundId = null;
     }
   } catch { hide('home-resume-banner'); }
+
+  // Populate Best Score / Rounds stats + Recent Rounds list
+  loadHomeStatsAndRecent(myName);
+}
+
+async function loadHomeStatsAndRecent(myName) {
+  const roundsEl   = document.getElementById('home-stat-rounds');
+  const bestEl     = document.getElementById('home-stat-best');
+  const recentEl   = document.getElementById('home-recent-rounds');
+  try {
+    const rounds = await roundsLoadHistory(currentUser.id);
+    if (roundsEl) roundsEl.textContent = String(rounds.length);
+
+    // Find best Stableford score for "my" name across history
+    let best = null;
+    rounds.forEach(r => {
+      const state = r.game_state;
+      if (!state || state.format !== 'stableford') return;
+      const summary = getResultSummary(state);
+      const mine = summary.scores?.find(s => s.nm === myName);
+      if (mine && (best === null || mine.score > best)) best = mine.score;
+    });
+    if (bestEl) bestEl.textContent = best != null ? `${best} pts` : '--';
+
+    // Render recent rounds (up to 3)
+    if (recentEl) {
+      if (!rounds.length) {
+        recentEl.innerHTML = '<div class="home-recent-empty">No rounds played yet.</div>';
+      } else {
+        const recent = rounds.slice(0, 3);
+        recentEl.innerHTML = recent.map(r => {
+          const date = r.completed_at
+            ? new Date(r.completed_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
+            : '--';
+          const state   = r.game_state;
+          const summary = state ? getResultSummary(state) : null;
+          const mine    = summary?.scores?.find(s => s.nm === myName);
+          let scoreLabel = '--';
+          if (mine != null) {
+            scoreLabel = state.format === 'stableford' ? `${mine.score} pts`
+              : state.format === 'stroke' ? `${mine.score}`
+              : `${mine.score}`;
+          } else if (summary?.summary) {
+            scoreLabel = summary.summary;
+          }
+          return `
+            <div class="home-recent-row" data-rid="${r.id}">
+              <div class="home-recent-flag">⛳</div>
+              <div class="home-recent-body">
+                <div class="home-recent-course">${r.course_name ?? '--'}</div>
+                <div class="home-recent-meta">${date} · ${fmtLabel(r.game_format)}</div>
+              </div>
+              <div class="home-recent-score">${scoreLabel}</div>
+            </div>`;
+        }).join('');
+        recentEl.querySelectorAll('.home-recent-row').forEach(row => {
+          row.addEventListener('click', () => showHistoryDetail(row.dataset.rid, rounds));
+        });
+      }
+    }
+  } catch {
+    if (recentEl) recentEl.innerHTML = '<div class="home-recent-empty">Could not load rounds.</div>';
+  }
+}
+
+// Bottom nav active-state helper
+function setActiveBottomNav(activeId) {
+  document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.id === activeId);
+  });
 }
 
 // Home screen three-button handlers
@@ -490,11 +593,10 @@ document.getElementById('btn-team-scoring')?.addEventListener('click', () => {
 });
 document.getElementById('btn-tournament-mode')?.addEventListener('click', () => show('modal-coming-soon'));
 
-document.getElementById('nav-profile')?.addEventListener('click', () => showProfile());
-document.getElementById('nav-friends')?.addEventListener('click', () => showFriends());
-document.getElementById('nav-history')?.addEventListener('click', () => showHistory());
-document.getElementById('nav-course') ?.addEventListener('click', () => { cwiz.returnTo = 'home'; openCourseWizard(null); });
-document.getElementById('nav-theme')  ?.addEventListener('click', () => showProfile());
+document.getElementById('nav-profile')?.addEventListener('click', () => { setActiveBottomNav('nav-profile'); showProfile(); });
+document.getElementById('nav-friends')?.addEventListener('click', () => { setActiveBottomNav('nav-friends'); showFriends(); });
+document.getElementById('nav-history')?.addEventListener('click', () => { setActiveBottomNav('nav-history'); showHistory(); });
+document.getElementById('nav-play')   ?.addEventListener('click', () => { setActiveBottomNav('nav-play'); showHome(); });
 
 document.getElementById('coming-soon-close')?.addEventListener('click', () => hide('modal-coming-soon'));
 document.getElementById('btn-resume')?.addEventListener('click', async () => { if (roundId) await resumeRound(roundId); });
