@@ -796,6 +796,21 @@
 <!-- ══════════════════════════════════════════
      MATCH WON MODAL
      ══════════════════════════════════════════ -->
+<!-- Score Picker Modal -->
+<div class="modal-overlay" id="modal-score-picker">
+  <div class="modal-box" style="max-width:340px;text-align:center;">
+    <div class="eyebrow mb-sm" id="sp-player-name">Player</div>
+    <div id="sp-context" style="font-size:0.75rem;color:var(--muted);margin-bottom:1rem;"></div>
+    <div id="sp-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;margin-bottom:0.75rem;"></div>
+    <button id="sp-pickup" class="btn btn-outline" style="width:100%;font-size:0.85rem;border-color:var(--gold-border);color:var(--gold);">
+      🏌️ Pickup / Did Not Finish
+    </button>
+    <button id="sp-cancel" class="btn btn-ghost" style="width:100%;margin-top:0.5rem;font-size:0.8rem;color:var(--muted);">
+      Cancel
+    </button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-match-won">
   <div class="modal-box" style="text-align:center;max-width:360px;">
     <div class="eyebrow mb-sm">Match Won</div>
