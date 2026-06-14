@@ -259,11 +259,11 @@ a { color: inherit; text-decoration: none; }
 .field:last-child { margin-bottom: 0; }
 
 .field > label {
-  font-size: 0.58rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
   color: var(--muted2);
-  font-weight: 400;
+  font-weight: 800;
 }
 
 html.light .field > label { color: var(--muted); }
@@ -1778,10 +1778,10 @@ html.light .home-hero {
   margin-bottom: 0.5rem;
 }
 .home-hero-club {
-  font-size: 1.6rem;
-  letter-spacing: 0.04em;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.8);
+  color: rgba(255,255,255,0.75);
   font-weight: 800;
 }
 .home-hero-avatar {
@@ -1811,20 +1811,19 @@ html.light .home-hero {
 .home-hero-stat {
   background: rgba(255,255,255,0.08);
   border-radius: var(--radius-sm);
-  padding: 0.65rem 0.55rem;
+  padding: 0.6rem 0.5rem;
   text-align: left;
 }
 .home-hero-stat-label {
-  font-size: 1.6rem;
+  font-size: 1rem;
   font-weight: 800;
-  color: rgba(255,255,255,0.8);
+  color: rgba(255,255,255,0.75);
   margin-bottom: 0.15rem;
-  line-height: 1.1;
 }
 .home-hero-stat-value {
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 800;
-  font-size: 1.9rem;
+  font-size: 1.35rem;
   color: #fff;
 }
 
@@ -2019,18 +2018,18 @@ html.light .bottom-nav-btn.active {
 
 /* Friends screen: bigger, bolder labels/text */
 #screen-friends .card-title {
-  font-size: 2.2rem;
+  font-size: 1.1rem;
   letter-spacing: 0.02em;
   font-weight: 800;
 }
 #screen-friends .card-sub {
-  font-size: 1.7rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: var(--muted2);
   line-height: 1.35;
 }
 #screen-friends .field > label {
-  font-size: 1.6rem;
+  font-size: 1rem;
   letter-spacing: 0.01em;
   font-weight: 800;
   color: var(--muted2);
