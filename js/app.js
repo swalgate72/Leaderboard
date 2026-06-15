@@ -96,7 +96,13 @@ function hide(id)  { document.getElementById(id)?.classList.add('hidden'); }
 function toggle(id, on) { on ? show(id) : hide(id); }
 
 const SETUP_SCREENS = [
-  'screen-setup-course', 'screen-setup-players', 'screen-setup-review',
+  'screen-setup-format', 'screen-setup-course', 'screen-setup-players', 'screen-setup-review',
+];
+
+// Tournament setup screens: simple persistence — just remember the screen
+// so backgrounding the app returns here, but fields/state are reset on return.
+const TOURNAMENT_SETUP_SCREENS = [
+  'screen-tournament-setup', 'screen-tournament-format', 'screen-tournament-players',
 ];
 
 const BOTTOM_NAV_SCREENS = [
@@ -114,9 +120,14 @@ function showScreen(id) {
   // Persist setup-flow screens so backgrounding the app doesn't lose progress
   if (SETUP_SCREENS.includes(id)) {
     saveSetupState(id);
+  } else if (TOURNAMENT_SETUP_SCREENS.includes(id)) {
+    // Simple persistence: remember the screen only (fields reset on return)
+    try { localStorage.setItem('lb-tournament-setup-screen', id); } catch {}
+    try { localStorage.removeItem('lb-setup-state'); } catch {}
   } else if (id !== 'screen-game') {
     // Leaving the setup flow for a non-game screen — clear persisted setup
     try { localStorage.removeItem('lb-setup-state'); } catch {}
+    try { localStorage.removeItem('lb-tournament-setup-screen'); } catch {}
   }
 }
 
@@ -160,7 +171,9 @@ async function tryRestoreSetupState() {
   Object.assign(setup, saved.setup);
 
   try {
-    if (saved.screen === 'screen-setup-course') {
+    if (saved.screen === 'screen-setup-format') {
+      showFormatPicker(setup.category ?? 'solo');
+    } else if (saved.screen === 'screen-setup-course') {
       const fmt = setup.scoring;
       document.getElementById('setup-course-format-label').textContent = FORMAT_LABELS[fmt] ?? fmt;
       populateCourseSelect();
@@ -195,6 +208,18 @@ async function tryRestoreSetupState() {
     clearSetupState();
     return false;
   }
+}
+
+// Simple persistence for tournament setup: just return to the same screen
+// with fresh/reset fields (step 1 of the tournament wizard).
+function tryRestoreTournamentSetupScreen() {
+  try {
+    const screenId = localStorage.getItem('lb-tournament-setup-screen');
+    if (!screenId || !TOURNAMENT_SETUP_SCREENS.includes(screenId)) return false;
+    localStorage.removeItem('lb-tournament-setup-screen');
+    showTournamentSetup();
+    return true;
+  } catch { return false; }
 }
 
 // Periodically autosave setup state while on a setup screen, so in-progress
@@ -376,7 +401,7 @@ async function onSignedIn(user) {
     } else {
       // Check for an in-progress setup flow to restore
       const restored = await tryRestoreSetupState();
-      if (!restored) await showHome();
+      if (!restored && !tryRestoreTournamentSetupScreen()) await showHome();
     }
   } catch (err) {
     console.error('onSignedIn error', err);
@@ -677,7 +702,6 @@ function startSetup() {
   populateNumPlayerSelect();
   populateNumGroupSelect();
   document.getElementById('setup-hcp-pct').value = 100;
-  hide('setup-tee-wrap');
   showScreen('screen-setup-course');
 }
 
@@ -698,10 +722,14 @@ function onCourseSelectChange() {
   const sel      = document.getElementById('setup-course-select');
   const courseId = sel.value;
   setup.courseId = courseId || null;
-  if (!courseId) { hide('setup-tee-wrap'); return; }
+  const teeSel = document.getElementById('setup-tee-select');
+  if (!courseId) {
+    teeSel.innerHTML = '<option value="">-- Select a course first --</option>';
+    hide('setup-si-preview');
+    return;
+  }
   const course = allCourses.find(c => c.id === courseId);
   if (!course) return;
-  const teeSel = document.getElementById('setup-tee-select');
   teeSel.innerHTML = '';
   (course.tees ?? []).forEach((t, i) => {
     const opt = document.createElement('option');
@@ -714,7 +742,6 @@ function onCourseSelectChange() {
   setup.teeIdx   = lastIdx >= 0 ? lastIdx : 0;
   teeSel.value   = String(setup.teeIdx);
 
-  show('setup-tee-wrap');
   renderSIPreview(course, setup.teeIdx);
 }
 
