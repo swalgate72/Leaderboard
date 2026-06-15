@@ -587,10 +587,10 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 .stroke-badge {
   background: var(--gold);
   color: #0e1a13;
-  font-size: 0.5rem;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 3px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 5px;
   letter-spacing: 0.04em;
   font-family: 'Barlow Condensed', sans-serif;
 }
@@ -1165,15 +1165,17 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 .gi-row.in-chair   { border-color: var(--gold-border); background: rgba(212,168,67,0.06); }
 
 .gi-name {
-  font-size: 0.88rem;
+  font-size: 1.25rem;
+  font-weight: 800;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 
 .gi-hcp {
-  font-size: 0.58rem;
-  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--muted2);
   margin-top: 2px;
 }
 
