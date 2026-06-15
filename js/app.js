@@ -1739,20 +1739,42 @@ function openScorePicker(pi, h, par) {
   document.getElementById('sp-player-name').textContent = gameState.names[pi];
   document.getElementById('sp-context').textContent = `Hole ${h + 1} · Par ${par}`;
 
+  const fmt     = gameState.format;
+  const isIndiv = ['stableford','stroke'].includes(fmt);
+  const extra   = isIndiv
+    ? indivStrokesOnHole(gameState.playingHandicaps[pi], gameState.si[h])
+    : strokesOnHole(gameState.matchHandicaps[pi], gameState.si[h]);
+
   const gridEl = document.getElementById('sp-grid');
-  // Show a reasonable range around par
-  const min = 1, max = Math.max(par + 4, 8);
+  // Range: 2 under par to 3 over par (e.g. Par 3 -> 1-6, Par 4 -> 2-7, Par 5 -> 3-8)
+  const min = Math.max(1, par - 2), max = par + 3;
+
   gridEl.innerHTML = Array.from({ length: max - min + 1 }, (_, i) => {
-    const v = min + i;
+    const v        = min + i;
     const isCurrent = current && parseInt(current) === v;
-    const relToPar  = v - par;
-    let label = String(v);
+    const relToPar = v - par;
+    const net      = v - extra;
+    const pts      = stablefordPoints(v, extra, par);
+
+    // Colour by gross relative to par:
+    // green = par, red = under par, blue = bogey/double, black = triple+
+    let circleColor;
+    if (relToPar === 0)       circleColor = 'var(--green)';
+    else if (relToPar < 0)    circleColor = '#d64545';
+    else if (relToPar <= 2)   circleColor = '#3a7bd5';
+    else                      circleColor = '#2a2a2a';
+
+    const ring = isCurrent ? 'box-shadow:0 0 0 3px var(--gold);' : '';
+
     return `<button class="sp-num-btn" data-val="${v}"
-      style="padding:0.85rem 0.5rem;border-radius:10px;font-family:'Barlow Condensed',sans-serif;
-             font-size:1.5rem;font-weight:800;border:2px solid ${isCurrent ? 'var(--green)' : 'var(--border)'};
-             background:${isCurrent ? 'var(--green)' : 'var(--surface2)'};
-             color:${isCurrent ? '#fff' : 'var(--text)'};cursor:pointer;">
-      ${label}
+      style="display:grid;grid-template-columns:1fr 2fr 1fr;align-items:center;gap:0.4fr;
+             padding:0.55rem 0.5rem;border-radius:12px;border:none;cursor:pointer;
+             background:var(--surface2);${ring}">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:${relToPar < 0 ? '#d64545' : 'var(--white)'};">${net}</span>
+      <span style="display:flex;align-items:center;justify-content:center;width:54px;height:54px;margin:0 auto;
+                    border-radius:50%;background:${circleColor};color:#fff;
+                    font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.7rem;">${v}</span>
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:var(--muted2);">${pts > 0 ? pts : '-'}</span>
     </button>`;
   }).join('');
 
