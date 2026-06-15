@@ -1649,7 +1649,7 @@ function renderHolePanel() {
   const passWrap = document.createElement('div');
   passWrap.style.cssText = 'margin-top:0.75rem;text-align:center;';
   passWrap.innerHTML = `<button id="btn-pass-scoring" class="btn btn-ghost"
-    style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0.75rem;border:1px solid var(--border);border-radius:6px;">
+    style="font-size:0.9rem;color:var(--muted2);padding:0.75rem 1rem;border:1px solid var(--border);border-radius:8px;width:100%;">
     ↩ Pass scoring to another player
   </button>`;
   inputsEl.appendChild(passWrap);
