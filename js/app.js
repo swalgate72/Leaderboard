@@ -829,11 +829,24 @@ document.getElementById('btn-setup-course-next')?.addEventListener('click', () =
 // ================================================================
 // SETUP -- STEP 2: PLAYERS
 // ================================================================
+// Returns the user's saved Course Handicap for the currently-selected
+// course/tee, if their home club + tee matches one with a saved value.
+function getMyCourseHandicapDefault() {
+  try {
+    const course = allCourses.find(c => c.id === setup.courseId);
+    const tee    = course?.tees?.[setup.teeIdx];
+    const saved  = currentProfile?.home_course_handicaps ?? {};
+    if (tee && saved[tee.name] != null) return saved[tee.name];
+  } catch {}
+  return null;
+}
+
 function buildPlayerForms() {
   const container = document.getElementById('setup-player-groups');
   container.innerHTML = ''; setup.players = [];
   const myName = currentProfile ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim() : '';
   const myHcp  = currentProfile?.hcp ?? '';
+  const myCourseHcp = getMyCourseHandicapDefault();
   const isPairs = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
   const isBest2 = setup.scoring === 'best2';
 
@@ -849,6 +862,7 @@ function buildPlayerForms() {
       profileId:   i === 0 ? currentUser?.id : null,
       mobile:      i === 0 ? currentProfile?.mobile ?? '' : '',
       isScorer:    i === 0,
+      ...(i === 0 && myCourseHcp != null ? { courseHandicap: myCourseHcp, courseHcpManual: false } : {}),
     };
   }
 
