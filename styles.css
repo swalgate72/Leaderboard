@@ -2061,3 +2061,16 @@ html.light .bottom-nav-btn.active {
 #screen-profile select {
   font-size: 1.1rem;
 }
+
+/* Setup Course & Settings screen: bigger card titles, bold inputs */
+#screen-setup-course .card-title {
+  font-size: 1.3rem;
+  letter-spacing: 0.04em;
+  font-weight: 800;
+}
+#screen-setup-course #setup-course-select,
+#screen-setup-course #setup-tee-select,
+#screen-setup-course #setup-hcp-pct {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
