@@ -760,10 +760,11 @@ function renderSIPreview(course, teeIdx) {
   const siSlice  = tee.si.slice(offset, offset + count);
   const parSlice = tee.par.slice(offset, offset + count);
   grid.innerHTML = siSlice.map((si, i) => `
-    <div style="background:var(--surface2);border-radius:10px;padding:8px;text-align:center;position:relative;min-height:74px;">
-      <div style="position:absolute;top:6px;left:8px;font-family:'Barlow Condensed',sans-serif;font-weight:400;font-size:0.96rem;color:var(--muted2);line-height:1;">${offset+i+1}</div>
-      <div style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;margin:0 auto;border:1.5px solid var(--border2);border-radius:50%;font-family:'Barlow Condensed',sans-serif;font-weight:400;font-size:1.4rem;color:var(--white);">${parSlice[i]}</div>
-      <div style="position:absolute;bottom:6px;right:8px;font-family:'Barlow Condensed',sans-serif;font-weight:400;font-size:0.96rem;color:var(--muted2);line-height:1;">SI ${si}</div>
+    <div style="background:var(--surface2);border-radius:3px;padding:4px 2px;text-align:center;">
+      <div style="display:flex;justify-content:space-between;font-family:'Barlow Condensed',sans-serif;font-weight:400;font-size:0.96rem;color:var(--muted2);line-height:1;">
+        <span>${offset+i+1}</span><span>SI ${si}</span>
+      </div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:400;font-size:1.4rem;color:var(--white);line-height:1.3;">Par ${parSlice[i]}</div>
     </div>`).join('');
   show('setup-si-preview');
 }
@@ -969,7 +970,7 @@ function makePlayerInputEl(pi, isMe) {
       <span class="dot" style="background:${pHex(pi % 8)};"></span>
       <input id="pname-${pi}" type="text" placeholder="Player ${pi+1}"
         value="${setup.players[pi].name}" style="flex:1;background:none;border:none;
-        color:var(--white);font-size:0.88rem;outline:none;
+        color:var(--white);font-size:1.3rem;font-weight:800;outline:none;
         border-bottom:1px solid var(--border);" autocomplete="off">
       ${!isMe ? `<button class="btn btn-ghost" style="padding:0.25rem 0.6rem;font-size:0.8rem;" data-pick="${pi}">👤</button>` : ''}
     </div>
@@ -977,13 +978,14 @@ function makePlayerInputEl(pi, isMe) {
       <div class="field" style="margin:0;">
         <label>HCP Index</label>
         <input id="phcp-${pi}" type="number" step="0.1" min="0" max="54"
-          placeholder="0.0" value="${setup.players[pi].hcpIndex}">
+          placeholder="0.0" value="${setup.players[pi].hcpIndex}"
+          style="font-size:1.2rem;font-weight:800;">
       </div>
       <div class="field" style="margin:0;">
         <label>Course HCP</label>
         <input id="pchcp-${pi}" type="number" step="1" min="0" max="54"
           placeholder="0" value="${courseHcp}"
-          style="border-color:var(--gold-border);">
+          style="border-color:var(--gold-border);font-size:1.2rem;font-weight:800;">
       </div>
     </div>
     <div style="font-size:0.62rem;color:var(--muted);margin-top:3px;">
