@@ -760,10 +760,11 @@ function renderSIPreview(course, teeIdx) {
   const siSlice  = tee.si.slice(offset, offset + count);
   const parSlice = tee.par.slice(offset, offset + count);
   grid.innerHTML = siSlice.map((si, i) => `
-    <div style="background:var(--surface2);border-radius:3px;padding:3px 1px;text-align:center;">
-      <div style="font-size:0.48rem;color:var(--muted);">${offset+i+1}</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:var(--white);line-height:1;">${si}</div>
-      <div style="font-size:0.48rem;color:var(--muted);">P${parSlice[i]}</div>
+    <div style="background:var(--surface2);border-radius:3px;padding:4px 2px;text-align:center;">
+      <div style="display:flex;justify-content:space-between;font-family:'Barlow Condensed',sans-serif;font-weight:400;font-size:0.96rem;color:var(--muted2);line-height:1;">
+        <span>${offset+i+1}</span><span>SI ${si}</span>
+      </div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:400;font-size:1.4rem;color:var(--white);line-height:1.3;">Par ${parSlice[i]}</div>
     </div>`).join('');
   show('setup-si-preview');
 }
