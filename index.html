@@ -855,14 +855,19 @@
      ══════════════════════════════════════════ -->
 <!-- Score Picker Modal -->
 <div class="modal-overlay" id="modal-score-picker">
-  <div class="modal-box" style="max-width:340px;text-align:center;">
+  <div class="modal-box" style="max-width:280px;text-align:center;padding:1rem 0.85rem;">
     <div class="eyebrow mb-sm" id="sp-player-name">Player</div>
-    <div id="sp-context" style="font-size:0.75rem;color:var(--muted);margin-bottom:1rem;"></div>
-    <div id="sp-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;margin-bottom:0.75rem;"></div>
-    <button id="sp-pickup" class="btn btn-outline" style="width:100%;font-size:0.85rem;border-color:var(--gold-border);color:var(--gold);">
-      🏌️ Pickup / Did Not Finish
+    <div id="sp-context" style="font-size:0.85rem;font-weight:700;color:var(--muted2);margin-bottom:0.75rem;"></div>
+    <div style="display:grid;grid-template-columns:1fr 2fr 1fr;gap:0.4rem;font-family:'Barlow Condensed',sans-serif;
+                font-weight:800;font-size:0.95rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;
+                margin-bottom:0.4rem;">
+      <div>Net</div><div></div><div>Pts</div>
+    </div>
+    <div id="sp-grid" style="display:grid;gap:0.4rem;margin-bottom:0.75rem;"></div>
+    <button id="sp-pickup" class="btn btn-outline" style="width:100%;font-size:0.95rem;font-weight:700;padding:0.85rem;border-color:var(--gold-border);color:var(--gold);">
+      🏌️ Pick Up / DNF
     </button>
-    <button id="sp-cancel" class="btn btn-ghost" style="width:100%;margin-top:0.5rem;font-size:0.8rem;color:var(--muted);">
+    <button id="sp-cancel" class="btn btn-ghost" style="width:100%;margin-top:0.5rem;font-size:0.85rem;color:var(--muted);">
       Cancel
     </button>
   </div>
