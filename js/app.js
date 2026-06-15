@@ -760,10 +760,10 @@ function renderSIPreview(course, teeIdx) {
   const siSlice  = tee.si.slice(offset, offset + count);
   const parSlice = tee.par.slice(offset, offset + count);
   grid.innerHTML = siSlice.map((si, i) => `
-    <div style="background:var(--surface2);border-radius:3px;padding:4px 1px;text-align:center;">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.95rem;color:var(--muted2);line-height:1;">${offset+i+1}</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:400;font-size:1.35rem;color:var(--white);line-height:1.2;">${parSlice[i]}</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.95rem;color:var(--muted2);line-height:1;white-space:nowrap;">SI ${si}</div>
+    <div style="background:var(--surface2);border-radius:3px;padding:3px 1px;text-align:center;">
+      <div style="font-size:0.48rem;color:var(--muted);">${offset+i+1}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:var(--white);line-height:1;">${si}</div>
+      <div style="font-size:0.48rem;color:var(--muted);">P${parSlice[i]}</div>
     </div>`).join('');
   show('setup-si-preview');
 }
@@ -2605,7 +2605,10 @@ function mergeGroupStates(states, currentState) {
       s.groupNumber === currentState.groupNumber ? { ...currentState, allGroupStates: undefined } : s
     );
   }
-  if (merged.length === 1) return merged[0];
+  if (merged.length === 1) {
+    const { allGroupStates: _, ...stripped } = merged[0];
+    return stripped;
+  }
   const sorted = [...merged].sort((a, b) => (a.groupNumber ?? 0) - (b.groupNumber ?? 0));
   screenLog('mg0#' + sorted[0]?.groupNumber + ' log:' + (sorted[0]?.log?.length ?? 'none') + ' names:' + sorted[0]?.names?.join(','));
   screenLog('mg1#' + sorted[1]?.groupNumber + ' log:' + (sorted[1]?.log?.length ?? 'none') + ' names:' + sorted[1]?.names?.join(','));
