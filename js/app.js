@@ -1079,23 +1079,23 @@ function buildSetupReview() {
   const hcpObj = calcHandicaps(setup.players.map(p => p.hcpIndex || 0), setup.hcpPct);
 
   let html = `
-    <div style="display:grid;gap:0.35rem;font-size:0.82rem;margin-bottom:0.75rem;">
-      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Format</span><span>${fmtLabel(setup.scoring)}</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Course</span><span>${course?.name ?? '--'}</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Tees</span><span>${tee?.name ?? '--'}</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Holes</span><span>${count === 18 ? '18' : count === 9 && offset === 0 ? 'Front 9' : 'Back 9'}</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">HCP Allowance</span><span>${setup.hcpPct}%</span></div>
+    <div style="display:grid;gap:0.5rem;font-size:1.05rem;font-weight:700;margin-bottom:1rem;">
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Format</span><span>${fmtLabel(setup.scoring)}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Course</span><span>${course?.name ?? '--'}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Tees</span><span>${tee?.name ?? '--'}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Holes</span><span>${count === 18 ? '18' : count === 9 && offset === 0 ? 'Front 9' : 'Back 9'}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">HCP Allowance</span><span>${setup.hcpPct}%</span></div>
     </div>
-    <div style="border-top:1px solid var(--border);padding-top:0.6rem;">`;
+    <div style="border-top:1px solid var(--border);padding-top:0.75rem;">`;
 
   setup.players.forEach((p, i) => {
     html += `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:0.35rem 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-        <span style="display:flex;align-items:center;gap:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <span style="display:flex;align-items:center;gap:8px;font-size:1.25rem;font-weight:800;">
           <span class="dot" style="background:${pHex(i)};"></span>
           ${p.name || `Player ${i+1}`}
         </span>
-        <span style="color:var(--muted);font-size:0.75rem;">
+        <span style="color:var(--muted2);font-size:0.95rem;font-weight:700;text-align:right;">
           HCP ${fmtHandicap(p.hcpIndex)} · Course ${fmtHandicap(p.courseHandicap ?? p.hcpIndex)} · Playing ${hcpObj[i]?.playingHandicap ?? 0}
         </span>
       </div>`;
