@@ -2074,3 +2074,25 @@ html.light .bottom-nav-btn.active {
   font-weight: 700;
   font-size: 1.05rem;
 }
+
+/* Setup Review screen: bigger, bolder card title */
+#screen-setup-review .card-title {
+  font-size: 1.3rem;
+  letter-spacing: 0.04em;
+  font-weight: 800;
+}
+
+/* Toggle button groups (e.g. 18 / Front 9 / Back 9): make the selected
+   option unmistakably obvious */
+.holes-btn {
+  font-weight: 700;
+  font-size: 1.05rem;
+  transition: all 0.15s;
+}
+.holes-btn.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #0e1a13;
+  font-weight: 800;
+  box-shadow: 0 0 0 2px var(--gold-border);
+}
