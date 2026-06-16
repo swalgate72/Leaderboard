@@ -259,6 +259,13 @@
           <select id="setup-tee-select"><option value="">-- Select a course first --</option></select>
         </div>
 
+        <!-- HCP Allowance moved here from Settings card -->
+        <div class="field">
+          <label>Handicap Allowance %</label>
+          <input id="setup-hcp-pct" type="number" min="0" max="100" step="1" value="100">
+          <div class="hint">100 = full · 75 = three-quarter · 50 = half</div>
+        </div>
+
         <!-- 18 / Front 9 / Back 9 -->
         <div class="field">
           <label>Holes</label>
@@ -273,24 +280,9 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">Settings</div>
-      <div class="two-col" style="margin-bottom:0;">
-        <div class="field" style="margin:0;">
-          <label id="setup-num-players-label">Players</label>
-          <select id="setup-num-players"></select>
-        </div>
-        <div class="field" style="margin:0;">
-          <label>Groups</label>
-          <select id="setup-num-groups"></select>
-        </div>
-      </div>
-      <div class="field mt-sm" style="margin-bottom:0;">
-        <label>Handicap Allowance %</label>
-        <input id="setup-hcp-pct" type="number" min="0" max="100" step="1" value="100">
-        <div class="hint">100 = full · 75 = three-quarter · 50 = half</div>
-      </div>
-    </div>
+    <!-- Hidden selects kept for JS compatibility — not shown to user -->
+    <select id="setup-num-players" style="display:none;"></select>
+    <select id="setup-num-groups" style="display:none;"></select>
 
     <button class="btn btn-green btn-full" id="btn-setup-course-next">NEXT: PLAYERS →</button>
   </div>
