@@ -941,9 +941,11 @@ export function buildMultiGroupLeaderboard(groupStates) {
       const net   = fmt === 'stroke'
         ? (state.totals?.[pi] ?? 0)
         : null;
-      const pts   = fmt === 'stableford'
+      const pts   = fmt === 'stableford' || fmt === 'best2'
         ? (state.totals?.[pi] ?? 0)
-        : null;
+        : fmt === 'split6'
+          ? (state.runningPts?.[pi] ?? 0)
+          : null;
 
       rows.push({
         name,
