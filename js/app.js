@@ -630,7 +630,9 @@ async function loadHomeStatsAndActive(myName) {
             <div class="home-active-title">Game Setup — ${draft.courseName ?? fmtLabel(draft.scoring)}</div>
             <div class="home-active-sub">${fmtLabel(draft.scoring)}${draftNames ? ` · ${draftNames}` : ''}</div>
           </div>
-          <div class="home-active-chevron">›</div>
+          <button class="btn btn-ghost" id="btn-dismiss-draft"
+            style="font-size:0.85rem;color:var(--muted);border:none;padding:0.25rem 0.5rem;flex-shrink:0;"
+            title="Dismiss">✕</button>
         </div>`);
     }
 
@@ -659,12 +661,20 @@ async function loadHomeStatsAndActive(myName) {
 
     activeEl.innerHTML = rows.join('');
     activeEl.querySelectorAll('.home-active-row').forEach(row => {
+      // Dismiss draft button — stop propagation so it doesn't also trigger row click
+      row.querySelector('#btn-dismiss-draft')?.addEventListener('click', e => {
+        e.stopPropagation();
+        clearSetupDraft();
+        loadHomeStatsAndActive(myName ?? '');
+      });
+
       row.addEventListener('click', () => {
         if (row.dataset.kind === 'round') {
           resumeRound(row.dataset.id);
         } else if (row.dataset.kind === 'draft') {
-          // Restore in-progress game setup
-          tryRestoreSetupState().then(ok => { if (!ok) showHome(); });
+          tryRestoreSetupState().then(ok => {
+            if (!ok) { clearSetupDraft(); showHome(); }
+          });
         } else {
           showTournamentDetail(row.dataset.id);
         }
@@ -3829,6 +3839,8 @@ document.getElementById('abandon-confirm')?.addEventListener('click', async () =
   realtimeUnsubscribe(realtimeCh); realtimeCh = null;
   roundId = null; gameState = null;
   try { localStorage.removeItem('lb-active-round'); } catch {}
+  clearSetupState();
+  clearSetupDraft();
   await showHome();
 });
 
