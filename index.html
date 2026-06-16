@@ -345,14 +345,14 @@
         <button class="btn btn-ghost" id="setup-groups-back" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
         <button class="btn btn-ghost" id="setup-abandon-3" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">Abandon</button>
       </div>
-      <div class="home-hero-title">Groups</div>
+      <div class="home-hero-title" id="setup-groups-title">Groups</div>
     </div>
 
     <div class="page-pad-sm" style="padding-top:1rem;">
 
       <div class="card mb-sm">
         <div class="field" style="margin-bottom:0.5rem;">
-          <label>Number of Groups</label>
+          <label id="setup-num-groups-label">Number of Groups</label>
           <select id="setup-num-groups"></select>
         </div>
         <div id="setup-group-suggestion" style="font-size:0.9rem;font-weight:700;color:var(--muted2);margin-bottom:0;"></div>
@@ -370,6 +370,38 @@
 </div>
 
 <!-- ══════════════════════════════════════════
+     SETUP — PAIRS: PAIR UP PLAYERS
+     ══════════════════════════════════════════ -->
+<div id="screen-setup-pairs" class="screen">
+  <div style="padding: 0 0 2rem; max-width: 480px; margin: 0 auto;">
+
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="setup-pairs-back" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+        <button class="btn btn-ghost" id="setup-abandon-pairs" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">Abandon</button>
+      </div>
+      <div class="home-hero-title">Pair Up Players</div>
+      <div class="home-hero-club">Drag players into pairs</div>
+    </div>
+
+    <div class="page-pad-sm" style="padding-top:1rem;">
+      <!-- Unassigned players pool -->
+      <div class="card mb-sm" id="setup-pairs-pool-card">
+        <div class="card-title">Unassigned Players</div>
+        <div id="setup-pairs-pool"></div>
+      </div>
+      <!-- Pair cards — rendered by JS -->
+      <div id="setup-pair-cards"></div>
+
+      <button class="btn btn-green mt-md" id="btn-setup-pairs-next"
+        style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;">
+        NEXT: ARRANGE GROUPS →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
      SETUP — STEP 3: REVIEW & TEE OFF
      ══════════════════════════════════════════ -->
 <div id="screen-setup-review" class="screen">
@@ -379,18 +411,12 @@
     <div class="home-hero">
       <div class="home-hero-top">
         <button class="btn btn-ghost" id="setup-review-back" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
-        <button class="btn btn-ghost btn-danger-ghost" id="setup-abandon-3" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">Abandon</button>
+        <button class="btn btn-ghost" id="setup-abandon-review" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">Abandon</button>
       </div>
       <div class="home-hero-title">Review</div>
     </div>
 
   <div class="page-pad-sm" style="padding-top:1rem;">
-    <div class="step-progress">
-      <div class="step-dot done"></div>
-      <div class="step-dot done"></div>
-      <div class="step-dot current"></div>
-    </div>
-
     <div class="card" id="review-card">
       <div class="card-title">Round Summary</div>
       <div id="review-content"></div>
