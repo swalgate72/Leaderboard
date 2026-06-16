@@ -2360,7 +2360,6 @@ async function teeOff() {
   const matchHcps   = hcpObj.map(h => h.matchHandicap);
 
   const playersPerGroup = Math.ceil(setup.numPlayers / setup.numGroups);
-  screenLog('teeOff numGroups:' + setup.numGroups + ' numPlayers:' + setup.numPlayers + ' ppg:' + playersPerGroup);
 
   // Build one game state per group
   const groupStates = [];
@@ -2522,37 +2521,14 @@ async function teeOff() {
 // ================================================================
 // RESUME
 // ================================================================
-function screenLog(msg) {
-  console.log(msg);
-  let el = document.getElementById('screen-log');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'screen-log';
-    el.style.cssText = 'position:fixed;bottom:0;left:0;width:55%;background:rgba(0,0,0,0.85);' +
-      'color:#0f0;font-size:8px;font-family:monospace;padding:2px 4px;z-index:50;' +
-      'max-height:32px;overflow-y:auto;border-top-right-radius:6px;';
-    el.title = 'Tap to hide';
-    el.addEventListener('click', () => el.style.display = 'none');
-    document.body.appendChild(el);
-  }
-  el.style.display = '';
-  el.innerHTML += '<div>' + new Date().toISOString().slice(11,19) + ' ' + msg + '</div>';
-  el.scrollTop = el.scrollHeight;
-}
-
 async function resumeRound(id) {
   try {
     const round = await roundLoadById(id);
     if (!round) return;
     roundId = id;
     let gs = round.game_state;
-    screenLog('resuming:' + id.slice(0,8) + ' groups:' + (gs?.allGroupStates?.length ?? 'none'));
-    screenLog('myId:' + currentUser?.id?.slice(0,8));
-    screenLog('topScorer:' + (gs?.scorerProfileId?.slice(0,8) ?? 'null'));
     if (gs?.allGroupStates) {
       gs.allGroupStates.forEach((s, i) => {
-        screenLog('g' + i + ' pids:' + (s.playerProfileIds ?? []).map(p => p?.slice(0,6) ?? 'null').join(','));
-        screenLog('g' + i + ' scorer:' + (s.scorerProfileId?.slice(0,8) ?? 'null'));
       });
     }
 
@@ -2560,14 +2536,11 @@ async function resumeRound(id) {
       const myGroup = gs.allGroupStates.find(s =>
         s.playerProfileIds?.some(pid => pid && pid === currentUser.id)
       );
-      screenLog('myGroup:' + (myGroup ? 'found scorer:' + myGroup.scorerProfileId?.slice(0,8) : 'NOT FOUND'));
       if (myGroup) {
         gs = { ...myGroup, allGroupStates: gs.allGroupStates };
-        screenLog('allGS after resume: ' + gs.allGroupStates.map(s => 'g'+s.groupNumber+'='+s.names?.[0]).join('|'));
       }
     }
     gameState = gs;
-    screenLog('finalScorer:' + (gameState?.scorerProfileId?.slice(0,8) ?? 'null'));
     // If this is a tournament round, reload tournament globals so
     // saveTournamentScores has activeTournPlayers when the round ends.
     if (gameState?.tournamentId) {
@@ -4014,7 +3987,6 @@ function subscribeToRound(id) {
       ? (!gameState?.organiserId || gameState.organiserId === currentUser?.id)
       : (scorerPid !== '__unclaimed__' && scorerPid !== null && scorerPid === currentUser?.id);
 
-    screenLog('recv g:' + incoming.groupNumber + ' mine:' + gameState?.groupNumber + ' scorer:' + iAmScorer);
 
     // Always update other groups in allGroupStates (scorers need this for the scorecard)
     if (gameState?.allGroupStates?.length > 1 && incoming.groupNumber &&
@@ -4048,7 +4020,6 @@ function subscribeToRound(id) {
   });
 }
 
-// screenLog defined above
 
 function subscribeToFriendRequests() {
   realtimeSubscribeFriendRequests(currentUser.id, async () => {
@@ -4073,7 +4044,6 @@ function subscribeToGameInvites() {
   }
 
   _gameInviteChannel = realtimeSubscribeGameInvites(currentUser.id, async (row) => {
-    console.log('[invite] realtime fired', row);
     try {
       const invite = await gameInviteLoad(row.id);
       if (!invite || invite.status === 'accepted') return;
@@ -4084,9 +4054,7 @@ function subscribeToGameInvites() {
   // Log subscription status after 2s
   setTimeout(() => {
     const state = _gameInviteChannel?.state;
-    console.log('[invite] channel state:', state);
     if (state !== 'joined' && state !== 'SUBSCRIBED') {
-      console.warn('[invite] realtime not connected, starting poll fallback');
       startInvitePoll();
     }
   }, 2000);
@@ -4518,9 +4486,6 @@ function mergeGroupStates(states, currentState) {
     return stripped;
   }
   const sorted = [...merged].sort((a, b) => (a.groupNumber ?? 0) - (b.groupNumber ?? 0));
-  screenLog('mg0#' + sorted[0]?.groupNumber + ' log:' + (sorted[0]?.log?.length ?? 'none') + ' names:' + sorted[0]?.names?.join(','));
-  screenLog('mg1#' + sorted[1]?.groupNumber + ' log:' + (sorted[1]?.log?.length ?? 'none') + ' names:' + sorted[1]?.names?.join(','));
-  screenLog('cur#' + currentState?.groupNumber + ' log:' + (currentState?.log?.length ?? 'none'));
   const base = sorted[0];
   return {
     ...base,
@@ -6613,7 +6578,6 @@ async function _teeOffRound(tournId, courseId, teeName, date) {
 }
 
 async function showRegularGameInviteModal(otherGroupScorers, course, tee, fmt) {
-  console.log('[invite] showRegularGameInviteModal called', otherGroupScorers);
   const modal   = document.getElementById('modal-group-invites');
   const listEl  = document.getElementById('group-invites-list');
   const doneBtn = document.getElementById('btn-group-invites-done');
