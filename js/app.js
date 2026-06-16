@@ -1914,50 +1914,152 @@ function showLeaderboard() {
 }
 
 function renderLeaderboard() {
-  const fmt     = gameState.format;
-  const states  = gameState.allGroupStates ?? [gameState];
-  const metaEl  = document.getElementById('leaderboard-meta');
-  const tableEl = document.getElementById('leaderboard-table');
+  const fmt      = gameState.format;
+  const isTourney = !!gameState.tournamentId;
+  const tableEl  = document.getElementById('leaderboard-table');
+  const metaEl   = document.getElementById('leaderboard-meta');
+  if (!tableEl) return;
 
-  metaEl.textContent = `${gameState.courseName} · ${gameState.teeName} Tees · ${fmtLabel(fmt)}`;
+  // Determine score label from format
+  const isPoints = ['stableford','split6','csm','best2'].includes(fmt);
+  const isStroke = fmt === 'stroke';
+  const scoreLabel = isPoints ? 'Pts' : isStroke ? 'Net' : 'Score';
 
-  const rows = buildMultiGroupLeaderboard(states);
-  if (!rows.length) {
-    tableEl.innerHTML = '<div class="history-empty">No scores recorded yet.</div>';
+  metaEl.textContent = `${gameState.courseName} · ${gameState.teeName} · ${fmtLabel(fmt)}`.toUpperCase();
+
+  // ── Non-tournament: live group scores only ───────────────────────
+  if (!isTourney) {
+    const states = gameState.allGroupStates ?? [gameState];
+    const rows   = buildMultiGroupLeaderboard(states);
+
+    if (!rows.length) {
+      tableEl.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);">No scores yet.</div>';
+      return;
+    }
+
+    tableEl.innerHTML = buildLeaderboardTable(
+      rows.map((r, rank) => ({
+        rank:  rank + 1,
+        label: r.name,
+        sub:   null,
+        score: isPoints ? r.pts : isStroke ? r.net : r.gross,
+        thru:  r.holesPlayed,
+        isLead: rank === 0,
+      })),
+      scoreLabel
+    );
     return;
   }
 
-  const isStableford = fmt === 'stableford';
-  const isStroke     = fmt === 'stroke';
+  // ── Tournament mode ──────────────────────────────────────────────
+  const isFixedTeam   = activeTournament?.tournament_type === 'team'
+                     && activeTournament?.team_rotation === 'fixed'
+                     && activeTournTeams?.length > 0;
+  const scoringMode   = activeTournament?.scoring_mode ?? 'cumulative';
+  const completedRnds = (activeTournRounds ?? []).filter(r => r.status === 'completed');
+  const numHolesPerRound = gameState.numHoles ?? 18;
+  const liveHoles     = gameState.log?.length ?? 0;
+  const liveStates    = gameState.allGroupStates ?? [gameState];
 
-  let html = `<table class="sc-table" style="width:100%;">
-    <thead><tr>
-      <th style="text-align:left;">Player</th>
-      <th>Grp</th>
-      <th>Holes</th>
-      <th>Gross</th>
-      ${isStroke     ? '<th>Net</th>' : ''}
-      ${isStableford ? '<th style="color:var(--gold);">Pts</th>' : ''}
-      <th>HCP</th>
-    </tr></thead><tbody>`;
-
-  rows.forEach((row, rank) => {
-    const isLead = rank === 0;
-    html += `<tr${isLead ? ' style="background:rgba(212,168,67,0.06);"' : ''}>
-      <td style="font-weight:${isLead?'700':'500'};color:${isLead?'var(--gold)':''};text-align:left;">
-        ${rank + 1}. ${row.name}
-      </td>
-      <td>${row.group}</td>
-      <td>${row.holesPlayed}</td>
-      <td>${row.gross || '--'}</td>
-      ${isStroke     ? `<td style="color:var(--green);font-weight:600;">${row.net ?? '--'}</td>` : ''}
-      ${isStableford ? `<td style="color:var(--gold);font-weight:700;">${row.pts ?? '--'}</td>` : ''}
-      <td style="color:var(--muted);font-size:0.75rem;">${row.hcp}</td>
-    </tr>`;
+  // Build a map of live player scores from current round (all groups)
+  const liveScoreByName = {};
+  liveStates.forEach(gs => {
+    (gs.names ?? []).forEach((name, pi) => {
+      const pts  = isPoints ? (gs.totals?.[pi] ?? 0) : null;
+      const net  = isStroke ? (gs.totals?.[pi] ?? 0) : null;
+      liveScoreByName[name] = { pts, net, holes: gs.log?.length ?? 0 };
+    });
   });
 
-  html += '</tbody></table>';
-  tableEl.innerHTML = html;
+  if (isFixedTeam) {
+    // Fixed teams: team name + member names, team total score
+    const standings = buildTeamStandings(
+      activeTournTeams, activeTournPlayers, completedRnds, activeTournAllScores,
+      fmt, scoringMode
+    );
+    const rows = standings.map((row, idx) => {
+      const sub = row.teamPlayers?.map(p => p.name.split(' ')[0]).join(', ') ?? '';
+      // Add live round contribution for each team member
+      let liveAdd = 0;
+      row.teamPlayers?.forEach(p => {
+        const live = liveScoreByName[p.name];
+        if (live) liveAdd += (isStroke ? (live.net ?? 0) : (live.pts ?? 0));
+      });
+      const total = (row.total ?? 0) + liveAdd;
+      return {
+        rank:   idx + 1,
+        label:  row.name,
+        sub,
+        score:  total || '--',
+        thru:   completedRnds.length * numHolesPerRound + liveHoles,
+        isLead: idx === 0,
+      };
+    });
+    tableEl.innerHTML = buildLeaderboardTable(rows, scoreLabel);
+
+  } else {
+    // Individual / rotating teams: one row per player
+    const standings = buildStandings(
+      activeTournPlayers ?? [], completedRnds, activeTournAllScores ?? [],
+      fmt, scoringMode === 'points_game' ? 'cumulative' : scoringMode
+    );
+    const rows = standings.map((row, idx) => {
+      const live  = liveScoreByName[row.name] ?? {};
+      const historical = row.total ?? 0;
+      const liveAdd    = isStroke ? (live.net ?? 0) : (live.pts ?? 0);
+      const total      = historical + liveAdd;
+      return {
+        rank:   idx + 1,
+        label:  row.name,
+        sub:    null,
+        score:  total || '--',
+        thru:   completedRnds.length * numHolesPerRound + liveHoles,
+        isLead: idx === 0,
+      };
+    });
+    tableEl.innerHTML = buildLeaderboardTable(rows, scoreLabel);
+  }
+}
+
+function buildLeaderboardTable(rows, scoreLabel) {
+  if (!rows.length) return '<div style="padding:2rem;text-align:center;color:var(--muted);">No scores yet.</div>';
+
+  let html = `
+    <div style="display:grid;grid-template-columns:auto 1fr auto auto;
+                align-items:center;border-bottom:2px solid var(--border2);
+                padding:0.5rem 0.75rem;margin-top:1rem;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.85rem;
+                  color:var(--muted);letter-spacing:0.1em;width:2rem;">#</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.85rem;
+                  color:var(--muted);letter-spacing:0.1em;">NAME</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.85rem;
+                  color:var(--muted);letter-spacing:0.1em;text-align:right;padding-right:1.25rem;">${scoreLabel.toUpperCase()}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.85rem;
+                  color:var(--muted);letter-spacing:0.1em;text-align:right;">THRU</div>
+    </div>`;
+
+  rows.forEach(r => {
+    const gold = r.isLead ? 'var(--gold)' : 'var(--white)';
+    const bg   = r.isLead ? 'background:rgba(212,168,67,0.06);' : '';
+    html += `
+      <div style="display:grid;grid-template-columns:auto 1fr auto auto;
+                  align-items:center;padding:0.9rem 0.75rem;
+                  border-bottom:1px solid var(--border);${bg}">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+                    font-size:1.4rem;color:var(--muted2);width:2rem;">${r.rank}</div>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+                      font-size:1.5rem;color:${gold};line-height:1.1;">${r.label}</div>
+          ${r.sub ? `<div style="font-size:0.85rem;font-weight:700;color:var(--muted2);">${r.sub}</div>` : ''}
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+                    font-size:1.6rem;color:${gold};text-align:right;padding-right:1.25rem;">${r.score}</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;
+                    font-size:1.2rem;color:var(--muted2);text-align:right;">${r.thru}</div>
+      </div>`;
+  });
+
+  return html;
 }
 
 document.getElementById('btn-game-scorecard')?.addEventListener('click', () => {
