@@ -673,22 +673,22 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 .auth-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 3px;
+  gap: 4px;
   background: var(--surface2);
   border-radius: var(--radius-sm);
-  padding: 3px;
+  padding: 4px;
   margin-bottom: 1.5rem;
 }
 
 .auth-tab {
-  padding: 0.55rem;
+  padding: 0.75rem;
   text-align: center;
   border-radius: 6px;
   cursor: pointer;
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
   transition: all 0.15s;
   color: var(--muted);
 }
@@ -708,9 +708,10 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 .auth-divider-line { flex: 1; height: 1px; background: var(--border); }
 
 .auth-divider-text {
-  font-size: 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 700;
   color: var(--muted);
-  letter-spacing: 0.15em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -2227,3 +2228,25 @@ html.light .bottom-nav-btn.active {
   gap: 2px;
 }
 .sc-player-header .dot { width: 8px; height: 8px; }
+
+/* Auth screen: match app text sizing */
+#screen-auth .field > label {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--muted2);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+#screen-auth input {
+  font-size: 1.1rem;
+}
+.btn-forgot {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted2);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
