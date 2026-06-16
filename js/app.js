@@ -2868,8 +2868,8 @@ function renderHolePanel() {
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div>
           <div class="gi-name" style="font-size:1.35rem;">🤠 ${teamName}</div>
-          <div class="gi-hcp">Team HCP ${teamHcp}</div>
-          ${prevLabel ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:2px;">${prevLabel}</div>` : ''}
+          <div class="gi-hcp" style="font-size:1.05rem;font-weight:800;color:var(--muted2);">Team HCP ${teamHcp}</div>
+          ${prevLabel ? `<div style="font-size:1rem;font-weight:700;color:var(--muted);margin-top:2px;">${prevLabel}</div>` : ''}
         </div>
         <div class="score-btn" id="cv-texas" data-value="${existEntry?.gross ?? ''}"
           style="min-width:64px;text-align:center;cursor:pointer;padding:0.6rem 1rem;
@@ -2879,12 +2879,12 @@ function renderHolePanel() {
         </div>
       </div>
       <div>
-        <div style="font-size:0.85rem;font-weight:800;color:var(--muted2);margin-bottom:0.4rem;">Driver used:</div>
+        <div style="font-size:1.05rem;font-weight:800;color:var(--muted2);margin-bottom:0.4rem;">Driver used:</div>
         <div style="display:flex;gap:0.4rem;flex-wrap:wrap;" id="texas-driver-btns">
           ${gameState.names.map((name, pi) => `
             <button class="texas-driver-btn ${(existEntry?.driverIdx ?? -1) === pi ? 'holes-btn active' : 'btn-outline'}"
               data-pi="${pi}"
-              style="flex:1;min-width:80px;padding:0.55rem 0.4rem;font-size:0.85rem;font-weight:700;">
+              style="flex:1;min-width:80px;padding:0.75rem 0.4rem;font-size:1.05rem;font-weight:800;font-family:'Barlow Condensed',sans-serif;">
               ${name.split(' ')[0]}
             </button>`).join('')}
         </div>
