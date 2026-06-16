@@ -1354,9 +1354,11 @@ html.light .btn-record { background: #1a3a22; color: #fff; }
 
 .sc-overlay-body {
   flex: 1;
-  overflow-y: auto;
-  padding: 0.75rem 0.5rem 2rem;
-  overflow-x: auto;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* ── END ROUND SCREEN ───────────────────────────────────────────── */
@@ -2098,3 +2100,130 @@ html.light .bottom-nav-btn.active {
   font-weight: 800;
   box-shadow: 0 0 0 2px var(--gold-border);
 }
+
+/* ── NEW VERTICAL SCORECARD ─────────────────────────────────────── */
+.sc-mode-row {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sc-mode-btn {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border2);
+  background: none;
+  color: var(--muted2);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.sc-mode-btn.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #0e1a13;
+}
+
+.sc-group-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sc-group-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--border2);
+  cursor: pointer;
+}
+.sc-group-dot.active { background: var(--gold); }
+
+.sc-pages {
+  display: flex;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  scroll-snap-type: x mandatory;
+}
+.sc-page {
+  flex: 0 0 100%;
+  width: 100%;
+  scroll-snap-align: start;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sc-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.sc-table th, .sc-table td {
+  text-align: center;
+  padding: 0.5rem 0.35rem;
+  font-family: 'Barlow Condensed', sans-serif;
+}
+.sc-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 5;
+  border-bottom: 2px solid var(--border2);
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--muted2);
+  letter-spacing: 0.03em;
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+}
+.sc-table thead th:first-child { text-align: left; padding-left: 0.75rem; }
+.sc-table tbody td:first-child { text-align: left; padding-left: 0.75rem; }
+
+.sc-hole-cell {
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--white);
+}
+.sc-meta-cell {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.sc-score-cell {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--white);
+}
+.sc-row-current { background: rgba(212,168,67,0.08); }
+
+.sc-subtotal-row td {
+  background: var(--surface2);
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--gold);
+  border-top: 1px solid var(--border2);
+  border-bottom: 1px solid var(--border2);
+}
+.sc-total-row td {
+  background: var(--surface3);
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: var(--gold);
+  border-top: 2px solid var(--gold-border);
+}
+
+.sc-player-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.sc-player-header .dot { width: 8px; height: 8px; }
