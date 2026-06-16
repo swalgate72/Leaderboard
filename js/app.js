@@ -1329,44 +1329,28 @@ function removePlayerFromPair(pi, reRender = true) {
 function renderSetupGroupCards() {
   const isPairs  = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
   const isBest2  = setup.scoring === 'best2';
-  const numGroupsSel = document.getElementById('setup-num-groups');
   const namedPlayers = setup.players.filter(p => p.name);
   const numPlayers   = namedPlayers.length;
 
-  // Title / label
+  // Title
   const titleEl = document.getElementById('setup-groups-title');
-  const labelEl = document.getElementById('setup-num-groups-label');
+
   if (isPairs) {
     const numPairs = setup.pairs.length;
     if (titleEl) titleEl.textContent = 'Arrange Groups';
-    if (labelEl) labelEl.textContent = 'Number of Groups';
-    // For pairs: 1 group per 2 pairs (4 players), so suggest numPairs/2
+    // Auto-suggest: aim for 2 pairs per group
     const suggestedGrps = Math.max(1, Math.ceil(numPairs / 2));
-    // Reset _wired flag so we re-wire with new options
-    if (numGroupsSel) {
-      numGroupsSel._wired = false;
-      numGroupsSel.innerHTML = Array.from({ length: Math.max(numPairs, 6) }, (_, i) =>
-        `<option value="${i+1}">${i+1} group${i > 0 ? 's' : ''}</option>`).join('');
-      numGroupsSel.value = String(Math.min(suggestedGrps, setup.numGroups || suggestedGrps));
-      setup.numGroups = parseInt(numGroupsSel.value) || 1;
-      numGroupsSel.onchange = () => {
-        setup.numGroups = parseInt(numGroupsSel.value) || 1;
-        // Clamp pair groupNumbers
-        setup.pairs.forEach(pair => {
-          if ((pair.groupNumber ?? 1) > setup.numGroups) pair.groupNumber = setup.numGroups;
-        });
-        renderSetupGroupCards();
-      };
-      numGroupsSel._wired = true;
-    }
+    if (!setup.numGroups || setup.numGroups < 1) setup.numGroups = suggestedGrps;
+    // Clamp any out-of-range group assignments
+    setup.pairs.forEach(pair => {
+      if ((pair.groupNumber ?? 1) > setup.numGroups) pair.groupNumber = setup.numGroups;
+    });
     renderSetupPairGroupCards();
     return;
   }
 
-  // ── Best 2: show grouping option buttons instead of select ──────
-  const numGroupsCard = document.getElementById('setup-num-groups-card');
+  // ── Best 2: show grouping option buttons ──
   if (isBest2) {
-    if (numGroupsCard) numGroupsCard.style.display = 'none';
     if (titleEl) titleEl.textContent = 'Arrange Teams';
 
     const container = document.getElementById('setup-group-cards');
@@ -1380,7 +1364,6 @@ function renderSetupGroupCards() {
         options.push({ numGroups: numGrps, perGroup: grpSize });
       }
     }
-    // If no exact split, add nearest options
     if (options.length === 0) {
       [3, 4].forEach(grpSize => {
         const numGrps = Math.round(numPlayers / grpSize);
@@ -1406,7 +1389,6 @@ function renderSetupGroupCards() {
     });
     optionHTML += `</div>`;
 
-    // Re-assign players for current selection
     if (!namedPlayers.some(p => p.groupNumber > 1) || setup.numGroups !== selectedNumGroups) {
       setup.numGroups       = selectedNumGroups;
       setup.playersPerGroup = selectedPerGroup;
@@ -1419,11 +1401,9 @@ function renderSetupGroupCards() {
     const groups = Array.from({ length: selectedNumGroups }, (_, g) =>
       namedPlayers.filter(p => (p.groupNumber ?? 1) === g + 1));
 
-    // Render option buttons + drag-drop group cards
     container.innerHTML = optionHTML + renderB2GroupCards(groups, namedPlayers);
     wireB2GroupCards(container, groups, namedPlayers);
 
-    // Wire option buttons
     container.querySelectorAll('.b2-group-opt').forEach(btn => {
       btn.addEventListener('click', () => {
         const ng = parseInt(btn.dataset.groups);
@@ -1431,7 +1411,6 @@ function renderSetupGroupCards() {
         setup.numGroups       = ng;
         setup.playersPerGroup = np;
         setup.numPlayers      = numPlayers;
-        // Re-assign players
         namedPlayers.forEach((p, i) => {
           p.groupNumber = Math.min(Math.floor(i / np) + 1, ng);
         });
@@ -1444,27 +1423,30 @@ function renderSetupGroupCards() {
     return;
   }
 
-  // ── Individual / split6 etc: player drag with groups select ──
-  if (numGroupsCard) numGroupsCard.style.display = '';
+  // ── Individual / split6 etc: auto-compute groups ──
   const suggested = Math.max(1, Math.ceil(numPlayers / 4));
+  if (!setup.numGroups || setup.numGroups < 1) setup.numGroups = suggested;
 
-  if (numGroupsSel && !numGroupsSel._wired) {
-    numGroupsSel.innerHTML = Array.from({ length: 6 }, (_, i) =>
-      `<option value="${i+1}">${i+1} group${i > 0 ? 's' : ''}</option>`).join('');
-    numGroupsSel.value = String(Math.min(suggested, setup.numGroups || 1, 6));
-    numGroupsSel.onchange = () => {
-      setup.numGroups = parseInt(numGroupsSel.value) || 1;
-      renderSetupGroupCards();
-    };
-    numGroupsSel._wired = true;
-  }
-
-  setup.numGroups = parseInt(numGroupsSel?.value) || 1;
-  const perGroup  = isBest2 ? (setup.playersPerGroup || 4) : Math.ceil(numPlayers / setup.numGroups);
+  const perGroup  = Math.ceil(numPlayers / setup.numGroups);
 
   const suggestion = document.getElementById('setup-group-suggestion');
   if (suggestion) {
-    suggestion.textContent = `${numPlayers} players → ${setup.numGroups} group${setup.numGroups > 1 ? 's' : ''} of ~${perGroup}`;
+    suggestion.innerHTML = `
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <button id="grp-dec" class="btn btn-ghost"
+          style="padding:0.25rem 0.75rem;font-size:1.2rem;font-weight:800;" ${setup.numGroups <= 1 ? 'disabled' : ''}>−</button>
+        <span style="flex:1;text-align:center;font-size:1rem;font-weight:800;">
+          ${numPlayers} player${numPlayers !== 1 ? 's' : ''} · ${setup.numGroups} group${setup.numGroups > 1 ? 's' : ''} of ~${perGroup}
+        </span>
+        <button id="grp-inc" class="btn btn-ghost"
+          style="padding:0.25rem 0.75rem;font-size:1.2rem;font-weight:800;" ${setup.numGroups >= numPlayers ? 'disabled' : ''}>＋</button>
+      </div>`;
+    document.getElementById('grp-dec')?.addEventListener('click', () => {
+      if (setup.numGroups > 1) { setup.numGroups--; renderSetupGroupCards(); }
+    });
+    document.getElementById('grp-inc')?.addEventListener('click', () => {
+      if (setup.numGroups < numPlayers) { setup.numGroups++; renderSetupGroupCards(); }
+    });
   }
 
   // Assign groupNumber to players if not yet set
@@ -1717,7 +1699,26 @@ function renderSetupPairGroupCards() {
   }
 
   if (suggestion) {
-    suggestion.textContent = `${numPairs} pairs → ${setup.numGroups} group${setup.numGroups > 1 ? 's' : ''} of 2 · Drag a pair onto another to swap`;
+    suggestion.innerHTML = `
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <button id="pgrp-dec" class="btn btn-ghost"
+          style="padding:0.25rem 0.75rem;font-size:1.2rem;font-weight:800;" ${setup.numGroups <= 1 ? 'disabled' : ''}>−</button>
+        <span style="flex:1;text-align:center;font-size:1rem;font-weight:800;">
+          ${numPairs} pairs · ${setup.numGroups} group${setup.numGroups > 1 ? 's' : ''} of 2 · Drag a pair onto another to swap
+        </span>
+        <button id="pgrp-inc" class="btn btn-ghost"
+          style="padding:0.25rem 0.75rem;font-size:1.2rem;font-weight:800;" ${setup.numGroups >= numPairs ? 'disabled' : ''}>＋</button>
+      </div>`;
+    document.getElementById('pgrp-dec')?.addEventListener('click', () => {
+      if (setup.numGroups > 1) {
+        setup.numGroups--;
+        setup.pairs.forEach(p => { if ((p.groupNumber ?? 1) > setup.numGroups) p.groupNumber = setup.numGroups; });
+        renderSetupPairGroupCards();
+      }
+    });
+    document.getElementById('pgrp-inc')?.addEventListener('click', () => {
+      if (setup.numGroups < numPairs) { setup.numGroups++; renderSetupPairGroupCards(); }
+    });
   }
 
   const groups = Array.from({ length: setup.numGroups }, (_, g) =>
@@ -5610,11 +5611,10 @@ function buildGroupSetupScreen() {
 
   document.getElementById('tourn-date').value = new Date().toISOString().split('T')[0];
 
-  // Suggest group count based on player count (aiming for 4 per group)
-  const numPlayers   = tournSetupPlayers.filter(p => p.name).length;
+  // Auto-compute group count (aim for 4 per group)
+  const numPlayers    = tournSetupPlayers.filter(p => p.name).length;
   const suggestedGrps = Math.max(1, Math.ceil(numPlayers / 4));
-  const numGroupsSel  = document.getElementById('tourn-num-groups');
-  if (numGroupsSel) numGroupsSel.value = String(Math.min(suggestedGrps, 6));
+  tournSetupNumGroups = suggestedGrps;
 
   const suggestion = document.getElementById('tourn-group-suggestion');
   if (suggestion) {
@@ -5622,26 +5622,37 @@ function buildGroupSetupScreen() {
     suggestion.textContent = `${numPlayers} players → ${suggestedGrps} group${suggestedGrps > 1 ? 's' : ''} of ~${perGroup}`;
   }
 
-  // Wire group number change to re-render group cards (preserves existing assignments)
-  numGroupsSel.onchange = () => {
-    tournSetupNumGroups = parseInt(numGroupsSel.value) || 1;
-    const numPlayers2    = tournSetupPlayers.filter(p => p.name).length;
-    const suggested2     = Math.max(1, Math.ceil(numPlayers2 / 4));
-    const perGroup2      = Math.ceil(numPlayers2 / tournSetupNumGroups);
-    if (suggestion) suggestion.textContent =
-      `${numPlayers2} players → ${tournSetupNumGroups} group${tournSetupNumGroups > 1 ? 's' : ''} of ~${perGroup2}`;
-    renderGroupAssignmentCards();
-  };
-
-  tournSetupNumGroups = parseInt(numGroupsSel?.value) || 1;
   renderGroupAssignmentCards();
 }
 
 function renderGroupAssignmentCards() {
-  tournSetupNumGroups = parseInt(document.getElementById('tourn-num-groups')?.value) || 1;
+  // tournSetupNumGroups is set by buildGroupSetupScreen (auto-computed), user can adjust with +/-
   const namedPlayers  = tournSetupPlayers.filter(p => p.name);
+  const numPlayers    = namedPlayers.length;
   const container     = document.getElementById('tourn-group-cards');
+  const suggestion    = document.getElementById('tourn-group-suggestion');
   if (!container) return;
+
+  // Render +/- stepper in suggestion area
+  if (suggestion) {
+    const perGroup = Math.ceil(numPlayers / tournSetupNumGroups);
+    suggestion.innerHTML = `
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <button id="tourn-grp-dec" class="btn btn-ghost"
+          style="padding:0.25rem 0.75rem;font-size:1.2rem;font-weight:800;" ${tournSetupNumGroups <= 1 ? 'disabled' : ''}>−</button>
+        <span style="font-size:1rem;font-weight:800;flex:1;text-align:center;">
+          ${tournSetupNumGroups} group${tournSetupNumGroups > 1 ? 's' : ''} of ~${perGroup}
+        </span>
+        <button id="tourn-grp-inc" class="btn btn-ghost"
+          style="padding:0.25rem 0.75rem;font-size:1.2rem;font-weight:800;" ${tournSetupNumGroups >= numPlayers ? 'disabled' : ''}>＋</button>
+      </div>`;
+    document.getElementById('tourn-grp-dec')?.addEventListener('click', () => {
+      if (tournSetupNumGroups > 1) { tournSetupNumGroups--; renderGroupAssignmentCards(); }
+    });
+    document.getElementById('tourn-grp-inc')?.addEventListener('click', () => {
+      if (tournSetupNumGroups < numPlayers) { tournSetupNumGroups++; renderGroupAssignmentCards(); }
+    });
+  }
 
   // First call: assign round-robin. Subsequent calls: respect existing groupIndex.
   const hasAssignments = namedPlayers.some(p => p.groupIndex != null);
