@@ -756,6 +756,8 @@ function showFormatPicker(category) {
       setup.hcpPct   = 100; setup.players = []; setup.pairs = [];
       setup.texasMode       = 'average'; // default handicap mode
       setup.texasScoringFmt = 'stableford'; // default scoring
+      setup.texasDrivesTotal = null; // min total drives per player
+      setup.texasDrivesPar3  = null; // min par 3 drives per player
       if (fmt === 'split6')                                                { setup.numPlayers = 3; setup.numGroups = 1; setup.playersPerGroup = null; }
       else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ setup.numPlayers = 4; setup.numGroups = 1; setup.playersPerGroup = null; }
       else if (fmt === 'best2')                                            { setup.numPlayers = 8; setup.numGroups = 2; setup.playersPerGroup = 4; }
@@ -805,6 +807,22 @@ function startSetup() {
     document.getElementById('texas-hcp-weighted')?.addEventListener('click', () => setHcpMode('weighted'));
     setScoringFmt(setup.texasScoringFmt ?? 'stableford');
     setHcpMode(setup.texasMode ?? 'average');
+
+    // Drive quotas
+    const drivesTotalEl = document.getElementById('texas-drives-total');
+    const drivesPar3El  = document.getElementById('texas-drives-par3');
+    if (drivesTotalEl) {
+      drivesTotalEl.value = setup.texasDrivesTotal ?? '';
+      drivesTotalEl.addEventListener('input', () => {
+        setup.texasDrivesTotal = drivesTotalEl.value ? parseInt(drivesTotalEl.value) : null;
+      });
+    }
+    if (drivesPar3El) {
+      drivesPar3El.value = setup.texasDrivesPar3 ?? '';
+      drivesPar3El.addEventListener('input', () => {
+        setup.texasDrivesPar3 = drivesPar3El.value ? parseInt(drivesPar3El.value) : null;
+      });
+    }
     if (texasCard) texasCard._wired = true;
   }
   populateCourseSelect();
@@ -2409,6 +2427,8 @@ async function teeOff() {
       gs.grossTotal      = 0;
       gs.texasPts        = 0;
       gs.driverUsage     = { par3: [], par4: [], par5: [] };
+      gs.texasDrivesTotal = setup.texasDrivesTotal ?? null;
+      gs.texasDrivesPar3  = setup.texasDrivesPar3  ?? null;
     }
 
     groupStates.push(gs);
@@ -2938,35 +2958,67 @@ function renderHolePanel() {
   if (isTexas) {
     const driverWrap = document.createElement('div');
     driverWrap.style.cssText = 'margin-top:0.75rem;';
-    const usage = gameState.driverUsage ?? { par3: [], par4: [], par5: [] };
-    const names = gameState.names ?? [];
-    const rows  = ['par3','par4','par5'].map(key => {
-      const label  = key === 'par3' ? 'Par 3' : key === 'par4' ? 'Par 4' : 'Par 5';
-      const counts = {};
-      (usage[key] ?? []).forEach(pi => { counts[pi] = (counts[pi] ?? 0) + 1; });
-      const cells  = names.map((name, pi) =>
-        `<td style="text-align:center;padding:0.4rem 0.25rem;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:${counts[pi] ? 'var(--white)' : 'var(--muted)'};">
-          ${counts[pi] ?? 0}
-        </td>`
-      ).join('');
-      return `<tr>
-        <td style="padding:0.4rem 0.5rem;font-size:0.85rem;font-weight:700;color:var(--muted2);">${label}</td>
-        ${cells}
-      </tr>`;
-    }).join('');
+    const usage         = gameState.driverUsage ?? { par3: [], par4: [], par5: [] };
+    const names         = gameState.names ?? [];
+    const quotaTotal    = gameState.texasDrivesTotal ?? null;
+    const quotaPar3     = gameState.texasDrivesPar3  ?? null;
+
+    // Per-player counts
+    const totalCounts = {};
+    const par3Counts  = {};
+    [...(usage.par3 ?? []), ...(usage.par4 ?? []), ...(usage.par5 ?? [])].forEach(pi => {
+      totalCounts[pi] = (totalCounts[pi] ?? 0) + 1;
+    });
+    (usage.par3 ?? []).forEach(pi => {
+      par3Counts[pi] = (par3Counts[pi] ?? 0) + 1;
+    });
 
     const headers = names.map((name, pi) =>
-      `<th style="text-align:center;padding:0.4rem 0.25rem;font-size:0.8rem;font-weight:800;color:var(--muted);">
+      `<th style="text-align:center;padding:0.4rem 0.35rem;font-size:0.9rem;font-weight:800;color:var(--muted2);">
         ${name.split(' ')[0]}
       </th>`
     ).join('');
 
+    const totalRow = names.map((_, pi) => {
+      const count = totalCounts[pi] ?? 0;
+      const met   = quotaTotal != null && count >= quotaTotal;
+      const color = met ? 'var(--green)' : 'var(--red, #d64545)';
+      const label = quotaTotal != null ? `${count}/${quotaTotal}` : String(count);
+      return `<td style="text-align:center;padding:0.5rem 0.35rem;
+                font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.15rem;
+                color:${color};">${label}</td>`;
+    }).join('');
+
+    const par3Row = names.map((_, pi) => {
+      const count = par3Counts[pi] ?? 0;
+      const met   = quotaPar3 != null && count >= quotaPar3;
+      const color = met ? 'var(--green)' : 'var(--red, #d64545)';
+      const label = quotaPar3 != null ? `${count}/${quotaPar3}` : String(count);
+      return `<td style="text-align:center;padding:0.5rem 0.35rem;
+                font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.15rem;
+                color:${color};">${label}</td>`;
+    }).join('');
+
     driverWrap.innerHTML = `
-      <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
+      <div style="font-size:0.9rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
                   color:var(--muted);margin-bottom:0.35rem;">Drives Used</div>
       <table style="width:100%;border-collapse:collapse;background:var(--surface2);border-radius:var(--radius-sm);overflow:hidden;">
-        <thead><tr><th style="padding:0.4rem 0.5rem;text-align:left;font-size:0.8rem;color:var(--muted);"></th>${headers}</tr></thead>
-        <tbody>${rows}</tbody>
+        <thead>
+          <tr>
+            <th style="padding:0.4rem 0.75rem;text-align:left;font-size:0.85rem;font-weight:700;color:var(--muted);"></th>
+            ${headers}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:0.5rem 0.75rem;font-size:0.9rem;font-weight:800;color:var(--muted2);">Total</td>
+            ${totalRow}
+          </tr>
+          <tr style="border-top:1px solid var(--border);">
+            <td style="padding:0.5rem 0.75rem;font-size:0.9rem;font-weight:800;color:var(--muted2);">Par 3s</td>
+            ${par3Row}
+          </tr>
+        </tbody>
       </table>`;
     inputsEl.appendChild(driverWrap);
   }
