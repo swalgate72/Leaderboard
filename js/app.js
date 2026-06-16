@@ -2040,27 +2040,308 @@ function flashHoleResult(holeIdx) {
   el.style.borderTop  = msg ? `1px solid ${border}` : 'none';
   el.style.color      = msg ? ''     : 'transparent';
 }
-// ----------------------------------------------------------------
+// ================================================================
+// NEW VERTICAL SCORECARD (full-screen, swipeable per group)
+// ================================================================
+
+// Which score modes a format supports
+function scorecardModesFor(fmt) {
+  if (['stableford','split6','csm','best2'].includes(fmt)) return ['points','strokes'];
+  return ['strokes'];
+}
+
+// Build the column definitions for a given group's state.
+// Each column: { label, dotColor, getCell(rowEntry, mode) -> {text, sub, highlight} }
+function scorecardColumns(state) {
+  const fmt   = state.format;
+  const names = state.names ?? [];
+
+  const indivCol = (pi) => ({
+    label: names[pi] ?? `P${pi+1}`,
+    dotColor: pHex(pi),
+    getCell: (entry, mode) => {
+      if (!entry) return { text: '' };
+      const gross = entry.grosses?.[pi];
+      if (gross == null) return { text: '' };
+      const extras = entry.extras?.[pi] ?? indivStrokesOnHole(state.playingHandicaps?.[pi] ?? 0, entry.si);
+      const net    = entry.nets?.[pi] ?? (gross - extras);
+      if (mode === 'points') {
+        const pts = entry.holePts?.[pi] ?? entry.sbPts?.[pi];
+        return { text: pts != null ? String(pts) : '-' };
+      }
+      return { text: String(net), sub: gross !== net ? String(gross) : null };
+    },
+  });
+
+  switch (fmt) {
+    case 'stableford':
+    case 'split6':
+    case 'stroke':
+      return names.map((_, pi) => indivCol(pi));
+
+    case 'skins':
+    case 'itc':
+      return names.map((_, pi) => indivCol(pi));
+
+    case 'match':
+      return [0, 1].map(pi => indivCol(pi));
+
+    case 'betterball':
+      return [
+        {
+          label: `${names[0]} & ${names[1]}`, dotColor: pHex(0),
+          getCell: (entry) => {
+            if (!entry?.bbA) return { text: '' };
+            return { text: String(entry.bbA.net) };
+          },
+        },
+        {
+          label: `${names[2]} & ${names[3]}`, dotColor: pHex(2),
+          getCell: (entry) => {
+            if (!entry?.bbB) return { text: '' };
+            return { text: String(entry.bbB.net) };
+          },
+        },
+      ];
+
+    case 'csm':
+      return [
+        {
+          label: `${names[0]} & ${names[1]}`, dotColor: pHex(0),
+          getCell: (entry, mode) => {
+            if (!entry) return { text: '' };
+            if (mode === 'points') {
+              const pts = (entry.sbPts?.[0] ?? 0) + (entry.sbPts?.[1] ?? 0);
+              return { text: String(pts) };
+            }
+            return { text: entry.totalA != null ? String(entry.totalA) : '' };
+          },
+        },
+        {
+          label: `${names[2]} & ${names[3]}`, dotColor: pHex(2),
+          getCell: (entry, mode) => {
+            if (!entry) return { text: '' };
+            if (mode === 'points') {
+              const pts = (entry.sbPts?.[2] ?? 0) + (entry.sbPts?.[3] ?? 0);
+              return { text: String(pts) };
+            }
+            return { text: entry.totalB != null ? String(entry.totalB) : '' };
+          },
+        },
+      ];
+
+    case 'foursomes':
+    case 'greensomes':
+      return [0, 1].map(pi => ({
+        label: pi === 0 ? `${names[0]} & ${names[1]}` : `${names[2]} & ${names[3]}`,
+        dotColor: pHex(pi === 0 ? 0 : 2),
+        getCell: (entry) => {
+          if (!entry) return { text: '' };
+          const gross = entry.grosses?.[pi];
+          const net   = entry.nets?.[pi] ?? gross;
+          if (gross == null) return { text: '' };
+          return { text: String(net), sub: gross !== net ? String(gross) : null };
+        },
+      }));
+
+    case 'best2':
+      return [{
+        label: 'Team',
+        dotColor: pHex(0),
+        getCell: (entry, mode) => {
+          if (!entry) return { text: '' };
+          if (mode === 'points') return { text: entry.holeB2 != null ? String(entry.holeB2) : '-' };
+          const counted = entry.counted ?? [];
+          if (!counted.length) return { text: '-' };
+          let sum = 0;
+          counted.forEach(pi => {
+            const gross  = entry.grosses?.[pi];
+            const extras = entry.extras?.[pi] ?? indivStrokesOnHole(state.playingHandicaps?.[pi] ?? 0, entry.si);
+            sum += (gross ?? 0) - extras;
+          });
+          return { text: String(sum) };
+        },
+      }];
+
+    default:
+      return names.map((_, pi) => indivCol(pi));
+  }
+}
+
+// Build the full 18-hole vertical scorecard table for one group's state
+function buildVerticalScorecard(state, mode) {
+  const par = state.par ?? [];
+  const si  = state.si  ?? [];
+  const numHoles = state.numHoles ?? 18;
+  const log = state.log ?? [];
+  const byHole = {};
+  log.forEach(e => { byHole[e.hIdx] = e; });
+
+  const columns = scorecardColumns(state);
+  const totalHoles = par.length || 18;
+
+  const headCells = columns.map(c => `
+    <th>
+      <div class="sc-player-header">
+        <span class="dot" style="background:${c.dotColor};"></span>
+        <span>${c.label}</span>
+      </div>
+    </th>`).join('');
+
+  let bodyRows = '';
+  let frontTotals = columns.map(() => 0);
+  let backTotals  = columns.map(() => 0);
+  let frontHas = columns.map(() => false);
+  let backHas  = columns.map(() => false);
+
+  for (let h = 0; h < totalHoles; h++) {
+    const entry = byHole[h];
+    const isCurrent = h === state.hole && !entry;
+    const cells = columns.map((c, ci) => {
+      const cell = c.getCell(entry, mode);
+      const num = cell.text !== '' && cell.text !== '-' ? parseFloat(cell.text) : null;
+      if (num != null) {
+        if (h < 9) { frontTotals[ci] += num; frontHas[ci] = true; }
+        else       { backTotals[ci]  += num; backHas[ci]  = true; }
+      }
+      return `<td class="sc-score-cell">${cell.text}${cell.sub ? `<div style="font-size:0.7rem;color:var(--muted);font-weight:600;">${cell.sub}</div>` : ''}</td>`;
+    }).join('');
+
+    bodyRows += `
+      <tr class="${isCurrent ? 'sc-row-current' : ''}">
+        <td><span class="sc-hole-cell">${h + 1}</span> <span class="sc-meta-cell">Par ${par[h] ?? '-'} · SI ${si[h] ?? '-'}</span></td>
+        ${cells}
+      </tr>`;
+
+    if (h === 8 && totalHoles > 9) {
+      bodyRows += `
+        <tr class="sc-subtotal-row">
+          <td>Front 9</td>
+          ${columns.map((c, ci) => `<td>${frontHas[ci] ? frontTotals[ci] : ''}</td>`).join('')}
+        </tr>`;
+    }
+  }
+
+  if (totalHoles > 9) {
+    bodyRows += `
+      <tr class="sc-subtotal-row">
+        <td>Back 9</td>
+        ${columns.map((c, ci) => `<td>${backHas[ci] ? backTotals[ci] : ''}</td>`).join('')}
+      </tr>`;
+  }
+
+  const grandTotals = columns.map((c, ci) => {
+    if (!frontHas[ci] && !backHas[ci]) return '';
+    return (frontHas[ci] ? frontTotals[ci] : 0) + (backHas[ci] ? backTotals[ci] : 0);
+  });
+  bodyRows += `
+    <tr class="sc-total-row">
+      <td>Total</td>
+      ${columns.map((c, ci) => `<td>${grandTotals[ci]}</td>`).join('')}
+    </tr>`;
+
+  return `
+    <table class="sc-table">
+      <thead><tr><th>Hole</th>${headCells}</tr></thead>
+      <tbody>${bodyRows}</tbody>
+    </table>`;
+}
+
+let scState = { mode: 'points', groupIdx: 0, groups: [] };
+
 function renderScorecardOverlay() {
   document.getElementById('sc-overlay-title').textContent =
     `${gameState.courseName} -- ${gameState.teeName}`;
   document.getElementById('sc-overlay-sub').textContent =
     `${fmtLabel(gameState.format)} · ${gameState.log?.length ?? 0} holes played`;
-  const scorerPid = gameState?.scorerProfileId;
-  const isScorer  = scorerPid === undefined
-    ? (!gameState?.organiserId || gameState.organiserId === currentUser?.id)
-    : (scorerPid !== '__unclaimed__' && scorerPid !== null && scorerPid === currentUser?.id);
 
-  // Merge all group states for a full-round view
+  // Build per-group state list (own group's slot replaced with live gameState)
   const allStates = gameState.allGroupStates ?? [gameState];
-  const displayState = mergeGroupStates(allStates, gameState);
+  const groups = allStates
+    .map(s => s.groupNumber === gameState.groupNumber ? gameState : s)
+    .slice()
+    .sort((a, b) => (a.groupNumber ?? 0) - (b.groupNumber ?? 0));
 
-  document.getElementById('sc-overlay-body').innerHTML = buildLandscapeScorecard(displayState, {
-    showEdit:      isScorer,
-    showChallenge: !isScorer,
-  });
-  if (!isScorer) attachChallengeBtnListeners();
+  const modes = scorecardModesFor(gameState.format);
+  scState.mode  = modes.includes(scState.mode) ? scState.mode : modes[0];
+  scState.groups = groups;
+  if (scState.groupIdx >= groups.length) scState.groupIdx = 0;
+
+  // Mode toggle visibility
+  const modeRow = document.getElementById('sc-mode-row');
+  if (modes.length > 1) {
+    modeRow.classList.remove('hidden');
+    modeRow.querySelectorAll('.sc-mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === scState.mode);
+    });
+  } else {
+    modeRow.classList.add('hidden');
+  }
+
+  // Group pager dots
+  const dotsEl = document.getElementById('sc-group-dots');
+  if (groups.length > 1) {
+    dotsEl.classList.remove('hidden');
+    dotsEl.innerHTML = groups.map((g, i) => `
+      <div class="sc-group-dot ${i === scState.groupIdx ? 'active' : ''}" data-idx="${i}"
+        title="Group ${g.groupNumber ?? i+1}"></div>`).join('');
+    dotsEl.querySelectorAll('.sc-group-dot').forEach(dot => {
+      dot.addEventListener('click', () => {
+        scState.groupIdx = parseInt(dot.dataset.idx, 10);
+        scrollToScorecardPage();
+        renderScorecardOverlay();
+      });
+    });
+  } else {
+    dotsEl.classList.add('hidden');
+  }
+
+  // Build pages
+  const bodyEl = document.getElementById('sc-overlay-body');
+  bodyEl.innerHTML = `
+    <div class="sc-pages" id="sc-pages">
+      ${groups.map((g, i) => `
+        <div class="sc-page" data-idx="${i}">
+          ${groups.length > 1 ? `<div style="text-align:center;padding:0.5rem 0;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1rem;color:var(--muted2);">Group ${g.groupNumber ?? i+1}</div>` : ''}
+          ${buildVerticalScorecard(g, scState.mode)}
+        </div>`).join('')}
+    </div>`;
+
+  setupScorecardSwipe();
+  scrollToScorecardPage();
 }
+
+function scrollToScorecardPage() {
+  const pagesEl = document.getElementById('sc-pages');
+  if (!pagesEl) return;
+  pagesEl.scrollTo({ left: pagesEl.clientWidth * scState.groupIdx, behavior: 'auto' });
+}
+
+function setupScorecardSwipe() {
+  const pagesEl = document.getElementById('sc-pages');
+  if (!pagesEl) return;
+  let scrollTimeout = null;
+  pagesEl.addEventListener('scroll', () => {
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+      const idx = Math.round(pagesEl.scrollLeft / pagesEl.clientWidth);
+      if (idx !== scState.groupIdx && idx >= 0 && idx < scState.groups.length) {
+        scState.groupIdx = idx;
+        const dotsEl = document.getElementById('sc-group-dots');
+        dotsEl?.querySelectorAll('.sc-group-dot').forEach((dot, i) => {
+          dot.classList.toggle('active', i === idx);
+        });
+      }
+    }, 100);
+  });
+}
+
+document.querySelectorAll('.sc-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    scState.mode = btn.dataset.mode;
+    renderScorecardOverlay();
+  });
+});
 
 // ----------------------------------------------------------------
 // MATCH WON MODAL
