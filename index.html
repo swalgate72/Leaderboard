@@ -358,13 +358,10 @@
 
     <div class="page-pad-sm" style="padding-top:1rem;">
 
-      <div class="card mb-sm">
-        <div class="field" style="margin-bottom:0.5rem;">
-          <label id="setup-num-groups-label">Number of Groups</label>
-          <select id="setup-num-groups"></select>
-        </div>
-        <div id="setup-group-suggestion" style="font-size:0.9rem;font-weight:700;color:var(--muted2);margin-bottom:0;"></div>
-      </div>
+      <div id="setup-group-suggestion" style="font-size:0.9rem;font-weight:700;color:var(--muted2);margin-bottom:0.75rem;"></div>
+
+      <!-- Hidden select kept for JS compat -->
+      <select id="setup-num-groups" id="setup-num-groups-card" style="display:none;"></select>
 
       <!-- Drag-drop group cards — rendered by JS -->
       <div id="setup-group-cards"></div>
@@ -1344,22 +1341,14 @@
           border-radius:var(--radius-sm);padding:0.65rem 0.85rem;color:var(--white);font-size:0.9rem;"></select>
       </div>
 
-      <!-- Number of groups -->
-      <div class="card mb-sm">
-        <div class="card-title">Groups</div>
-        <div class="field" style="margin-bottom:0.5rem;">
-          <label>Number of Groups</label>
-          <select id="tourn-num-groups">
-            <option value="1">1 group</option>
-            <option value="2">2 groups</option>
-            <option value="3">3 groups</option>
-            <option value="4">4 groups</option>
-            <option value="5">5 groups</option>
-            <option value="6">6 groups</option>
-          </select>
-        </div>
-        <div id="tourn-group-suggestion" style="font-size:0.9rem;font-weight:700;color:var(--muted2);margin-bottom:0.5rem;"></div>
-      </div>
+      <!-- Group suggestion shown above cards -->
+      <div id="tourn-group-suggestion" style="font-size:0.9rem;font-weight:700;color:var(--muted2);margin-bottom:0.75rem;"></div>
+
+      <!-- Hidden select kept for JS compat -->
+      <select id="tourn-num-groups" style="display:none;">
+        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+        <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+      </select>
 
       <!-- Group player assignment cards — rendered by JS -->
       <div id="tourn-group-cards"></div>
