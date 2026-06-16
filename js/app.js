@@ -964,10 +964,12 @@ document.getElementById('btn-game-invite')?.addEventListener('click', () => {
 
 document.getElementById('btn-game-confirm-player')?.addEventListener('click', () => {
   const name = document.getElementById('game-manual-name').value.trim();
-  const hcp  = parseFloat(document.getElementById('game-manual-hcp').value) || 0;
-  const chcp = parseFloat(document.getElementById('game-manual-chcp').value) || hcp;
+  const hcpRaw  = document.getElementById('game-manual-hcp').value.trim();
+  const chcpRaw = document.getElementById('game-manual-chcp').value.trim();
   if (!name) { alert('Please enter a player name.'); return; }
-  addSetupPlayer(name, hcp, chcp, null);
+  const chcp = chcpRaw ? parseFloat(chcpRaw) : null;
+  const hcp  = hcpRaw  ? parseFloat(hcpRaw)  : (chcp ?? 0); // fall back to course HCP if no index
+  addSetupPlayer(name, hcp, chcp ?? hcp, null);
   document.getElementById('modal-add-game-player').classList.remove('open');
 });
 
@@ -1197,16 +1199,46 @@ function renderSetupPairsScreen() {
 function dropPlayerIntoPair(pi, pairIdx) {
   const pair = setup.pairs[pairIdx];
   if (!pair) return;
-  if (pair.playerIndices.length >= 2) { alert('Each pair can only have 2 players.'); return; }
   if (pair.playerIndices.includes(pi)) return; // already in this pair
 
-  // Remove from current pair if any
-  removePlayerFromPair(pi, false);
+  // If target pair is full (2 players), swap — move dragged player in,
+  // and move the slot-0 player of the target pair back to dragged player's old pair
+  if (pair.playerIndices.length >= 2) {
+    const sourcePairIdx = setup.players[pi]?.pairIndex ?? -1;
+    const sourcePair    = sourcePairIdx >= 0 ? setup.pairs[sourcePairIdx] : null;
+    const displaced     = pair.playerIndices[0]; // the player getting bumped out
 
+    // Move displaced player to source pair
+    if (sourcePair) {
+      sourcePair.playerIndices = sourcePair.playerIndices.filter(i => i !== pi);
+      sourcePair.playerIndices.push(displaced);
+      setup.players[displaced].pairIndex = sourcePairIdx;
+      // Update source pair name
+      const [sA, sB] = sourcePair.playerIndices;
+      sourcePair.name = `${setup.players[sA]?.name.split(' ')[0] ?? ''} & ${setup.players[sB]?.name.split(' ')[0] ?? ''}`;
+    } else {
+      // No source pair — displaced player goes to pool
+      setup.players[displaced].pairIndex = -1;
+      pair.playerIndices = pair.playerIndices.filter(i => i !== displaced);
+    }
+
+    // Move dragged player into target pair
+    pair.playerIndices = pair.playerIndices.filter(i => i !== pi);
+    pair.playerIndices.push(pi);
+    setup.players[pi].pairIndex = pairIdx;
+    const [tA, tB] = pair.playerIndices;
+    pair.name = `${setup.players[tA]?.name.split(' ')[0] ?? ''} & ${setup.players[tB]?.name.split(' ')[0] ?? ''}`;
+
+    renderSetupPairsScreen();
+    return;
+  }
+
+  // Target pair has room — just add
+  removePlayerFromPair(pi, false);
   setup.players[pi].pairIndex = pairIdx;
   pair.playerIndices.push(pi);
 
-  // Auto-update pair name if still default
+  // Auto-update pair name when complete
   if (pair.playerIndices.length === 2) {
     const [piA, piB] = pair.playerIndices;
     const nameA = setup.players[piA]?.name.split(' ')[0] ?? '';
@@ -1670,15 +1702,16 @@ document.getElementById('btn-setup-groups-next')?.addEventListener('click', () =
 });
 
 document.getElementById('btn-setup-pairs-next')?.addEventListener('click', () => {
-  const named     = setup.players.filter(p => p.name);
+  const named      = setup.players.filter(p => p.name);
   const unassigned = named.filter(p => p.pairIndex == null || p.pairIndex === -1);
   if (unassigned.length > 0) {
     alert(`${unassigned.map(p => p.name).join(', ')} still need${unassigned.length === 1 ? 's' : ''} to be assigned to a pair.`);
     return;
   }
-  const badPairs = setup.pairs.filter(pair => pair.playerIndices.length !== 2);
-  if (badPairs.length > 0) {
-    alert('Each pair must have exactly 2 players.'); return;
+  const incompletePairs = setup.pairs.filter(pair => pair.playerIndices.length < 2);
+  if (incompletePairs.length > 0) {
+    alert(`${incompletePairs.map(p => `"${p.name}"`).join(', ')} need${incompletePairs.length === 1 ? 's' : ''} a second player.`);
+    return;
   }
   renderSetupGroupCards();
   showScreen('screen-setup-groups');
