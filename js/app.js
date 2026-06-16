@@ -2857,9 +2857,7 @@ function renderHolePanel() {
     // Texas Scramble: one team score + driver selector
     const teamName   = gameState.teamName ?? 'Team';
     const teamHcp    = gameState.teamHcp  ?? 0;
-    const prevEntry  = h > 0 ? gameState.log[h - 1] : null;
     const existEntry = gameState.log[h];
-    const prevLabel  = prevEntry ? `H${h}: ${prevEntry.gross} gross · ${prevEntry.pts}pts` : '';
 
     const row = document.createElement('div');
     row.className = 'gi-row';
@@ -2868,8 +2866,7 @@ function renderHolePanel() {
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div>
           <div class="gi-name" style="font-size:1.35rem;">🤠 ${teamName}</div>
-          <div class="gi-hcp" style="font-size:1.05rem;font-weight:800;color:var(--muted2);">Team HCP ${teamHcp}</div>
-          ${prevLabel ? `<div style="font-size:1rem;font-weight:700;color:var(--muted);margin-top:2px;">${prevLabel}</div>` : ''}
+          <div class="gi-hcp" style="font-size:1rem;font-weight:800;">Team HCP ${teamHcp}</div>
         </div>
         <div class="score-btn" id="cv-texas" data-value="${existEntry?.gross ?? ''}"
           style="min-width:64px;text-align:center;cursor:pointer;padding:0.6rem 1rem;
@@ -2879,12 +2876,12 @@ function renderHolePanel() {
         </div>
       </div>
       <div>
-        <div style="font-size:1.05rem;font-weight:800;color:var(--muted2);margin-bottom:0.4rem;">Driver used:</div>
+        <div style="font-size:1rem;font-weight:800;color:var(--muted2);margin-bottom:0.4rem;">Driver used:</div>
         <div style="display:flex;gap:0.4rem;flex-wrap:wrap;" id="texas-driver-btns">
           ${gameState.names.map((name, pi) => `
             <button class="texas-driver-btn ${(existEntry?.driverIdx ?? -1) === pi ? 'holes-btn active' : 'btn-outline'}"
               data-pi="${pi}"
-              style="flex:1;min-width:80px;padding:0.75rem 0.4rem;font-size:1.05rem;font-weight:800;font-family:'Barlow Condensed',sans-serif;">
+              style="flex:1;min-width:80px;padding:0.65rem 0.4rem;font-size:1rem;font-weight:800;">
               ${name.split(' ')[0]}
             </button>`).join('')}
         </div>
