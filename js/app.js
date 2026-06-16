@@ -189,10 +189,6 @@ async function tryRestoreSetupState() {
         const teeSel = document.getElementById('setup-tee-select');
         if (teeSel) teeSel.value = String(setup.teeIdx ?? 0);
       }
-      document.getElementById('setup-num-players').value = String(
-        setup.playersPerGroup ?? (setup.numPlayers / (setup.numGroups || 1))
-      );
-      document.getElementById('setup-num-groups').value = String(setup.numGroups ?? 1);
       showScreen('screen-setup-course');
     } else if (saved.screen === 'screen-setup-players') {
       renderSetupPlayerList();
@@ -864,35 +860,25 @@ document.getElementById('setup-abandon-1')  ?.addEventListener('click', () => { 
 
 document.getElementById('btn-setup-course-next')?.addEventListener('click', () => {
   if (!setup.courseId) { alert('Please select a course.'); return; }
-  setup.hcpPct     = parseInt(document.getElementById('setup-hcp-pct').value, 10) || 100;
-  const rawVal     = parseInt(document.getElementById('setup-num-players').value, 10);
-  const isPairsFormat = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
-  const isBest2Format = setup.scoring === 'best2';
-  if (isBest2Format) {
-    setup.playersPerGroup = rawVal;
-    setup.numPlayers = rawVal * (setup.numGroups || 2);
-  } else if (isPairsFormat) {
-    setup.numPlayers = rawVal * 2;
-  } else {
-    setup.numPlayers = rawVal;
-  }
-  setup.numGroups = parseInt(document.getElementById('setup-num-groups').value, 10) || 1;
+  setup.hcpPct    = parseInt(document.getElementById('setup-hcp-pct').value, 10) || 100;
+  setup.numGroups = 1; // will be set on the groups screen
 
-  // Initialise setup.players with current user as player 0, rest blank
-  const myName      = currentProfile ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim() : '';
-  const myHcp       = currentProfile?.hcp ?? 0;
-  const myCourseHcp = getMyCourseHandicapDefault();
-  setup.players = Array.from({ length: setup.numPlayers }, (_, i) => ({
-    name:          i === 0 ? myName : '',
-    hcpIndex:      i === 0 ? myHcp  : 0,
-    courseHandicap: i === 0 ? (myCourseHcp ?? myHcp) : null,
-    groupNumber:   1,
-    profileId:     i === 0 ? currentUser?.id : null,
-    mobile:        i === 0 ? currentProfile?.mobile ?? '' : '',
-    isScorer:      i === 0,
-  }));
+  // Only initialise setup.players if starting fresh (not returning from players screen)
+  const hasExistingPlayers = setup.players.some(p => p.name);
+  if (!hasExistingPlayers) {
+    const myName      = currentProfile ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim() : '';
+    const myHcp       = currentProfile?.hcp ?? 0;
+    const myCourseHcp = getMyCourseHandicapDefault();
+    setup.players = [{
+      name: myName, hcpIndex: myHcp,
+      courseHandicap: myCourseHcp ?? myHcp,
+      groupNumber: 1, profileId: currentUser?.id ?? null,
+      mobile: currentProfile?.mobile ?? '', isScorer: true,
+    }];
+  }
 
   renderSetupPlayerList();
+  saveSetupState('screen-setup-players');
   showScreen('screen-setup-players');
 });
 
@@ -906,7 +892,7 @@ function renderSetupPlayerList() {
   if (!listEl) return;
   const filled = setup.players.filter(p => p.name);
   const count  = filled.length;
-  if (countEl) countEl.textContent = `${count} of ${setup.numPlayers} players added`;
+  if (countEl) countEl.textContent = `${count} player${count !== 1 ? 's' : ''} added`;
 
   if (!count) {
     listEl.innerHTML = `<div style="padding:1rem;text-align:center;color:var(--muted);font-size:0.95rem;">No players yet.</div>`;
@@ -921,19 +907,36 @@ function renderSetupPlayerList() {
       <div style="flex:1;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.25rem;">${p.name}</div>
         <div style="font-size:0.85rem;font-weight:700;color:var(--muted2);">
-          HCP Index ${fmtHandicap(p.hcpIndex)} · Course HCP ${fmtHandicap(p.courseHandicap ?? p.hcpIndex)}
+          HCP ${fmtHandicap(p.hcpIndex)}${p.courseHandicap != null && p.courseHandicap !== p.hcpIndex ? ` · Course ${fmtHandicap(p.courseHandicap)}` : ''}
         </div>
       </div>
+      <button class="btn btn-ghost" data-edit="${pi}"
+        style="font-size:0.85rem;color:var(--muted2);border-color:var(--border);padding:0.3rem 0.6rem;">✎</button>
       ${pi > 0 ? `<button class="btn btn-ghost" data-remove="${pi}"
         style="font-size:0.85rem;color:var(--red);border-color:var(--red-border);padding:0.3rem 0.6rem;">✕</button>` : ''}
     </div>`;
   }).join('');
 
+  listEl.querySelectorAll('[data-edit]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.edit);
+      const p   = setup.players[idx];
+      if (!p) return;
+      // Pre-fill the modal with existing values
+      document.getElementById('game-manual-name').value  = p.name;
+      document.getElementById('game-manual-hcp').value   = p.hcpIndex ?? '';
+      document.getElementById('game-manual-chcp').value  = p.courseHandicap ?? '';
+      // Store which player we're editing
+      document.getElementById('modal-add-game-player').dataset.editIdx = idx;
+      document.getElementById('modal-add-game-player').classList.add('open');
+    });
+  });
+
   listEl.querySelectorAll('[data-remove]').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.dataset.remove);
-      // Clear this slot rather than splice (preserves indexing)
       setup.players[idx] = { name: '', hcpIndex: 0, courseHandicap: null, groupNumber: 1, profileId: null, isScorer: false };
+      saveSetupState('screen-setup-players');
       renderSetupPlayerList();
     });
   });
@@ -944,10 +947,14 @@ document.getElementById('btn-setup-add-player')?.addEventListener('click', () =>
   document.getElementById('game-manual-name').value = '';
   document.getElementById('game-manual-hcp').value  = '';
   document.getElementById('game-manual-chcp').value = '';
-  document.getElementById('modal-add-game-player').classList.add('open');
+  const modal = document.getElementById('modal-add-game-player');
+  delete modal.dataset.editIdx;
+  modal.classList.add('open');
 });
 document.getElementById('modal-add-game-player-close')?.addEventListener('click', () => {
-  document.getElementById('modal-add-game-player').classList.remove('open');
+  const modal = document.getElementById('modal-add-game-player');
+  delete modal.dataset.editIdx;
+  modal.classList.remove('open');
 });
 
 document.getElementById('btn-game-add-from-friends')?.addEventListener('click', () => {
@@ -963,25 +970,39 @@ document.getElementById('btn-game-invite')?.addEventListener('click', () => {
 });
 
 document.getElementById('btn-game-confirm-player')?.addEventListener('click', () => {
-  const name = document.getElementById('game-manual-name').value.trim();
+  const name    = document.getElementById('game-manual-name').value.trim();
   const hcpRaw  = document.getElementById('game-manual-hcp').value.trim();
   const chcpRaw = document.getElementById('game-manual-chcp').value.trim();
   if (!name) { alert('Please enter a player name.'); return; }
   const chcp = chcpRaw ? parseFloat(chcpRaw) : null;
-  const hcp  = hcpRaw  ? parseFloat(hcpRaw)  : (chcp ?? 0); // fall back to course HCP if no index
-  addSetupPlayer(name, hcp, chcp ?? hcp, null);
-  document.getElementById('modal-add-game-player').classList.remove('open');
+  const hcp  = hcpRaw  ? parseFloat(hcpRaw)  : (chcp ?? 0);
+
+  const modal  = document.getElementById('modal-add-game-player');
+  const editIdx = modal.dataset.editIdx != null && modal.dataset.editIdx !== ''
+    ? parseInt(modal.dataset.editIdx) : -1;
+
+  if (editIdx >= 0 && setup.players[editIdx]) {
+    // Edit existing player
+    setup.players[editIdx] = { ...setup.players[editIdx], name, hcpIndex: hcp, courseHandicap: chcp ?? hcp };
+    delete modal.dataset.editIdx;
+    saveSetupState('screen-setup-players');
+    renderSetupPlayerList();
+  } else {
+    // Add new player
+    delete modal.dataset.editIdx;
+    addSetupPlayer(name, hcp, chcp ?? hcp, null);
+  }
+  modal.classList.remove('open');
 });
 
 function addSetupPlayer(name, hcpIndex, courseHandicap, profileId) {
-  // Find first empty slot
   const emptyIdx = setup.players.findIndex(p => !p.name);
   if (emptyIdx === -1) {
-    // Extend if needed (shouldn't normally happen as slots are pre-allocated)
     setup.players.push({ name, hcpIndex, courseHandicap, groupNumber: 1, profileId: profileId ?? null, isScorer: false });
   } else {
     setup.players[emptyIdx] = { ...setup.players[emptyIdx], name, hcpIndex, courseHandicap, profileId: profileId ?? null };
   }
+  saveSetupState('screen-setup-players');
   renderSetupPlayerList();
 }
 
@@ -1299,10 +1320,88 @@ function renderSetupGroupCards() {
     return;
   }
 
-  // ── Individual / Best 2 / split6 etc: player drag ──
-  const suggested = isBest2
-    ? Math.max(1, Math.ceil(numPlayers / (setup.playersPerGroup || 4)))
-    : Math.max(1, Math.ceil(numPlayers / 4));
+  // ── Best 2: show grouping option buttons instead of select ──────
+  const numGroupsCard = document.getElementById('setup-num-groups-card');
+  if (isBest2) {
+    if (numGroupsCard) numGroupsCard.style.display = 'none';
+    if (titleEl) titleEl.textContent = 'Choose Groups';
+
+    const container = document.getElementById('setup-group-cards');
+    if (!container) return;
+
+    // Calculate all valid splits: groups of 3 or 4
+    const options = [];
+    for (let grpSize = 3; grpSize <= 4; grpSize++) {
+      if (numPlayers % grpSize === 0) {
+        const numGrps = numPlayers / grpSize;
+        options.push({ numGroups: numGrps, perGroup: grpSize });
+      }
+    }
+    // If no exact split, add nearest options
+    if (options.length === 0) {
+      [3, 4].forEach(grpSize => {
+        const numGrps = Math.round(numPlayers / grpSize);
+        if (numGrps >= 1 && !options.find(o => o.numGroups === numGrps)) {
+          options.push({ numGroups: numGrps, perGroup: Math.ceil(numPlayers / numGrps) });
+        }
+      });
+    }
+
+    const selectedNumGroups = setup.numGroups || options[0]?.numGroups || 2;
+    const selectedPerGroup  = setup.playersPerGroup || options[0]?.perGroup || 4;
+
+    let optionHTML = `<div style="display:grid;gap:0.5rem;margin-bottom:1rem;">`;
+    options.forEach(opt => {
+      const isActive = opt.numGroups === selectedNumGroups;
+      optionHTML += `<button class="btn b2-group-opt ${isActive ? 'holes-btn active' : 'btn-outline'}"
+        data-groups="${opt.numGroups}" data-per="${opt.perGroup}"
+        style="padding:1rem;font-size:1.1rem;font-weight:800;font-family:'Barlow Condensed',sans-serif;">
+        ${opt.numGroups} group${opt.numGroups > 1 ? 's' : ''} of ${opt.perGroup}
+      </button>`;
+    });
+    optionHTML += `</div>`;
+
+    // Re-assign players for current selection
+    if (!namedPlayers.some(p => p.groupNumber > 1) || setup.numGroups !== selectedNumGroups) {
+      setup.numGroups       = selectedNumGroups;
+      setup.playersPerGroup = selectedPerGroup;
+      setup.numPlayers      = numPlayers;
+      namedPlayers.forEach((p, i) => {
+        p.groupNumber = Math.min(Math.floor(i / selectedPerGroup) + 1, selectedNumGroups);
+      });
+    }
+
+    const groups = Array.from({ length: selectedNumGroups }, (_, g) =>
+      namedPlayers.filter(p => (p.groupNumber ?? 1) === g + 1));
+
+    // Render option buttons + drag-drop group cards
+    container.innerHTML = optionHTML + renderB2GroupCards(groups, namedPlayers);
+    wireB2GroupCards(container, groups, namedPlayers);
+
+    // Wire option buttons
+    container.querySelectorAll('.b2-group-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ng = parseInt(btn.dataset.groups);
+        const np = parseInt(btn.dataset.per);
+        setup.numGroups       = ng;
+        setup.playersPerGroup = np;
+        setup.numPlayers      = numPlayers;
+        // Re-assign players
+        namedPlayers.forEach((p, i) => {
+          p.groupNumber = Math.min(Math.floor(i / np) + 1, ng);
+        });
+        renderSetupGroupCards();
+      });
+    });
+
+    const nextBtn = document.getElementById('btn-setup-groups-next');
+    if (nextBtn) { nextBtn.disabled = false; nextBtn.style.opacity = ''; }
+    return;
+  }
+
+  // ── Individual / split6 etc: player drag with groups select ──
+  if (numGroupsCard) numGroupsCard.style.display = '';
+  const suggested = Math.max(1, Math.ceil(numPlayers / 4));
 
   if (numGroupsSel && !numGroupsSel._wired) {
     numGroupsSel.innerHTML = Array.from({ length: 6 }, (_, i) =>
@@ -1468,6 +1567,91 @@ function renderSetupGroupCards() {
   const overAny = groups.some(g => g.length > 4);
   const btn     = document.getElementById('btn-setup-groups-next');
   if (btn) { btn.disabled = overAny; btn.style.opacity = overAny ? '0.5' : ''; }
+}
+
+function renderB2GroupCards(groups, namedPlayers) {
+  let html = '';
+  groups.forEach((groupPlayers, g) => {
+    html += `<div class="card mb-sm sg-drop-zone" data-group="${g + 1}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+        <div class="card-title" style="margin:0;">Group ${g + 1}</div>
+        <div style="font-size:0.85rem;font-weight:700;color:var(--muted2);">${groupPlayers.length} players</div>
+      </div>
+      <div class="sg-player-list" data-group="${g + 1}">
+        ${groupPlayers.length === 0
+          ? `<div style="padding:0.75rem;text-align:center;color:var(--muted);font-size:0.9rem;
+              border:1.5px dashed var(--border);border-radius:var(--radius-sm);">Drop a player here</div>`
+          : groupPlayers.map(p => {
+              const pi = namedPlayers.indexOf(p);
+              return `<div class="sg-player-row" draggable="true" data-name="${p.name}"
+                style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.5rem;
+                       border-bottom:1px solid var(--border);cursor:grab;user-select:none;
+                       border-radius:var(--radius-sm);">
+                <span style="font-size:1.1rem;color:var(--muted);">⣿</span>
+                <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
+                <div style="flex:1;">
+                  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${p.name}</div>
+                  <div style="font-size:0.82rem;color:var(--muted2);">HCP ${fmtHandicap(p.hcpIndex)}</div>
+                </div>
+              </div>`;
+            }).join('')}
+      </div>
+    </div>`;
+  });
+  return html;
+}
+
+function wireB2GroupCards(container, groups, namedPlayers) {
+  let touchGhost = null, touchName = null, touchSrc = null;
+
+  container.querySelectorAll('.sg-player-row').forEach(row => {
+    row.addEventListener('dragstart', e => {
+      row.style.opacity = '0.4';
+      e.dataTransfer.setData('text/plain', row.dataset.name);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', () => { row.style.opacity = '1'; });
+    row.addEventListener('touchstart', e => {
+      touchName = row.dataset.name; touchSrc = row;
+      touchGhost = row.cloneNode(true);
+      touchGhost.style.cssText = `position:fixed;z-index:9999;opacity:0.85;pointer-events:none;
+        background:var(--surface2);border-radius:var(--radius-sm);padding:0.5rem;
+        box-shadow:0 4px 20px rgba(0,0,0,0.4);width:${row.offsetWidth}px;`;
+      document.body.appendChild(touchGhost);
+      row.style.opacity = '0.3';
+    }, { passive: true });
+    row.addEventListener('touchmove', e => {
+      if (!touchGhost) return; e.preventDefault();
+      const t = e.touches[0];
+      touchGhost.style.left = (t.clientX - touchGhost.offsetWidth / 2) + 'px';
+      touchGhost.style.top  = (t.clientY - 30) + 'px';
+      container.querySelectorAll('.sg-drop-zone').forEach(z => z.style.background = '');
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      el?.closest('.sg-drop-zone')?.style && (el.closest('.sg-drop-zone').style.background = 'rgba(212,168,67,0.08)');
+    }, { passive: false });
+    row.addEventListener('touchend', e => {
+      if (!touchGhost) return;
+      document.body.removeChild(touchGhost); touchGhost = null;
+      touchSrc && (touchSrc.style.opacity = '1');
+      container.querySelectorAll('.sg-drop-zone').forEach(z => z.style.background = '');
+      const t = e.changedTouches[0];
+      const zone = document.elementFromPoint(t.clientX, t.clientY)?.closest('.sg-drop-zone');
+      if (zone) {
+        const p = namedPlayers.find(p => p.name === touchName);
+        if (p) { p.groupNumber = parseInt(zone.dataset.group); renderSetupGroupCards(); }
+      }
+    });
+  });
+
+  container.querySelectorAll('.sg-drop-zone').forEach(zone => {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.background = 'rgba(212,168,67,0.08)'; });
+    zone.addEventListener('dragleave', () => { zone.style.background = ''; });
+    zone.addEventListener('drop', e => {
+      e.preventDefault(); zone.style.background = '';
+      const p = namedPlayers.find(p => p.name === e.dataTransfer.getData('text/plain'));
+      if (p) { p.groupNumber = parseInt(zone.dataset.group); renderSetupGroupCards(); }
+    });
+  });
 }
 
 // Pair-groups mode: drag PAIRS into groups (2 pairs per group)
@@ -1970,6 +2154,16 @@ async function teeOff() {
   const parSlice = tee.par.slice(offset, offset + count);
   const fmt      = setup.scoring;
   const isPairs  = ['betterball','csm','foursomes','greensomes'].includes(fmt);
+
+  // Derive numPlayers and numGroups from actual setup data
+  const namedPlayers = setup.players.filter(p => p.name);
+  setup.numPlayers   = namedPlayers.length;
+  if (isPairs && setup.pairs?.length > 0) {
+    // Each group has 2 pairs = 4 players; groups determined by pair.groupNumber
+    setup.numGroups = Math.max(...setup.pairs.map(p => p.groupNumber ?? 1));
+  } else {
+    setup.numGroups = Math.max(...namedPlayers.map(p => p.groupNumber ?? 1));
+  }
 
   // Remember last used tee for this course
   try { localStorage.setItem(`lb-last-tee-${setup.courseId}`, tee.name); } catch {}
