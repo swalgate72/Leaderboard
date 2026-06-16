@@ -71,6 +71,7 @@ const setup = {
   playersPerGroup: null,  // used for Best 2
   hcpPct:          100,
   players:         [],
+  pairs:           [], // [{name, playerIndices:[i,j], groupNumber}] for pair formats
 };
 
 let roundId    = null;
@@ -97,7 +98,7 @@ function toggle(id, on) { on ? show(id) : hide(id); }
 
 const SETUP_SCREENS = [
   'screen-setup-format', 'screen-setup-course', 'screen-setup-players',
-  'screen-setup-groups', 'screen-setup-review',
+  'screen-setup-pairs', 'screen-setup-groups', 'screen-setup-review',
 ];
 
 // Tournament setup screens: simple persistence — just remember the screen
@@ -704,7 +705,7 @@ function showFormatPicker(category) {
       const fmt = card.dataset.fmt;
       setup.scoring  = fmt;
       setup.courseId = null; setup.teeIdx = 0; setup.holes = 18;
-      setup.hcpPct   = 100; setup.players = [];
+      setup.hcpPct   = 100; setup.players = []; setup.pairs = [];
       if (fmt === 'split6')                                                { setup.numPlayers = 3; setup.numGroups = 1; setup.playersPerGroup = null; }
       else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ setup.numPlayers = 4; setup.numGroups = 1; setup.playersPerGroup = null; }
       else if (fmt === 'best2')                                            { setup.numPlayers = 8; setup.numGroups = 2; setup.playersPerGroup = 4; }
@@ -985,20 +986,291 @@ function addSetupPlayer(name, hcpIndex, courseHandicap, profileId) {
 document.getElementById('btn-setup-players-next')?.addEventListener('click', () => {
   const filled = setup.players.filter(p => p.name);
   if (filled.length < 2) { alert('Add at least 2 players.'); return; }
-  renderSetupGroupCards();
-  showScreen('screen-setup-groups');
+  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
+  if (isPairs) {
+    initSetupPairs();
+    showScreen('screen-setup-pairs');
+  } else {
+    renderSetupGroupCards();
+    showScreen('screen-setup-groups');
+  }
 });
 
 // ================================================================
-// SETUP -- STEP 3: GROUPS (drag-drop, same as tournament)
+// SETUP -- PAIRS SCREEN (for betterball/csm/foursomes/greensomes)
+// ================================================================
+
+function initSetupPairs() {
+  // Build initial pairs: consecutive player pairs (0&1, 2&3, ...)
+  const named = setup.players.filter(p => p.name);
+  setup.pairs = [];
+  // Assign pairIndex -1 to all (unassigned)
+  named.forEach(p => { p.pairIndex = -1; });
+  // Auto-pair if even number
+  for (let i = 0; i + 1 < named.length; i += 2) {
+    const pA = named[i], pB = named[i + 1];
+    const pairIdx = setup.pairs.length;
+    const piA = setup.players.indexOf(pA), piB = setup.players.indexOf(pB);
+    pA.pairIndex = pairIdx; pB.pairIndex = pairIdx;
+    setup.pairs.push({
+      name: `${pA.name.split(' ')[0]} & ${pB.name.split(' ')[0]}`,
+      playerIndices: [piA, piB],
+      groupNumber: 1,
+    });
+  }
+  if (named.length % 2 !== 0) named[named.length - 1].pairIndex = -1;
+  renderSetupPairsScreen();
+}
+
+function renderSetupPairsScreen() {
+  const poolEl   = document.getElementById('setup-pairs-pool');
+  const pairsEl  = document.getElementById('setup-pair-cards');
+  const poolCard = document.getElementById('setup-pairs-pool-card');
+  if (!poolEl || !pairsEl) return;
+
+  const named      = setup.players.filter(p => p.name);
+  const unassigned = named.filter(p => p.pairIndex === -1);
+
+  // Pool of unassigned players
+  if (unassigned.length === 0) {
+    poolCard.style.display = 'none';
+  } else {
+    poolCard.style.display = '';
+    poolEl.innerHTML = unassigned.map(p => {
+      const pi = setup.players.indexOf(p);
+      return `<div class="sp-player-chip" draggable="true" data-pi="${pi}"
+        style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.55rem 0.85rem;
+               background:var(--surface2);border:1px solid var(--border);border-radius:20px;
+               cursor:grab;margin:0.25rem;user-select:none;">
+        <span class="dot" style="background:${pHex(pi % 8)};width:10px;height:10px;flex-shrink:0;"></span>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.05rem;">${p.name}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Pair cards
+  pairsEl.innerHTML = '';
+  setup.pairs.forEach((pair, pairIdx) => {
+    const card = document.createElement('div');
+    card.className = 'card mb-sm sp-pair-drop';
+    card.dataset.pair = pairIdx;
+
+    const members = pair.playerIndices.map(pi => setup.players[pi]);
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+        <div class="card-title" style="margin:0;flex:1;">Pair ${pairIdx + 1}</div>
+        <input class="sp-pair-name" data-pair="${pairIdx}"
+          value="${pair.name}"
+          style="flex:2;background:none;border:none;border-bottom:1px solid var(--border);
+                 color:var(--gold);font-family:'Barlow Condensed',sans-serif;
+                 font-weight:800;font-size:1.05rem;outline:none;padding-bottom:2px;">
+      </div>
+      <div class="sp-pair-slots" data-pair="${pairIdx}" style="display:grid;gap:0.4rem;min-height:48px;">
+        ${members.map((p, slot) => {
+          if (!p) return `<div class="sp-empty-slot" data-pair="${pairIdx}" data-slot="${slot}"
+            style="padding:0.65rem;text-align:center;color:var(--muted);font-size:0.9rem;
+                   border:1.5px dashed var(--border);border-radius:var(--radius-sm);">
+            Drop player here</div>`;
+          const pi = pair.playerIndices[slot];
+          return `<div class="sp-player-chip" draggable="true" data-pi="${pi}"
+            style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.75rem;
+                   background:var(--surface2);border:1px solid var(--border);
+                   border-radius:var(--radius-sm);cursor:grab;user-select:none;">
+            <span style="font-size:1rem;color:var(--muted);">⣿</span>
+            <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
+            <span style="flex:1;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${p.name}</span>
+            <span style="font-size:0.82rem;color:var(--muted2);">HCP ${fmtHandicap(p.hcpIndex)}</span>
+            <button class="sp-remove" data-pi="${pi}" data-pair="${pairIdx}"
+              style="font-size:0.85rem;color:var(--muted);background:none;border:none;cursor:pointer;padding:0 0.25rem;">✕</button>
+          </div>`;
+        }).join('')}
+      </div>`;
+    pairsEl.appendChild(card);
+  });
+
+  // Add New Pair button
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn btn-outline';
+  addBtn.style.cssText = 'width:100%;padding:0.85rem;font-size:1rem;font-weight:700;border-style:dashed;border-color:var(--gold-border);color:var(--gold);';
+  addBtn.textContent = '＋ Add Another Pair';
+  addBtn.addEventListener('click', () => {
+    setup.pairs.push({ name: `Pair ${setup.pairs.length + 1}`, playerIndices: [], groupNumber: 1 });
+    renderSetupPairsScreen();
+  });
+  pairsEl.appendChild(addBtn);
+
+  // Wire name inputs
+  pairsEl.querySelectorAll('.sp-pair-name').forEach(inp => {
+    inp.addEventListener('input', e => {
+      setup.pairs[parseInt(inp.dataset.pair)].name = e.target.value;
+    });
+  });
+
+  // Wire remove buttons
+  pairsEl.querySelectorAll('.sp-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pi = parseInt(btn.dataset.pi), pairIdx = parseInt(btn.dataset.pair);
+      if (setup.players[pi]) setup.players[pi].pairIndex = -1;
+      const pair = setup.pairs[pairIdx];
+      pair.playerIndices = pair.playerIndices.filter(i => i !== pi);
+      renderSetupPairsScreen();
+    });
+  });
+
+  // ── Drag and drop ──
+  const allChips = document.querySelectorAll('.sp-player-chip[draggable]');
+  let touchGhost = null, touchPi = null, touchSrc = null;
+
+  allChips.forEach(chip => {
+    chip.addEventListener('dragstart', e => {
+      chip.style.opacity = '0.4';
+      e.dataTransfer.setData('text/plain', chip.dataset.pi);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    chip.addEventListener('dragend', () => { chip.style.opacity = '1'; });
+
+    chip.addEventListener('touchstart', e => {
+      touchPi = chip.dataset.pi; touchSrc = chip;
+      touchGhost = chip.cloneNode(true);
+      touchGhost.style.cssText = `position:fixed;z-index:9999;opacity:0.85;pointer-events:none;
+        background:var(--surface2);border-radius:20px;padding:0.5rem 0.85rem;
+        box-shadow:0 4px 20px rgba(0,0,0,0.4);`;
+      document.body.appendChild(touchGhost);
+      chip.style.opacity = '0.3';
+    }, { passive: true });
+
+    chip.addEventListener('touchmove', e => {
+      if (!touchGhost) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      touchGhost.style.left = (t.clientX - 60) + 'px';
+      touchGhost.style.top  = (t.clientY - 20) + 'px';
+      document.querySelectorAll('.sp-pair-slots,.sp-empty-slot,.setup-pairs-pool').forEach(z => z.style.background = '');
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      el?.closest('.sp-pair-slots')?.style && (el.closest('.sp-pair-slots').style.background = 'rgba(212,168,67,0.08)');
+    }, { passive: false });
+
+    chip.addEventListener('touchend', e => {
+      if (!touchGhost) return;
+      document.body.removeChild(touchGhost); touchGhost = null;
+      touchSrc && (touchSrc.style.opacity = '1');
+      document.querySelectorAll('.sp-pair-slots').forEach(z => z.style.background = '');
+      const t = e.changedTouches[0];
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      const dropZone = el?.closest('.sp-pair-slots') || el?.closest('.sp-empty-slot');
+      if (dropZone) dropPlayerIntoPair(parseInt(touchPi), parseInt(dropZone.dataset.pair));
+    });
+  });
+
+  // Desktop drop zones
+  document.querySelectorAll('.sp-pair-slots, .sp-empty-slot').forEach(zone => {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.background = 'rgba(212,168,67,0.08)'; });
+    zone.addEventListener('dragleave', () => { zone.style.background = ''; });
+    zone.addEventListener('drop', e => {
+      e.preventDefault(); zone.style.background = '';
+      const pi = parseInt(e.dataTransfer.getData('text/plain'));
+      const pairIdx = parseInt(zone.dataset.pair);
+      dropPlayerIntoPair(pi, pairIdx);
+    });
+  });
+
+  // Pool drop zone (remove from pair)
+  poolEl.addEventListener('dragover', e => { e.preventDefault(); poolEl.style.background = 'rgba(255,255,255,0.05)'; });
+  poolEl.addEventListener('dragleave', () => { poolEl.style.background = ''; });
+  poolEl.addEventListener('drop', e => {
+    e.preventDefault(); poolEl.style.background = '';
+    const pi = parseInt(e.dataTransfer.getData('text/plain'));
+    removePlayerFromPair(pi);
+  });
+
+  // Validate next button
+  const allPaired  = named.every(p => p.pairIndex !== -1);
+  const validPairs = setup.pairs.every(pair => pair.playerIndices.length === 2);
+  const btn = document.getElementById('btn-setup-pairs-next');
+  if (btn) {
+    const ok = allPaired && validPairs && setup.pairs.length > 0;
+    btn.disabled   = !ok;
+    btn.style.opacity = ok ? '' : '0.5';
+  }
+}
+
+function dropPlayerIntoPair(pi, pairIdx) {
+  const pair = setup.pairs[pairIdx];
+  if (!pair) return;
+  if (pair.playerIndices.length >= 2) { alert('Each pair can only have 2 players.'); return; }
+  if (pair.playerIndices.includes(pi)) return; // already in this pair
+
+  // Remove from current pair if any
+  removePlayerFromPair(pi, false);
+
+  setup.players[pi].pairIndex = pairIdx;
+  pair.playerIndices.push(pi);
+
+  // Auto-update pair name if still default
+  if (pair.playerIndices.length === 2) {
+    const [piA, piB] = pair.playerIndices;
+    const nameA = setup.players[piA]?.name.split(' ')[0] ?? '';
+    const nameB = setup.players[piB]?.name.split(' ')[0] ?? '';
+    pair.name = `${nameA} & ${nameB}`;
+  }
+
+  renderSetupPairsScreen();
+}
+
+function removePlayerFromPair(pi, reRender = true) {
+  const p = setup.players[pi];
+  if (!p || p.pairIndex === -1) return;
+  const pair = setup.pairs[p.pairIndex];
+  if (pair) pair.playerIndices = pair.playerIndices.filter(i => i !== pi);
+  p.pairIndex = -1;
+  if (reRender) renderSetupPairsScreen();
+}
+
+// ================================================================
+// SETUP -- GROUPS SCREEN (players for solo, pairs for pair formats)
 // ================================================================
 
 function renderSetupGroupCards() {
-  // Populate num-groups selector
+  const isPairs  = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
+  const isBest2  = setup.scoring === 'best2';
   const numGroupsSel = document.getElementById('setup-num-groups');
   const namedPlayers = setup.players.filter(p => p.name);
   const numPlayers   = namedPlayers.length;
-  const suggested    = Math.max(1, Math.ceil(numPlayers / 4));
+
+  // Title / label
+  const titleEl = document.getElementById('setup-groups-title');
+  const labelEl = document.getElementById('setup-num-groups-label');
+  if (isPairs) {
+    const numPairs = setup.pairs.length;
+    if (titleEl) titleEl.textContent = 'Arrange Groups';
+    if (labelEl) labelEl.textContent = 'Number of Groups';
+    // For pairs: 1 group per 2 pairs (4 players), so suggest numPairs/2
+    const suggestedGrps = Math.max(1, Math.ceil(numPairs / 2));
+    // Reset _wired flag so we re-wire with new options
+    if (numGroupsSel) {
+      numGroupsSel._wired = false;
+      numGroupsSel.innerHTML = Array.from({ length: Math.max(numPairs, 6) }, (_, i) =>
+        `<option value="${i+1}">${i+1} group${i > 0 ? 's' : ''}</option>`).join('');
+      numGroupsSel.value = String(Math.min(suggestedGrps, setup.numGroups || suggestedGrps));
+      setup.numGroups = parseInt(numGroupsSel.value) || 1;
+      numGroupsSel.onchange = () => {
+        setup.numGroups = parseInt(numGroupsSel.value) || 1;
+        // Clamp pair groupNumbers
+        setup.pairs.forEach(pair => {
+          if ((pair.groupNumber ?? 1) > setup.numGroups) pair.groupNumber = setup.numGroups;
+        });
+        renderSetupGroupCards();
+      };
+      numGroupsSel._wired = true;
+    }
+    renderSetupPairGroupCards();
+    return;
+  }
+
+  // ── Individual / Best 2 / split6 etc: player drag ──
+  const suggested = isBest2
+    ? Math.max(1, Math.ceil(numPlayers / (setup.playersPerGroup || 4)))
+    : Math.max(1, Math.ceil(numPlayers / 4));
 
   if (numGroupsSel && !numGroupsSel._wired) {
     numGroupsSel.innerHTML = Array.from({ length: 6 }, (_, i) =>
@@ -1012,7 +1284,7 @@ function renderSetupGroupCards() {
   }
 
   setup.numGroups = parseInt(numGroupsSel?.value) || 1;
-  const perGroup  = Math.ceil(numPlayers / setup.numGroups);
+  const perGroup  = isBest2 ? (setup.playersPerGroup || 4) : Math.ceil(numPlayers / setup.numGroups);
 
   const suggestion = document.getElementById('setup-group-suggestion');
   if (suggestion) {
@@ -1166,17 +1438,184 @@ function renderSetupGroupCards() {
   if (btn) { btn.disabled = overAny; btn.style.opacity = overAny ? '0.5' : ''; }
 }
 
+// Pair-groups mode: drag PAIRS into groups (2 pairs per group)
+function renderSetupPairGroupCards() {
+  const container  = document.getElementById('setup-group-cards');
+  const suggestion = document.getElementById('setup-group-suggestion');
+  if (!container) return;
+
+  const numPairs = setup.pairs.length;
+
+  // Auto-assign pairs to groups if not yet set
+  const hasAssign = setup.pairs.some(p => (p.groupNumber ?? 1) > 1);
+  if (!hasAssign) {
+    const pairsPerGroup = Math.ceil(numPairs / setup.numGroups);
+    setup.pairs.forEach((p, i) => {
+      p.groupNumber = Math.min(Math.floor(i / pairsPerGroup) + 1, setup.numGroups);
+    });
+  }
+
+  if (suggestion) {
+    suggestion.textContent = `${numPairs} pairs → ${setup.numGroups} group${setup.numGroups > 1 ? 's' : ''} of 2`;
+  }
+
+  const groups = Array.from({ length: setup.numGroups }, (_, g) =>
+    setup.pairs.filter(p => (p.groupNumber ?? 1) === g + 1));
+
+  // Balance warning
+  const sizes = groups.map(g => g.length);
+  const maxSz = Math.max(...sizes), minSz = Math.min(...sizes);
+  let warning = '';
+  if (setup.numGroups > 1 && maxSz - minSz >= 2) {
+    warning = `<div style="background:rgba(212,168,67,0.12);border:1px solid var(--gold-border);
+      border-radius:var(--radius-sm);padding:0.65rem 0.85rem;margin-bottom:0.75rem;
+      font-size:0.95rem;font-weight:700;color:var(--gold);">
+      ⚠️ Groups are uneven — consider moving pairs for a balanced draw.
+    </div>`;
+  }
+
+  container.innerHTML = warning;
+
+  groups.forEach((groupPairs, g) => {
+    const overLimit = groupPairs.length > 2;
+    const card = document.createElement('div');
+    card.className = 'card mb-sm spg-drop-zone';
+    card.dataset.group = g + 1;
+    if (overLimit) card.style.borderColor = 'var(--red-border)';
+
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+        <div class="card-title" style="margin:0;">Group ${g + 1}</div>
+        <div style="font-size:0.85rem;font-weight:700;color:${overLimit ? 'var(--red)' : 'var(--muted2)'};">
+          ${groupPairs.length} pair${groupPairs.length !== 1 ? 's' : ''}${overLimit ? ' — max 2' : ''}
+        </div>
+      </div>
+      <div class="spg-pair-list" data-group="${g + 1}">
+        ${groupPairs.length === 0
+          ? `<div style="padding:0.75rem;text-align:center;color:var(--muted);font-size:0.9rem;
+              border:1.5px dashed var(--border);border-radius:var(--radius-sm);">Drop a pair here</div>`
+          : groupPairs.map(pair => {
+              const pairIdx = setup.pairs.indexOf(pair);
+              const [pi0, pi1] = pair.playerIndices;
+              const p0 = setup.players[pi0], p1 = setup.players[pi1];
+              return `<div class="spg-pair-row" draggable="true" data-pair="${pairIdx}"
+                style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.5rem;
+                       border-bottom:1px solid var(--border);cursor:grab;user-select:none;">
+                <span style="font-size:1.1rem;color:var(--muted);">⣿</span>
+                <div style="flex:1;">
+                  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
+                              color:var(--gold);">${pair.name}</div>
+                  <div style="font-size:0.82rem;color:var(--muted2);">
+                    ${p0?.name ?? '?'} · HCP ${fmtHandicap(p0?.hcpIndex ?? 0)} &nbsp;
+                    ${p1?.name ?? '?'} · HCP ${fmtHandicap(p1?.hcpIndex ?? 0)}
+                  </div>
+                </div>
+              </div>`;
+            }).join('')}
+      </div>`;
+    container.appendChild(card);
+  });
+
+  // Desktop drag
+  let touchGhost2 = null, touchPairIdx = null, touchSrc2 = null;
+
+  container.querySelectorAll('.spg-pair-row').forEach(row => {
+    row.addEventListener('dragstart', e => {
+      row.style.opacity = '0.4';
+      e.dataTransfer.setData('text/plain', row.dataset.pair);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', () => { row.style.opacity = '1'; });
+
+    row.addEventListener('touchstart', e => {
+      touchPairIdx = row.dataset.pair; touchSrc2 = row;
+      touchGhost2 = row.cloneNode(true);
+      touchGhost2.style.cssText = `position:fixed;z-index:9999;opacity:0.85;pointer-events:none;
+        background:var(--surface2);border-radius:var(--radius-sm);padding:0.5rem;
+        box-shadow:0 4px 20px rgba(0,0,0,0.4);width:${row.offsetWidth}px;`;
+      document.body.appendChild(touchGhost2);
+      row.style.opacity = '0.3';
+    }, { passive: true });
+
+    row.addEventListener('touchmove', e => {
+      if (!touchGhost2) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      touchGhost2.style.left = (t.clientX - touchGhost2.offsetWidth / 2) + 'px';
+      touchGhost2.style.top  = (t.clientY - 30) + 'px';
+      container.querySelectorAll('.spg-drop-zone').forEach(z => z.style.background = '');
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      el?.closest('.spg-drop-zone')?.style && (el.closest('.spg-drop-zone').style.background = 'rgba(212,168,67,0.08)');
+    }, { passive: false });
+
+    row.addEventListener('touchend', e => {
+      if (!touchGhost2) return;
+      document.body.removeChild(touchGhost2); touchGhost2 = null;
+      touchSrc2 && (touchSrc2.style.opacity = '1');
+      container.querySelectorAll('.spg-drop-zone').forEach(z => z.style.background = '');
+      const t = e.changedTouches[0];
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      const zone = el?.closest('.spg-drop-zone');
+      if (zone) {
+        const tg = parseInt(zone.dataset.group);
+        const pair = setup.pairs[parseInt(touchPairIdx)];
+        if (pair && pair.groupNumber !== tg) { pair.groupNumber = tg; renderSetupPairGroupCards(); }
+      }
+    });
+  });
+
+  container.querySelectorAll('.spg-drop-zone').forEach(zone => {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.background = 'rgba(212,168,67,0.08)'; });
+    zone.addEventListener('dragleave', () => { zone.style.background = ''; });
+    zone.addEventListener('drop', e => {
+      e.preventDefault(); zone.style.background = '';
+      const pairIdx = parseInt(e.dataTransfer.getData('text/plain'));
+      const tg = parseInt(zone.dataset.group);
+      const pair = setup.pairs[pairIdx];
+      if (pair && pair.groupNumber !== tg) { pair.groupNumber = tg; renderSetupPairGroupCards(); }
+    });
+  });
+
+  // Validate
+  const overAny = groups.some(g => g.length > 2);
+  const btn = document.getElementById('btn-setup-groups-next');
+  if (btn) { btn.disabled = overAny; btn.style.opacity = overAny ? '0.5' : ''; }
+}
+
 document.getElementById('setup-groups-back')?.addEventListener('click', () => {
-  showScreen('screen-setup-players');
+  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
+  if (isPairs) showScreen('screen-setup-pairs');
+  else showScreen('screen-setup-players');
 });
 document.getElementById('setup-abandon-3')?.addEventListener('click', () => {
-  if (confirm('Abandon setup?')) { clearSetupState(); showHome(); }
+  abandonSource = 'setup'; document.getElementById('modal-abandon').classList.add('open');
 });
+document.getElementById('setup-abandon-pairs')?.addEventListener('click', () => {
+  abandonSource = 'setup'; document.getElementById('modal-abandon').classList.add('open');
+});
+document.getElementById('setup-abandon-review')?.addEventListener('click', () => {
+  abandonSource = 'setup'; document.getElementById('modal-abandon').classList.add('open');
+});
+document.getElementById('setup-pairs-back')?.addEventListener('click', () => showScreen('screen-setup-players'));
 
 document.getElementById('btn-setup-groups-next')?.addEventListener('click', () => {
-  // Sync groupNumber into setup.players before review
   buildSetupReview();
   showScreen('screen-setup-review');
+});
+
+document.getElementById('btn-setup-pairs-next')?.addEventListener('click', () => {
+  const named     = setup.players.filter(p => p.name);
+  const unassigned = named.filter(p => p.pairIndex == null || p.pairIndex === -1);
+  if (unassigned.length > 0) {
+    alert(`${unassigned.map(p => p.name).join(', ')} still need${unassigned.length === 1 ? 's' : ''} to be assigned to a pair.`);
+    return;
+  }
+  const badPairs = setup.pairs.filter(pair => pair.playerIndices.length !== 2);
+  if (badPairs.length > 0) {
+    alert('Each pair must have exactly 2 players.'); return;
+  }
+  renderSetupGroupCards();
+  showScreen('screen-setup-groups');
 });
 
 // Returns the user's saved Course Handicap for the currently-selected
@@ -1421,7 +1860,6 @@ function buildSetupReview() {
 
 document.getElementById('setup-review-back') ?.addEventListener('click', () => showScreen('screen-setup-groups'));
 document.getElementById('btn-review-back')   ?.addEventListener('click', () => showScreen('screen-setup-groups'));
-document.getElementById('setup-abandon-3')   ?.addEventListener('click', () => { abandonSource = 'setup'; document.getElementById('modal-abandon').classList.add('open'); });
 document.getElementById('btn-tee-off')       ?.addEventListener('click', async () => await teeOff());
 
 async function teeOff() {
@@ -1449,14 +1887,24 @@ async function teeOff() {
   const playersPerGroup = Math.ceil(setup.numPlayers / setup.numGroups);
   screenLog('teeOff numGroups:' + setup.numGroups + ' numPlayers:' + setup.numPlayers + ' ppg:' + playersPerGroup);
 
-  // Build one game state per group, using groupNumber assignment from screen 3
+  // Build one game state per group
   const groupStates = [];
   for (let g = 0; g < setup.numGroups; g++) {
     const groupNum = g + 1;
-    // Use groupNumber if set (new flow), else fall back to array-slice (old flow)
-    const groupPlayers = setup.players.some(p => p.groupNumber > 1)
-      ? setup.players.filter(p => (p.groupNumber ?? 1) === groupNum)
-      : setup.players.slice(g * playersPerGroup, Math.min((g + 1) * playersPerGroup, setup.numPlayers));
+    let groupPlayers;
+
+    if (isPairs && setup.pairs?.length > 0) {
+      // For pair formats: order players so Pair A = [0,1], Pair B = [2,3]
+      const groupPairs = setup.pairs.filter(p => (p.groupNumber ?? 1) === groupNum);
+      groupPlayers = groupPairs.flatMap(pair =>
+        pair.playerIndices.map(pi => setup.players[pi]).filter(Boolean)
+      );
+    } else if (setup.players.some(p => p.groupNumber > 1)) {
+      groupPlayers = setup.players.filter(p => (p.groupNumber ?? 1) === groupNum);
+    } else {
+      groupPlayers = setup.players.slice(g * playersPerGroup, Math.min((g + 1) * playersPerGroup, setup.numPlayers));
+    }
+
     const gNames  = groupPlayers.map((p, j) => p.name || `Player ${j + 1}`);
     const gHcpArr = groupPlayers.map(p => (p.courseHandicap != null ? p.courseHandicap : p.hcpIndex) || 0);
     const gHcpObj = calcHandicaps(gHcpArr, setup.hcpPct);
