@@ -1299,10 +1299,88 @@ function renderSetupGroupCards() {
     return;
   }
 
-  // ── Individual / Best 2 / split6 etc: player drag ──
-  const suggested = isBest2
-    ? Math.max(1, Math.ceil(numPlayers / (setup.playersPerGroup || 4)))
-    : Math.max(1, Math.ceil(numPlayers / 4));
+  // ── Best 2: show grouping option buttons instead of select ──────
+  const numGroupsCard = document.getElementById('setup-num-groups-card');
+  if (isBest2) {
+    if (numGroupsCard) numGroupsCard.style.display = 'none';
+    if (titleEl) titleEl.textContent = 'Choose Groups';
+
+    const container = document.getElementById('setup-group-cards');
+    if (!container) return;
+
+    // Calculate all valid splits: groups of 3 or 4
+    const options = [];
+    for (let grpSize = 3; grpSize <= 4; grpSize++) {
+      if (numPlayers % grpSize === 0) {
+        const numGrps = numPlayers / grpSize;
+        options.push({ numGroups: numGrps, perGroup: grpSize });
+      }
+    }
+    // If no exact split, add nearest options
+    if (options.length === 0) {
+      [3, 4].forEach(grpSize => {
+        const numGrps = Math.round(numPlayers / grpSize);
+        if (numGrps >= 1 && !options.find(o => o.numGroups === numGrps)) {
+          options.push({ numGroups: numGrps, perGroup: Math.ceil(numPlayers / numGrps) });
+        }
+      });
+    }
+
+    const selectedNumGroups = setup.numGroups || options[0]?.numGroups || 2;
+    const selectedPerGroup  = setup.playersPerGroup || options[0]?.perGroup || 4;
+
+    let optionHTML = `<div style="display:grid;gap:0.5rem;margin-bottom:1rem;">`;
+    options.forEach(opt => {
+      const isActive = opt.numGroups === selectedNumGroups;
+      optionHTML += `<button class="btn b2-group-opt ${isActive ? 'holes-btn active' : 'btn-outline'}"
+        data-groups="${opt.numGroups}" data-per="${opt.perGroup}"
+        style="padding:1rem;font-size:1.1rem;font-weight:800;font-family:'Barlow Condensed',sans-serif;">
+        ${opt.numGroups} group${opt.numGroups > 1 ? 's' : ''} of ${opt.perGroup}
+      </button>`;
+    });
+    optionHTML += `</div>`;
+
+    // Re-assign players for current selection
+    if (!namedPlayers.some(p => p.groupNumber > 1) || setup.numGroups !== selectedNumGroups) {
+      setup.numGroups       = selectedNumGroups;
+      setup.playersPerGroup = selectedPerGroup;
+      setup.numPlayers      = numPlayers;
+      namedPlayers.forEach((p, i) => {
+        p.groupNumber = Math.min(Math.floor(i / selectedPerGroup) + 1, selectedNumGroups);
+      });
+    }
+
+    const groups = Array.from({ length: selectedNumGroups }, (_, g) =>
+      namedPlayers.filter(p => (p.groupNumber ?? 1) === g + 1));
+
+    // Render option buttons + drag-drop group cards
+    container.innerHTML = optionHTML + renderB2GroupCards(groups, namedPlayers);
+    wireB2GroupCards(container, groups, namedPlayers);
+
+    // Wire option buttons
+    container.querySelectorAll('.b2-group-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ng = parseInt(btn.dataset.groups);
+        const np = parseInt(btn.dataset.per);
+        setup.numGroups       = ng;
+        setup.playersPerGroup = np;
+        setup.numPlayers      = numPlayers;
+        // Re-assign players
+        namedPlayers.forEach((p, i) => {
+          p.groupNumber = Math.min(Math.floor(i / np) + 1, ng);
+        });
+        renderSetupGroupCards();
+      });
+    });
+
+    const nextBtn = document.getElementById('btn-setup-groups-next');
+    if (nextBtn) { nextBtn.disabled = false; nextBtn.style.opacity = ''; }
+    return;
+  }
+
+  // ── Individual / split6 etc: player drag with groups select ──
+  if (numGroupsCard) numGroupsCard.style.display = '';
+  const suggested = Math.max(1, Math.ceil(numPlayers / 4));
 
   if (numGroupsSel && !numGroupsSel._wired) {
     numGroupsSel.innerHTML = Array.from({ length: 6 }, (_, i) =>
@@ -1468,6 +1546,91 @@ function renderSetupGroupCards() {
   const overAny = groups.some(g => g.length > 4);
   const btn     = document.getElementById('btn-setup-groups-next');
   if (btn) { btn.disabled = overAny; btn.style.opacity = overAny ? '0.5' : ''; }
+}
+
+function renderB2GroupCards(groups, namedPlayers) {
+  let html = '';
+  groups.forEach((groupPlayers, g) => {
+    html += `<div class="card mb-sm sg-drop-zone" data-group="${g + 1}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+        <div class="card-title" style="margin:0;">Group ${g + 1}</div>
+        <div style="font-size:0.85rem;font-weight:700;color:var(--muted2);">${groupPlayers.length} players</div>
+      </div>
+      <div class="sg-player-list" data-group="${g + 1}">
+        ${groupPlayers.length === 0
+          ? `<div style="padding:0.75rem;text-align:center;color:var(--muted);font-size:0.9rem;
+              border:1.5px dashed var(--border);border-radius:var(--radius-sm);">Drop a player here</div>`
+          : groupPlayers.map(p => {
+              const pi = namedPlayers.indexOf(p);
+              return `<div class="sg-player-row" draggable="true" data-name="${p.name}"
+                style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.5rem;
+                       border-bottom:1px solid var(--border);cursor:grab;user-select:none;
+                       border-radius:var(--radius-sm);">
+                <span style="font-size:1.1rem;color:var(--muted);">⣿</span>
+                <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
+                <div style="flex:1;">
+                  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${p.name}</div>
+                  <div style="font-size:0.82rem;color:var(--muted2);">HCP ${fmtHandicap(p.hcpIndex)}</div>
+                </div>
+              </div>`;
+            }).join('')}
+      </div>
+    </div>`;
+  });
+  return html;
+}
+
+function wireB2GroupCards(container, groups, namedPlayers) {
+  let touchGhost = null, touchName = null, touchSrc = null;
+
+  container.querySelectorAll('.sg-player-row').forEach(row => {
+    row.addEventListener('dragstart', e => {
+      row.style.opacity = '0.4';
+      e.dataTransfer.setData('text/plain', row.dataset.name);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', () => { row.style.opacity = '1'; });
+    row.addEventListener('touchstart', e => {
+      touchName = row.dataset.name; touchSrc = row;
+      touchGhost = row.cloneNode(true);
+      touchGhost.style.cssText = `position:fixed;z-index:9999;opacity:0.85;pointer-events:none;
+        background:var(--surface2);border-radius:var(--radius-sm);padding:0.5rem;
+        box-shadow:0 4px 20px rgba(0,0,0,0.4);width:${row.offsetWidth}px;`;
+      document.body.appendChild(touchGhost);
+      row.style.opacity = '0.3';
+    }, { passive: true });
+    row.addEventListener('touchmove', e => {
+      if (!touchGhost) return; e.preventDefault();
+      const t = e.touches[0];
+      touchGhost.style.left = (t.clientX - touchGhost.offsetWidth / 2) + 'px';
+      touchGhost.style.top  = (t.clientY - 30) + 'px';
+      container.querySelectorAll('.sg-drop-zone').forEach(z => z.style.background = '');
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      el?.closest('.sg-drop-zone')?.style && (el.closest('.sg-drop-zone').style.background = 'rgba(212,168,67,0.08)');
+    }, { passive: false });
+    row.addEventListener('touchend', e => {
+      if (!touchGhost) return;
+      document.body.removeChild(touchGhost); touchGhost = null;
+      touchSrc && (touchSrc.style.opacity = '1');
+      container.querySelectorAll('.sg-drop-zone').forEach(z => z.style.background = '');
+      const t = e.changedTouches[0];
+      const zone = document.elementFromPoint(t.clientX, t.clientY)?.closest('.sg-drop-zone');
+      if (zone) {
+        const p = namedPlayers.find(p => p.name === touchName);
+        if (p) { p.groupNumber = parseInt(zone.dataset.group); renderSetupGroupCards(); }
+      }
+    });
+  });
+
+  container.querySelectorAll('.sg-drop-zone').forEach(zone => {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.background = 'rgba(212,168,67,0.08)'; });
+    zone.addEventListener('dragleave', () => { zone.style.background = ''; });
+    zone.addEventListener('drop', e => {
+      e.preventDefault(); zone.style.background = '';
+      const p = namedPlayers.find(p => p.name === e.dataTransfer.getData('text/plain'));
+      if (p) { p.groupNumber = parseInt(zone.dataset.group); renderSetupGroupCards(); }
+    });
+  });
 }
 
 // Pair-groups mode: drag PAIRS into groups (2 pairs per group)
