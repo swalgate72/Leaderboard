@@ -2772,7 +2772,7 @@ function renderHolePanel() {
 
 function makePlayerInputRow(pi, h, par) {
   const fmt     = gameState.format;
-  const isIndiv = ['stableford','stroke'].includes(fmt);
+  const isIndiv = ['stableford','stroke','best2','split6'].includes(fmt);
   const extra   = isIndiv
     ? indivStrokesOnHole(gameState.playingHandicaps[pi], gameState.si[h])
     : strokesOnHole(gameState.matchHandicaps[pi], gameState.si[h]);
@@ -2845,7 +2845,7 @@ function openScorePicker(pi, h, par) {
   document.getElementById('sp-context').textContent = `Hole ${h + 1} · Par ${par}`;
 
   const fmt     = gameState.format;
-  const isIndiv = ['stableford','stroke'].includes(fmt);
+  const isIndiv = ['stableford','stroke','best2','split6'].includes(fmt);
   const extra   = isIndiv
     ? indivStrokesOnHole(gameState.playingHandicaps[pi], gameState.si[h])
     : strokesOnHole(gameState.matchHandicaps[pi], gameState.si[h]);
@@ -2895,7 +2895,7 @@ function openScorePicker(pi, h, par) {
     // Pickup = par + handicap strokes received on this hole + 1
     // (one worse than the score that would earn a Stableford point)
     const fmt   = gameState.format;
-    const isIndiv = ['stableford','stroke'].includes(fmt);
+    const isIndiv = ['stableford','stroke','best2','split6'].includes(fmt);
     const extra = isIndiv
       ? indivStrokesOnHole(gameState.playingHandicaps[pi], gameState.si[h])
       : strokesOnHole(gameState.matchHandicaps[pi], gameState.si[h]);
