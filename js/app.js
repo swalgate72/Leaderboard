@@ -133,6 +133,27 @@ function showScreen(id) {
   }
 }
 
+function saveSetupDraft() {
+  try {
+    const course = allCourses.find(c => c.id === setup.courseId);
+    localStorage.setItem('lb-setup-draft', JSON.stringify({
+      scoring:    setup.scoring,
+      courseName: course?.name ?? null,
+      teeName:    course?.tees?.[setup.teeIdx]?.name ?? null,
+      players:    setup.players.filter(p => p.name).map(p => p.name),
+      savedAt:    Date.now(),
+    }));
+  } catch {}
+}
+
+function clearSetupDraft() {
+  try { localStorage.removeItem('lb-setup-draft'); } catch {}
+}
+
+function readSetupDraft() {
+  try { return JSON.parse(localStorage.getItem('lb-setup-draft') ?? 'null'); } catch { return null; }
+}
+
 function saveSetupState(screenId) {
   try {
     localStorage.setItem('lb-setup-state', JSON.stringify({
@@ -597,6 +618,22 @@ async function loadHomeStatsAndActive(myName) {
     const activeTournaments = tournaments.filter(t => t.status !== 'completed');
 
     const rows = [];
+
+    // Setup draft (game being configured, not yet started)
+    const draft = readSetupDraft();
+    if (draft) {
+      const draftNames = draft.players?.slice(0, 3).join(', ') + (draft.players?.length > 3 ? '…' : '');
+      rows.push(`
+        <div class="home-active-row" data-kind="draft">
+          <div class="home-active-icon">✏️</div>
+          <div class="home-active-body">
+            <div class="home-active-title">Game Setup — ${draft.courseName ?? fmtLabel(draft.scoring)}</div>
+            <div class="home-active-sub">${fmtLabel(draft.scoring)}${draftNames ? ` · ${draftNames}` : ''}</div>
+          </div>
+          <div class="home-active-chevron">›</div>
+        </div>`);
+    }
+
     actives.forEach(r => {
       rows.push(`
         <div class="home-active-row" data-kind="round" data-id="${r.id}">
@@ -625,6 +662,9 @@ async function loadHomeStatsAndActive(myName) {
       row.addEventListener('click', () => {
         if (row.dataset.kind === 'round') {
           resumeRound(row.dataset.id);
+        } else if (row.dataset.kind === 'draft') {
+          // Restore in-progress game setup
+          tryRestoreSetupState().then(ok => { if (!ok) showHome(); });
         } else {
           showTournamentDetail(row.dataset.id);
         }
@@ -714,7 +754,7 @@ function showFormatPicker(category) {
   showScreen('screen-setup-format');
 }
 
-document.getElementById('setup-format-back')?.addEventListener('click', () => { clearSetupState(); showHome(); });
+document.getElementById('setup-format-back')?.addEventListener('click', () => { clearSetupState(); clearSetupDraft(); showHome(); });
 
 // ================================================================
 // SETUP -- STEP 1: COURSE
@@ -879,6 +919,7 @@ document.getElementById('btn-setup-course-next')?.addEventListener('click', () =
 
   renderSetupPlayerList();
   saveSetupState('screen-setup-players');
+  saveSetupDraft();
   showScreen('screen-setup-players');
 });
 
@@ -937,6 +978,7 @@ function renderSetupPlayerList() {
       const idx = parseInt(btn.dataset.remove);
       setup.players[idx] = { name: '', hcpIndex: 0, courseHandicap: null, groupNumber: 1, profileId: null, isScorer: false };
       saveSetupState('screen-setup-players');
+      saveSetupDraft();
       renderSetupPlayerList();
     });
   });
@@ -1003,6 +1045,7 @@ function addSetupPlayer(name, hcpIndex, courseHandicap, profileId) {
     setup.players[emptyIdx] = { ...setup.players[emptyIdx], name, hcpIndex, courseHandicap, profileId: profileId ?? null };
   }
   saveSetupState('screen-setup-players');
+  saveSetupDraft();
   renderSetupPlayerList();
 }
 
@@ -1324,7 +1367,7 @@ function renderSetupGroupCards() {
   const numGroupsCard = document.getElementById('setup-num-groups-card');
   if (isBest2) {
     if (numGroupsCard) numGroupsCard.style.display = 'none';
-    if (titleEl) titleEl.textContent = 'Choose Groups';
+    if (titleEl) titleEl.textContent = 'Arrange Teams';
 
     const container = document.getElementById('setup-group-cards');
     if (!container) return;
@@ -1350,7 +1393,9 @@ function renderSetupGroupCards() {
     const selectedNumGroups = setup.numGroups || options[0]?.numGroups || 2;
     const selectedPerGroup  = setup.playersPerGroup || options[0]?.perGroup || 4;
 
-    let optionHTML = `<div style="display:grid;gap:0.5rem;margin-bottom:1rem;">`;
+    let optionHTML = `
+      <div class="home-section-label" style="margin-bottom:0.6rem;">Teams</div>
+      <div style="display:grid;gap:0.5rem;margin-bottom:1rem;">`;
     options.forEach(opt => {
       const isActive = opt.numGroups === selectedNumGroups;
       optionHTML += `<button class="btn b2-group-opt ${isActive ? 'holes-btn active' : 'btn-outline'}"
@@ -2399,6 +2444,7 @@ async function resumeRound(id) {
 // ================================================================
 function enterGameScreen() {
   clearSetupState();
+  clearSetupDraft();
   showScreen('screen-game');
   renderGameTopBar();
   renderScoreHeader();
