@@ -1456,130 +1456,196 @@ function renderSetupPairGroupCards() {
   }
 
   if (suggestion) {
-    suggestion.textContent = `${numPairs} pairs → ${setup.numGroups} group${setup.numGroups > 1 ? 's' : ''} of 2`;
+    suggestion.textContent = `${numPairs} pairs → ${setup.numGroups} group${setup.numGroups > 1 ? 's' : ''} of 2 · Drag a pair onto another to swap`;
   }
 
   const groups = Array.from({ length: setup.numGroups }, (_, g) =>
     setup.pairs.filter(p => (p.groupNumber ?? 1) === g + 1));
 
-  // Balance warning
-  const sizes = groups.map(g => g.length);
-  const maxSz = Math.max(...sizes), minSz = Math.min(...sizes);
-  let warning = '';
-  if (setup.numGroups > 1 && maxSz - minSz >= 2) {
-    warning = `<div style="background:rgba(212,168,67,0.12);border:1px solid var(--gold-border);
-      border-radius:var(--radius-sm);padding:0.65rem 0.85rem;margin-bottom:0.75rem;
-      font-size:0.95rem;font-weight:700;color:var(--gold);">
-      ⚠️ Groups are uneven — consider moving pairs for a balanced draw.
-    </div>`;
-  }
-
-  container.innerHTML = warning;
+  container.innerHTML = '';
 
   groups.forEach((groupPairs, g) => {
-    const overLimit = groupPairs.length > 2;
     const card = document.createElement('div');
-    card.className = 'card mb-sm spg-drop-zone';
+    card.className = 'card mb-sm spg-group-card';
     card.dataset.group = g + 1;
-    if (overLimit) card.style.borderColor = 'var(--red-border)';
 
     card.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
         <div class="card-title" style="margin:0;">Group ${g + 1}</div>
-        <div style="font-size:0.85rem;font-weight:700;color:${overLimit ? 'var(--red)' : 'var(--muted2)'};">
-          ${groupPairs.length} pair${groupPairs.length !== 1 ? 's' : ''}${overLimit ? ' — max 2' : ''}
+        <div style="font-size:0.85rem;font-weight:700;color:var(--muted2);">
+          ${groupPairs.length} pair${groupPairs.length !== 1 ? 's' : ''}
         </div>
       </div>
-      <div class="spg-pair-list" data-group="${g + 1}">
+      <div class="spg-pair-list" data-group="${g + 1}" style="display:grid;gap:0.4rem;min-height:52px;">
         ${groupPairs.length === 0
-          ? `<div style="padding:0.75rem;text-align:center;color:var(--muted);font-size:0.9rem;
-              border:1.5px dashed var(--border);border-radius:var(--radius-sm);">Drop a pair here</div>`
+          ? `<div class="spg-empty" data-group="${g + 1}"
+              style="padding:0.75rem;text-align:center;color:var(--muted);font-size:0.9rem;
+                     border:1.5px dashed var(--border);border-radius:var(--radius-sm);">
+              Drop a pair here</div>`
           : groupPairs.map(pair => {
               const pairIdx = setup.pairs.indexOf(pair);
               const [pi0, pi1] = pair.playerIndices;
               const p0 = setup.players[pi0], p1 = setup.players[pi1];
-              return `<div class="spg-pair-row" draggable="true" data-pair="${pairIdx}"
-                style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.5rem;
-                       border-bottom:1px solid var(--border);cursor:grab;user-select:none;">
+              return `<div class="spg-pair-row" draggable="true"
+                data-pair="${pairIdx}" data-group="${g + 1}"
+                style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.75rem;
+                       background:var(--surface2);border:1px solid var(--border);
+                       border-radius:var(--radius-sm);cursor:grab;user-select:none;
+                       transition:background 0.1s,border-color 0.1s;">
                 <span style="font-size:1.1rem;color:var(--muted);">⣿</span>
                 <div style="flex:1;">
-                  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
-                              color:var(--gold);">${pair.name}</div>
+                  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+                              font-size:1.1rem;color:var(--gold);">${pair.name}</div>
                   <div style="font-size:0.82rem;color:var(--muted2);">
                     ${p0?.name ?? '?'} · HCP ${fmtHandicap(p0?.hcpIndex ?? 0)} &nbsp;
                     ${p1?.name ?? '?'} · HCP ${fmtHandicap(p1?.hcpIndex ?? 0)}
                   </div>
                 </div>
+                <span style="font-size:0.75rem;color:var(--muted);font-weight:700;">↕ swap</span>
               </div>`;
             }).join('')}
       </div>`;
     container.appendChild(card);
   });
 
-  // Desktop drag
-  let touchGhost2 = null, touchPairIdx = null, touchSrc2 = null;
+  // ── Swap logic ──────────────────────────────────────────────────
+  // Drag a pair ROW onto another pair ROW → swap their groups
+  // Drag onto an EMPTY group slot → move there (no swap partner)
+  let draggingPairIdx = null;
+  let touchGhost = null, touchDragPairIdx = null, touchSrcRow = null;
 
+  function swapOrMove(fromPairIdx, toPairIdx) {
+    const pA = setup.pairs[fromPairIdx];
+    const pB = setup.pairs[toPairIdx];
+    if (!pA || !pB || fromPairIdx === toPairIdx) return;
+    const tmp = pA.groupNumber;
+    pA.groupNumber = pB.groupNumber;
+    pB.groupNumber = tmp;
+    renderSetupPairGroupCards();
+  }
+
+  function movePairToGroup(pairIdx, groupNum) {
+    const pair = setup.pairs[pairIdx];
+    if (pair && pair.groupNumber !== groupNum) {
+      pair.groupNumber = groupNum;
+      renderSetupPairGroupCards();
+    }
+  }
+
+  // Desktop drag
   container.querySelectorAll('.spg-pair-row').forEach(row => {
     row.addEventListener('dragstart', e => {
+      draggingPairIdx = parseInt(row.dataset.pair);
       row.style.opacity = '0.4';
       e.dataTransfer.setData('text/plain', row.dataset.pair);
       e.dataTransfer.effectAllowed = 'move';
     });
-    row.addEventListener('dragend', () => { row.style.opacity = '1'; });
+    row.addEventListener('dragend', () => {
+      row.style.opacity = '1';
+      draggingPairIdx = null;
+    });
 
+    // Drop onto another pair row = SWAP
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (row.dataset.pair !== String(draggingPairIdx)) {
+        row.style.background = 'rgba(212,168,67,0.15)';
+        row.style.borderColor = 'var(--gold-border)';
+      }
+    });
+    row.addEventListener('dragleave', () => {
+      row.style.background = '';
+      row.style.borderColor = '';
+    });
+    row.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation();
+      row.style.background = ''; row.style.borderColor = '';
+      const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+      const toIdx   = parseInt(row.dataset.pair);
+      if (fromIdx !== toIdx) swapOrMove(fromIdx, toIdx);
+    });
+  });
+
+  // Drop onto empty group slot = MOVE
+  container.querySelectorAll('.spg-empty').forEach(slot => {
+    slot.addEventListener('dragover', e => {
+      e.preventDefault();
+      slot.style.background = 'rgba(212,168,67,0.08)';
+      slot.style.borderColor = 'var(--gold)';
+    });
+    slot.addEventListener('dragleave', () => {
+      slot.style.background = '';
+      slot.style.borderColor = '';
+    });
+    slot.addEventListener('drop', e => {
+      e.preventDefault();
+      slot.style.background = ''; slot.style.borderColor = '';
+      const fromIdx  = parseInt(e.dataTransfer.getData('text/plain'));
+      const groupNum = parseInt(slot.dataset.group);
+      movePairToGroup(fromIdx, groupNum);
+    });
+  });
+
+  // Touch drag
+  container.querySelectorAll('.spg-pair-row').forEach(row => {
     row.addEventListener('touchstart', e => {
-      touchPairIdx = row.dataset.pair; touchSrc2 = row;
-      touchGhost2 = row.cloneNode(true);
-      touchGhost2.style.cssText = `position:fixed;z-index:9999;opacity:0.85;pointer-events:none;
+      touchDragPairIdx = parseInt(row.dataset.pair);
+      touchSrcRow = row;
+      touchGhost = row.cloneNode(true);
+      touchGhost.style.cssText = `position:fixed;z-index:9999;opacity:0.85;pointer-events:none;
         background:var(--surface2);border-radius:var(--radius-sm);padding:0.5rem;
         box-shadow:0 4px 20px rgba(0,0,0,0.4);width:${row.offsetWidth}px;`;
-      document.body.appendChild(touchGhost2);
+      document.body.appendChild(touchGhost);
       row.style.opacity = '0.3';
     }, { passive: true });
 
     row.addEventListener('touchmove', e => {
-      if (!touchGhost2) return;
+      if (!touchGhost) return;
       e.preventDefault();
       const t = e.touches[0];
-      touchGhost2.style.left = (t.clientX - touchGhost2.offsetWidth / 2) + 'px';
-      touchGhost2.style.top  = (t.clientY - 30) + 'px';
-      container.querySelectorAll('.spg-drop-zone').forEach(z => z.style.background = '');
-      const el = document.elementFromPoint(t.clientX, t.clientY);
-      el?.closest('.spg-drop-zone')?.style && (el.closest('.spg-drop-zone').style.background = 'rgba(212,168,67,0.08)');
+      touchGhost.style.left = (t.clientX - touchGhost.offsetWidth / 2) + 'px';
+      touchGhost.style.top  = (t.clientY - 30) + 'px';
+      // Highlight the row/slot under finger
+      container.querySelectorAll('.spg-pair-row,.spg-empty').forEach(el => {
+        el.style.background = ''; el.style.borderColor = '';
+      });
+      const under = document.elementFromPoint(t.clientX, t.clientY);
+      const targetRow  = under?.closest('.spg-pair-row');
+      const targetSlot = under?.closest('.spg-empty');
+      if (targetRow && targetRow !== touchSrcRow) {
+        targetRow.style.background   = 'rgba(212,168,67,0.15)';
+        targetRow.style.borderColor  = 'var(--gold-border)';
+      }
+      if (targetSlot) {
+        targetSlot.style.background   = 'rgba(212,168,67,0.08)';
+        targetSlot.style.borderColor  = 'var(--gold)';
+      }
     }, { passive: false });
 
     row.addEventListener('touchend', e => {
-      if (!touchGhost2) return;
-      document.body.removeChild(touchGhost2); touchGhost2 = null;
-      touchSrc2 && (touchSrc2.style.opacity = '1');
-      container.querySelectorAll('.spg-drop-zone').forEach(z => z.style.background = '');
+      if (!touchGhost) return;
+      document.body.removeChild(touchGhost); touchGhost = null;
+      touchSrcRow && (touchSrcRow.style.opacity = '1');
+      container.querySelectorAll('.spg-pair-row,.spg-empty').forEach(el => {
+        el.style.background = ''; el.style.borderColor = '';
+      });
       const t = e.changedTouches[0];
-      const el = document.elementFromPoint(t.clientX, t.clientY);
-      const zone = el?.closest('.spg-drop-zone');
-      if (zone) {
-        const tg = parseInt(zone.dataset.group);
-        const pair = setup.pairs[parseInt(touchPairIdx)];
-        if (pair && pair.groupNumber !== tg) { pair.groupNumber = tg; renderSetupPairGroupCards(); }
+      const under      = document.elementFromPoint(t.clientX, t.clientY);
+      const targetRow  = under?.closest('.spg-pair-row');
+      const targetSlot = under?.closest('.spg-empty');
+      if (targetRow) {
+        const toIdx = parseInt(targetRow.dataset.pair);
+        if (toIdx !== touchDragPairIdx) swapOrMove(touchDragPairIdx, toIdx);
+      } else if (targetSlot) {
+        movePairToGroup(touchDragPairIdx, parseInt(targetSlot.dataset.group));
       }
     });
   });
 
-  container.querySelectorAll('.spg-drop-zone').forEach(zone => {
-    zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.background = 'rgba(212,168,67,0.08)'; });
-    zone.addEventListener('dragleave', () => { zone.style.background = ''; });
-    zone.addEventListener('drop', e => {
-      e.preventDefault(); zone.style.background = '';
-      const pairIdx = parseInt(e.dataTransfer.getData('text/plain'));
-      const tg = parseInt(zone.dataset.group);
-      const pair = setup.pairs[pairIdx];
-      if (pair && pair.groupNumber !== tg) { pair.groupNumber = tg; renderSetupPairGroupCards(); }
-    });
-  });
-
-  // Validate
-  const overAny = groups.some(g => g.length > 2);
+  // Validate — all groups should have ≤ 2 pairs (no hard max now, swap always keeps counts constant)
   const btn = document.getElementById('btn-setup-groups-next');
-  if (btn) { btn.disabled = overAny; btn.style.opacity = overAny ? '0.5' : ''; }
+  if (btn) { btn.disabled = false; btn.style.opacity = ''; }
 }
 
 document.getElementById('setup-groups-back')?.addEventListener('click', () => {
