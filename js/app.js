@@ -2063,13 +2063,13 @@ function scorecardColumns(state) {
       if (!entry) return { text: '' };
       const gross = entry.grosses?.[pi];
       if (gross == null) return { text: '' };
-      const extras = entry.extras?.[pi] ?? indivStrokesOnHole(state.playingHandicaps?.[pi] ?? 0, entry.si);
-      const net    = entry.nets?.[pi] ?? (gross - extras);
       if (mode === 'points') {
         const pts = entry.holePts?.[pi] ?? entry.sbPts?.[pi];
         return { text: pts != null ? String(pts) : '-' };
       }
-      return { text: String(net), sub: gross !== net ? String(gross) : null };
+      // Strokes mode: show gross, with par-relative for colour coding
+      const relToPar = gross - entry.par;
+      return { text: String(gross), relToPar };
     },
   });
 
@@ -2204,7 +2204,26 @@ function buildVerticalScorecard(state, mode) {
         if (h < 9) { frontTotals[ci] += num; frontHas[ci] = true; }
         else       { backTotals[ci]  += num; backHas[ci]  = true; }
       }
-      return `<td class="sc-score-cell">${cell.text}${cell.sub ? `<div style="font-size:0.7rem;color:var(--muted);font-weight:600;">${cell.sub}</div>` : ''}</td>`;
+
+      // Colour-coded border for strokes mode based on gross vs par
+      let inner = cell.text;
+      if (mode === 'strokes' && cell.relToPar != null && cell.text !== '') {
+        const r = cell.relToPar;
+        const red  = '#d64545';
+        const blue = '#3a7bd5';
+        const single = (color) =>
+          `<span style="display:inline-block;border:2px solid ${color};border-radius:2px;padding:1px 5px;line-height:1.2;">${cell.text}</span>`;
+        const double = (color) =>
+          `<span style="display:inline-block;border:2px solid ${color};border-radius:4px;padding:3px 7px;line-height:1.2;">
+             <span style="display:inline-block;border:2px solid ${color};border-radius:2px;padding:0 3px;line-height:1.2;">${cell.text}</span>
+           </span>`;
+        if (r <= -2)      inner = double(red);
+        else if (r === -1) inner = single(red);
+        else if (r === 1)  inner = single(blue);
+        else if (r === 2)  inner = double(blue);
+      }
+
+      return `<td class="sc-score-cell">${inner}</td>`;
     }).join('');
 
     bodyRows += `
