@@ -444,7 +444,7 @@
         📋 Scorecard
       </button>
       <button class="btn btn-outline" id="btn-game-leaderboard"
-        style="padding:0.85rem;font-size:1.05rem;font-weight:800;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.04em;opacity:0.5;cursor:default;">
+        style="padding:0.85rem;font-size:1.05rem;font-weight:800;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.04em;">
         🏆 Leaderboard
       </button>
     </div>
@@ -466,6 +466,29 @@
   <!-- Scorecard overlay placeholder (moved to app level below) -->
 
 </div><!-- /screen-game -->
+
+<!-- ══════════════════════════════════════════
+     LEADERBOARD SCREEN
+     ══════════════════════════════════════════ -->
+<div id="screen-leaderboard" class="screen">
+  <div style="padding:0 0 2rem;max-width:520px;margin:0 auto;">
+
+    <!-- Hero header -->
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="leaderboard-back"
+          style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+      </div>
+      <div class="home-hero-title">Leaderboard</div>
+      <div class="home-hero-club" id="leaderboard-meta" style="margin-top:0.25rem;"></div>
+    </div>
+
+    <div style="padding:0 1rem;">
+      <div id="leaderboard-table"></div>
+    </div>
+
+  </div>
+</div>
 
 <!-- ══════════════════════════════════════════
      SCORECARD OVERLAY (app-level, works from any screen)
@@ -1034,7 +1057,6 @@
         <select id="tourn-scoring-mode">
           <option value="cumulative">Cumulative — add all round scores</option>
           <option value="stroke">Total Stroke — total net shots, lowest wins</option>
-          <option value="points_game">Points per Game — rank points each round</option>
         </select>
         <div id="tourn-scoring-hint" style="font-size:0.68rem;color:var(--muted);margin-top:0.3rem;line-height:1.5;"></div>
       </div>
