@@ -473,7 +473,7 @@ export function processHole(state, grosses) {
     }
 
     case 'split6': {
-      const extras   = grosses.map((_, pi) => strokesOnHole(state.matchHandicaps[pi], si));
+      const extras   = grosses.map((_, pi) => indivStrokesOnHole(state.playingHandicaps[pi], si));
       const nets     = grosses.map((g, i) => g - extras[i]);
       const holePts  = split6Points(nets);
       entry.extras   = extras;
