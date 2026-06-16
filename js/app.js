@@ -4540,8 +4540,16 @@ function buildGroupSetupScreen() {
     suggestion.textContent = `${numPlayers} players → ${suggestedGrps} group${suggestedGrps > 1 ? 's' : ''} of ~${perGroup}`;
   }
 
-  // Wire group number change to re-render group cards
-  numGroupsSel.onchange = () => renderGroupAssignmentCards();
+  // Wire group number change to re-render group cards (preserves existing assignments)
+  numGroupsSel.onchange = () => {
+    tournSetupNumGroups = parseInt(numGroupsSel.value) || 1;
+    const numPlayers2    = tournSetupPlayers.filter(p => p.name).length;
+    const suggested2     = Math.max(1, Math.ceil(numPlayers2 / 4));
+    const perGroup2      = Math.ceil(numPlayers2 / tournSetupNumGroups);
+    if (suggestion) suggestion.textContent =
+      `${numPlayers2} players → ${tournSetupNumGroups} group${tournSetupNumGroups > 1 ? 's' : ''} of ~${perGroup2}`;
+    renderGroupAssignmentCards();
+  };
 
   tournSetupNumGroups = parseInt(numGroupsSel?.value) || 1;
   renderGroupAssignmentCards();
@@ -4550,47 +4558,186 @@ function buildGroupSetupScreen() {
 function renderGroupAssignmentCards() {
   tournSetupNumGroups = parseInt(document.getElementById('tourn-num-groups')?.value) || 1;
   const namedPlayers  = tournSetupPlayers.filter(p => p.name);
-  const slotsPerGroup = Math.max(1, Math.ceil(namedPlayers.length / tournSetupNumGroups));
+  const container     = document.getElementById('tourn-group-cards');
+  if (!container) return;
 
-  // Reset group assignments (assign round-robin by index)
-  namedPlayers.forEach((p, i) => { p.groupIndex = Math.floor(i / slotsPerGroup); });
-
-  const container = document.getElementById('tourn-group-cards');
-  container.innerHTML = '';
-
-  for (let g = 0; g < tournSetupNumGroups; g++) {
-    const groupPlayers = namedPlayers.filter(p => p.groupIndex === g);
-    const card = document.createElement('div');
-    card.className = 'card mb-sm';
-    card.innerHTML = `
-      <div class="card-title">Group ${g + 1}</div>
-      <div id="tgroup-slots-${g}" style="display:grid;gap:0.5rem;">
-        ${groupPlayers.map((p, si) => `
-          <div style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0;
-                      border-bottom:1px solid var(--border);">
-            <span class="dot" style="background:${pHex(namedPlayers.indexOf(p) % 8)};"></span>
-            <div style="flex:1;">
-              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${p.name}</div>
-              <div style="font-size:0.82rem;color:var(--muted2);">HCP ${fmtHandicap(p.hcp)}</div>
-            </div>
-            <button class="btn btn-ghost" data-name="${p.name}"
-              style="font-size:0.8rem;padding:0.3rem 0.6rem;" title="Move player">⇄</button>
-          </div>`).join('')}
-        ${groupPlayers.length === 0 ? `<div style="color:var(--muted);font-size:0.9rem;padding:0.5rem 0;">No players assigned</div>` : ''}
-      </div>`;
-    container.appendChild(card);
+  // First call: assign round-robin. Subsequent calls: respect existing groupIndex.
+  const hasAssignments = namedPlayers.some(p => p.groupIndex != null);
+  if (!hasAssignments) {
+    const slotsPerGroup = Math.max(1, Math.ceil(namedPlayers.length / tournSetupNumGroups));
+    namedPlayers.forEach((p, i) => { p.groupIndex = Math.min(Math.floor(i / slotsPerGroup), tournSetupNumGroups - 1); });
+  } else {
+    // Clamp any groupIndex that exceeds new group count
+    namedPlayers.forEach(p => { if ((p.groupIndex ?? 0) >= tournSetupNumGroups) p.groupIndex = tournSetupNumGroups - 1; });
   }
 
-  // Wire move buttons: cycle player to next group
-  container.querySelectorAll('[data-name]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const player = namedPlayers.find(p => p.name === btn.dataset.name);
-      if (player) {
-        player.groupIndex = ((player.groupIndex ?? 0) + 1) % tournSetupNumGroups;
+  // Build group arrays
+  const groups = Array.from({ length: tournSetupNumGroups }, (_, g) =>
+    namedPlayers.filter(p => (p.groupIndex ?? 0) === g));
+
+  // Balance warning
+  const sizes = groups.map(g => g.length);
+  const max = Math.max(...sizes), min = Math.min(...sizes);
+  let warning = '';
+  if (tournSetupNumGroups > 1 && max - min >= 2) {
+    // Suggest balanced split
+    const total = namedPlayers.length;
+    const ideal = total / tournSetupNumGroups;
+    const bigGroups = sizes.filter(s => s === max).length;
+    const smallGroups = sizes.filter(s => s === min).length;
+    warning = `<div style="background:rgba(212,168,67,0.12);border:1px solid var(--gold-border);
+      border-radius:var(--radius-sm);padding:0.65rem 0.85rem;margin-bottom:0.75rem;
+      font-size:0.95rem;font-weight:700;color:var(--gold);">
+      ⚠️ Groups are uneven — ${bigGroups} group${bigGroups>1?'s':''} of ${max} and ${smallGroups} of ${min}.
+      Consider ${Math.ceil(ideal)} or ${Math.floor(ideal)} per group.
+    </div>`;
+  }
+
+  container.innerHTML = warning;
+
+  let dragSrc = null; // { playerName }
+
+  groups.forEach((groupPlayers, g) => {
+    const overLimit = groupPlayers.length > 4;
+    const card = document.createElement('div');
+    card.className = 'card mb-sm tgroup-drop-zone';
+    card.dataset.group = g;
+    card.style.cssText = overLimit
+      ? 'border-color:var(--red-border);'
+      : 'transition:background 0.15s;';
+
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+        <div class="card-title" style="margin:0;">Group ${g + 1}</div>
+        <div style="font-size:0.85rem;font-weight:700;color:${overLimit ? 'var(--red)' : 'var(--muted2)'};">
+          ${groupPlayers.length} player${groupPlayers.length !== 1 ? 's' : ''}${overLimit ? ' — max 4' : ''}
+        </div>
+      </div>
+      <div class="tgroup-player-list" data-group="${g}">
+        ${groupPlayers.length === 0
+          ? `<div class="tgroup-empty" style="padding:0.75rem;text-align:center;
+              color:var(--muted);font-size:0.9rem;border:1.5px dashed var(--border);
+              border-radius:var(--radius-sm);">Drop a player here</div>`
+          : groupPlayers.map(p => {
+              const pi = namedPlayers.indexOf(p);
+              return `<div class="tgroup-player-row" draggable="true" data-name="${p.name}"
+                style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.5rem;
+                       border-bottom:1px solid var(--border);cursor:grab;user-select:none;
+                       border-radius:var(--radius-sm);transition:background 0.1s;">
+                <span style="font-size:1.1rem;color:var(--muted);flex-shrink:0;">⣿</span>
+                <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
+                <div style="flex:1;">
+                  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${p.name}</div>
+                  <div style="font-size:0.82rem;color:var(--muted2);">HCP ${fmtHandicap(p.hcp)}</div>
+                </div>
+              </div>`;
+            }).join('')}
+      </div>`;
+
+    container.appendChild(card);
+  });
+
+  // ── HTML5 Drag-and-Drop ──────────────────────────────────────────
+  container.querySelectorAll('.tgroup-player-row').forEach(row => {
+    row.addEventListener('dragstart', e => {
+      dragSrc = row.dataset.name;
+      row.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', row.dataset.name);
+    });
+    row.addEventListener('dragend', () => { row.style.opacity = '1'; });
+  });
+
+  container.querySelectorAll('.tgroup-drop-zone').forEach(zone => {
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      zone.style.background = 'rgba(212,168,67,0.08)';
+    });
+    zone.addEventListener('dragleave', () => { zone.style.background = ''; });
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.style.background = '';
+      const name = e.dataTransfer.getData('text/plain');
+      const targetGroup = parseInt(zone.dataset.group);
+      const player = namedPlayers.find(p => p.name === name);
+      if (player && player.groupIndex !== targetGroup) {
+        player.groupIndex = targetGroup;
         renderGroupAssignmentCards();
       }
     });
   });
+
+  // ── Touch drag (mobile) ──────────────────────────────────────────
+  let touchDragEl = null, touchGhost = null, touchPlayerName = null;
+
+  container.querySelectorAll('.tgroup-player-row').forEach(row => {
+    row.addEventListener('touchstart', e => {
+      touchPlayerName = row.dataset.name;
+      touchDragEl = row;
+      // Create ghost
+      touchGhost = row.cloneNode(true);
+      touchGhost.style.cssText = `position:fixed;z-index:9999;opacity:0.85;pointer-events:none;
+        width:${row.offsetWidth}px;background:var(--surface2);border-radius:var(--radius-sm);
+        padding:0.5rem;box-shadow:0 4px 20px rgba(0,0,0,0.4);`;
+      document.body.appendChild(touchGhost);
+      row.style.opacity = '0.3';
+    }, { passive: true });
+
+    row.addEventListener('touchmove', e => {
+      if (!touchGhost) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      touchGhost.style.left = (t.clientX - touchGhost.offsetWidth / 2) + 'px';
+      touchGhost.style.top  = (t.clientY - 30) + 'px';
+      // Highlight drop zone under finger
+      container.querySelectorAll('.tgroup-drop-zone').forEach(z => z.style.background = '');
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      el?.closest('.tgroup-drop-zone')?.style && (el.closest('.tgroup-drop-zone').style.background = 'rgba(212,168,67,0.08)');
+    }, { passive: false });
+
+    row.addEventListener('touchend', e => {
+      if (!touchGhost) return;
+      const t = e.changedTouches[0];
+      document.body.removeChild(touchGhost);
+      touchGhost = null;
+      touchDragEl && (touchDragEl.style.opacity = '1');
+      container.querySelectorAll('.tgroup-drop-zone').forEach(z => z.style.background = '');
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      const zone = el?.closest('.tgroup-drop-zone');
+      if (zone) {
+        const targetGroup = parseInt(zone.dataset.group);
+        const player = namedPlayers.find(p => p.name === touchPlayerName);
+        if (player && player.groupIndex !== targetGroup) {
+          player.groupIndex = targetGroup;
+          renderGroupAssignmentCards();
+        }
+      }
+    });
+  });
+
+  // ── Validation: update Start button state ───────────────────────
+  validateGroupSizes(groups);
+}
+
+function validateGroupSizes(groups) {
+  const overLimit = groups.some(g => g.length > 4);
+  const empty     = groups.some(g => g.length === 0);
+  const btnNext   = document.getElementById('btn-tourn-players-next');
+  const btnLater  = document.getElementById('btn-tourn-save-later');
+  if (!btnNext) return;
+
+  if (overLimit) {
+    btnNext.disabled = true;
+    btnNext.style.opacity = '0.5';
+    btnNext.title = 'Fix groups with more than 4 players before continuing.';
+    if (btnLater) { btnLater.disabled = true; btnLater.style.opacity = '0.5'; }
+  } else {
+    btnNext.disabled = false;
+    btnNext.style.opacity = '';
+    btnNext.title = '';
+    if (btnLater) { btnLater.disabled = false; btnLater.style.opacity = ''; }
+  }
 }
 
 // ── Step 3: Players per Group ────────────────────────────────────
