@@ -20,6 +20,7 @@ export const FORMAT_LABELS = {
   foursomes:  'Pairs — Foursomes',
   greensomes: 'Pairs — Greensomes',
   best2:      'Team — Best 2',
+  texas:      'Texas Scramble',
 };
 
 export const FORMAT_DESCS = {
@@ -34,6 +35,7 @@ export const FORMAT_DESCS = {
   foursomes:  '2 pairs · alternate shots · match play',
   greensomes: '2 pairs · both drive then alternate · match play',
   best2:      'Best 2 stableford scores per group · groups compete on leaderboard',
+  texas:      'Team scramble · all play from the best drive · one team score per hole',
 };
 
 // Minimum players required for each format
@@ -49,6 +51,7 @@ export const FORMAT_MIN_PLAYERS = {
   foursomes:  4,
   greensomes: 4,
   best2:      3,
+  texas:      2,
 };
 
 // Which formats are available for a given player count
@@ -334,6 +337,24 @@ export function best2HolePoints(stablefordPtsArray) {
 }
 
 // ================================================================
+// TEXAS SCRAMBLE HANDICAP CALCULATION
+// mode: 'average' = avg of all indexes (rounded up)
+//       'weighted' = 25%/20%/15%/10% of sorted indexes
+// ================================================================
+export function texasTeamHandicap(indexes, mode = 'average', allowancePct = 100) {
+  if (!indexes.length) return 0;
+  const sorted = [...indexes].sort((a, b) => a - b); // ascending
+  let raw;
+  if (mode === 'weighted') {
+    const weights = [0.25, 0.20, 0.15, 0.10];
+    raw = sorted.reduce((sum, h, i) => sum + h * (weights[i] ?? 0.10), 0);
+  } else {
+    raw = sorted.reduce((a, b) => a + b, 0) / sorted.length;
+  }
+  return Math.ceil(raw * (allowancePct / 100));
+}
+
+// ================================================================
 // GAME STATE — initialise a fresh round
 // ================================================================
 
@@ -407,6 +428,18 @@ export function buildInitialState({
 
     case 'best2':
       return { ...base, totals: new Array(nPlayers).fill(0), groupTotal: 0 };
+
+    case 'texas':
+      return {
+        ...base,
+        grossTotal:      0,
+        teamHcp:         0,   // set by caller after buildInitialState
+        texasMode:       'average',
+        texasScoringFmt: 'stableford',
+        driverUsage:     { par3: [], par4: [], par5: [] },
+        // pts / running totals for stableford scoring
+        texasPts:        0,
+      };
 
     default:
       return base;
@@ -587,6 +620,36 @@ export function processHole(state, grosses) {
       break;
     }
 
+    case 'texas': {
+      // grosses[0] = team gross score, grosses[1] = driver player index
+      const gross      = grosses[0];
+      const driverIdx  = grosses[1] ?? 0;
+      const teamHcp    = next.teamHcp ?? 0;
+      const teamExtra  = strokesOnHole(teamHcp, si);
+      const net        = gross - teamExtra;
+
+      // Stableford pts from net score
+      const pts = Math.max(0, 2 + par - net);
+
+      next.grossTotal  = (next.grossTotal ?? 0) + gross;
+      next.texasPts    = (next.texasPts   ?? 0) + pts;
+
+      // Track driver usage by par
+      const parKey = par === 3 ? 'par3' : par === 4 ? 'par4' : 'par5';
+      const usage  = { ...(next.driverUsage ?? { par3:[], par4:[], par5:[] }) };
+      usage[parKey] = [...(usage[parKey] ?? []), driverIdx];
+      next.driverUsage = usage;
+
+      entry.gross          = gross;
+      entry.net            = net;
+      entry.teamExtra      = teamExtra;
+      entry.pts            = pts;
+      entry.driverIdx      = driverIdx;
+      entry.grossTotalAfter = next.grossTotal;
+      entry.texaPtsAfter   = next.texasPts;
+      break;
+    }
+
     default:
       break;
   }
@@ -655,6 +718,18 @@ function recalcState(state) {
         break;
       case 'split6':
         next.runningPts = split6RunningTotals(next.log);
+        break;
+      case 'texas':
+        next.grossTotal  = entry.grossTotalAfter ?? next.grossTotal;
+        next.texasPts    = entry.texaPtsAfter    ?? next.texasPts;
+        // Rebuild driver usage from scratch
+        next.driverUsage = { par3: [], par4: [], par5: [] };
+        for (const e of next.log) {
+          if (e.driverIdx != null) {
+            const pk = e.par === 3 ? 'par3' : e.par === 4 ? 'par4' : 'par5';
+            next.driverUsage[pk].push(e.driverIdx);
+          }
+        }
         break;
     }
   }
@@ -788,6 +863,14 @@ export function getResultSummary(state) {
       };
     }
 
+    case 'texas': {
+      const teamName = state.teamName ?? state.names.join(' & ');
+      const isSbFmt  = (state.texasScoringFmt ?? 'stableford') === 'stableford';
+      const score    = isSbFmt ? (state.texasPts ?? 0) : (state.grossTotal ?? 0);
+      const label    = isSbFmt ? `${score} pts` : `${score} gross`;
+      return { winner: teamName, summary: `${teamName} — ${label}` };
+    }
+
     default:
       return { winner: null, summary: '—' };
   }
@@ -906,6 +989,17 @@ export function buildScorecardRows(state) {
           counted:  entry.counted?.includes(pi),
         }));
         row.extra = `Best 2: ${entry.holeB2} pts`;
+        break;
+
+      case 'texas':
+        // Single team entry
+        row.players = [{
+          gross: entry.gross,
+          net:   entry.net,
+          pts:   entry.pts,
+          driverName: names[entry.driverIdx ?? 0],
+        }];
+        row.extra = `Driver: ${names[entry.driverIdx ?? 0]}`;
         break;
     }
 

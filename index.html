@@ -300,6 +300,28 @@
     <select id="setup-num-players" style="display:none;"></select>
     <select id="setup-num-groups" style="display:none;"></select>
 
+    <!-- Texas Scramble options — shown only for that format -->
+    <div class="card hidden" id="texas-options-card">
+      <div class="card-title">Texas Scramble Options</div>
+      <div class="field">
+        <label>Scoring Format</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+          <button type="button" class="holes-btn active" id="texas-scoring-stableford">Stableford</button>
+          <button type="button" class="holes-btn" id="texas-scoring-stroke">Strokeplay</button>
+        </div>
+        <input type="hidden" id="texas-scoring-fmt" value="stableford">
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Team Handicap Mode</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+          <button type="button" class="holes-btn active" id="texas-hcp-average">Average</button>
+          <button type="button" class="holes-btn" id="texas-hcp-weighted">Weighted</button>
+        </div>
+        <input type="hidden" id="texas-hcp-mode" value="average">
+        <div class="hint mt-sm" id="texas-hcp-hint">Average of all player indexes</div>
+      </div>
+    </div>
+
     <button class="btn btn-green btn-full" id="btn-setup-course-next">NEXT: PLAYERS →</button>
   </div>
   </div>
