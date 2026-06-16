@@ -34,6 +34,7 @@ import {
   getResultSummary, buildScorecardRows,
   greensomesPairHandicap, foursomedPairHandicap,
   buildMultiGroupLeaderboard,
+  texasTeamHandicap,
 } from '../game.js';
 
 import {
@@ -728,6 +729,7 @@ const TEAM_FORMATS = [
   { key: 'foursomes',  icon: '🤝', label: 'Foursomes',      desc: 'Pairs · alternate shots · WHS handicap' },
   { key: 'greensomes', icon: '🤝', label: 'Greensomes',     desc: 'Pairs · both drive then alternate · WHS handicap' },
   { key: 'best2',      icon: '🥇', label: 'Best 2',         desc: 'Best 2 stableford scores per group · groups vs groups' },
+  { key: 'texas',      icon: '🤠', label: 'Texas Scramble', desc: 'All play from best drive · one team score per hole · 2-4 players' },
 ];
 
 function showFormatPicker(category) {
@@ -752,10 +754,13 @@ function showFormatPicker(category) {
       setup.scoring  = fmt;
       setup.courseId = null; setup.teeIdx = 0; setup.holes = 18;
       setup.hcpPct   = 100; setup.players = []; setup.pairs = [];
+      setup.texasMode       = 'average'; // default handicap mode
+      setup.texasScoringFmt = 'stableford'; // default scoring
       if (fmt === 'split6')                                                { setup.numPlayers = 3; setup.numGroups = 1; setup.playersPerGroup = null; }
       else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ setup.numPlayers = 4; setup.numGroups = 1; setup.playersPerGroup = null; }
       else if (fmt === 'best2')                                            { setup.numPlayers = 8; setup.numGroups = 2; setup.playersPerGroup = 4; }
       else if (fmt === 'match')                                            { setup.numPlayers = 2; setup.numGroups = 1; setup.playersPerGroup = null; }
+      else if (fmt === 'texas')                                            { setup.numPlayers = 4; setup.numGroups = 1; setup.playersPerGroup = null; }
       else                                                                 { setup.numPlayers = 3; setup.numGroups = 1; setup.playersPerGroup = null; }
       startSetup();
     });
@@ -772,6 +777,36 @@ document.getElementById('setup-format-back')?.addEventListener('click', () => { 
 function startSetup() {
   const fmt = setup.scoring;
   document.getElementById('setup-course-format-label').textContent = FORMAT_LABELS[fmt] ?? fmt;
+
+  // Show Texas Scramble options card only for that format
+  const texasCard = document.getElementById('texas-options-card');
+  if (texasCard) texasCard.classList.toggle('hidden', fmt !== 'texas');
+
+  // Wire Texas option toggles (only once via _wired flag)
+  if (fmt === 'texas' && !texasCard?._wired) {
+    const setScoringFmt = (v) => {
+      setup.texasScoringFmt = v;
+      document.getElementById('texas-scoring-fmt').value = v;
+      document.getElementById('texas-scoring-stableford').classList.toggle('active', v === 'stableford');
+      document.getElementById('texas-scoring-stroke').classList.toggle('active', v === 'stroke');
+    };
+    const setHcpMode = (v) => {
+      setup.texasMode = v;
+      document.getElementById('texas-hcp-mode').value = v;
+      document.getElementById('texas-hcp-average').classList.toggle('active', v === 'average');
+      document.getElementById('texas-hcp-weighted').classList.toggle('active', v === 'weighted');
+      document.getElementById('texas-hcp-hint').textContent = v === 'weighted'
+        ? '25% + 20% + 15% + 10% of player indexes'
+        : 'Average of all player indexes';
+    };
+    document.getElementById('texas-scoring-stableford')?.addEventListener('click', () => setScoringFmt('stableford'));
+    document.getElementById('texas-scoring-stroke')?.addEventListener('click', () => setScoringFmt('stroke'));
+    document.getElementById('texas-hcp-average')?.addEventListener('click', () => setHcpMode('average'));
+    document.getElementById('texas-hcp-weighted')?.addEventListener('click', () => setHcpMode('weighted'));
+    setScoringFmt(setup.texasScoringFmt ?? 'stableford');
+    setHcpMode(setup.texasMode ?? 'average');
+    if (texasCard) texasCard._wired = true;
+  }
   populateCourseSelect();
   populateNumPlayerSelect();
   populateNumGroupSelect();
@@ -2166,14 +2201,34 @@ document.getElementById('setup-abandon-2')        ?.addEventListener('click', ()
 // SETUP -- STEP 3: REVIEW
 // ================================================================
 function buildSetupReview() {
-  const course = allCourses.find(c => c.id === setup.courseId);
-  const tee    = course?.tees?.[setup.teeIdx];
+  const course   = allCourses.find(c => c.id === setup.courseId);
+  const tee      = course?.tees?.[setup.teeIdx];
   const { offset, count } = holeRange(setup.holes);
-  const hcpObj = calcHandicaps(setup.players.map(p => p.hcpIndex || 0), setup.hcpPct);
+  const isPairs  = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
+  const isBest2  = setup.scoring === 'best2';
+  const isTexas  = setup.scoring === 'texas';
+  const named    = setup.players.filter(p => p.name);
+  const hcpArr   = named.map(p => p.hcpIndex || 0);
+  const hcpObj   = calcHandicaps(hcpArr, setup.hcpPct);
+
+  // Texas: compute team HCP per group for display
+  const texasGroupHcps = isTexas ? (() => {
+    const numGroups = Math.max(1, ...named.map(p => p.groupNumber ?? 1));
+    const result = {};
+    for (let g = 1; g <= numGroups; g++) {
+      const gPlayers = named.filter(p => (p.groupNumber ?? 1) === g);
+      result[g] = texasTeamHandicap(gPlayers.map(p => p.hcpIndex || 0), setup.texasMode ?? 'average', setup.hcpPct);
+    }
+    return result;
+  })() : {};
 
   let html = `
     <div style="display:grid;gap:0.5rem;font-size:1.05rem;font-weight:700;margin-bottom:1rem;">
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Format</span><span>${fmtLabel(setup.scoring)}</span></div>
+      ${isTexas ? `
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Scoring</span><span>${setup.texasScoringFmt === 'stroke' ? 'Strokeplay' : 'Stableford'}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">HCP Mode</span><span>${setup.texasMode === 'weighted' ? 'Weighted' : 'Average'}</span></div>
+      ` : ''}
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Course</span><span>${course?.name ?? '--'}</span></div>
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Tees</span><span>${tee?.name ?? '--'}</span></div>
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Holes</span><span>${count === 18 ? '18' : count === 9 && offset === 0 ? 'Front 9' : 'Back 9'}</span></div>
@@ -2181,18 +2236,89 @@ function buildSetupReview() {
     </div>
     <div style="border-top:1px solid var(--border);padding-top:0.75rem;">`;
 
-  setup.players.forEach((p, i) => {
-    html += `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-        <span style="display:flex;align-items:center;gap:8px;font-size:1.25rem;font-weight:800;">
-          <span class="dot" style="background:${pHex(i)};"></span>
-          ${p.name || `Player ${i+1}`}
-        </span>
-        <span style="color:var(--muted2);font-size:0.95rem;font-weight:700;text-align:right;">
-          HCP ${fmtHandicap(p.hcpIndex)} · Course ${fmtHandicap(p.courseHandicap ?? p.hcpIndex)} · Playing ${hcpObj[i]?.playingHandicap ?? 0}
-        </span>
+  if (isTexas) {
+    // Show groups with team HCP
+    const numGroups = Math.max(1, ...named.map(p => p.groupNumber ?? 1));
+    for (let g = 1; g <= numGroups; g++) {
+      const gPlayers = named.filter(p => (p.groupNumber ?? 1) === g);
+      const teamHcp  = texasGroupHcps[g] ?? 0;
+      html += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+                            padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.35rem;">
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:var(--gold);">
+            🤠 Team ${g}
+          </span>
+          <span style="font-size:0.9rem;font-weight:700;color:var(--muted2);">Team HCP ${teamHcp}</span>
+        </div>
+        ${gPlayers.map((p, si) => {
+          const pi = named.indexOf(p);
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.25rem 0;font-size:0.95rem;font-weight:700;">
+            <span style="display:flex;align-items:center;gap:6px;">
+              <span class="dot" style="background:${pHex(named.indexOf(p) % 8)};"></span>${p.name}
+            </span>
+            <span style="color:var(--muted2);">HCP ${fmtHandicap(p.hcpIndex)}</span>
+          </div>`;
+        }).join('')}
       </div>`;
-  });
+    }
+  } else if (isPairs && setup.pairs?.length > 0) {
+    const numGroups = Math.max(...setup.pairs.map(p => p.groupNumber ?? 1));
+    for (let g = 1; g <= numGroups; g++) {
+      const groupPairs = setup.pairs.filter(p => (p.groupNumber ?? 1) === g);
+      if (numGroups > 1) {
+        html += `<div style="font-size:0.8rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
+          color:var(--muted);margin:0.75rem 0 0.35rem;">Group ${g}</div>`;
+      }
+      groupPairs.forEach(pair => {
+        const [pi0, pi1] = pair.playerIndices;
+        const p0 = setup.players[pi0], p1 = setup.players[pi1];
+        const h0 = named.indexOf(p0), h1 = named.indexOf(p1);
+        html += `
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+                      padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
+                        color:var(--gold);margin-bottom:0.35rem;">${pair.name}</div>
+            ${[p0, p1].map((p, si) => {
+              const pi  = si === 0 ? pi0 : pi1;
+              const hi  = si === 0 ? h0  : h1;
+              const hcp = hcpObj[hi];
+              return `<div style="display:flex;justify-content:space-between;align-items:center;
+                          padding:0.25rem 0;font-size:0.95rem;font-weight:700;">
+                <span style="display:flex;align-items:center;gap:6px;">
+                  <span class="dot" style="background:${pHex(pi % 8)};"></span>${p?.name ?? '?'}
+                </span>
+                <span style="color:var(--muted2);">Playing ${hcp?.playingHandicap ?? 0}</span>
+              </div>`;
+            }).join('')}
+          </div>`;
+      });
+    }
+  } else {
+    const numGroups = Math.max(1, ...named.map(p => p.groupNumber ?? 1));
+    for (let g = 1; g <= numGroups; g++) {
+      const groupPlayers = named.filter(p => (p.groupNumber ?? 1) === g);
+      if (numGroups > 1) {
+        html += `<div style="font-size:0.8rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
+          color:var(--muted);margin:0.75rem 0 0.35rem;">Group ${g}</div>`;
+      }
+      groupPlayers.forEach(p => {
+        const hi  = named.indexOf(p);
+        const pi  = setup.players.indexOf(p);
+        const hcp = hcpObj[hi];
+        html += `
+          <div style="display:flex;justify-content:space-between;align-items:center;
+                      padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+            <span style="display:flex;align-items:center;gap:8px;font-size:1.15rem;font-weight:800;">
+              <span class="dot" style="background:${pHex(pi % 8)};"></span>${p.name}
+            </span>
+            <span style="color:var(--muted2);font-size:0.9rem;font-weight:700;text-align:right;">
+              HCP ${fmtHandicap(p.hcpIndex)} · Playing ${hcp?.playingHandicap ?? 0}
+            </span>
+          </div>`;
+      });
+    }
+  }
+
   html += '</div>';
   document.getElementById('review-content').innerHTML = html;
 }
@@ -2274,6 +2400,18 @@ async function teeOff() {
       groupNumber:     g + 1,
       totalGroups:     setup.numGroups,
     });
+
+    // Texas Scramble: compute and store team handicap and options
+    if (fmt === 'texas') {
+      gs.teamHcp         = texasTeamHandicap(gHcpArr, setup.texasMode ?? 'average', setup.hcpPct);
+      gs.texasMode       = setup.texasMode ?? 'average';
+      gs.texasScoringFmt = setup.texasScoringFmt ?? 'stableford';
+      gs.teamName        = `Team ${g + 1}`;
+      gs.grossTotal      = 0;
+      gs.texasPts        = 0;
+      gs.driverUsage     = { par3: [], par4: [], par5: [] };
+    }
+
     groupStates.push(gs);
   }
 
@@ -2713,8 +2851,73 @@ function renderHolePanel() {
 
   const isFoursome = fmt === 'foursomes' || fmt === 'greensomes';
   const isPairs    = ['betterball','csm','foursomes','greensomes'].includes(fmt);
+  const isTexas    = fmt === 'texas';
 
-  if (isFoursome) {
+  if (isTexas) {
+    // Texas Scramble: one team score + driver selector
+    const teamName   = gameState.teamName ?? 'Team';
+    const teamHcp    = gameState.teamHcp  ?? 0;
+    const prevEntry  = h > 0 ? gameState.log[h - 1] : null;
+    const existEntry = gameState.log[h];
+    const prevLabel  = prevEntry ? `H${h}: ${prevEntry.gross} gross · ${prevEntry.pts}pts` : '';
+
+    const row = document.createElement('div');
+    row.className = 'gi-row';
+    row.style.cssText = 'flex-direction:column;align-items:stretch;gap:0.65rem;';
+    row.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div class="gi-name" style="font-size:1.35rem;">🤠 ${teamName}</div>
+          <div class="gi-hcp">Team HCP ${teamHcp}</div>
+          ${prevLabel ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:2px;">${prevLabel}</div>` : ''}
+        </div>
+        <div class="score-btn" id="cv-texas" data-value="${existEntry?.gross ?? ''}"
+          style="min-width:64px;text-align:center;cursor:pointer;padding:0.6rem 1rem;
+                 background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;
+                 font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:800;color:var(--muted);">
+          ${existEntry?.gross ?? 'Score'}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:0.85rem;font-weight:800;color:var(--muted2);margin-bottom:0.4rem;">Driver used:</div>
+        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;" id="texas-driver-btns">
+          ${gameState.names.map((name, pi) => `
+            <button class="texas-driver-btn ${(existEntry?.driverIdx ?? -1) === pi ? 'holes-btn active' : 'btn-outline'}"
+              data-pi="${pi}"
+              style="flex:1;min-width:80px;padding:0.55rem 0.4rem;font-size:0.85rem;font-weight:700;">
+              ${name.split(' ')[0]}
+            </button>`).join('')}
+        </div>
+      </div>`;
+    inputsEl.appendChild(row);
+
+    // Wire score button
+    row.querySelector('#cv-texas')?.addEventListener('click', () => {
+      openTexasScorePicker(h, par);
+    });
+
+    // Wire driver buttons
+    row.querySelectorAll('.texas-driver-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        row.querySelectorAll('.texas-driver-btn').forEach(b => {
+          b.className = 'texas-driver-btn btn-outline';
+          b.style.cssText = 'flex:1;min-width:80px;padding:0.55rem 0.4rem;font-size:0.85rem;font-weight:700;';
+        });
+        btn.className = 'texas-driver-btn holes-btn active';
+        btn.style.cssText = 'flex:1;min-width:80px;padding:0.55rem 0.4rem;font-size:0.85rem;font-weight:700;';
+        // Store selected driver index on the score element
+        const scoreEl = document.getElementById('cv-texas');
+        if (scoreEl) scoreEl.dataset.driver = btn.dataset.pi;
+      });
+    });
+
+    // Pre-select driver if editing
+    if (existEntry?.driverIdx != null) {
+      const scoreEl = document.getElementById('cv-texas');
+      if (scoreEl) scoreEl.dataset.driver = String(existEntry.driverIdx);
+    }
+
+  } else if (isFoursome) {
     [['A', 0, 1], ['B', 2, 3]].forEach(([label, p0, p1]) => {
       const pairName = `${gameState.names[p0]} & ${gameState.names[p1]}`;
       const row = document.createElement('div');
@@ -2760,6 +2963,43 @@ function renderHolePanel() {
   }
 
   toggle('btn-finish-early', (gameState.log?.length ?? 0) > 0);
+
+  // Texas Scramble: show running driver usage tally
+  if (isTexas) {
+    const driverWrap = document.createElement('div');
+    driverWrap.style.cssText = 'margin-top:0.75rem;';
+    const usage = gameState.driverUsage ?? { par3: [], par4: [], par5: [] };
+    const names = gameState.names ?? [];
+    const rows  = ['par3','par4','par5'].map(key => {
+      const label  = key === 'par3' ? 'Par 3' : key === 'par4' ? 'Par 4' : 'Par 5';
+      const counts = {};
+      (usage[key] ?? []).forEach(pi => { counts[pi] = (counts[pi] ?? 0) + 1; });
+      const cells  = names.map((name, pi) =>
+        `<td style="text-align:center;padding:0.4rem 0.25rem;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:${counts[pi] ? 'var(--white)' : 'var(--muted)'};">
+          ${counts[pi] ?? 0}
+        </td>`
+      ).join('');
+      return `<tr>
+        <td style="padding:0.4rem 0.5rem;font-size:0.85rem;font-weight:700;color:var(--muted2);">${label}</td>
+        ${cells}
+      </tr>`;
+    }).join('');
+
+    const headers = names.map((name, pi) =>
+      `<th style="text-align:center;padding:0.4rem 0.25rem;font-size:0.8rem;font-weight:800;color:var(--muted);">
+        ${name.split(' ')[0]}
+      </th>`
+    ).join('');
+
+    driverWrap.innerHTML = `
+      <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
+                  color:var(--muted);margin-bottom:0.35rem;">Drives Used</div>
+      <table style="width:100%;border-collapse:collapse;background:var(--surface2);border-radius:var(--radius-sm);overflow:hidden;">
+        <thead><tr><th style="padding:0.4rem 0.5rem;text-align:left;font-size:0.8rem;color:var(--muted);"></th>${headers}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    inputsEl.appendChild(driverWrap);
+  }
 
   // Add Pass scoring button for scorer so they can hand off
   const passWrap = document.createElement('div');
@@ -2848,6 +3088,65 @@ function makePlayerInputRow(pi, h, par) {
 }
 
 // ── Score Picker Modal ────────────────────────────────────────────
+function openTexasScorePicker(h, par) {
+  // Reuse the existing score picker modal
+  const teamHcp   = gameState.teamHcp ?? 0;
+  const teamExtra = Math.floor(teamHcp / 18) + (h < (teamHcp % 18) ? 1 : 0);
+  // Actually use strokesOnHole for per-hole calculation
+  const { strokesOnHole: soHole } = (() => {
+    // inline import reference
+    return { strokesOnHole: (hcp, si) => (hcp <= 0 ? 0 : Math.floor(hcp / 18) + (si <= (hcp % 18) ? 1 : 0)) };
+  })();
+  const si     = gameState.si[h];
+  const extra  = soHole(teamHcp, si);
+  const min    = Math.max(1, par - 2), max = par + 3;
+
+  document.getElementById('sp-player-name').textContent = gameState.teamName ?? 'Team';
+  document.getElementById('sp-context').textContent     = `Hole ${h + 1} · Par ${par} · Team HCP ${teamHcp} (${extra} shot${extra !== 1 ? 's' : ''} on this hole)`;
+
+  const gridEl = document.getElementById('sp-grid');
+  gridEl.innerHTML = Array.from({ length: max - min + 1 }, (_, i) => {
+    const v        = min + i;
+    const net      = v - extra;
+    const pts      = Math.max(0, 2 + par - net);
+    const relToPar = v - par;
+    let circleColor;
+    if (relToPar === 0)      circleColor = 'var(--green)';
+    else if (relToPar < 0)   circleColor = '#d64545';
+    else if (relToPar <= 2)  circleColor = '#3a7bd5';
+    else                     circleColor = '#2a2a2a';
+
+    return `<button class="sp-num-btn" data-val="${v}"
+      style="display:grid;grid-template-columns:1fr 2fr 1fr;align-items:center;
+             padding:0.55rem 0.5rem;border-radius:12px;border:none;cursor:pointer;background:var(--surface2);">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:var(--white);">${net}</span>
+      <span style="display:flex;align-items:center;justify-content:center;width:54px;height:54px;margin:0 auto;
+                    border-radius:50%;background:${circleColor};color:#fff;
+                    font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.7rem;">${v}</span>
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:var(--muted2);">${pts > 0 ? pts : '-'}</span>
+    </button>`;
+  }).join('');
+
+  gridEl.querySelectorAll('.sp-num-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const scoreEl = document.getElementById('cv-texas');
+      if (scoreEl) {
+        scoreEl.dataset.value = btn.dataset.val;
+        scoreEl.textContent   = btn.dataset.val;
+        scoreEl.style.color   = 'var(--green)';
+      }
+      closeScorePicker();
+    });
+  });
+
+  document.getElementById('sp-pickup')?.classList.add('hidden');
+  document.getElementById('modal-score-picker').classList.add('open');
+}
+
+function openTexasScorePickerCleanup() {
+  document.getElementById('sp-pickup')?.classList.remove('hidden');
+}
+
 function openScorePicker(pi, h, par) {
   const cvEl = document.getElementById(`cv${pi}`);
   const current = cvEl?.dataset.value;
@@ -2949,7 +3248,16 @@ function recordHole() {
   let grosses = [];
 
   const isFoursome = fmt === 'foursomes' || fmt === 'greensomes';
-  if (isFoursome) {
+  const isTexas    = fmt === 'texas';
+
+  if (isTexas) {
+    const scoreEl  = document.getElementById('cv-texas');
+    const gross    = parseInt(scoreEl?.dataset?.value, 10);
+    const driverEl = document.querySelector('.texas-driver-btn.active');
+    const driver   = driverEl ? parseInt(driverEl.dataset.pi, 10) : 0;
+    if (!gross || gross < 1) { alert('Please enter a score for the team.'); return; }
+    grosses = [gross, driver];
+  } else if (isFoursome) {
     const vA = parseInt(document.getElementById('cv-pair-A')?.textContent, 10);
     const vB = parseInt(document.getElementById('cv-pair-B')?.textContent, 10);
     if (!vA || !vB) { alert('Please enter scores for both pairs.'); return; }
@@ -3037,16 +3345,47 @@ function renderLeaderboard() {
   if (!tableEl) return;
 
   // Determine score label from format
-  const isPoints = ['stableford','split6','csm','best2'].includes(fmt);
-  const isStroke = fmt === 'stroke';
-  const scoreLabel = isPoints ? 'Pts' : isStroke ? 'Net' : 'Score';
+  const isPoints  = ['stableford','split6','csm','best2'].includes(fmt);
+  const isStroke  = fmt === 'stroke';
+  const isTexas   = fmt === 'texas';
+  const texasSbFmt = isTexas && (gameState.texasScoringFmt ?? 'stableford') === 'stableford';
+  const scoreLabel = isTexas ? (texasSbFmt ? 'Pts' : 'Gross')
+    : isPoints ? 'Pts' : isStroke ? 'Net' : 'Score';
 
   metaEl.textContent = `${gameState.courseName} · ${gameState.teeName} · ${fmtLabel(fmt)}`.toUpperCase();
 
   // ── Non-tournament: live group scores only ───────────────────────
   if (!isTourney) {
     const states = gameState.allGroupStates ?? [gameState];
-    const rows   = buildMultiGroupLeaderboard(states);
+
+    if (isTexas) {
+      // One row per group/team — sorted by pts (stableford) or gross (stroke)
+      const rows = states
+        .filter(s => s && s.names)
+        .map((s, i) => ({
+          teamName:   s.teamName ?? `Team ${i + 1}`,
+          members:    s.names.join(', '),
+          score:      texasSbFmt ? (s.texasPts ?? 0) : (s.grossTotal ?? 0),
+          teamHcp:    s.teamHcp ?? 0,
+          holesPlayed: s.log?.length ?? 0,
+        }))
+        .sort((a, b) => texasSbFmt ? b.score - a.score : a.score - b.score);
+
+      tableEl.innerHTML = buildLeaderboardTable(
+        rows.map((r, rank) => ({
+          rank:   rank + 1,
+          label:  r.teamName,
+          sub:    r.members,
+          score:  r.score || (r.holesPlayed === 0 ? `HCP ${r.teamHcp}` : '0'),
+          thru:   r.holesPlayed,
+          isLead: rank === 0,
+        })),
+        scoreLabel
+      );
+      return;
+    }
+
+    const rows = buildMultiGroupLeaderboard(states);
 
     if (!rows.length) {
       tableEl.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);">No scores yet.</div>';
@@ -3264,7 +3603,7 @@ function flashHoleResult(holeIdx) {
 
 // Which score modes a format supports
 function scorecardModesFor(fmt) {
-  if (['stableford','split6','csm','best2'].includes(fmt)) return ['points','strokes'];
+  if (['stableford','split6','csm','best2','texas'].includes(fmt)) return ['points','strokes'];
   return ['strokes'];
 }
 
@@ -3381,6 +3720,19 @@ function scorecardColumns(state) {
         },
       }];
 
+    case 'texas':
+      return [{
+        label: state.teamName ?? 'Team',
+        dotColor: pHex(0),
+        getCell: (entry, mode) => {
+          if (!entry) return { text: '' };
+          if (mode === 'points') return { text: entry.pts != null ? String(entry.pts) : '-' };
+          // Strokes mode: show gross with par-relative colouring
+          if (entry.gross == null) return { text: '' };
+          return { text: String(entry.gross), relToPar: entry.gross - entry.par };
+        },
+      }];
+
     default:
       return names.map((_, pi) => indivCol(pi));
   }
@@ -3476,6 +3828,21 @@ function buildVerticalScorecard(state, mode) {
       <td>Total</td>
       ${columns.map((c, ci) => `<td>${grandTotals[ci]}</td>`).join('')}
     </tr>`;
+
+  // Texas Scramble: add team HCP footer and net total for stroke mode
+  if (state.format === 'texas' && state.teamHcp != null) {
+    const gross  = grandTotals[0];
+    const net    = typeof gross === 'number' ? gross - state.teamHcp : '';
+    bodyRows += `
+      <tr style="background:var(--surface2);">
+        <td style="font-size:0.85rem;font-weight:700;color:var(--muted2);">Team HCP</td>
+        <td style="font-size:0.85rem;font-weight:700;color:var(--muted2);">${state.teamHcp}</td>
+      </tr>
+      ${typeof net === 'number' ? `<tr class="sc-total-row">
+        <td>Net</td>
+        <td>${net}</td>
+      </tr>` : ''}`;
+  }
 
   return `
     <table class="sc-table">
