@@ -269,11 +269,7 @@
           </div>
         </div>
 
-        <!-- SI preview -->
-        <div id="setup-si-preview" class="hidden" style="margin-top:0.75rem;">
-          <div class="label mb-sm">Stroke Indexes</div>
-          <div id="setup-si-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;text-align:center;"></div>
-        </div>
+        <!-- SI preview removed -->
       </div>
     </div>
 
@@ -311,25 +307,65 @@
     <div class="home-hero">
       <div class="home-hero-top">
         <button class="btn btn-ghost" id="setup-players-back" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
-        <button class="btn btn-ghost btn-danger-ghost" id="setup-abandon-2" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">Abandon</button>
+        <button class="btn btn-ghost" id="setup-abandon-2" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">Abandon</button>
       </div>
       <div class="home-hero-title">Players</div>
+      <div class="home-hero-club" id="setup-player-count-label">0 players added</div>
     </div>
 
-  <div class="page-pad-sm" style="padding-top:1rem;">
-    <div class="step-progress" id="step-progress-2">
-      <div class="step-dot done"></div>
-      <div class="step-dot current"></div>
-      <div class="step-dot"></div>
-    </div>
+    <div class="page-pad-sm" style="padding-top:1rem;">
 
-    <div id="setup-player-groups"></div>
+      <!-- Player list — rendered by JS -->
+      <div id="setup-player-list" style="display:grid;gap:0.5rem;margin-bottom:1rem;"></div>
 
-    <div class="flex gap-sm mt-sm">
-      <button class="btn btn-ghost" style="flex:1;" id="btn-setup-players-back">← Back</button>
-      <button class="btn btn-green" style="flex:2;" id="btn-setup-players-next">NEXT: REVIEW →</button>
+      <!-- Add Player button -->
+      <button class="btn btn-outline" id="btn-setup-add-player"
+        style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;
+               border-style:dashed;border-color:var(--gold-border);color:var(--gold);">
+        ＋ Add Player
+      </button>
+
+      <button class="btn btn-green mt-md" id="btn-setup-players-next"
+        style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;">
+        NEXT: ARRANGE GROUPS →
+      </button>
     </div>
   </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SETUP — STEP 3: GROUPS
+     ══════════════════════════════════════════ -->
+<div id="screen-setup-groups" class="screen">
+  <div style="padding: 0 0 2rem; max-width: 480px; margin: 0 auto;">
+
+    <!-- Hero header -->
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="setup-groups-back" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+        <button class="btn btn-ghost" id="setup-abandon-3" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">Abandon</button>
+      </div>
+      <div class="home-hero-title">Groups</div>
+    </div>
+
+    <div class="page-pad-sm" style="padding-top:1rem;">
+
+      <div class="card mb-sm">
+        <div class="field" style="margin-bottom:0.5rem;">
+          <label>Number of Groups</label>
+          <select id="setup-num-groups"></select>
+        </div>
+        <div id="setup-group-suggestion" style="font-size:0.9rem;font-weight:700;color:var(--muted2);margin-bottom:0;"></div>
+      </div>
+
+      <!-- Drag-drop group cards — rendered by JS -->
+      <div id="setup-group-cards"></div>
+
+      <button class="btn btn-green mt-md" id="btn-setup-groups-next"
+        style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;">
+        NEXT: REVIEW →
+      </button>
+    </div>
   </div>
 </div>
 
@@ -733,6 +769,49 @@
     </div>
 
     <button class="btn btn-green" id="btn-tourn-confirm-player"
+      style="width:100%;padding:0.85rem;font-size:1.05rem;font-weight:800;">
+      ✓ Confirm Player
+    </button>
+  </div>
+</div>
+
+<!-- ══ ADD GAME PLAYER MODAL (individual/team setup) ══ -->
+<div class="modal-overlay" id="modal-add-game-player">
+  <div class="modal-box" style="max-width:360px;">
+    <div class="modal-header">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;">Add Player</div>
+      <button class="btn btn-ghost" id="modal-add-game-player-close" style="font-size:1.2rem;">✕</button>
+    </div>
+
+    <button class="btn btn-outline" id="btn-game-add-from-friends"
+      style="width:100%;padding:0.85rem;font-size:1rem;font-weight:700;margin-bottom:0.5rem;">
+      👥 Add from Friends
+    </button>
+
+    <button class="btn btn-outline" id="btn-game-invite"
+      style="width:100%;padding:0.85rem;font-size:1rem;font-weight:700;margin-bottom:1rem;
+             border-color:var(--green-border);color:var(--green);">
+      📲 Invite to Leaderboard
+    </button>
+
+    <div style="font-size:0.85rem;font-weight:700;color:var(--muted2);margin-bottom:0.75rem;text-align:center;">
+      — or enter manually —
+    </div>
+
+    <div class="field">
+      <label>Player Name</label>
+      <input id="game-manual-name" type="text" placeholder="e.g. John Smith" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Handicap Index</label>
+      <input id="game-manual-hcp" type="number" step="0.1" min="0" max="54" placeholder="e.g. 14.2">
+    </div>
+    <div class="field">
+      <label>Course Handicap</label>
+      <input id="game-manual-chcp" type="number" step="1" min="0" max="54" placeholder="auto from index">
+    </div>
+
+    <button class="btn btn-green" id="btn-game-confirm-player"
       style="width:100%;padding:0.85rem;font-size:1.05rem;font-weight:800;">
       ✓ Confirm Player
     </button>
