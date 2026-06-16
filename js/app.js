@@ -1178,6 +1178,10 @@ document.getElementById('btn-setup-groups-next')?.addEventListener('click', () =
   buildSetupReview();
   showScreen('screen-setup-review');
 });
+
+// Returns the user's saved Course Handicap for the currently-selected
+// course/tee, if their home club + tee matches one with a saved value.
+function getMyCourseHandicapDefault() {
   try {
     const course = allCourses.find(c => c.id === setup.courseId);
     const tee    = course?.tees?.[setup.teeIdx];
