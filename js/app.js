@@ -535,6 +535,9 @@ async function showHome() {
   renderLogos();
   setActiveBottomNav('nav-play');
 
+  // Update invite badges on home buttons
+  if (currentUser) updateActiveGamesBadge();
+
   // Populate hero card
   const myName = currentProfile
     ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
@@ -4147,13 +4150,13 @@ function showGameInviteBanner(invite) {
   const banner  = document.getElementById('game-invite-banner');
   const titleEl = document.getElementById('game-invite-banner-title');
   const subEl   = document.getElementById('game-invite-banner-sub');
-  const isScorer = invite.is_scorer ?? false; // set per recipient when created
   titleEl.textContent = `${invite.name ?? 'Someone'} started a round`;
   subEl.textContent   = invite.group_number
-    ? `Group ${invite.group_number} · Tap to join`
-    : 'Tap to join';
+    ? `Group ${invite.group_number} · Tap Join or find it in Active Games`
+    : 'Tap Join or find it in Active Games';
   banner.style.display = '';
-  setTimeout(() => { if (_pendingGameInvite?.id === invite.id) hideGameInviteBanner(); }, 60000);
+  // Also update badges on the home buttons
+  updateActiveGamesBadge();
 }
 
 function hideGameInviteBanner() {
@@ -4161,24 +4164,197 @@ function hideGameInviteBanner() {
   document.getElementById('game-invite-banner').style.display = 'none';
 }
 
-document.getElementById('btn-game-invite-dismiss')?.addEventListener('click', hideGameInviteBanner);
+async function updateActiveGamesBadge() {
+  try {
+    const inviteRows = await gameInvitesPollPending(currentUser.id, null).catch(() => []);
+    const gameInvites  = inviteRows.filter(r => r.round_id && !r.tournament_round_id);
+    const tournInvites = inviteRows.filter(r => r.tournament_round_id);
+    const gamesBadge  = document.getElementById('home-active-games-badge');
+    const tournBadge  = document.getElementById('home-active-tourns-badge');
+    if (gamesBadge) {
+      gamesBadge.textContent = String(gameInvites.length);
+      gamesBadge.style.display = gameInvites.length > 0 ? '' : 'none';
+    }
+    if (tournBadge) {
+      tournBadge.textContent = String(tournInvites.length);
+      tournBadge.style.display = tournInvites.length > 0 ? '' : 'none';
+    }
+  } catch {}
+}
 
-document.getElementById('btn-game-invite-join')?.addEventListener('click', async () => {
-  const invite = _pendingGameInvite;
-  if (!invite) return;
-  hideGameInviteBanner();
-  if (_gameInvitePollTimer) { clearInterval(_gameInvitePollTimer); _gameInvitePollTimer = null; }
+// ── Active Games modal ───────────────────────────────────────────
+document.getElementById('btn-home-active-games')?.addEventListener('click', async () => {
+  const listEl = document.getElementById('active-games-list');
+  listEl.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);">Loading…</div>';
+  document.getElementById('modal-active-games').classList.add('open');
+  try {
+    // Load active rounds + any pending game invites
+    const [rounds, inviteRows] = await Promise.all([
+      roundsLoadActive(currentUser.id).catch(() => []),
+      gameInvitesPollPending(currentUser.id, null).catch(() => []),
+    ]);
+    const invites = (await Promise.all(
+      inviteRows
+        .filter(r => r.round_id && !r.tournament_round_id)
+        .map(r => gameInviteLoad(r.id ?? r).catch(() => null))
+    )).filter(inv => inv && inv.status !== 'accepted');
+
+    const items = [];
+
+    // Active rounds this user is scoring
+    rounds.forEach(r => {
+      items.push({
+        icon: '⛳',
+        title: r.course_name ?? 'Round',
+        sub: `${fmtLabel(r.game_state?.format ?? '')} · Group ${r.game_state?.groupNumber ?? 1}`,
+        action: () => resumeRound(r.id),
+        actionLabel: 'Resume',
+      });
+    });
+
+    // Pending game invites
+    invites.forEach(inv => {
+      items.push({
+        icon: '📩',
+        title: inv.name ?? 'Game invite',
+        sub: `Group ${inv.group_number ?? 1} · Tap to join`,
+        action: async () => {
+          document.getElementById('modal-active-games').classList.remove('open');
+          await acceptAndJoinInvite(inv);
+        },
+        actionLabel: 'Join',
+      });
+    });
+
+    listEl.innerHTML = items.length === 0
+      ? '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:0.95rem;">No active games or pending invites.</div>'
+      : items.map((item, i) => `
+          <div data-item="${i}" style="display:flex;align-items:center;gap:0.75rem;
+               padding:0.85rem 1rem;border-bottom:1px solid var(--border);cursor:pointer;">
+            <div style="font-size:1.5rem;flex-shrink:0;">${item.icon}</div>
+            <div style="flex:1;">
+              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.15rem;">${item.title}</div>
+              <div style="font-size:0.85rem;color:var(--muted2);font-weight:700;">${item.sub}</div>
+            </div>
+            <button class="btn btn-green" data-item="${i}"
+              style="padding:0.45rem 1rem;font-size:0.9rem;font-weight:800;flex-shrink:0;">
+              ${item.actionLabel}
+            </button>
+          </div>`).join('');
+
+    listEl.querySelectorAll('[data-item]').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.item);
+        document.getElementById('modal-active-games').classList.remove('open');
+        items[idx]?.action();
+      });
+    });
+  } catch (err) {
+    listEl.innerHTML = `<div style="padding:1rem;color:var(--red);">Error loading games: ${err.message}</div>`;
+  }
+});
+document.getElementById('modal-active-games-close')?.addEventListener('click', () => {
+  document.getElementById('modal-active-games').classList.remove('open');
+});
+
+// ── Active Tournaments modal ─────────────────────────────────────
+document.getElementById('btn-home-active-tournaments')?.addEventListener('click', async () => {
+  const listEl = document.getElementById('active-tournaments-list');
+  listEl.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);">Loading…</div>';
+  document.getElementById('modal-active-tournaments').classList.add('open');
+  try {
+    // Load tournaments + any tournament round invites
+    const [tournaments, inviteRows] = await Promise.all([
+      tournamentsLoad(currentUser.id).catch(() => []),
+      gameInvitesPollPending(currentUser.id, null).catch(() => []),
+    ]);
+    const tournInvites = (await Promise.all(
+      inviteRows
+        .filter(r => r.tournament_round_id)
+        .map(r => gameInviteLoad(r.id ?? r).catch(() => null))
+    )).filter(inv => inv && inv.status !== 'accepted');
+
+    const items = [];
+
+    // Active tournaments
+    tournaments.filter(t => t.status !== 'completed').forEach(t => {
+      items.push({
+        icon: '🏆',
+        title: t.name,
+        sub: `${fmtLabel(t.format)} · ${t.status === 'active' ? 'Active' : 'Setup'}`,
+        action: () => showTournamentDetail(t.id),
+        actionLabel: 'Open',
+      });
+    });
+
+    // Pending tournament round invites
+    tournInvites.forEach(inv => {
+      items.push({
+        icon: '📩',
+        title: inv.name ?? 'Tournament invite',
+        sub: `Round · Group ${inv.group_number ?? 1} · Tap to join`,
+        action: async () => {
+          document.getElementById('modal-active-tournaments').classList.remove('open');
+          await acceptAndJoinInvite(inv);
+        },
+        actionLabel: 'Join',
+      });
+    });
+
+    listEl.innerHTML = items.length === 0
+      ? '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:0.95rem;">No active tournaments or pending invites.</div>'
+      : items.map((item, i) => `
+          <div data-item="${i}" style="display:flex;align-items:center;gap:0.75rem;
+               padding:0.85rem 1rem;border-bottom:1px solid var(--border);cursor:pointer;">
+            <div style="font-size:1.5rem;flex-shrink:0;">${item.icon}</div>
+            <div style="flex:1;">
+              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.15rem;">${item.title}</div>
+              <div style="font-size:0.85rem;color:var(--muted2);font-weight:700;">${item.sub}</div>
+            </div>
+            <button class="btn btn-green" data-item="${i}"
+              style="padding:0.45rem 1rem;font-size:0.9rem;font-weight:800;flex-shrink:0;">
+              ${item.actionLabel}
+            </button>
+          </div>`).join('');
+
+    listEl.querySelectorAll('[data-item]').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.item);
+        document.getElementById('modal-active-tournaments').classList.remove('open');
+        items[idx]?.action();
+      });
+    });
+  } catch (err) {
+    listEl.innerHTML = `<div style="padding:1rem;color:var(--red);">Error loading tournaments: ${err.message}</div>`;
+  }
+});
+document.getElementById('modal-active-tournaments-close')?.addEventListener('click', () => {
+  document.getElementById('modal-active-tournaments').classList.remove('open');
+});
+
+// ── Shared invite accept helper ──────────────────────────────────
+async function acceptAndJoinInvite(invite) {
   _joiningViaInvite = true;
   try {
     await smsInviteAccept(invite.id);
     if (invite.tournament_round_id && invite.group_number) {
       await joinTournamentRoundAsScorer(currentUser, invite.tournament_round_id, invite.group_number);
     } else if (invite.round_id) {
-      // Always join as watcher — scorer is claimed via "I am the scorer" button
       await _joinRoundWithRole(invite.round_id, invite.group_number ?? 1, false);
     }
-  } catch (err) { alert('Could not join: ' + err.message); }
-  finally { _joiningViaInvite = false; }
+  } catch (err) {
+    alert('Could not join: ' + err.message);
+  } finally {
+    _joiningViaInvite = false;
+  }
+}
+
+document.getElementById('btn-game-invite-join')?.addEventListener('click', async () => {
+  const invite = _pendingGameInvite;
+  if (!invite) return;
+  hideGameInviteBanner();
+  if (_gameInvitePollTimer) { clearInterval(_gameInvitePollTimer); _gameInvitePollTimer = null; }
+  await acceptAndJoinInvite(invite);
 });
 
 async function _joinRoundWithRole(roundId, groupNumber, asScorer) {
