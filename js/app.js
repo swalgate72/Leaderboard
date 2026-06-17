@@ -355,12 +355,22 @@ const PENCIL_SVG_MINI = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 60" style="width:330px;height:auto;display:block;">
   <polygon points="8,30 32,18 32,42" fill="#c8956a"/>
   <polygon points="8,30 22,24 22,36" fill="#4a4a4a"/>
-  <rect x="32" y="18" width="230" height="24" fill="#0e2415"/>
+  <polygon points="8,30 18,26 16,28" fill="#8a8a8a" opacity="0.6"/>
+  <rect x="32" y="18" width="230" height="24" fill="#1a3a2a"/>
+  <rect x="32" y="18" width="230" height="4" fill="#2a5a40" opacity="0.6"/>
+  <rect x="32" y="38" width="230" height="4" fill="#0e1f16" opacity="0.5"/>
   <rect x="262" y="16" width="18" height="28" fill="#c8a020"/>
-  <rect x="280" y="18" width="32" height="24" rx="3" fill="#e8e0d8"/>
+  <line x1="262" y1="22" x2="280" y2="22" stroke="#8a6010" stroke-width="1"/>
+  <line x1="262" y1="27" x2="280" y2="27" stroke="#f0c040" stroke-width="0.75" opacity="0.6"/>
+  <line x1="262" y1="32" x2="280" y2="32" stroke="#8a6010" stroke-width="1"/>
+  <line x1="262" y1="38" x2="280" y2="38" stroke="#f0c040" stroke-width="0.75" opacity="0.6"/>
+  <rect x="280" y="18" width="32" height="24" rx="3" ry="3" fill="#e8e0d8"/>
+  <rect x="280" y="18" width="32" height="5" rx="2" fill="#f5f0ec"/>
+  <rect x="280" y="37" width="32" height="5" rx="2" fill="#c8c0b8"/>
   <text x="147" y="30" font-family="Arial Narrow, Arial, sans-serif" font-size="15"
     font-weight="700" letter-spacing="3.5" fill="#d4a843"
     text-anchor="middle" dominant-baseline="middle">LEADERBOARD</text>
+  <line x1="32" y1="21" x2="262" y2="21" stroke="white" stroke-width="0.75" opacity="0.08"/>
 </svg>`;
 
 function renderLogos() {
