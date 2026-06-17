@@ -586,7 +586,7 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 
 .stroke-badge {
   background: var(--gold);
-  color: #0e1a13;
+  color: #fff;
   font-size: 0.85rem;
   font-weight: 800;
   padding: 2px 8px;
@@ -1204,9 +1204,9 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
   color: var(--muted);
   border-radius: var(--radius-sm);
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
   white-space: nowrap;
   transition: border-color 0.15s, color 0.15s;
 }
