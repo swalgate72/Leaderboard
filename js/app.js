@@ -3107,24 +3107,19 @@ function renderHolePanel() {
     inputsEl.appendChild(driverWrap);
   }
 
-  // Add Pass scoring button for scorer so they can hand off
-  const passWrap = document.createElement('div');
-  passWrap.style.cssText = 'margin-top:0.75rem;text-align:center;';
-  passWrap.innerHTML = `<button id="btn-pass-scoring" class="btn btn-ghost"
-    style="font-size:0.9rem;color:var(--muted2);padding:0.75rem 1rem;border:1px solid var(--border);border-radius:8px;width:100%;">
-    ↩ Pass scoring to another player
-  </button>`;
-  inputsEl.appendChild(passWrap);
-
-  document.getElementById('btn-pass-scoring')?.addEventListener('click', async () => {
-    gameState.scorerProfileId = '__unclaimed__';
-    if (gameState.allGroupStates?.length > 1) {
-      const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === gameState.groupNumber);
-      if (idx >= 0) gameState.allGroupStates[idx].scorerProfileId = '__unclaimed__';
-    }
-    await saveRoundState();
-    renderHolePanel(); // re-render into watcher mode
-  });
+  // Wire permanent Change Scorer button
+  const passBtn = document.getElementById('btn-pass-scorer');
+  if (passBtn) {
+    passBtn.onclick = async () => {
+      gameState.scorerProfileId = '__unclaimed__';
+      if (gameState.allGroupStates?.length > 1) {
+        const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === gameState.groupNumber);
+        if (idx >= 0) gameState.allGroupStates[idx].scorerProfileId = '__unclaimed__';
+      }
+      await saveRoundState();
+      renderHolePanel();
+    };
+  }
 }
 
 function makePlayerInputRow(pi, h, par) {
