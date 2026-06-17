@@ -352,10 +352,10 @@ const PENCIL_SVG = `
 </svg>`;
 
 const PENCIL_SVG_MINI = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 60" style="width:110px;height:auto;display:block;">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 60" style="width:330px;height:auto;display:block;">
   <polygon points="8,30 32,18 32,42" fill="#c8956a"/>
   <polygon points="8,30 22,24 22,36" fill="#4a4a4a"/>
-  <rect x="32" y="18" width="230" height="24" fill="#1a3a2a"/>
+  <rect x="32" y="18" width="230" height="24" fill="#0e2415"/>
   <rect x="262" y="16" width="18" height="28" fill="#c8a020"/>
   <rect x="280" y="18" width="32" height="24" rx="3" fill="#e8e0d8"/>
   <text x="147" y="30" font-family="Arial Narrow, Arial, sans-serif" font-size="15"
@@ -2748,8 +2748,8 @@ function renderTotalsBar() {
           ${displayName}
         </div>
         <div style="display:flex;align-items:baseline;justify-content:center;gap:2px;">
-          <div class="tc-pts" style="color:${pCol(i)};">${score}</div>
-          <span style="font-size:0.9rem;font-weight:600;color:${pCol(i)};margin-left:3px;">${label}</span>
+          <div class="tc-pts" style="color:#fff;">${score}</div>
+          <span style="font-size:0.9rem;font-weight:600;color:rgba(255,255,255,0.7);margin-left:3px;">${label}</span>
         </div>
         ${rawLabel}
       </div>`;
