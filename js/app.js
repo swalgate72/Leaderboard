@@ -628,7 +628,12 @@ async function loadHomeStatsAndActive(myName) {
     try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
     if (storedRoundId && !actives.some(r => r.id === storedRoundId)) {
       const stored = await roundLoadById(storedRoundId).catch(() => null);
-      if (stored?.status === 'active') actives.unshift(stored);
+      if (stored?.status === 'active') {
+        actives.unshift(stored);
+      } else {
+        // Stale — clear it
+        try { localStorage.removeItem('lb-active-round'); } catch {}
+      }
     }
 
     const activeTournaments = tournaments.filter(t => t.status !== 'completed');
@@ -660,7 +665,9 @@ async function loadHomeStatsAndActive(myName) {
             <div class="home-active-title">Active Game — ${r.course_name ?? 'Round'}</div>
             <div class="home-active-sub">${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees</div>
           </div>
-          <div class="home-active-chevron">›</div>
+          <button class="btn btn-ghost btn-dismiss-round" data-id="${r.id}"
+            style="font-size:0.85rem;color:var(--muted);border:none;padding:0.25rem 0.5rem;flex-shrink:0;"
+            title="Dismiss">✕</button>
         </div>`);
     });
     activeTournaments.forEach(t => {
@@ -677,10 +684,22 @@ async function loadHomeStatsAndActive(myName) {
 
     activeEl.innerHTML = rows.join('');
     activeEl.querySelectorAll('.home-active-row').forEach(row => {
-      // Dismiss draft button — stop propagation so it doesn't also trigger row click
+      // Dismiss draft
       row.querySelector('#btn-dismiss-draft')?.addEventListener('click', e => {
         e.stopPropagation();
         clearSetupDraft();
+        loadHomeStatsAndActive(myName ?? '');
+      });
+
+      // Dismiss stuck active round — force abandon
+      row.querySelector('.btn-dismiss-round')?.addEventListener('click', async e => {
+        e.stopPropagation();
+        const rid = e.currentTarget.dataset.id;
+        try { await roundAbandon(rid); } catch {}
+        try {
+          const stored = localStorage.getItem('lb-active-round');
+          if (stored === rid) localStorage.removeItem('lb-active-round');
+        } catch {}
         loadHomeStatsAndActive(myName ?? '');
       });
 
