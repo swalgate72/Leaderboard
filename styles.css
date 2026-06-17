@@ -1166,21 +1166,101 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 .gi-row.in-chair   { border-color: var(--gold-border); background: rgba(212,168,67,0.06); }
 
 .gi-name {
-  font-size: 1.25rem;
+  font-size: 3.2rem;
   font-weight: 800;
+  font-family: 'Barlow Condensed', sans-serif;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  line-height: 1;
+  letter-spacing: 0.01em;
 }
 
 .gi-hcp {
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--muted2);
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
-/* +/- counter */
+/* Hole action buttons */
+.hole-actions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.55rem;
+}
+
+.btn-back-hole {
+  padding: 0.85rem 1rem;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-back-hole:hover      { border-color: var(--gold); color: var(--gold); }
+.btn-back-hole:disabled   { opacity: 0.2; cursor: default; pointer-events: none; }
+
+.btn-record {
+  width: 100%;
+  padding: 1rem;
+  background: var(--green);
+  color: #0a160e;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+html.light .btn-record { background: #1a3a22; color: #fff; }
+
+/* 3-button action row at bottom of game screen */
+.game-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.game-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.85rem 0.5rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.game-action-btn:active { background: var(--surface3, rgba(255,255,255,0.08)); }
+
+.game-action-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.game-action-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--muted2);
+  letter-spacing: 0.04em;
+  text-align: center;
+  line-height: 1.2;
+}
 .counter {
   display: flex;
   align-items: center;
@@ -1219,46 +1299,6 @@ html.light .c-btn {
   text-align: center;
   line-height: 1;
 }
-
-/* Hole action buttons */
-.hole-actions {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.55rem;
-  margin-top: 0.75rem;
-}
-
-.btn-back-hole {
-  padding: 0.85rem 1rem;
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  border-radius: var(--radius-sm);
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  white-space: nowrap;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.btn-back-hole:hover      { border-color: var(--gold); color: var(--gold); }
-.btn-back-hole:disabled   { opacity: 0.2; cursor: default; pointer-events: none; }
-
-.btn-record {
-  width: 100%;
-  padding: 0.9rem;
-  background: var(--green);
-  color: #0a160e;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 1.1rem;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-}
-
-html.light .btn-record { background: #1a3a22; color: #fff; }
 
 /* Pair section labels */
 .pair-section-label {

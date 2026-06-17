@@ -550,29 +550,33 @@
     <!-- Player input rows rendered here -->
     <div id="game-inputs"></div>
 
-    <!-- Scorecard / Leaderboard row -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin:0.75rem 0 0;">
-      <button class="btn btn-outline" id="btn-game-scorecard"
-        style="padding:0.85rem;font-size:1.05rem;font-weight:800;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.04em;">
-        📋 Scorecard
-      </button>
-      <button class="btn btn-outline" id="btn-game-leaderboard"
-        style="padding:0.85rem;font-size:1.05rem;font-weight:800;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.04em;">
-        🏆 Leaderboard
-      </button>
-    </div>
-
-    <!-- Back / Record -->
-    <div class="hole-actions">
+    <!-- Back / Record — directly under scoring rows -->
+    <div class="hole-actions" style="margin-top:0.75rem;">
       <button class="btn-back-hole" id="btn-back-hole" disabled>← Back</button>
       <button class="btn-record" id="btn-record-hole">RECORD HOLE →</button>
     </div>
 
-    <!-- Secondary actions -->
-    <button class="btn btn-outline mt-sm" id="btn-finish-early"
-      style="font-size:0.85rem;padding:0.55rem;">
-      ✓ FINISH ROUND EARLY
+    <!-- Finish early (small, subtle) -->
+    <button class="btn btn-outline hidden" id="btn-finish-early"
+      style="font-size:0.85rem;padding:0.45rem;width:100%;margin-top:0.5rem;">
+      ✓ Finish Round Early
     </button>
+
+    <!-- 3 square action buttons at bottom -->
+    <div class="game-action-row">
+      <button class="game-action-btn" id="btn-pass-scorer">
+        <span class="game-action-icon">↩</span>
+        <span class="game-action-label">Change<br>Scorer</span>
+      </button>
+      <button class="game-action-btn" id="btn-game-scorecard">
+        <span class="game-action-icon">📋</span>
+        <span class="game-action-label">Score-<br>card</span>
+      </button>
+      <button class="game-action-btn" id="btn-game-leaderboard">
+        <span class="game-action-icon">🏆</span>
+        <span class="game-action-label">Leader-<br>board</span>
+      </button>
+    </div>
 
   </div><!-- /hole-panel -->
 
