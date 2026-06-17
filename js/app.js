@@ -790,8 +790,8 @@ function showFormatPicker(category) {
       else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ setup.numPlayers = 4; setup.numGroups = 1; setup.playersPerGroup = null; }
       else if (fmt === 'best2')                                            { setup.numPlayers = 8; setup.numGroups = 2; setup.playersPerGroup = 4; }
       else if (fmt === 'match')                                            { setup.numPlayers = 2; setup.numGroups = 1; setup.playersPerGroup = null; }
-      else if (fmt === 'texas')                                            { setup.numPlayers = 4; setup.numGroups = 1; setup.playersPerGroup = null; }
-      else                                                                 { setup.numPlayers = 3; setup.numGroups = 1; setup.playersPerGroup = null; }
+      else if (fmt === 'texas')                                            { setup.numPlayers = 2; setup.numGroups = 1; setup.playersPerGroup = null; }
+      else                                                                 { setup.numPlayers = 1; setup.numGroups = 1; setup.playersPerGroup = null; }
       startSetup();
     });
   });
@@ -1151,7 +1151,8 @@ function addSetupPlayer(name, hcpIndex, courseHandicap, profileId) {
 
 document.getElementById('btn-setup-players-next')?.addEventListener('click', () => {
   const filled = setup.players.filter(p => p.name);
-  if (filled.length < 2) { alert('Add at least 2 players.'); return; }
+  const minPlayers = ['betterball','csm','foursomes','greensomes','match','best2','split6','skins','itc'].includes(setup.scoring) ? 2 : 1;
+  if (filled.length < minPlayers) { alert(`Add at least ${minPlayers} player${minPlayers > 1 ? 's' : ''}.`); return; }
   const isPairs = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
   if (isPairs) {
     initSetupPairs();
@@ -2358,19 +2359,34 @@ async function teeOff() {
     const tee    = course?.tees?.[setup.teeIdx];
     if (!course || !tee) { alert('Please select a course and tee.'); return; }
 
+    // Ensure activeTournPlayers is loaded
+    if (!activeTournPlayers?.length) {
+      activeTournPlayers = await tournamentPlayersLoad(setup.tournamentId).catch(() => []);
+    }
+
     // Build tournGroups from setup.players
     const namedPlayers = setup.players.filter(p => p.name);
     const maxGroup     = Math.max(1, ...namedPlayers.map(p => p.groupNumber ?? 1));
     tournGroups = Array.from({ length: maxGroup }, (_, g) => ({
       groupNumber: g + 1,
-      players: namedPlayers.filter(p => (p.groupNumber ?? 1) === g + 1)
-                           .map(p => activeTournPlayers.find(tp =>
-                             tp.id === p.tournamentPlayerId ||
-                             tp.profile_id === p.profileId ||
-                             tp.name === p.name
-                           )?.id)
-                           .filter(Boolean),
+      players: namedPlayers
+        .filter(p => (p.groupNumber ?? 1) === g + 1)
+        .map(p => {
+          // Match by tournamentPlayerId first, then profileId, then name
+          const tp = activeTournPlayers.find(tp =>
+            (p.tournamentPlayerId && tp.id === p.tournamentPlayerId) ||
+            (p.profileId && tp.profile_id === p.profileId) ||
+            tp.name === p.name
+          );
+          return tp?.id ?? null;
+        })
+        .filter(Boolean),
     }));
+
+    if (!tournGroups.some(g => g.players.length > 0)) {
+      alert('Could not match players to tournament roster. Please go back and check the player list.');
+      return;
+    }
 
     // Save group state for next round
     localStorage.setItem(`lb-tround-${setup.tournamentId}`, JSON.stringify({
