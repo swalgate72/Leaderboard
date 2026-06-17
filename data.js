@@ -646,20 +646,16 @@ export function realtimeUnsubscribe(channel) {
 // TOURNAMENTS
 // ================================================================
 
-export async function tournamentCreate({ organiserId, name, format, numRounds, hcpMode, scoringMode, tournamentType, teamSize, teamRotation, teamFormat }) {
+export async function tournamentCreate({ organiserId, name, format, numRounds, hcpMode, scoringMode }) {
   const { data, error } = await sb
     .from('tournaments')
     .insert({
-      organiser_id:      organiserId,
+      organiser_id:  organiserId,
       name, format,
-      num_rounds:        numRounds,
-      hcp_mode:          hcpMode,
-      scoring_mode:      scoringMode ?? 'cumulative',
-      tournament_type:   tournamentType ?? 'individual',
-      team_size:         teamSize ?? null,
-      team_rotation:     teamRotation ?? null,
-      team_format:       teamFormat ?? null,
-      status:            'active',
+      num_rounds:    numRounds,
+      hcp_mode:      hcpMode,
+      scoring_mode:  scoringMode ?? 'cumulative',
+      status:        'active',
     })
     .select().single();
   if (error) throw error;
@@ -667,10 +663,11 @@ export async function tournamentCreate({ organiserId, name, format, numRounds, h
 }
 
 export async function tournamentsLoad(organiserId) {
+  // Load tournaments where user is organiser OR co-organiser
   const { data, error } = await sb
     .from('tournaments')
     .select('*')
-    .eq('organiser_id', organiserId)
+    .or(`organiser_id.eq.${organiserId},co_organiser_id.eq.${organiserId}`)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data ?? [];
