@@ -483,31 +483,33 @@
 <!-- ══════════════════════════════════════════
      GAME SCREEN
      ══════════════════════════════════════════ -->
-<div id="screen-game" class="screen">
+<div id="screen-game" class="screen" style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
 
-  <!-- Sticky top: top bar + score header + flash -->
-  <div id="game-sticky-top" style="position:sticky;top:0;z-index:40;background:var(--bg);">
+  <!-- ══ GREEN HERO HEADER (sticky) ══ -->
+  <div id="game-hero" style="
+    background: linear-gradient(160deg,#1a3a22 0%,#0e2415 100%);
+    color:#fff;
+    padding: 0.85rem 1.1rem 1rem;
+    flex-shrink:0;
+    position:relative;">
 
-    <!-- Top bar -->
-    <div class="game-top-bar">
-      <div class="flex items-center gap-sm">
-        <div id="game-logo-mini"></div>
-        <div>
-          <div class="game-course" id="game-course-name"></div>
-          <div class="game-sub" id="game-sub"></div>
-        </div>
-      </div>
-      <div class="flex items-center gap-sm">
-        <div class="sync-badge syncing hidden" id="game-sync-badge">
-          <div class="sync-dot pulse"></div>
-          <span>Saving</span>
-        </div>
-        <button class="btn btn-ghost btn-danger-ghost" id="btn-game-abandon">Abandon</button>
-      </div>
+    <!-- Sync badge top-right -->
+    <div class="sync-badge syncing hidden" id="game-sync-badge"
+      style="position:absolute;top:0.75rem;right:1rem;">
+      <div class="sync-dot pulse"></div>
+      <span>Saving</span>
     </div>
 
-    <!-- Score header — one of these is shown depending on format -->
-    <div id="game-totals-bar"  class="totals-bar score-bar hidden"></div>
+    <!-- Course + tee/format -->
+    <div id="game-course-name"
+      style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.35rem;
+             line-height:1;letter-spacing:0.02em;margin-bottom:0.15rem;"></div>
+    <div id="game-sub"
+      style="font-size:0.78rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;
+             color:rgba(255,255,255,0.65);margin-bottom:0.75rem;"></div>
+
+    <!-- Score boxes — rendered by JS into this container -->
+    <div id="game-totals-bar"  class="totals-bar score-bar hidden" style="background:rgba(255,255,255,0.08);border-radius:var(--radius-sm);"></div>
     <div id="game-match-bar"   class="match-bar score-bar hidden">
       <div class="mb-pair">
         <div class="mb-names" id="mb-names-a"></div>
@@ -522,23 +524,24 @@
         <div class="mb-score" style="color:var(--p1);text-align:right;" id="mb-score-b">0</div>
       </div>
     </div>
-    <div id="game-skins-bar" class="skins-bar hidden"></div>
-    <div id="game-itc-bar"   class="itc-bar hidden"></div>
+    <div id="game-skins-bar"   class="skins-bar hidden"></div>
+    <div id="game-itc-bar"     class="itc-bar hidden"></div>
     <div class="pot-banner" id="game-pot-banner"><span id="game-pot-text"></span></div>
-    <div class="pot-banner hidden" id="game-group-total-banner" style="background:rgba(212,168,67,0.08);border-bottom:1px solid var(--gold-border);"></div>
+    <div class="pot-banner hidden" id="game-group-total-banner"
+      style="background:rgba(212,168,67,0.1);border:1px solid var(--gold-border);"></div>
 
-    <!-- Result flash (permanent bar - no layout shift) -->
-    <div id="result-flash" class="result-flash result-flash-permanent">&#8203;</div>
-    <!-- Challenge banner (slides in when challenge received) -->
+    <!-- Result flash -->
+    <div id="result-flash" class="result-flash result-flash-permanent" style="margin-top:0.5rem;border-radius:6px;">&#8203;</div>
+    <!-- Challenge banner -->
     <div id="challenge-banner" class="hidden"
-      style="background:rgba(212,168,67,0.12);border-bottom:1px solid var(--gold-border);
-             padding:0.6rem 1rem;display:flex;align-items:center;gap:0.5rem;
-             font-size:0.82rem;color:var(--white);flex-wrap:wrap;"></div>
+      style="background:rgba(212,168,67,0.12);border:1px solid var(--gold-border);border-radius:6px;
+             margin-top:0.5rem;padding:0.5rem 0.85rem;font-size:0.82rem;color:var(--white);"></div>
+  </div>
 
-  </div><!-- /game-sticky-top -->
+  <!-- ══ HOLE PANEL (scrollable middle) ══ -->
+  <div class="hole-panel" id="hole-panel"
+    style="flex:1;overflow-y:auto;padding-bottom:0.5rem;">
 
-  <!-- Hole entry panel -->
-  <div class="hole-panel" id="hole-panel">
     <div class="hole-hdr">
       <div>
         <div class="hole-lbl">Current Hole</div>
@@ -547,40 +550,65 @@
       <div class="hole-si-info" id="game-hole-si"></div>
     </div>
 
-    <!-- Player input rows rendered here -->
+    <!-- Player input rows -->
     <div id="game-inputs"></div>
 
-    <!-- Back / Record — directly under scoring rows -->
+    <!-- Back / Record directly under inputs -->
     <div class="hole-actions" style="margin-top:0.75rem;">
       <button class="btn-back-hole" id="btn-back-hole" disabled>← Back</button>
       <button class="btn-record" id="btn-record-hole">RECORD HOLE →</button>
     </div>
 
-    <!-- Finish early (small, subtle) -->
+    <!-- Finish early -->
     <button class="btn btn-outline hidden" id="btn-finish-early"
       style="font-size:0.85rem;padding:0.45rem;width:100%;margin-top:0.5rem;">
       ✓ Finish Round Early
     </button>
 
-    <!-- 3 square action buttons at bottom -->
-    <div class="game-action-row">
-      <button class="game-action-btn" id="btn-pass-scorer">
-        <span class="game-action-icon">↩</span>
-        <span class="game-action-label">Change<br>Scorer</span>
+  </div><!-- /hole-panel -->
+
+  <!-- ══ FIXED BOTTOM BAR ══ -->
+  <div id="game-bottom-bar" style="
+    flex-shrink:0;
+    border-top:1px solid var(--border);
+    background:var(--bg);
+    padding:0.5rem 0.75rem 0.35rem;">
+
+    <!-- Row 1: Scorecard + Leaderboard (wide) -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.4rem;">
+      <button class="btn btn-outline" id="btn-game-scorecard"
+        style="padding:0.75rem;font-size:1.05rem;font-weight:800;
+               font-family:'Barlow Condensed',sans-serif;letter-spacing:0.04em;">
+        📋 Scorecard
       </button>
-      <button class="game-action-btn" id="btn-game-scorecard">
-        <span class="game-action-icon">📋</span>
-        <span class="game-action-label">Score-<br>card</span>
-      </button>
-      <button class="game-action-btn" id="btn-game-leaderboard">
-        <span class="game-action-icon">🏆</span>
-        <span class="game-action-label">Leader-<br>board</span>
+      <button class="btn btn-outline" id="btn-game-leaderboard"
+        style="padding:0.75rem;font-size:1.05rem;font-weight:800;
+               font-family:'Barlow Condensed',sans-serif;letter-spacing:0.04em;">
+        🏆 Leaderboard
       </button>
     </div>
 
-  </div><!-- /hole-panel -->
+    <!-- Row 2: Change Scorer (left) + Abandon (right) -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.4rem;">
+      <button class="btn btn-outline" id="btn-pass-scorer"
+        style="padding:0.6rem;font-size:0.95rem;font-weight:800;
+               font-family:'Barlow Condensed',sans-serif;">
+        ↩ Change Scorer
+      </button>
+      <button class="btn btn-outline" id="btn-game-abandon"
+        style="padding:0.6rem;font-size:0.95rem;font-weight:800;
+               font-family:'Barlow Condensed',sans-serif;
+               border-color:var(--red-border,#8b2222);color:var(--red,#d64545);">
+        Abandon
+      </button>
+    </div>
 
-  <!-- Scorecard overlay placeholder (moved to app level below) -->
+    <!-- Row 3: Full-width pencil logo -->
+    <div id="game-logo-mini"
+      style="width:100%;display:flex;align-items:center;justify-content:center;
+             padding:0.3rem 0;opacity:0.35;"></div>
+
+  </div><!-- /game-bottom-bar -->
 
 </div><!-- /screen-game -->
 

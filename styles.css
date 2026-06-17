@@ -948,12 +948,15 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 
 .totals-bar {
   display: grid;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
 }
 
 .total-cell {
   padding: 0.65rem 0.4rem;
   text-align: center;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.08);
 }
 
 .total-cell:last-child { border-right: none; }
@@ -964,7 +967,7 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
   font-weight: 800;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--white);
+  color: rgba(255,255,255,0.9);
   margin-bottom: 0.15rem;
   display: flex;
   align-items: center;
@@ -981,8 +984,8 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 }
 
 .tc-sub {
-  font-size: 0.5rem;
-  color: var(--muted);
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.55);
   margin-top: 1px;
 }
 
