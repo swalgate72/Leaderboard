@@ -2309,3 +2309,16 @@ html.light .bottom-nav-btn.active {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* ── Screen pencil footer ─────────────────────────────────────── */
+.screen-pencil-footer {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 0 0.75rem;
+  margin-top: auto;
+}
+.screen-pencil svg {
+  display: block;
+}
