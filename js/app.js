@@ -2980,34 +2980,35 @@ function renderHolePanel() {
       });
     });
   } else if (isPairs) {
-    // Better ball / CSM -- show pair groupings with bold match status above
-    const ms       = gameState.matchScore ?? 0;
-    const played   = gameState.log?.length ?? 0;
-    const total2   = gameState.numHoles ?? 18;
-    const holesLeft = total2 - played;
-    const up       = Math.abs(ms);
-    const nameA    = `${gameState.names[0]?.split(' ')[0] ?? ''} & ${gameState.names[1]?.split(' ')[0] ?? ''}`;
-    const nameB    = `${gameState.names[2]?.split(' ')[0] ?? ''} & ${gameState.names[3]?.split(' ')[0] ?? ''}`;
+    const ms        = gameState.matchScore ?? 0;
+    const played    = gameState.log?.length ?? 0;
+    const holesLeft = (gameState.numHoles ?? 18) - played;
+    const up        = Math.abs(ms);
+    const nameA     = `${gameState.names[0]?.split(' ')[0] ?? ''} & ${gameState.names[1]?.split(' ')[0] ?? ''}`;
+    const nameB     = `${gameState.names[2]?.split(' ')[0] ?? ''} & ${gameState.names[3]?.split(' ')[0] ?? ''}`;
 
-    const statusText = ms === 0
-      ? 'All Square'
-      : `${ms > 0 ? nameA : nameB} — ${up > holesLeft ? `${up}&${holesLeft}` : `${up} Up`}`;
+    [[[0,1], nameA, ms], [[2,3], nameB, -ms]].forEach(([pis, teamName, teamMs]) => {
+      // Bold team name + status above each pair's players
+      const teamStatus = ms === 0
+        ? 'All Square'
+        : teamMs > 0
+          ? `${up > holesLeft ? `${up}&${holesLeft}` : `${up} Up`}`
+          : `${up > holesLeft ? `${up}&${holesLeft}` : `${up} Down`}`;
 
-    const statusEl = document.createElement('div');
-    statusEl.style.cssText = 'padding:0.5rem 0 0.75rem;';
-    statusEl.innerHTML = `
-      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.6rem;
-                  color:${ms === 0 ? 'var(--muted2)' : 'var(--gold)'};letter-spacing:0.02em;">
-        ${statusText}
-      </div>
-      <div style="font-size:0.9rem;font-weight:700;color:var(--muted2);">${holesLeft} holes to play</div>`;
-    inputsEl.appendChild(statusEl);
+      const header = document.createElement('div');
+      header.style.cssText = 'padding:0.65rem 0 0.35rem;border-top:1px solid var(--border);margin-top:0.25rem;';
+      header.innerHTML = `
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.5rem;
+                     color:${ms === 0 ? 'var(--white)' : teamMs > 0 ? 'var(--gold)' : 'var(--muted2)'};">
+          ${teamName}
+        </span>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.1rem;
+                     color:${ms === 0 ? 'var(--muted2)' : teamMs > 0 ? 'var(--gold)' : 'var(--muted2)'};
+                     margin-left:0.6rem;">
+          ${teamStatus}
+        </span>`;
+      inputsEl.appendChild(header);
 
-    [[[0,1],'A','psl-a'], [[2,3],'B','psl-b']].forEach(([pis, label, cls]) => {
-      const pairHeader = document.createElement('div');
-      pairHeader.className = 'pair-section';
-      pairHeader.innerHTML = `<span class="pair-section-label ${cls}">▲ Pair ${label}</span>`;
-      inputsEl.appendChild(pairHeader);
       pis.forEach(pi => {
         if (!gameState.names[pi]) return;
         inputsEl.appendChild(makePlayerInputRow(pi, h, par));
@@ -3492,8 +3493,8 @@ function renderLeaderboard() {
         let score;
         if (isStroke)     score = r.net ?? '--';
         else if (isMatch) score = r.pts != null
-          ? (r.pts > 0 ? `${r.pts}↑` : r.pts < 0 ? `${Math.abs(r.pts)}↓` : 'AS')
-          : 'AS';
+          ? (r.pts > 0 ? `${r.pts} Up` : r.pts < 0 ? `${Math.abs(r.pts)} Down` : 'All Sq')
+          : 'All Sq';
         else              score = r.pts ?? '--';
         return {
           rank:   rank + 1,
