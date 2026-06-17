@@ -2504,18 +2504,24 @@ async function teeOff() {
       : 'Your organiser';
 
     if (setup.numGroups > 1) {
-      // Multi-group: invite modal for other groups (shows friend picker per group)
+      // Multi-group: auto-send invites to all players with a profile in other groups
+      const myName = currentProfile
+        ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+        : 'Your organiser';
       const ppg = Math.ceil(setup.numPlayers / setup.numGroups);
-      const otherGroupPlayers = [];
       for (let g = 1; g < setup.numGroups; g++) {
         const start   = g * ppg;
         const end     = Math.min(start + ppg, setup.numPlayers);
         const members = setup.players.slice(start, end).filter(p => p.profileId && p.profileId !== currentUser.id);
-        members.forEach(p => otherGroupPlayers.push({ groupNumber: g + 1, scorer: p }));
-      }
-      if (otherGroupPlayers.length > 0) {
-        await showRegularGameInviteModal(otherGroupPlayers, course, tee, fmt);
-        return;
+        for (const p of members) {
+          try {
+            await smsInviteCreate({
+              roundId, inviterId: currentUser.id, name: myName,
+              mobile: null, recipientProfileId: p.profileId,
+              tournamentRoundId: null, groupNumber: g + 1,
+            });
+          } catch (e) { console.error('[invite] multi-group invite failed for', p.name, e); }
+        }
       }
     } else {
       // Single group: notify all players who have the app (profileId set) except the organiser
@@ -6812,13 +6818,32 @@ async function _teeOffRound(tournId, courseId, teeName, date) {
   await tournamentRoundUpdate(troundRecord.id, { round_id: roundId });
   subscribeToRound(roundId);
 
-  // If there are other groups, show invite links for their scorers before starting
+  // Auto-send invites to all players in other groups who have a Leaderboard account
   const otherGroups = tournGroups.filter(g => g.groupNumber !== myGroup.groupNumber);
-  if (otherGroups.length > 0) {
-    await showGroupInviteModal(otherGroups, troundRecord, course, roundFormat);
-  } else {
-    enterGameScreen();
+  const myName = currentProfile
+    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+    : 'Tournament organiser';
+
+  for (const g of otherGroups) {
+    for (const pid of g.players) {
+      if (!pid || pid === currentUser.id) continue;
+      const player = activeTournPlayers.find(p => p.profile_id === pid);
+      if (!player?.profile_id) continue;
+      try {
+        await smsInviteCreate({
+          roundId,
+          inviterId:          currentUser.id,
+          name:               myName,
+          mobile:             null,
+          recipientProfileId: player.profile_id,
+          tournamentRoundId:  troundRecord.id,
+          groupNumber:        g.groupNumber,
+        });
+      } catch (e) { console.error('[invite] tournament auto-invite failed for', player.name, e); }
+    }
   }
+
+  enterGameScreen();
 }
 
 async function showRegularGameInviteModal(otherGroupScorers, course, tee, fmt) {
