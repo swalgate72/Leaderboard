@@ -959,20 +959,23 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 .total-cell:last-child { border-right: none; }
 
 .tc-name {
-  font-size: 0.52rem;
-  letter-spacing: 0.1em;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 0.1rem;
+  color: var(--white);
+  margin-bottom: 0.15rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 5px;
+  line-height: 1;
 }
 
 .tc-pts {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 2.2rem;
+  font-size: 2.4rem;
   font-weight: 700;
   line-height: 1;
 }
@@ -1166,22 +1169,23 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 .gi-row.in-chair   { border-color: var(--gold-border); background: rgba(212,168,67,0.06); }
 
 .gi-name {
-  font-size: 3.2rem;
+  font-size: 1.25rem;
   font-weight: 800;
   font-family: 'Barlow Condensed', sans-serif;
   display: flex;
   align-items: center;
-  gap: 8px;
-  line-height: 1;
-  letter-spacing: 0.01em;
+  gap: 6px;
+  line-height: 1.2;
 }
 
 .gi-hcp {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--muted2);
-  margin-top: 4px;
+  margin-top: 2px;
 }
+
+/* +/- counter */
 
 /* Hole action buttons */
 .hole-actions {
