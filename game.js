@@ -1022,7 +1022,6 @@ function formatMatchStr(matchScore, nameA, nameB) {
 // ================================================================
 
 export function buildMultiGroupLeaderboard(groupStates) {
-  // Each groupState has { names, totals, log, playingHandicaps, handicapIndexes, format }
   const rows = [];
 
   groupStates.forEach((state, gi) => {
@@ -1030,40 +1029,54 @@ export function buildMultiGroupLeaderboard(groupStates) {
     const holesPlayed = state.log?.length ?? 0;
     const fmt = state.format;
 
+    // Pair/match formats: one row per pair, not per player
+    if (['betterball','csm','foursomes','greensomes'].includes(fmt)) {
+      const ms  = state.matchScore ?? 0;
+      const pairAName = `${state.names[0]?.split(' ')[0] ?? ''} & ${state.names[1]?.split(' ')[0] ?? ''}`;
+      const pairBName = `${state.names[2]?.split(' ')[0] ?? ''} & ${state.names[3]?.split(' ')[0] ?? ''}`;
+      const up  = Math.abs(ms);
+      const aUp = ms > 0, bUp = ms < 0;
+      rows.push({ name: pairAName, group: gi+1, pts: aUp ? up : bUp ? -up : 0, gross: null, net: null, holesPlayed, hcp: 0, playingHcp: 0, isPair: true, matchScore: ms });
+      rows.push({ name: pairBName, group: gi+1, pts: bUp ? up : aUp ? -up : 0, gross: null, net: null, holesPlayed, hcp: 0, playingHcp: 0, isPair: true, matchScore: -ms });
+      return;
+    }
+
     state.names.forEach((name, pi) => {
       const gross = (state.log ?? []).reduce((sum, e) => sum + (e.grosses?.[pi] ?? 0), 0);
-      const net   = fmt === 'stroke'
-        ? (state.totals?.[pi] ?? 0)
-        : null;
-      const pts   = fmt === 'stableford' || fmt === 'best2'
-        ? (state.totals?.[pi] ?? 0)
-        : fmt === 'split6'
-          ? (state.runningPts?.[pi] ?? 0)
-          : null;
 
-      rows.push({
-        name,
-        group:       gi + 1,
-        gross,
-        net,
-        pts,
-        holesPlayed,
-        hcp:         state.handicapIndexes?.[pi] ?? 0,
-        playingHcp:  state.playingHandicaps?.[pi] ?? 0,
-      });
+      let pts = null, net = null;
+
+      if (fmt === 'stableford' || fmt === 'best2') {
+        pts = state.totals?.[pi] ?? 0;
+      } else if (fmt === 'stroke') {
+        net = state.totals?.[pi] ?? 0;
+      } else if (fmt === 'split6') {
+        pts = state.runningPts?.[pi] ?? 0;
+      } else if (fmt === 'itc') {
+        pts = state.pts?.[pi] ?? 0;
+      } else if (fmt === 'skins') {
+        pts = state.skins?.[pi] ?? 0;
+      } else if (fmt === 'match') {
+        // match: player 0 positive = player 0 up
+        pts = pi === 0 ? (state.matchScore ?? 0) : -(state.matchScore ?? 0);
+      } else if (fmt === 'texas') {
+        const isSbFmt = (state.texasScoringFmt ?? 'stableford') === 'stableford';
+        pts   = isSbFmt ? (state.texasPts ?? 0) : null;
+        net   = !isSbFmt ? (state.grossTotal ?? 0) : null;
+      }
+
+      rows.push({ name, group: gi+1, gross, net, pts, holesPlayed,
+        hcp: state.handicapIndexes?.[pi] ?? 0,
+        playingHcp: state.playingHandicaps?.[pi] ?? 0 });
     });
   });
 
-  // Sort: stableford by pts desc, stroke by net asc
+  // Sort by format
   const fmt = groupStates.find(s => s?.format)?.format;
-  if (fmt === 'stableford') {
-    rows.sort((a, b) => b.pts - a.pts || b.holesPlayed - a.holesPlayed);
+  if (fmt === 'stroke') {
+    rows.sort((a, b) => b.holesPlayed - a.holesPlayed || (a.net ?? 999) - (b.net ?? 999));
   } else {
-    rows.sort((a, b) => {
-      // Fewer holes played = rank lower (incomplete rounds go to bottom)
-      if (a.holesPlayed !== b.holesPlayed) return b.holesPlayed - a.holesPlayed;
-      return a.net - b.net;
-    });
+    rows.sort((a, b) => b.holesPlayed - a.holesPlayed || (b.pts ?? 0) - (a.pts ?? 0));
   }
 
   return rows;
