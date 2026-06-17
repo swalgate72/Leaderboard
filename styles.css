@@ -2134,18 +2134,30 @@ html.light .bottom-nav-btn.active {
   display: flex;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.5rem 0;
+  padding: 0.6rem 1rem;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
-.sc-group-dot {
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: var(--border2);
+.sc-group-btn {
+  padding: 0.45rem 1.1rem;
+  border-radius: 20px;
+  border: 1.5px solid var(--border2);
+  background: var(--surface2);
+  color: var(--muted2);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
   cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.03em;
 }
-.sc-group-dot.active { background: var(--gold); }
+.sc-group-btn.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
 
 .sc-pages {
   display: flex;
