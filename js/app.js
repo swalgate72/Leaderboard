@@ -756,8 +756,16 @@ function showFormatPicker(category) {
         </div>`).join('')}
     </div>`;
 
-  list.innerHTML = renderSection('Single Player', SOLO_FORMATS)
-    + renderSection('Pairs &amp; Teams', TEAM_FORMATS);
+  const TOURNAMENT_EXCLUDED = ['match','skins','itc','split6'];
+  const isTournMode = !!setup.tournamentId;
+
+  const soloFmts = isTournMode
+    ? SOLO_FORMATS.filter(f => !TOURNAMENT_EXCLUDED.includes(f.key))
+    : SOLO_FORMATS;
+  const teamFmts = TEAM_FORMATS; // all team formats valid in tournament
+
+  list.innerHTML = renderSection('Single Player', soloFmts)
+    + renderSection('Pairs &amp; Teams', teamFmts);
 
   list.querySelectorAll('.mode-card').forEach(card => {
     card.addEventListener('click', () => {
