@@ -134,6 +134,28 @@
 
       <!-- Active games / tournaments -->
       <div id="home-active-list" class="home-active-list"></div>
+
+      <!-- Permanent Active buttons -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;padding:0.75rem 0 0.25rem;">
+        <button id="btn-home-active-games" class="btn"
+          style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);
+                 color:#fff;padding:0.65rem;font-family:'Barlow Condensed',sans-serif;
+                 font-size:1rem;font-weight:800;border-radius:var(--radius-sm);
+                 display:flex;align-items:center;justify-content:center;gap:0.4rem;">
+          ⛳ Active Games
+          <span id="home-active-games-badge" style="display:none;background:var(--gold);color:#0e1a13;
+            border-radius:10px;padding:0 5px;font-size:0.75rem;font-weight:800;"></span>
+        </button>
+        <button id="btn-home-active-tournaments" class="btn"
+          style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);
+                 color:#fff;padding:0.65rem;font-family:'Barlow Condensed',sans-serif;
+                 font-size:1rem;font-weight:800;border-radius:var(--radius-sm);
+                 display:flex;align-items:center;justify-content:center;gap:0.4rem;">
+          🏆 Tournaments
+          <span id="home-active-tourns-badge" style="display:none;background:var(--gold);color:#0e1a13;
+            border-radius:10px;padding:0 5px;font-size:0.75rem;font-weight:800;"></span>
+        </button>
+      </div>
     </div>
 
     <div style="padding: 0 1rem;">
@@ -1439,7 +1461,7 @@
   </div>
 </div>
 
-<!-- In-app Game Invite Notification Banner -->
+<!-- In-app Game Invite Notification Banner (kept for realtime new invites) -->
 <div id="game-invite-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;
   background:var(--green);color:#fff;padding:0.85rem 1rem;box-shadow:0 2px 12px rgba(0,0,0,0.3);">
   <div style="max-width:520px;margin:0 auto;display:flex;align-items:center;gap:0.75rem;">
@@ -1456,6 +1478,28 @@
     <button id="btn-game-invite-dismiss"
       style="background:none;border:none;color:#fff;font-size:1.1rem;cursor:pointer;
              opacity:0.7;flex-shrink:0;padding:0.2rem;">✕</button>
+  </div>
+</div>
+
+<!-- ══ ACTIVE GAMES MODAL ══ -->
+<div class="modal-overlay" id="modal-active-games">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">⛳ Active Games</div>
+      <button class="btn-close" id="modal-active-games-close">✕</button>
+    </div>
+    <div id="active-games-list" style="padding:0.5rem 0;"></div>
+  </div>
+</div>
+
+<!-- ══ ACTIVE TOURNAMENTS MODAL ══ -->
+<div class="modal-overlay" id="modal-active-tournaments">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">🏆 Active Tournaments</div>
+      <button class="btn-close" id="modal-active-tournaments-close">✕</button>
+    </div>
+    <div id="active-tournaments-list" style="padding:0.5rem 0;"></div>
   </div>
 </div>
 
