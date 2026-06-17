@@ -3909,11 +3909,12 @@ function renderScorecardOverlay() {
   if (groups.length > 1) {
     dotsEl.classList.remove('hidden');
     dotsEl.innerHTML = groups.map((g, i) => `
-      <div class="sc-group-dot ${i === scState.groupIdx ? 'active' : ''}" data-idx="${i}"
-        title="Group ${g.groupNumber ?? i+1}"></div>`).join('');
-    dotsEl.querySelectorAll('.sc-group-dot').forEach(dot => {
-      dot.addEventListener('click', () => {
-        scState.groupIdx = parseInt(dot.dataset.idx, 10);
+      <button class="sc-group-btn${i === scState.groupIdx ? ' active' : ''}" data-idx="${i}">
+        Group ${g.groupNumber ?? i + 1}
+      </button>`).join('');
+    dotsEl.querySelectorAll('.sc-group-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        scState.groupIdx = parseInt(btn.dataset.idx, 10);
         scrollToScorecardPage();
         renderScorecardOverlay();
       });
@@ -3954,8 +3955,8 @@ function setupScorecardSwipe() {
       if (idx !== scState.groupIdx && idx >= 0 && idx < scState.groups.length) {
         scState.groupIdx = idx;
         const dotsEl = document.getElementById('sc-group-dots');
-        dotsEl?.querySelectorAll('.sc-group-dot').forEach((dot, i) => {
-          dot.classList.toggle('active', i === idx);
+        dotsEl?.querySelectorAll('.sc-group-btn').forEach((btn, i) => {
+          btn.classList.toggle('active', i === idx);
         });
       }
     }, 100);
@@ -4095,6 +4096,9 @@ function subscribeToGameInvites() {
     try { _gameInviteChannel.unsubscribe(); } catch {}
   }
 
+  // Immediately check for any pending invites (catches invites sent before app was opened)
+  checkPendingInvitesNow();
+
   _gameInviteChannel = realtimeSubscribeGameInvites(currentUser.id, async (row) => {
     try {
       const invite = await gameInviteLoad(row.id);
@@ -4103,13 +4107,25 @@ function subscribeToGameInvites() {
     } catch (e) { console.error('[invite] load error', e); }
   });
 
-  // Log subscription status after 2s
+  // Fall back to polling if realtime not connected after 2s
   setTimeout(() => {
     const state = _gameInviteChannel?.state;
     if (state !== 'joined' && state !== 'SUBSCRIBED') {
       startInvitePoll();
     }
   }, 2000);
+}
+
+async function checkPendingInvitesNow() {
+  // Poll with no timestamp — catches any pending invite regardless of when it was sent
+  try {
+    const rows = await gameInvitesPollPending(currentUser.id, null);
+    for (const row of rows) {
+      const invite = await gameInviteLoad(row.id ?? row);
+      if (invite && invite.status !== 'accepted') showGameInviteBanner(invite);
+    }
+    _lastInviteCheck = new Date().toISOString();
+  } catch {}
 }
 
 async function startInvitePoll() {
