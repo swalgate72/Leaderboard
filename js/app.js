@@ -3441,12 +3441,18 @@ function renderLeaderboard() {
   if (!tableEl) return;
 
   // Determine score label from format
-  const isPoints  = ['stableford','split6','csm','best2'].includes(fmt);
-  const isStroke  = fmt === 'stroke';
-  const isTexas   = fmt === 'texas';
+  const isStroke   = fmt === 'stroke';
+  const isTexas    = fmt === 'texas';
+  const isMatch    = ['match','betterball','csm','foursomes','greensomes'].includes(fmt);
+  const isSkins    = fmt === 'skins';
+  const isItc      = fmt === 'itc';
   const texasSbFmt = isTexas && (gameState.texasScoringFmt ?? 'stableford') === 'stableford';
-  const scoreLabel = isTexas ? (texasSbFmt ? 'Pts' : 'Gross')
-    : isPoints ? 'Pts' : isStroke ? 'Net' : 'Score';
+  const scoreLabel = isTexas   ? (texasSbFmt ? 'Pts' : 'Gross')
+    : isStroke  ? 'Net'
+    : isMatch   ? 'Holes'
+    : isSkins   ? 'Skins'
+    : isItc     ? 'Pts'
+    : 'Pts'; // stableford, split6, best2
 
   metaEl.textContent = `${gameState.courseName} · ${gameState.teeName} · ${fmtLabel(fmt)}`.toUpperCase();
 
@@ -3489,24 +3495,29 @@ function renderLeaderboard() {
     }
 
     tableEl.innerHTML = buildLeaderboardTable(
-      rows.map((r, rank) => ({
-        rank:  rank + 1,
-        label: r.name,
-        sub:   null,
-        score: isPoints ? r.pts : isStroke ? r.net : r.gross,
-        thru:  r.holesPlayed,
-        isLead: rank === 0,
-      })),
+      rows.map((r, rank) => {
+        let score;
+        if (isStroke)     score = r.net ?? '--';
+        else if (isMatch) score = r.pts != null
+          ? (r.pts > 0 ? `${r.pts}↑` : r.pts < 0 ? `${Math.abs(r.pts)}↓` : 'AS')
+          : 'AS';
+        else              score = r.pts ?? '--';
+        return {
+          rank:   rank + 1,
+          label:  r.name,
+          sub:    null,
+          score,
+          thru:   r.holesPlayed,
+          isLead: rank === 0,
+        };
+      }),
       scoreLabel
     );
     return;
   }
 
   // ── Tournament mode ──────────────────────────────────────────────
-  const isFixedTeam   = activeTournament?.tournament_type === 'team'
-                     && activeTournament?.team_rotation === 'fixed'
-                     && activeTournTeams?.length > 0;
-  const scoringMode   = activeTournament?.scoring_mode ?? 'cumulative';
+  const scoringMode   = 'cumulative';
   const completedRnds = (activeTournRounds ?? []).filter(r => r.status === 'completed');
   const numHolesPerRound = gameState.numHoles ?? 18;
   const liveHoles     = gameState.log?.length ?? 0;
@@ -3894,7 +3905,7 @@ function buildVerticalScorecard(state, mode) {
 
     bodyRows += `
       <tr class="${isCurrent ? 'sc-row-current' : ''}">
-        <td><span class="sc-hole-cell">${h + 1}</span> <span class="sc-meta-cell">Par ${par[h] ?? '-'} · SI ${si[h] ?? '-'}</span></td>
+        <td><span class="sc-hole-cell">${h + 1}</span> &nbsp; <span class="sc-meta-cell">(Par ${par[h] ?? '-'} · SI ${si[h] ?? '-'})</span></td>
         ${cells}
       </tr>`;
 
