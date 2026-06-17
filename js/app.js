@@ -2722,11 +2722,18 @@ function renderTotalsBar() {
 
   bar.style.gridTemplateColumns = `repeat(${Math.min(n, 4)}, 1fr)`;
 
+  // Scale name font size down slightly for 3-4 players to fit
+  const nameFontSize = n <= 2 ? '1.5rem' : n === 3 ? '1.2rem' : '1rem';
+
   bar.innerHTML = gameState.names.map((nm, i) => {
     const score = fmt === 'split6'
       ? (gameState.runningPts?.[i] ?? 0)
       : (gameState.totals?.[i] ?? 0);
     const label = fmt === 'stroke' ? 'shots' : 'pts';
+    // Full first name for 1-2 players, first name only (truncated) for 3-4
+    const displayName = n <= 2
+      ? nm.split(' ')[0]
+      : nm.split(' ')[0].slice(0, 8);
 
     let rawLabel = '';
     if (fmt === 'split6' && gameState.log?.length > 0) {
@@ -2736,13 +2743,13 @@ function renderTotalsBar() {
 
     return `
       <div class="total-cell">
-        <div class="tc-name">
+        <div class="tc-name" style="font-size:${nameFontSize};">
           <span class="dot" style="background:${pHex(i)};"></span>
-          ${nm.split(' ')[0].toUpperCase()}
+          ${displayName}
         </div>
         <div style="display:flex;align-items:baseline;justify-content:center;gap:2px;">
           <div class="tc-pts" style="color:${pCol(i)};">${score}</div>
-          <span style="font-size:0.9rem;font-weight:600;color:${pCol(i)};margin-left:3px;vertical-align:middle;">${label}</span>
+          <span style="font-size:0.9rem;font-weight:600;color:${pCol(i)};margin-left:3px;">${label}</span>
         </div>
         ${rawLabel}
       </div>`;
