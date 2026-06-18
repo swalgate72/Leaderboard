@@ -2315,3 +2315,14 @@ html.light .bottom-nav-btn.active {
 .screen-pencil svg {
   display: block;
 }
+
+/* Game screen layout — flex only when active so it doesn't bleed into other screens */
+.screen-game {
+  display: none;
+}
+.screen-game.active {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
