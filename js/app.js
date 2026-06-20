@@ -2384,47 +2384,54 @@ document.getElementById('btn-tee-off')       ?.addEventListener('click', async (
 async function teeOff() {
   // Tournament mode: route through _teeOffRound
   if (setup.tournamentId) {
-    const course = allCourses.find(c => c.id === setup.courseId);
-    const tee    = course?.tees?.[setup.teeIdx];
-    if (!course || !tee) { alert('Please select a course and tee.'); return; }
+    const btn = document.getElementById('btn-tee-off');
+    try {
+      const course = allCourses.find(c => c.id === setup.courseId);
+      const tee    = course?.tees?.[setup.teeIdx];
+      if (!course || !tee) { alert('Please select a course and tee.'); return; }
 
-    // Ensure activeTournPlayers is loaded
-    if (!activeTournPlayers?.length) {
-      activeTournPlayers = await tournamentPlayersLoad(setup.tournamentId).catch(() => []);
+      // Ensure activeTournPlayers is loaded
+      if (!activeTournPlayers?.length) {
+        activeTournPlayers = await tournamentPlayersLoad(setup.tournamentId).catch(() => []);
+      }
+
+      // Build tournGroups from setup.players
+      const namedPlayers = setup.players.filter(p => p.name);
+      const maxGroup     = Math.max(1, ...namedPlayers.map(p => p.groupNumber ?? 1));
+      tournGroups = Array.from({ length: maxGroup }, (_, g) => ({
+        groupNumber: g + 1,
+        players: namedPlayers
+          .filter(p => (p.groupNumber ?? 1) === g + 1)
+          .map(p => {
+            // Match by tournamentPlayerId first, then profileId, then name
+            const tp = activeTournPlayers.find(tp =>
+              (p.tournamentPlayerId && tp.id === p.tournamentPlayerId) ||
+              (p.profileId && tp.profile_id === p.profileId) ||
+              tp.name === p.name
+            );
+            return tp?.id ?? null;
+          })
+          .filter(Boolean),
+      }));
+
+      if (!tournGroups.some(g => g.players.length > 0)) {
+        alert('Could not match players to tournament roster. Please go back and check the player list.');
+        return;
+      }
+
+      // Save group state for next round
+      localStorage.setItem(`lb-tround-${setup.tournamentId}`, JSON.stringify({
+        courseId: setup.courseId, teeName: tee.name,
+        date: new Date().toISOString().split('T')[0],
+        numGroups: maxGroup, groups: tournGroups,
+      }));
+
+      await _teeOffRound(setup.tournamentId, setup.courseId, tee.name, new Date().toISOString().split('T')[0]);
+    } catch (err) {
+      console.error('[teeOff] tournament branch failed:', err);
+      alert('Could not start the round: ' + (err.message || 'Unknown error. Please try again.'));
+      if (btn) { btn.disabled = false; btn.textContent = '⛳ TEE OFF →'; }
     }
-
-    // Build tournGroups from setup.players
-    const namedPlayers = setup.players.filter(p => p.name);
-    const maxGroup     = Math.max(1, ...namedPlayers.map(p => p.groupNumber ?? 1));
-    tournGroups = Array.from({ length: maxGroup }, (_, g) => ({
-      groupNumber: g + 1,
-      players: namedPlayers
-        .filter(p => (p.groupNumber ?? 1) === g + 1)
-        .map(p => {
-          // Match by tournamentPlayerId first, then profileId, then name
-          const tp = activeTournPlayers.find(tp =>
-            (p.tournamentPlayerId && tp.id === p.tournamentPlayerId) ||
-            (p.profileId && tp.profile_id === p.profileId) ||
-            tp.name === p.name
-          );
-          return tp?.id ?? null;
-        })
-        .filter(Boolean),
-    }));
-
-    if (!tournGroups.some(g => g.players.length > 0)) {
-      alert('Could not match players to tournament roster. Please go back and check the player list.');
-      return;
-    }
-
-    // Save group state for next round
-    localStorage.setItem(`lb-tround-${setup.tournamentId}`, JSON.stringify({
-      courseId: setup.courseId, teeName: tee.name,
-      date: new Date().toISOString().split('T')[0],
-      numGroups: maxGroup, groups: tournGroups,
-    }));
-
-    await _teeOffRound(setup.tournamentId, setup.courseId, tee.name, new Date().toISOString().split('T')[0]);
     return;
   }
 
@@ -3613,54 +3620,26 @@ function renderLeaderboard() {
     });
   });
 
-  if (isFixedTeam) {
-    // Fixed teams: team name + member names, team total score
-    const standings = buildTeamStandings(
-      activeTournTeams, activeTournPlayers, completedRnds, activeTournAllScores,
-      fmt, scoringMode
-    );
-    const rows = standings.map((row, idx) => {
-      const sub = row.teamPlayers?.map(p => p.name.split(' ')[0]).join(', ') ?? '';
-      // Add live round contribution for each team member
-      let liveAdd = 0;
-      row.teamPlayers?.forEach(p => {
-        const live = liveScoreByName[p.name];
-        if (live) liveAdd += (isStroke ? (live.net ?? 0) : (live.pts ?? 0));
-      });
-      const total = (row.total ?? 0) + liveAdd;
-      return {
-        rank:   idx + 1,
-        label:  row.name,
-        sub,
-        score:  total || '--',
-        thru:   completedRnds.length * numHolesPerRound + liveHoles,
-        isLead: idx === 0,
-      };
-    });
-    tableEl.innerHTML = buildLeaderboardTable(rows, scoreLabel);
-
-  } else {
-    // Individual / rotating teams: one row per player
-    const standings = buildStandings(
-      activeTournPlayers ?? [], completedRnds, activeTournAllScores ?? [],
-      fmt, scoringMode === 'points_game' ? 'cumulative' : scoringMode
-    );
-    const rows = standings.map((row, idx) => {
-      const live  = liveScoreByName[row.name] ?? {};
-      const historical = row.total ?? 0;
-      const liveAdd    = isStroke ? (live.net ?? 0) : (live.pts ?? 0);
-      const total      = historical + liveAdd;
-      return {
-        rank:   idx + 1,
-        label:  row.name,
-        sub:    null,
-        score:  total || '--',
-        thru:   completedRnds.length * numHolesPerRound + liveHoles,
-        isLead: idx === 0,
-      };
-    });
-    tableEl.innerHTML = buildLeaderboardTable(rows, scoreLabel);
-  }
+  // Individual standings — one row per player, cumulative + live round
+  const standings = buildStandings(
+    activeTournPlayers ?? [], completedRnds, activeTournAllScores ?? [],
+    fmt, scoringMode
+  );
+  const rows = standings.map((row, idx) => {
+    const live  = liveScoreByName[row.name] ?? {};
+    const historical = row.total ?? 0;
+    const liveAdd    = isStroke ? (live.net ?? 0) : (live.pts ?? 0);
+    const total      = historical + liveAdd;
+    return {
+      rank:   idx + 1,
+      label:  row.name,
+      sub:    null,
+      score:  total || '--',
+      thru:   completedRnds.length * numHolesPerRound + liveHoles,
+      isLead: idx === 0,
+    };
+  });
+  tableEl.innerHTML = buildLeaderboardTable(rows, scoreLabel);
 }
 
 function buildLeaderboardTable(rows, scoreLabel) {
@@ -5932,85 +5911,41 @@ async function joinTournamentRoundAsScorer(user, troundId, groupNumber) {
     activeTournRounds    = await tournamentRoundsLoad(tround.tournament_id);
     activeTournAllScores = await tournamentAllScoresLoad(tround.tournament_id);
     activeTournRound     = tround;
-    if (activeTournament?.tournament_type === 'team') {
-      activeTournTeams = await tournamentTeamsLoad(tround.tournament_id);
+
+    // The organiser already created the shared round with every group's state
+    // embedded in allGroupStates. Join that SAME round rather than creating a new one.
+    if (!tround.round_id) { await onSignedIn(user); return; }
+
+    const existingRound = await roundLoadById(tround.round_id);
+    if (!existingRound) { await onSignedIn(user); return; }
+
+    roundId   = existingRound.id;
+    gameState = existingRound.game_state;
+
+    if (!gameState?.allGroupStates?.length) {
+      // Fallback: single-group round, no group switching needed
+      gameState.allGroupStates = [gameState];
     }
 
-    // Load saved group assignments
-    const saved = restoreTroundSetup();
-    const groups = saved?.groups ?? [];
-    const myGroupData = groups.find(g => g.groupNumber === groupNumber) ?? groups[groupNumber - 1];
-    if (!myGroupData) { await onSignedIn(user); return; }
+    // Find my group within allGroupStates
+    const myGroupIdx = gameState.allGroupStates.findIndex(gs => gs.groupNumber === groupNumber);
+    if (myGroupIdx === -1) { await onSignedIn(user); return; }
 
-    tournGroups = groups;
+    // Switch active gameState to my group, but keep allGroupStates intact
+    const myGroupState = gameState.allGroupStates[myGroupIdx];
+    gameState = { ...myGroupState, allGroupStates: gameState.allGroupStates };
 
-    const groupPlayers = myGroupData.players
-      .map(pid => activeTournPlayers.find(p => p.id === pid))
-      .filter(Boolean);
+    // Claim scorer for my group if unclaimed
+    if (gameState.scorerProfileId === '__unclaimed__' || !gameState.scorerProfileId) {
+      gameState.scorerProfileId = user.id;
+      gameState.allGroupStates[myGroupIdx].scorerProfileId = user.id;
+      await saveRoundState();
+    }
 
-    if (!groupPlayers.length) { await onSignedIn(user); return; }
-
-    const course = allCourses.find(c => c.name === tround.course_name);
-    const tee    = course?.tees?.find(t => t.name === tround.tee_name);
-    if (!course || !tee) { await onSignedIn(user); return; }
-
-    const roundFormat = activeTournament.tournament_type === 'team'
-      ? (activeTournRoundFmt ?? activeTournament.team_format ?? activeTournament.format)
-      : activeTournament.format;
-
-    const hcpArr = groupPlayers.map(p => p.current_hcp);
-    const hcpObj = calcHandicaps(hcpArr, 100);
-
-    setup.scoring    = roundFormat;
-    setup.courseId   = course.id;
-    setup.teeIdx     = course.tees.findIndex(t => t.name === tround.tee_name);
-    setup.holes      = 18;
-    setup.hcpPct     = 100;
-    setup.numGroups  = 1;
-    setup.players    = groupPlayers.map((p, i) => ({
-      name:               p.name,
-      hcpIndex:           p.current_hcp,
-      groupNumber,
-      profileId:          p.profile_id ?? null,
-      isScorer:           p.profile_id === user.id || i === 0,
-      mobile:             null,
-      tournamentPlayerId: p.id,
-    }));
-    setup.numPlayers = setup.players.length;
-
-    gameState = buildInitialState({
-      format:           roundFormat,
-      names:            groupPlayers.map(p => p.name),
-      handicapIndexes:  hcpArr,
-      playingHandicaps: hcpObj.map(h => h.playingHandicap),
-      matchHandicaps:   hcpObj.map(h => h.matchHandicap),
-      allowancePct:     100,
-      si: tee.si, par: tee.par, numHoles: 18, holeOffset: 0,
-      courseName: course.name, teeName: tround.tee_name,
-      tournamentId:      activeTournament.id,
-      tournamentRoundId: tround.id,
-      groupNumber,
-    });
-
-    const designatedScorer    = setup.players.find(p => p.isScorer);
-    gameState.organiserId     = user.id;
-    gameState.scorerProfileId = designatedScorer
-      ? (designatedScorer.profileId ?? null) : user.id;
-    gameState.playerProfileIds = setup.players.map(p => p.profileId ?? null);
-
-    // Create this group's own rounds row
-    const { allGroupStates, ...stateToSave } = gameState;
-    roundId = await roundCreate({
-      organiserId:  user.id,
-      courseName:   course.name,
-      teeName:      tround.tee_name,
-      gameFormat:   roundFormat,
-      hcpAllowance: 100,
-      si: tee.si, par: tee.par, numHoles: 18, holeOffset: 0,
-      numGroups:    groups.length,
-      playerNames:  groupPlayers.map(p => p.name),
-      gameState:    stateToSave,
-    });
+    setup.scoring        = gameState.format;
+    setup.courseId       = allCourses.find(c => c.name === gameState.courseName)?.id ?? null;
+    setup.tournamentId   = activeTournament.id;
+    setup.tournRoundNumber = tround.round_number;
 
     subscribeToRound(roundId);
     enterGameScreen();
@@ -6737,137 +6672,6 @@ document.getElementById('tournament-players-back')?.addEventListener('click', ()
 
 // Shared: flush inputs, then either create tournament (round 1) or start next round (round 2+)
 // startNow=true → tee off immediately; false → save and go to tournament detail
-async function _submitTournamentSetup(startNow) {
-  // Flush in-flight input values from group cards
-  document.querySelectorAll('[id^="gpname-tourn-group-cards-"]').forEach(inp => {
-    const idx = parseInt(inp.id.split('-').pop());
-    if (tournSetupPlayers[idx]) tournSetupPlayers[idx].name = inp.value.trim();
-  });
-  document.querySelectorAll('[id^="gphcp-tourn-group-cards-"]').forEach(inp => {
-    const idx = parseInt(inp.id.split('-').pop());
-    if (tournSetupPlayers[idx]) tournSetupPlayers[idx].hcp = parseFloat(inp.value) || 0;
-  });
-
-  const courseId = document.getElementById('tourn-course-select')?.value;
-  const teeName  = document.getElementById('tourn-tee-select')?.value;
-  const date     = document.getElementById('tourn-date')?.value;
-  if (startNow && !courseId) { alert('Please select a course before starting.'); return; }
-
-  const completedRounds = activeTournament
-    ? activeTournRounds.filter(r => r.status === 'completed').length
-    : 0;
-  const isRound1 = !activeTournament || completedRounds === 0 && activeTournRounds.length === 0;
-
-  const numGroups = tournSetupNumGroups;
-  const btnNext  = document.getElementById('btn-tourn-players-next');
-  const btnLater = document.getElementById('btn-tourn-save-later');
-  [btnNext, btnLater].forEach(b => { if (b) b.disabled = true; });
-  if (btnNext)  btnNext.textContent  = 'Saving…';
-  if (btnLater) btnLater.textContent = 'Saving…';
-
-  try {
-    // ── Round 1: tournament already created on screen 1 ──────────────
-    if (isRound1) {
-      if (tournSetupPlayers.filter(p => p.name).length < 2) { alert('Add at least 2 players.'); return; }
-
-      const type = document.getElementById('tourn-type').value;
-      tournGroups = Array.from({ length: numGroups }, (_, g) => ({ groupNumber: g + 1, players: [] }));
-
-      // Tournament + players already created — just reload activeTournPlayers
-      if (!activeTournPlayers?.length) {
-        activeTournPlayers = await tournamentPlayersLoad(activeTournament.id);
-      }
-
-      // Handle team setup if needed (fixed teams)
-      if (type === 'team' && document.getElementById('tourn-rotation')?.value === 'fixed') {
-        const teamSize   = parseInt(document.getElementById('tourn-team-size')?.value) || 2;
-        const namedSetup = tournSetupPlayers.filter(p => p.name);
-        const numTeams   = Math.ceil(namedSetup.length / teamSize);
-        const teamData   = Array.from({ length: numTeams }, (_, ti) => {
-          const idxs     = namedSetup.map((_, i) => i).filter(i => Math.floor(i / teamSize) === ti);
-          const memberIds = idxs.map(pi => activeTournPlayers.find(ap => ap.name === namedSetup[pi]?.name)?.id).filter(Boolean);
-          const autoName  = defaultTeamName(idxs.map(pi => namedSetup[pi]?.name).filter(Boolean));
-          return { name: autoName || `Team ${ti + 1}`, playerIds: memberIds };
-        });
-        if (teamData.length && (!activeTournTeams?.length)) {
-          await tournamentTeamsCreate(activeTournament.id, teamData);
-          activeTournTeams = await tournamentTeamsLoad(activeTournament.id);
-        }
-      }
-
-      // Assign players to groups based on groupIndex from screen 3
-      const namedSetup = tournSetupPlayers.filter(p => p.name);
-      activeTournPlayers.forEach(tp => {
-        const si = namedSetup.findIndex(sp => sp.name === tp.name);
-        const gi = si >= 0 ? Math.min(namedSetup[si].groupIndex ?? 0, numGroups - 1) : 0;
-        if (tournGroups[gi]) tournGroups[gi].players.push(tp.id);
-      });
-
-      const tourn = activeTournament;
-      if (courseId) {
-        localStorage.setItem(`lb-tround-${tourn.id}`, JSON.stringify({
-          courseId, teeName, date, numGroups, groups: tournGroups,
-        }));
-      }
-      try { localStorage.removeItem('lb-tourn-setup-id'); } catch {}
-      if (startNow) {
-        await _teeOffRound(tourn.id, courseId, teeName, date);
-      } else {
-        await showTournamentDetail(tourn.id);
-      }
-
-    // ── Round 2+: save groups and optionally tee off ──────────────
-    } else {
-      // Rebuild tournGroups from current tournSetupPlayers
-      tournGroups = Array.from({ length: numGroups }, (_, g) => ({ groupNumber: g + 1, players: [] }));
-      tournSetupPlayers.forEach(p => {
-        const gi = Math.min(p.groupIndex ?? 0, numGroups - 1);
-        const tp = activeTournPlayers.find(ap => ap.id === p._tournId || ap.name === p.name);
-        if (tp && tournGroups[gi]) tournGroups[gi].players.push(tp.id);
-      });
-
-      // Save adjustable handicaps if needed
-      if (activeTournament.hcp_mode === 'adjustable') {
-        for (const p of activeTournPlayers.filter(x => !x.excluded)) {
-          const inp = document.getElementById(`trhcp-${p.id}`);
-          if (inp) {
-            const newHcp = parseFloat(inp.value) || p.current_hcp;
-            if (newHcp !== p.current_hcp) {
-              await tournamentPlayerUpdate(p.id, { current_hcp: newHcp });
-              p.current_hcp = newHcp;
-            }
-          }
-        }
-      }
-
-      // Read team format if applicable
-      if (activeTournament?.tournament_type === 'team') {
-        activeTournRoundFmt = document.getElementById('tround-game-format')?.value
-          ?? activeTournament.team_format;
-      }
-
-      // Save state
-      localStorage.setItem(`lb-tround-${activeTournament.id}`, JSON.stringify({
-        courseId: courseId || '', teeName: teeName || '', date: date || '',
-        numGroups, groups: tournGroups,
-      }));
-
-      if (startNow) {
-        await _teeOffRound(activeTournament.id, courseId, teeName, date);
-      } else {
-        await showTournamentDetail(activeTournament.id);
-      }
-    }
-
-  } catch (err) {
-    alert('Error: ' + err.message);
-  } finally {
-    const rn = activeTournament
-      ? activeTournRounds.filter(r => r.status === 'completed').length + 1 : 1;
-    if (btnNext)  { btnNext.disabled  = false; btnNext.textContent  = `⛳ START ROUND ${rn} NOW →`; }
-    if (btnLater) { btnLater.disabled = false; btnLater.textContent = '💾 Save & Start Later'; }
-  }
-}
 
 // Perform the actual tee-off for a round
 async function _teeOffRound(tournId, courseId, teeName, date) {
@@ -6876,143 +6680,175 @@ async function _teeOffRound(tournId, courseId, teeName, date) {
   const tee    = course?.tees?.find(t => t.name === teeName);
   if (!course || !tee) { alert('Please select a tee.'); return; }
 
-  const completedRounds = activeTournRounds.filter(r => r.status === 'completed').length;
-  const roundNumber     = completedRounds + 1;
+  const btn = document.getElementById('btn-tee-off');
+  if (btn) { btn.disabled = true; btn.textContent = 'Starting…'; }
 
-  // Always reload rounds to get the freshest state — avoids duplicate key on retry
-  activeTournRounds = await tournamentRoundsLoad(tournId);
-  activeTournRound  = activeTournRounds.find(r => r.round_number === roundNumber) ?? null;
+  try {
+    const completedRounds = activeTournRounds.filter(r => r.status === 'completed').length;
+    const roundNumber     = completedRounds + 1;
 
-  let troundRecord = activeTournRound;
-  if (!troundRecord) {
-    troundRecord = await tournamentRoundCreate({
-      tournamentId: tournId, roundNumber,
-      courseName: course.name, teeName, date,
-    });
-  } else {
-    await tournamentRoundUpdate(troundRecord.id, {
-      course_name: course.name, tee_name: teeName, date, status: 'active',
-    });
-  }
-  activeTournRound = troundRecord;
+    // Always reload rounds to get the freshest state — avoids duplicate key on retry
+    activeTournRounds = await tournamentRoundsLoad(tournId);
+    activeTournRound  = activeTournRounds.find(r => r.round_number === roundNumber) ?? null;
 
-  // Ensure status is active and reload
-  await tournamentRoundUpdate(troundRecord.id, { status: 'active' });
-  activeTournRounds = await tournamentRoundsLoad(tournId);
-
-  // Find current user's group and start game
-  const myGroup = tournGroups.find(g =>
-    g.players.includes(activeTournPlayers.find(p => p.profile_id === currentUser.id)?.id)
-  ) ?? tournGroups[0];
-
-  const groupPlayers = myGroup.players
-    .map(pid => activeTournPlayers.find(p => p.id === pid))
-    .filter(Boolean);
-
-  const hcpArr = groupPlayers.map(p => p.current_hcp);
-  const hcpObj = calcHandicaps(hcpArr, 100);
-  const si  = tee.si;
-  const par = tee.par;
-
-  // Use format chosen by organiser in format picker (setup.scoring)
-  // Fall back to tournament's stored format if not set
-  const roundFormat = setup.scoring && setup.scoring !== 'stableford'
-    ? setup.scoring
-    : (activeTournament.format ?? 'stableford');
-
-  setup.scoring  = roundFormat;
-  setup.courseId = courseId;
-  setup.teeIdx   = course.tees.findIndex(t => t.name === teeName);
-  setup.holes    = 18;
-  setup.hcpPct   = 100;
-  setup.players    = groupPlayers.map((p, i) => {
-    const sp = tournSetupPlayers.find(sp =>
-      (sp._tournId && sp._tournId === p.id) ||
-      (sp.profileId && sp.profileId === p.profile_id) ||
-      (sp.name && sp.name === p.name)
-    );
-    return {
-      name:        p.name,
-      hcpIndex:    p.current_hcp,
-      groupNumber: myGroup.groupNumber,
-      profileId:   p.profile_id ?? null,
-      isScorer:    sp?.isScorer ?? (i === 0),
-      mobile:      null,
-      tournamentPlayerId: p.id,
-    };
-  });
-  setup.numPlayers = setup.players.length;
-  setup.numGroups  = 1;
-
-  gameState = buildInitialState({
-    format:           roundFormat,
-    names:            groupPlayers.map(p => p.name),
-    handicapIndexes:  hcpArr,
-    playingHandicaps: hcpObj.map(h => h.playingHandicap),
-    matchHandicaps:   hcpObj.map(h => h.matchHandicap),
-    allowancePct:     100,
-    si, par, numHoles: 18, holeOffset: 0,
-    courseName: course.name, teeName,
-    tournamentId:      activeTournament.id,
-    tournamentRoundId: troundRecord.id,
-    groupNumber:       myGroup.groupNumber,
-  });
-
-  const designatedScorer     = setup.players.find(p => p.isScorer);
-  gameState.organiserId      = currentUser.id;
-  gameState.scorerProfileId  = designatedScorer
-    ? (designatedScorer.profileId ?? null)
-    : currentUser.id;
-  gameState.playerProfileIds = setup.players.map(p => p.profileId ?? null);
-
-  try { localStorage.setItem(`lb-last-tee-${courseId}`, teeName); } catch {}
-  const { allGroupStates, ...stateToSave } = gameState;
-  roundId = await roundCreate({
-    organiserId:  currentUser.id,
-    courseName:   course.name,
-    teeName,
-    gameFormat:   activeTournament.format,
-    hcpAllowance: 100,
-    si, par, numHoles: 18, holeOffset: 0,
-    numGroups:    tournGroups.length,
-    playerNames:  groupPlayers.map(p => p.name),
-    gameState:    stateToSave,
-  });
-
-  await tournamentRoundUpdate(troundRecord.id, { round_id: roundId, format: roundFormat });
-  // Update tournament's stored format to match last played round (for leaderboard display)
-  if (activeTournament.format !== roundFormat) {
-    await tournamentUpdate(activeTournament.id, { format: roundFormat }).catch(() => {});
-    activeTournament.format = roundFormat;
-  }
-  subscribeToRound(roundId);
-
-  // Auto-send invites to all players in other groups who have a Leaderboard account
-  const otherGroups = tournGroups.filter(g => g.groupNumber !== myGroup.groupNumber);
-  const myName = currentProfile
-    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
-    : 'Tournament organiser';
-
-  for (const g of otherGroups) {
-    for (const pid of g.players) {
-      if (!pid || pid === currentUser.id) continue;
-      const player = activeTournPlayers.find(p => p.profile_id === pid);
-      if (!player?.profile_id) continue;
-      try {
-        await smsInviteCreate({
-          roundId,
-          inviterId:          currentUser.id,
-          name:               myName,
-          mobile:             null,
-          recipientProfileId: player.profile_id,
-          tournamentRoundId:  troundRecord.id,
-          groupNumber:        g.groupNumber,
-        });
-      } catch (e) { console.error('[invite] tournament auto-invite failed for', player.name, e); }
+    let troundRecord = activeTournRound;
+    if (!troundRecord) {
+      troundRecord = await tournamentRoundCreate({
+        tournamentId: tournId, roundNumber,
+        courseName: course.name, teeName, date,
+      });
+    } else {
+      await tournamentRoundUpdate(troundRecord.id, {
+        course_name: course.name, tee_name: teeName, date, status: 'active',
+      });
     }
-  }
+    activeTournRound = troundRecord;
 
-  enterGameScreen();
+    // Ensure status is active and reload
+    await tournamentRoundUpdate(troundRecord.id, { status: 'active' });
+    activeTournRounds = await tournamentRoundsLoad(tournId);
+
+    if (!tournGroups?.length) {
+      throw new Error('No groups were set up for this round. Please go back and arrange players into groups.');
+    }
+
+    const si  = tee.si;
+    const par = tee.par;
+
+    // Use format chosen by organiser in format picker (setup.scoring)
+    const roundFormat = setup.scoring ?? activeTournament.format ?? 'stableford';
+
+    // ── Build a gameState for EVERY group (matches single-game teeOff) ──
+    const groupStates = [];
+    for (let g = 0; g < tournGroups.length; g++) {
+      const tg = tournGroups[g];
+      const groupPlayers = tg.players
+        .map(pid => activeTournPlayers.find(p => p.id === pid))
+        .filter(Boolean);
+
+      if (!groupPlayers.length) continue; // skip empty groups defensively
+
+      const gNames  = groupPlayers.map(p => p.name);
+      const gHcpArr = groupPlayers.map(p => p.current_hcp ?? 0);
+      const gHcpObj = calcHandicaps(gHcpArr, 100);
+
+      const gs = buildInitialState({
+        format:           roundFormat,
+        names:            gNames,
+        handicapIndexes:  gHcpArr,
+        playingHandicaps: gHcpObj.map(h => h.playingHandicap),
+        matchHandicaps:   gHcpObj.map(h => h.matchHandicap),
+        allowancePct:     100,
+        si, par, numHoles: 18, holeOffset: 0,
+        courseName: course.name, teeName,
+        groupNumber:  tg.groupNumber,
+        totalGroups:  tournGroups.length,
+      });
+
+      // Texas Scramble: compute team handicap
+      if (roundFormat === 'texas') {
+        gs.teamHcp         = texasTeamHandicap(gHcpArr, setup.texasMode ?? 'average', 100);
+        gs.texasMode       = setup.texasMode ?? 'average';
+        gs.texasScoringFmt = setup.texasScoringFmt ?? 'stableford';
+        gs.teamName        = `Team ${tg.groupNumber}`;
+        gs.grossTotal      = 0;
+        gs.texasPts        = 0;
+        gs.driverUsage     = { par3: [], par4: [], par5: [] };
+      }
+
+      gs.tournamentId      = tournId;
+      gs.tournamentRoundId = troundRecord.id;
+      gs.groupNumber        = tg.groupNumber;
+      gs.organiserId         = currentUser.id;
+      gs.playerProfileIds = groupPlayers.map(p => p.profile_id ?? null).filter(Boolean);
+      gs.scorerProfileId  = '__unclaimed__';
+
+      groupStates.push(gs);
+    }
+
+    if (!groupStates.length) {
+      throw new Error('Could not build any groups for this round. Please check the player list and try again.');
+    }
+
+    // Find the organiser's own group — fall back to group 0
+    const myTournPlayer = activeTournPlayers.find(p => p.profile_id === currentUser.id);
+    const myGroupIdx = myTournPlayer
+      ? groupStates.findIndex(gs => gs.playerProfileIds?.includes(currentUser.id))
+      : -1;
+    const activeIdx = myGroupIdx >= 0 ? myGroupIdx : 0;
+
+    gameState = groupStates[activeIdx];
+    gameState.allGroupStates = groupStates;
+    gameState.organiserId     = currentUser.id;
+    gameState.scorerProfileId = currentUser.id; // organiser scores their own group by default
+
+    setup.scoring  = roundFormat;
+    setup.courseId = courseId;
+    setup.teeIdx   = course.tees.findIndex(t => t.name === teeName);
+    setup.holes    = 18;
+    setup.hcpPct   = 100;
+    setup.numGroups = groupStates.length;
+
+    try { localStorage.setItem(`lb-last-tee-${courseId}`, teeName); } catch {}
+    const { allGroupStates, ...stateToSave } = gameState;
+    // Include group states so a joining scorer can find their own group
+    if (allGroupStates?.length > 1) {
+      stateToSave.allGroupStates = allGroupStates.map(gs => {
+        const { allGroupStates: _, ...stripped } = gs;
+        return stripped;
+      });
+    }
+    roundId = await roundCreate({
+      organiserId:  currentUser.id,
+      courseName:   course.name,
+      teeName,
+      gameFormat:   roundFormat,
+      hcpAllowance: 100,
+      si, par, numHoles: 18, holeOffset: 0,
+      numGroups:    groupStates.length,
+      playerNames:  gameState.names,
+      gameState:    stateToSave,
+    });
+
+    await tournamentRoundUpdate(troundRecord.id, { round_id: roundId, format: roundFormat });
+    // Update tournament's stored format to match last played round (for leaderboard display)
+    if (activeTournament.format !== roundFormat) {
+      await tournamentUpdate(activeTournament.id, { format: roundFormat }).catch(() => {});
+      activeTournament.format = roundFormat;
+    }
+    subscribeToRound(roundId);
+
+    // Auto-send invites to all players in OTHER groups who have a Leaderboard account
+    const myGroupNumber = gameState.groupNumber;
+    const myName = currentProfile
+      ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+      : 'Tournament organiser';
+
+    for (const tg of tournGroups.filter(g => g.groupNumber !== myGroupNumber)) {
+      for (const pid of tg.players) {
+        const player = activeTournPlayers.find(p => p.id === pid);
+        if (!player?.profile_id || player.profile_id === currentUser.id) continue;
+        try {
+          await smsInviteCreate({
+            roundId,
+            inviterId:          currentUser.id,
+            name:               myName,
+            mobile:             null,
+            recipientProfileId: player.profile_id,
+            tournamentRoundId:  troundRecord.id,
+            groupNumber:        tg.groupNumber,
+          });
+        } catch (e) { console.error('[invite] tournament auto-invite failed for', player.name, e); }
+      }
+    }
+
+    enterGameScreen();
+  } catch (err) {
+    console.error('[_teeOffRound] failed:', err);
+    alert('Could not start the round: ' + (err.message || 'Unknown error. Please try again.'));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⛳ TEE OFF →'; }
+  }
 }
 
 async function showRegularGameInviteModal(otherGroupScorers, course, tee, fmt) {
@@ -7142,11 +6978,6 @@ async function showGroupInviteModal(otherGroups, troundRecord, course, roundForm
     modal.classList.remove('open'); enterGameScreen();
   };
 }
-
-document.getElementById('btn-tourn-players-next')?.addEventListener('click',
-  () => _submitTournamentSetup(true));
-document.getElementById('btn-tourn-save-later')?.addEventListener('click',
-  () => _submitTournamentSetup(false));
 
 // Shared tournament+player creation helper
 async function _createTournamentAndPlayers(type) {
@@ -7985,37 +7816,52 @@ async function saveTournamentScores() {
       activeTournPlayers = await tournamentPlayersLoad(tournId);
     }
 
-    const players   = activeTournPlayers.filter(p => !p.excluded);
-    const format    = gameState.format; // use gameState not activeTournament
-    const isStroke  = format === 'stroke';
-    const log       = gameState.log ?? [];
+    const players  = activeTournPlayers.filter(p => !p.excluded);
+    const allGroups = gameState.allGroupStates?.length ? gameState.allGroupStates : [gameState];
 
-    const isBest2   = format === 'best2';
-    const teamScore = isBest2 ? (gameState.groupTotal ?? 0) : null;
+    // Build a name → tournamentPlayerId lookup
+    const findTPlayerId = (name) => {
+      const tp = activeTournPlayers.find(p => p.name === name);
+      return tp?.id ?? null;
+    };
 
-    // Calculate scores from game state
-    const scores = setup.players.map((sp, i) => {
-      const gross = log.reduce((s, e) => s + (e.grosses?.[i] ?? 0), 0);
-      const net   = isStroke ? (gameState.totals?.[i] ?? 0) : null;
-      // For best2: all players in the group share the team score
-      const pts   = isBest2 ? teamScore : (!isStroke ? (gameState.totals?.[i] ?? 0) : null);
-      return {
-        tournamentPlayerId: sp.tournamentPlayerId,
-        gross, net, points: pts,
-        hcpUsed: sp.hcpIndex,
-        absent:  false,
-      };
-    });
+    const scores = [];
+    let playingIds = new Set();
 
-    // Handle absent players (those not in this group)
-    const playingIds = new Set(setup.players.map(p => p.tournamentPlayerId).filter(Boolean));
+    // Save scores from EVERY group in this round, not just the active group
+    for (const gs of allGroups) {
+      const format    = gs.format;
+      const isStroke  = format === 'stroke';
+      const isBest2    = format === 'best2';
+      const log        = gs.log ?? [];
+      const teamScore  = isBest2 ? (gs.groupTotal ?? 0) : null;
+
+      gs.names?.forEach((name, i) => {
+        const tPlayerId = findTPlayerId(name);
+        if (!tPlayerId) return;
+        playingIds.add(tPlayerId);
+
+        const gross = log.reduce((s, e) => s + (e.grosses?.[i] ?? 0), 0);
+        const net   = isStroke ? (gs.totals?.[i] ?? 0) : null;
+        const pts   = isBest2 ? teamScore : (!isStroke ? (gs.totals?.[i] ?? 0) : null);
+
+        scores.push({
+          tournamentPlayerId: tPlayerId,
+          gross, net, points: pts,
+          hcpUsed: gs.handicapIndexes?.[i] ?? 0,
+          absent:  false,
+        });
+      });
+    }
+
+    // Handle absent players (those not in any group of this round)
     const absentScores = players
       .filter(p => !playingIds.has(p.id))
       .map(p => ({
         tournamentPlayerId: p.id,
-        gross: isStroke ? absentStrokeScore(scores) : null,
-        net:   isStroke ? absentStrokeScore(scores) : null,
-        points: !isStroke ? 0 : null,
+        gross: null,
+        net:   null,
+        points: 0,
         hcpUsed: p.current_hcp,
         absent: true,
       }));
