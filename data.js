@@ -338,6 +338,10 @@ export async function roundAbandon(roundId) {
 }
 
 export async function roundDelete(roundId) {
+  // Clean up child rows first — round_players has a foreign key on round_id,
+  // so deleting the round without this first can silently fail (FK violation)
+  // and leave the round stuck as 'active' forever.
+  await sb.from('round_players').delete().eq('round_id', roundId);
   const { error } = await sb
     .from('rounds')
     .delete()
@@ -646,7 +650,7 @@ export function realtimeUnsubscribe(channel) {
 // TOURNAMENTS
 // ================================================================
 
-export async function tournamentCreate({ organiserId, name, format, numRounds, hcpMode, scoringMode, scoringModeTeam }) {
+export async function tournamentCreate({ organiserId, name, format, numRounds, hcpMode, scoringMode }) {
   const { data, error } = await sb
     .from('tournaments')
     .insert({
@@ -655,7 +659,6 @@ export async function tournamentCreate({ organiserId, name, format, numRounds, h
       num_rounds:    numRounds,
       hcp_mode:      hcpMode,
       scoring_mode:  scoringMode ?? 'cumulative',
-      scoring_mode_team: scoringModeTeam ?? 'individual',
       status:        'active',
     })
     .select().single();
@@ -697,14 +700,13 @@ export async function tournamentDelete(id) {
 // ── Tournament Players ───────────────────────────────────────────
 
 export async function tournamentPlayersAdd(tournamentId, players) {
-  // players: [{name, profileId, startingHcp, teamName}]
+  // players: [{name, profileId, startingHcp}]
   const rows = players.map(p => ({
     tournament_id: tournamentId,
     name:          p.name,
     profile_id:    p.profileId ?? null,
     starting_hcp:  p.startingHcp,
     current_hcp:   p.startingHcp,
-    team_name:     p.teamName ?? null,
   }));
   const { data, error } = await sb.from('tournament_players').insert(rows).select();
   if (error) throw error;
@@ -787,7 +789,7 @@ export async function tournamentAllScoresLoad(tournamentId) {
 }
 
 export async function tournamentScoresSave(tournamentRoundId, scores) {
-  // scores: [{tournamentPlayerId, gross, net, points, hcpUsed, absent, teamName}]
+  // scores: [{tournamentPlayerId, gross, net, points, hcpUsed, absent}]
   // Upsert by tournament_round_id + tournament_player_id
   const rows = scores.map(s => ({
     tournament_round_id:    tournamentRoundId,
@@ -797,7 +799,6 @@ export async function tournamentScoresSave(tournamentRoundId, scores) {
     points:                s.points ?? null,
     hcp_used:              s.hcpUsed ?? null,
     absent:                s.absent ?? false,
-    team_name:             s.teamName ?? null,
   }));
   const { error } = await sb
     .from('tournament_round_scores')
