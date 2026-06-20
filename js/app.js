@@ -22,7 +22,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620c';
+} from '../data.js?v=20260620d';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -33,13 +33,13 @@ import {
   greensomesPairHandicap, foursomedPairHandicap,
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
-} from '../game.js?v=20260620c';
+} from '../game.js?v=20260620d';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620c';
+} from '../tournament.js?v=20260620d';
 
 // ================================================================
 // PLAYER COLOURS
@@ -743,7 +743,12 @@ const TEAM_FORMATS = [
 ];
 
 function showFormatPicker(category) {
-  document.getElementById('setup-format-screen-title').textContent = 'Choose Format';
+  const TOURNAMENT_EXCLUDED = ['match','skins','itc','split6'];
+  const isTournMode  = !!setup.tournamentId;
+  const tournGameType = isTournMode ? (activeTournament?.scoring_mode_team ?? 'individual') : null;
+
+  document.getElementById('setup-format-screen-title').textContent =
+    `Choose Format [DEBUG: tournId=${setup.tournamentId ?? 'none'} type=${tournGameType ?? 'n/a'} rawDB=${JSON.stringify(activeTournament?.scoring_mode_team)}]`;
 
   const list = document.getElementById('setup-format-list');
 
@@ -761,10 +766,6 @@ function showFormatPicker(category) {
           <div class="mode-card-chevron">›</div>
         </div>`).join('')}
     </div>`;
-
-  const TOURNAMENT_EXCLUDED = ['match','skins','itc','split6'];
-  const isTournMode  = !!setup.tournamentId;
-  const tournGameType = isTournMode ? (activeTournament?.scoring_mode_team ?? 'individual') : null;
 
   let sectionsHtml = '';
   if (!isTournMode) {
