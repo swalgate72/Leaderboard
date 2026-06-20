@@ -342,11 +342,15 @@ export async function roundDelete(roundId) {
   // so deleting the round without this first can silently fail (FK violation)
   // and leave the round stuck as 'active' forever.
   await sb.from('round_players').delete().eq('round_id', roundId);
-  const { error } = await sb
+  const { data, error } = await sb
     .from('rounds')
     .delete()
-    .eq('id', roundId);
+    .eq('id', roundId)
+    .select('id'); // force Supabase to confirm what was actually deleted
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('The round could not be deleted — you may not have permission.');
+  }
 }
 
 export async function roundsLoadActive(userId) {
@@ -553,8 +557,21 @@ export async function smsInviteDelete(inviteId) {
 
 export async function smsInvitesDeleteMany(inviteIds) {
   if (!inviteIds?.length) return;
-  const { error } = await sb.from('sms_invites').delete().in('id', inviteIds);
+  const { data, error } = await sb
+    .from('sms_invites')
+    .delete()
+    .in('id', inviteIds)
+    .select('id'); // force Supabase to return the rows actually deleted
   if (error) throw error;
+  // RLS can silently block deletes (no error, just 0 rows affected) — surface that
+  // as a real failure so the UI doesn't show success when nothing changed.
+  if (!data || data.length === 0) {
+    throw new Error('No invites were deleted — you may not have permission to delete these.');
+  }
+  if (data.length < inviteIds.length) {
+    throw new Error(`Only ${data.length} of ${inviteIds.length} invites could be deleted.`);
+  }
+  return data;
 }
 
 export async function gameInvitesPollPending(userId, since) {
