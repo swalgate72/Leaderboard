@@ -765,6 +765,13 @@ function showFormatPicker(category) {
   const TOURNAMENT_EXCLUDED = ['match','skins','itc','split6'];
   const isTournMode  = !!setup.tournamentId;
   const tournGameType = isTournMode ? (activeTournament?.scoring_mode_team ?? 'individual') : null;
+  console.log('[DEBUG showFormatPicker]', {
+    isTournMode,
+    tournamentId: setup.tournamentId,
+    activeTournament: activeTournament,
+    scoring_mode_team: activeTournament?.scoring_mode_team,
+    tournGameType,
+  });
 
   let sectionsHtml = '';
   if (!isTournMode) {
