@@ -2952,6 +2952,10 @@ function renderHolePanel() {
     const row = document.createElement('div');
     row.className = 'gi-row';
     row.style.cssText = 'flex-direction:column;align-items:stretch;gap:0.65rem;';
+    const texasScoreStyle = existEntry?.gross != null
+      ? (() => { const c = scoreColorForRelToPar(existEntry.gross - par); return `background:${c};border:1.5px solid ${c};color:#fff;`; })()
+      : 'background:var(--surface2);border:1.5px solid var(--border);color:var(--muted);';
+
     row.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div>
@@ -2960,8 +2964,8 @@ function renderHolePanel() {
         </div>
         <div class="score-btn" id="cv-texas" data-value="${existEntry?.gross ?? ''}"
           style="min-width:64px;text-align:center;cursor:pointer;padding:0.6rem 1rem;
-                 background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;
-                 font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:800;color:var(--muted);">
+                 border-radius:10px;
+                 font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:800;${texasScoreStyle}">
           ${existEntry?.gross ?? 'Score'}
         </div>
       </div>
@@ -3190,10 +3194,17 @@ function makePlayerInputRow(pi, h, par) {
   const existingGross = existingEntry?.grosses?.[pi];
 
   const hasExisting = existingGross != null;
+  const isPickup    = existingEntry?.pickups?.[pi] ?? false;
   const scoreBtnVal   = hasExisting ? String(existingGross) : 'Score';
-  const scoreBtnStyle = hasExisting
-    ? 'border:2px solid var(--green);background:var(--green);color:#fff;'
-    : 'border:2px solid var(--border);background:var(--surface2);color:var(--muted);';
+  let scoreBtnStyle;
+  if (!hasExisting) {
+    scoreBtnStyle = 'border:2px solid var(--border);background:var(--surface2);color:var(--muted);';
+  } else if (isPickup) {
+    scoreBtnStyle = 'border:2px solid var(--gold);background:var(--gold);color:#fff;';
+  } else {
+    const color = scoreColorForRelToPar(existingGross - par);
+    scoreBtnStyle = `border:2px solid ${color};background:${color};color:#fff;`;
+  }
 
   const row = document.createElement('div');
   row.className = `gi-row${inChair ? ' in-chair' : ''}`;
@@ -3268,9 +3279,13 @@ function openTexasScorePicker(h, par) {
     btn.addEventListener('click', () => {
       const scoreEl = document.getElementById('cv-texas');
       if (scoreEl) {
-        scoreEl.dataset.value = btn.dataset.val;
-        scoreEl.textContent   = btn.dataset.val;
-        scoreEl.style.color   = 'var(--green)';
+        const val = parseInt(btn.dataset.val, 10);
+        const color = scoreColorForRelToPar(val - par);
+        scoreEl.dataset.value   = btn.dataset.val;
+        scoreEl.textContent     = btn.dataset.val;
+        scoreEl.style.color     = '#fff';
+        scoreEl.style.background = color;
+        scoreEl.style.borderColor = color;
       }
       closeScorePicker();
     });
@@ -3359,6 +3374,15 @@ function closeScorePicker() {
   document.getElementById('modal-score-picker').classList.remove('open');
 }
 
+// Shared colour logic for a recorded gross score relative to par
+// Matches the score picker: par = green, under par = red, 1-2 over = blue, 3+ over = black/dark
+function scoreColorForRelToPar(relToPar) {
+  if (relToPar === 0)     return 'var(--green)';
+  if (relToPar < 0)       return '#d64545';
+  if (relToPar <= 2)      return '#3a7bd5';
+  return '#2a2a2a';
+}
+
 function setScoreValue(pi, h, par, value, isPickup) {
   const cvEl = document.getElementById(`cv${pi}`);
   if (!cvEl) return;
@@ -3366,10 +3390,15 @@ function setScoreValue(pi, h, par, value, isPickup) {
   cvEl.dataset.pickup = isPickup ? '1' : '0';
   cvEl.textContent    = String(value);
   cvEl.style.color       = '#fff';
-  cvEl.style.background  = isPickup ? 'var(--gold)' : 'var(--green)';
-  cvEl.style.borderColor = isPickup ? 'var(--gold)' : 'var(--green)';
   if (isPickup) {
+    cvEl.style.background  = 'var(--gold)';
+    cvEl.style.borderColor = 'var(--gold)';
     cvEl.innerHTML = `${value}<span style="font-size:0.6rem;display:block;font-weight:600;">PICKUP</span>`;
+  } else {
+    const relToPar = value - par;
+    const color = scoreColorForRelToPar(relToPar);
+    cvEl.style.background  = color;
+    cvEl.style.borderColor = color;
   }
 }
 
@@ -4532,16 +4561,42 @@ async function _joinRoundWithRole(roundId, groupNumber, asScorer) {
 // ABANDON
 // ----------------------------------------------------------------
 document.getElementById('abandon-cancel')?.addEventListener('click', () => document.getElementById('modal-abandon').classList.remove('open'));
-document.getElementById('abandon-confirm')?.addEventListener('click', async () => {
+
+// Abandon & Save Progress — marks round cancelled in DB but keeps the data
+document.getElementById('abandon-save')?.addEventListener('click', async () => {
   document.getElementById('modal-abandon').classList.remove('open');
-  if (roundId) { try { await roundAbandon(roundId); } catch {} }
+  await doAbandon(false);
+});
+
+// Abandon & Delete — permanently removes the round
+document.getElementById('abandon-delete')?.addEventListener('click', async () => {
+  document.getElementById('modal-abandon').classList.remove('open');
+  await doAbandon(true);
+});
+
+async function doAbandon(shouldDelete) {
+  const tid = setup.tournamentId;
+
+  if (roundId) {
+    try {
+      if (shouldDelete) await roundDelete(roundId);
+      else await roundAbandon(roundId);
+    } catch {}
+  }
   realtimeUnsubscribe(realtimeCh); realtimeCh = null;
   roundId = null; gameState = null;
   try { localStorage.removeItem('lb-active-round'); } catch {}
   clearSetupState();
   clearSetupDraft();
-  await showHome();
-});
+  setup.tournamentId     = null;
+  setup.tournRoundNumber = null;
+
+  if (tid && activeTournament) {
+    await showTournamentDetail(tid);
+  } else {
+    await showHome();
+  }
+}
 
 // ================================================================
 // END ROUND SCREEN
