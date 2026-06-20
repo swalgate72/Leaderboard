@@ -13,7 +13,7 @@ import {
   roundPlayersSave, roundPlayersLoad,
   friendsLoad, friendRequestsLoadPending,
   friendRequestSend, friendRequestAccept, friendRequestDecline, friendRemove,
-  smsInviteCreate, gameInviteLoad, gameInvitesPollPending, smsInviteLookup, smsInviteAccept,
+  smsInviteCreate, gameInviteLoad, gameInvitesPollPending, gameInvitesLoadHistory, smsInviteLookup, smsInviteAccept,
   smsBuildInviteLink, smsBuildMessage,
   realtimeSubscribeRound, realtimeBroadcastRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   tournamentCreate, tournamentsLoad, tournamentLoadById, tournamentUpdate, tournamentDelete,
@@ -22,7 +22,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620f';
+} from '../data.js?v=20260620g';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -34,13 +34,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620f';
+} from '../game.js?v=20260620g';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620f';
+} from '../tournament.js?v=20260620g';
 
 // ================================================================
 // PLAYER COLOURS
@@ -1235,7 +1235,7 @@ document.getElementById('btn-game-add-from-friends')?.addEventListener('click', 
   document.getElementById('modal-add-game-player').classList.remove('open');
   openFriendPicker(-1, (friend) => {
     addSetupPlayer(friend.name, friend.hcp ?? 0, friend.hcp ?? 0, friend.profileId ?? null);
-  });
+  }, true);
 });
 
 document.getElementById('btn-game-invite')?.addEventListener('click', () => {
@@ -1314,6 +1314,7 @@ function initSetupPairs() {
     // If both players share a persisted team name (team_fixed mode), use it
     const sharedTeamName = (pA.teamName && pA.teamName === pB.teamName) ? pA.teamName : null;
     setup.pairs.push({
+      _uid: `p${Date.now()}_${pairIdx}_${Math.random().toString(36).slice(2,7)}`,
       name: sharedTeamName || `${pA.name.split(' ')[0]} & ${pB.name.split(' ')[0]}`,
       teamName: sharedTeamName,
       playerIndices: [piA, piB],
@@ -1396,7 +1397,10 @@ function renderSetupPairsScreen() {
   addBtn.style.cssText = 'width:100%;padding:0.85rem;font-size:1rem;font-weight:700;border-style:dashed;border-color:var(--gold-border);color:var(--gold);';
   addBtn.textContent = '＋ Add Another Pair';
   addBtn.addEventListener('click', () => {
-    setup.pairs.push({ name: `Pair ${setup.pairs.length + 1}`, playerIndices: [], groupNumber: 1 });
+    setup.pairs.push({
+      _uid: `p${Date.now()}_${setup.pairs.length}_${Math.random().toString(36).slice(2,7)}`,
+      name: `Pair ${setup.pairs.length + 1}`, playerIndices: [], groupNumber: 1,
+    });
     renderSetupPairsScreen();
   });
   pairsEl.appendChild(addBtn);
@@ -1781,7 +1785,17 @@ function renderSetupGroupCards() {
         if (toName) {
           const toP = players.find(p => p.name === toName);
           if (!toP || fromName === toName) return;
-          const tmp = getGroup(fromP); setGroup(fromP, getGroup(toP)); setGroup(toP, tmp);
+          if (getGroup(fromP) === getGroup(toP)) {
+            // Same group — reorder by swapping their positions in setup.players,
+            // since display order is derived from that array's order, and the
+            // `players` list passed in here may itself be a filtered/derived copy.
+            const fromIdx = setup.players.indexOf(fromP);
+            const toIdx   = setup.players.indexOf(toP);
+            if (fromIdx === -1 || toIdx === -1) return;
+            [setup.players[fromIdx], setup.players[toIdx]] = [setup.players[toIdx], setup.players[fromIdx]];
+          } else {
+            const tmp = getGroup(fromP); setGroup(fromP, getGroup(toP)); setGroup(toP, tmp);
+          }
         } else { setGroup(fromP, toGroupVal); }
         rerender();
       },
@@ -1950,11 +1964,10 @@ function renderSetupPairGroupCards() {
                      border:1.5px dashed var(--border);border-radius:var(--radius-sm);">
               Drop a pair here</div>`
           : groupPairs.map(pair => {
-              const pairIdx = setup.pairs.indexOf(pair);
               const [pi0, pi1] = pair.playerIndices;
               const p0 = setup.players[pi0], p1 = setup.players[pi1];
               return `<div class="spg-pair-row" draggable="true"
-                data-pair="${pairIdx}" data-group="${g + 1}"
+                data-uid="${pair._uid}" data-group="${g + 1}"
                 style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.75rem;
                        background:var(--surface2);border:1px solid var(--border);
                        border-radius:var(--radius-sm);cursor:grab;user-select:none;
@@ -1978,21 +1991,21 @@ function renderSetupPairGroupCards() {
   // ── Swap logic ──────────────────────────────────────────────────
   // Drag a pair ROW onto another pair ROW → swap their groups
   // Drag onto an EMPTY group slot → move there (no swap partner)
-  let draggingPairIdx = null;
-  let touchGhost = null, touchDragPairIdx = null, touchSrcRow = null;
+  let draggingUid = null;
+  let touchGhost = null, touchDragUid = null, touchSrcRow = null;
 
-  function swapOrMove(fromPairIdx, toPairIdx) {
-    const pA = setup.pairs[fromPairIdx];
-    const pB = setup.pairs[toPairIdx];
-    if (!pA || !pB || fromPairIdx === toPairIdx) return;
+  function swapOrMove(fromUid, toUid) {
+    const pA = setup.pairs.find(p => p._uid === fromUid);
+    const pB = setup.pairs.find(p => p._uid === toUid);
+    if (!pA || !pB || fromUid === toUid) return;
     const tmp = pA.groupNumber;
     pA.groupNumber = pB.groupNumber;
     pB.groupNumber = tmp;
     renderSetupPairGroupCards();
   }
 
-  function movePairToGroup(pairIdx, groupNum) {
-    const pair = setup.pairs[pairIdx];
+  function movePairToGroup(uid, groupNum) {
+    const pair = setup.pairs.find(p => p._uid === uid);
     if (pair && pair.groupNumber !== groupNum) {
       pair.groupNumber = groupNum;
       renderSetupPairGroupCards();
@@ -2002,21 +2015,21 @@ function renderSetupPairGroupCards() {
   // Desktop drag
   container.querySelectorAll('.spg-pair-row').forEach(row => {
     row.addEventListener('dragstart', e => {
-      draggingPairIdx = parseInt(row.dataset.pair);
+      draggingUid = row.dataset.uid;
       row.style.opacity = '0.4';
-      e.dataTransfer.setData('text/plain', row.dataset.pair);
+      e.dataTransfer.setData('text/plain', row.dataset.uid);
       e.dataTransfer.effectAllowed = 'move';
     });
     row.addEventListener('dragend', () => {
       row.style.opacity = '1';
-      draggingPairIdx = null;
+      draggingUid = null;
     });
 
     // Drop onto another pair row = SWAP
     row.addEventListener('dragover', e => {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      if (row.dataset.pair !== String(draggingPairIdx)) {
+      if (row.dataset.uid !== draggingUid) {
         row.style.background = 'rgba(212,168,67,0.15)';
         row.style.borderColor = 'var(--gold-border)';
       }
@@ -2028,9 +2041,9 @@ function renderSetupPairGroupCards() {
     row.addEventListener('drop', e => {
       e.preventDefault(); e.stopPropagation();
       row.style.background = ''; row.style.borderColor = '';
-      const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
-      const toIdx   = parseInt(row.dataset.pair);
-      if (fromIdx !== toIdx) swapOrMove(fromIdx, toIdx);
+      const fromUid = e.dataTransfer.getData('text/plain');
+      const toUid   = row.dataset.uid;
+      if (fromUid && fromUid !== toUid) swapOrMove(fromUid, toUid);
     });
   });
 
@@ -2048,16 +2061,16 @@ function renderSetupPairGroupCards() {
     slot.addEventListener('drop', e => {
       e.preventDefault();
       slot.style.background = ''; slot.style.borderColor = '';
-      const fromIdx  = parseInt(e.dataTransfer.getData('text/plain'));
+      const fromUid  = e.dataTransfer.getData('text/plain');
       const groupNum = parseInt(slot.dataset.group);
-      movePairToGroup(fromIdx, groupNum);
+      if (fromUid) movePairToGroup(fromUid, groupNum);
     });
   });
 
   // Touch drag
   container.querySelectorAll('.spg-pair-row').forEach(row => {
     row.addEventListener('touchstart', e => {
-      touchDragPairIdx = parseInt(row.dataset.pair);
+      touchDragUid = row.dataset.uid;
       touchSrcRow = row;
       touchGhost = row.cloneNode(true);
       touchGhost.style.cssText = `position:fixed;z-index:9999;opacity:0.85;pointer-events:none;
@@ -2102,10 +2115,10 @@ function renderSetupPairGroupCards() {
       const targetRow  = under?.closest('.spg-pair-row');
       const targetSlot = under?.closest('.spg-empty');
       if (targetRow) {
-        const toIdx = parseInt(targetRow.dataset.pair);
-        if (toIdx !== touchDragPairIdx) swapOrMove(touchDragPairIdx, toIdx);
+        const toUid = targetRow.dataset.uid;
+        if (toUid !== touchDragUid) swapOrMove(touchDragUid, toUid);
       } else if (targetSlot) {
-        movePairToGroup(touchDragPairIdx, parseInt(targetSlot.dataset.group));
+        movePairToGroup(touchDragUid, parseInt(targetSlot.dataset.group));
       }
     });
   });
@@ -2314,7 +2327,7 @@ function makePlayerInputEl(pi, isMe) {
   return row;
 }
 
-function openFriendPicker(playerIdx, customCallback = null) {
+function openFriendPicker(playerIdx, customCallback = null, excludeAlreadyAdded = null) {
   fpCallback = customCallback ?? (({ name, hcp, profileId }) => {
     if (playerIdx < 0 || playerIdx >= setup.players.length) return;
     setup.players[playerIdx].name      = name;
@@ -2325,13 +2338,41 @@ function openFriendPicker(playerIdx, customCallback = null) {
     if (nameEl) { nameEl.value = name; nameEl.dispatchEvent(new Event('input')); }
     if (hcpEl)  hcpEl.value  = hcp;
   });
+  // excludeAlreadyAdded:
+  //   null/undefined → default behaviour: exclude against setup.players UNLESS a
+  //     custom callback was given (co-organiser picker etc. opt out by default)
+  //   true            → exclude against setup.players explicitly
+  //   Array           → exclude against this list of already-added profileIds directly
+  //   false           → no exclusion
+  let excludeIds = null;
+  if (Array.isArray(excludeAlreadyAdded)) {
+    excludeIds = new Set(excludeAlreadyAdded.filter(Boolean));
+  } else if (excludeAlreadyAdded === true || (excludeAlreadyAdded === null && !customCallback)) {
+    excludeIds = new Set(
+      setup.players.filter((p, i) => i !== playerIdx && p.profileId).map(p => p.profileId)
+    );
+  }
+
   document.getElementById('fp-title').textContent = `Pick Player ${playerIdx + 1}`;
   hide('fp-confirm'); show('fp-chips');
   const chips = document.getElementById('fp-chips');
   chips.innerHTML = '';
-  if (!allFriends.length) { show('fp-empty'); document.getElementById('modal-friend-picker').classList.add('open'); return; }
+
+  const availableFriends = excludeIds
+    ? allFriends.filter(f => !excludeIds.has(f.profileId))
+    : allFriends;
+
+  if (!availableFriends.length) {
+    show('fp-empty');
+    const emptyEl = document.getElementById('fp-empty');
+    if (emptyEl) emptyEl.textContent = allFriends.length
+      ? 'All your friends are already added to this game.'
+      : 'No friends yet — add some from the Friends tab.';
+    document.getElementById('modal-friend-picker').classList.add('open');
+    return;
+  }
   hide('fp-empty');
-  allFriends.forEach(f => {
+  availableFriends.forEach(f => {
     const chip = document.createElement('div');
     chip.className = 'friend-chip';
     chip.innerHTML = `<span class="fc-dot"></span><span>${f.name}</span><span class="fc-hcp">${fmtHandicap(f.hcp)}</span>`;
@@ -2741,24 +2782,21 @@ async function teeOff() {
       : 'Your organiser';
 
     if (setup.numGroups > 1) {
-      // Multi-group: auto-send invites to all players with a profile in other groups
-      const myName = currentProfile
-        ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
-        : 'Your organiser';
-      const ppg = Math.ceil(setup.numPlayers / setup.numGroups);
-      for (let g = 1; g < setup.numGroups; g++) {
-        const start   = g * ppg;
-        const end     = Math.min(start + ppg, setup.numPlayers);
-        const members = setup.players.slice(start, end).filter(p => p.profileId && p.profileId !== currentUser.id);
-        for (const p of members) {
-          try {
-            await smsInviteCreate({
-              roundId, inviterId: currentUser.id, name: myName,
-              mobile: null, recipientProfileId: p.profileId,
-              tournamentRoundId: null, groupNumber: g + 1,
-            });
-          } catch (e) { console.error('[invite] multi-group invite failed for', p.name, e); }
-        }
+      // Multi-group: auto-send invites to all players with a profile in other groups.
+      // Use each player's actual groupNumber (set on the groups screen) rather than
+      // recalculating even slices — group sizes aren't always equal (e.g. Best 2).
+      const myGroupNum = setup.players.find(p => p.profileId === currentUser.id)?.groupNumber ?? 1;
+      const otherGroupPlayers = setup.players.filter(p =>
+        p.profileId && p.profileId !== currentUser.id && (p.groupNumber ?? 1) !== myGroupNum
+      );
+      for (const p of otherGroupPlayers) {
+        try {
+          await smsInviteCreate({
+            roundId, inviterId: currentUser.id, name: myName,
+            mobile: null, recipientProfileId: p.profileId,
+            tournamentRoundId: null, groupNumber: p.groupNumber ?? 1,
+          });
+        } catch (e) { console.error('[invite] multi-group invite failed for', p.name, e); }
       }
     } else {
       // Single group: notify all players who have the app (profileId set) except the organiser
@@ -4872,78 +4910,65 @@ document.getElementById('modal-active-games-close')?.addEventListener('click', (
 });
 
 // ── Active Tournaments modal ─────────────────────────────────────
-document.getElementById('btn-home-active-tournaments')?.addEventListener('click', async () => {
-  const listEl = document.getElementById('active-tournaments-list');
+document.getElementById('btn-home-game-invites')?.addEventListener('click', async () => {
+  const listEl = document.getElementById('game-invites-list');
   listEl.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);">Loading…</div>';
-  document.getElementById('modal-active-tournaments').classList.add('open');
+  document.getElementById('modal-game-invites').classList.add('open');
   try {
-    // Load tournaments + any tournament round invites
-    const [tournaments, inviteRows] = await Promise.all([
-      tournamentsLoad(currentUser.id).catch(() => []),
-      gameInvitesPollPending(currentUser.id, null).catch(() => []),
-    ]);
-    const tournInvites = (await Promise.all(
-      inviteRows
-        .filter(r => r.tournament_round_id)
-        .map(r => gameInviteLoad(r.id ?? r).catch(() => null))
-    )).filter(inv => inv && inv.status !== 'accepted');
+    const invites = await gameInvitesLoadHistory(currentUser.id, 30);
 
-    const items = [];
+    if (!invites.length) {
+      listEl.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:0.95rem;">No invites yet.</div>';
+      return;
+    }
 
-    // Active tournaments
-    tournaments.filter(t => t.status !== 'completed').forEach(t => {
-      items.push({
-        icon: '🏆',
-        title: t.name,
-        sub: `${fmtLabel(t.format)} · ${t.status === 'active' ? 'Active' : 'Setup'}`,
-        action: () => showTournamentDetail(t.id),
-        actionLabel: 'Open',
-      });
-    });
+    const statusLabel = (s) => ({
+      pending:  { text: 'Pending',  color: 'var(--gold)' },
+      accepted: { text: 'Accepted', color: 'var(--green)' },
+      declined: { text: 'Declined', color: 'var(--muted)' },
+    }[s] ?? { text: s, color: 'var(--muted)' });
 
-    // Pending tournament round invites
-    tournInvites.forEach(inv => {
-      items.push({
-        icon: '📩',
-        title: inv.name ?? 'Tournament invite',
-        sub: `Round · Group ${inv.group_number ?? 1} · Tap to join`,
-        action: async () => {
-          document.getElementById('modal-active-tournaments').classList.remove('open');
-          await acceptAndJoinInvite(inv);
-        },
-        actionLabel: 'Join',
-      });
-    });
-
-    listEl.innerHTML = items.length === 0
-      ? '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:0.95rem;">No active tournaments or pending invites.</div>'
-      : items.map((item, i) => `
-          <div data-item="${i}" style="display:flex;align-items:center;gap:0.75rem;
-               padding:0.85rem 1rem;border-bottom:1px solid var(--border);cursor:pointer;">
-            <div style="font-size:1.5rem;flex-shrink:0;">${item.icon}</div>
-            <div style="flex:1;">
-              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.15rem;">${item.title}</div>
-              <div style="font-size:0.85rem;color:var(--muted2);font-weight:700;">${item.sub}</div>
+    listEl.innerHTML = invites.map((inv, i) => {
+      const isSent     = inv.inviter_id === currentUser.id;
+      const isPending   = inv.status === 'pending';
+      const canJoin     = !isSent && isPending && (inv.round_id || inv.tournament_round_id);
+      const dir         = isSent ? 'Sent to' : 'Invited by';
+      const who         = isSent ? (inv.recipient_profile_id ? 'a player' : inv.mobile ?? 'a player') : inv.name;
+      const st          = statusLabel(inv.status);
+      const dateStr     = inv.created_at
+        ? new Date(inv.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+        : '';
+      return `
+        <div style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1rem;border-bottom:1px solid var(--border);">
+          <div style="font-size:1.3rem;flex-shrink:0;">${isSent ? '↗️' : '↘️'}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.05rem;">
+              ${dir} ${who}
             </div>
-            <button class="btn btn-green" data-item="${i}"
-              style="padding:0.45rem 1rem;font-size:0.9rem;font-weight:800;flex-shrink:0;">
-              ${item.actionLabel}
-            </button>
-          </div>`).join('');
+            <div style="font-size:0.8rem;color:var(--muted2);font-weight:700;">
+              ${inv.tournament_round_id ? 'Tournament round' : 'Game'}${inv.group_number ? ` · Group ${inv.group_number}` : ''} · ${dateStr}
+            </div>
+          </div>
+          ${canJoin
+            ? `<button class="btn btn-green game-invite-join-btn" data-idx="${i}"
+                style="padding:0.4rem 0.85rem;font-size:0.85rem;font-weight:800;flex-shrink:0;">Join</button>`
+            : `<div style="font-size:0.8rem;font-weight:800;color:${st.color};flex-shrink:0;">${st.text}</div>`}
+        </div>`;
+    }).join('');
 
-    listEl.querySelectorAll('[data-item]').forEach(el => {
-      el.addEventListener('click', () => {
-        const idx = parseInt(el.dataset.item);
-        document.getElementById('modal-active-tournaments').classList.remove('open');
-        items[idx]?.action();
+    listEl.querySelectorAll('.game-invite-join-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const inv = invites[parseInt(btn.dataset.idx, 10)];
+        document.getElementById('modal-game-invites').classList.remove('open');
+        await acceptAndJoinInvite(inv);
       });
     });
   } catch (err) {
-    listEl.innerHTML = `<div style="padding:1rem;color:var(--red);">Error loading tournaments: ${err.message}</div>`;
+    listEl.innerHTML = `<div style="padding:1rem;color:var(--red);">Error loading invites: ${err.message}</div>`;
   }
 });
-document.getElementById('modal-active-tournaments-close')?.addEventListener('click', () => {
-  document.getElementById('modal-active-tournaments').classList.remove('open');
+document.getElementById('modal-game-invites-close')?.addEventListener('click', () => {
+  document.getElementById('modal-game-invites').classList.remove('open');
 });
 
 // ── Shared invite accept helper ──────────────────────────────────
@@ -6782,7 +6807,7 @@ document.getElementById('btn-tourn-add-from-friends')?.addEventListener('click',
   document.getElementById('modal-add-tourn-player').classList.remove('open');
   openFriendPicker(-1, async (friend) => {
     await addTournamentPlayer(friend.name, friend.hcp ?? 0, friend.profileId ?? null);
-  });
+  }, tournSetupPlayers.map(p => p.profileId).filter(Boolean));
 });
 
 // Invite to Leaderboard
