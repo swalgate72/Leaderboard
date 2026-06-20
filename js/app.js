@@ -22,8 +22,6 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-  tournamentTeamsCreate, tournamentTeamsLoad, tournamentTeamUpdate,
-  roundTeamsCreate, roundTeamsLoad, roundTeamUpdate,
 } from '../data.js';
 
 import {
@@ -40,7 +38,7 @@ import {
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
-  buildTeamStandings, buildRotatingStandings, defaultTeamName,
+  buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
 } from '../tournament.js';
 
 // ================================================================
@@ -786,15 +784,23 @@ function showFormatPicker(category) {
     </div>`;
 
   const TOURNAMENT_EXCLUDED = ['match','skins','itc','split6'];
-  const isTournMode = !!setup.tournamentId;
+  const isTournMode  = !!setup.tournamentId;
+  const tournGameType = isTournMode ? (activeTournament?.scoring_mode_team ?? 'individual') : null;
 
-  const soloFmts = isTournMode
-    ? SOLO_FORMATS.filter(f => !TOURNAMENT_EXCLUDED.includes(f.key))
-    : SOLO_FORMATS;
-  const teamFmts = TEAM_FORMATS; // all team formats valid in tournament
+  let sectionsHtml = '';
+  if (!isTournMode) {
+    // Single game — show both sections as before
+    sectionsHtml = renderSection('Single Player', SOLO_FORMATS) + renderSection('Pairs &amp; Teams', TEAM_FORMATS);
+  } else if (tournGameType === 'individual') {
+    // Individual tournament — only Stableford / Stroke Play
+    const soloFmts = SOLO_FORMATS.filter(f => ['stableford','stroke'].includes(f.key));
+    sectionsHtml = renderSection('Single Player', soloFmts);
+  } else {
+    // team_fixed or team_individual — only team/pairs formats, match-style excluded
+    sectionsHtml = renderSection('Pairs &amp; Teams', TEAM_FORMATS);
+  }
 
-  list.innerHTML = renderSection('Single Player', soloFmts)
-    + renderSection('Pairs &amp; Teams', teamFmts);
+  list.innerHTML = sectionsHtml;
 
   list.querySelectorAll('.mode-card').forEach(card => {
     card.addEventListener('click', () => {
@@ -1208,8 +1214,11 @@ function initSetupPairs() {
     const pairIdx = setup.pairs.length;
     const piA = setup.players.indexOf(pA), piB = setup.players.indexOf(pB);
     pA.pairIndex = pairIdx; pB.pairIndex = pairIdx;
+    // If both players share a persisted team name (team_fixed mode), use it
+    const sharedTeamName = (pA.teamName && pA.teamName === pB.teamName) ? pA.teamName : null;
     setup.pairs.push({
-      name: `${pA.name.split(' ')[0]} & ${pB.name.split(' ')[0]}`,
+      name: sharedTeamName || `${pA.name.split(' ')[0]} & ${pB.name.split(' ')[0]}`,
+      teamName: sharedTeamName,
       playerIndices: [piA, piB],
       groupNumber: 1,
     });
@@ -2316,6 +2325,7 @@ function buildSetupReview() {
       </div>`;
     }
   } else if (isPairs && setup.pairs?.length > 0) {
+    const isTournTeamMode = !!setup.tournamentId && activeTournament?.scoring_mode_team !== 'individual';
     const numGroups = Math.max(...setup.pairs.map(p => p.groupNumber ?? 1));
     for (let g = 1; g <= numGroups; g++) {
       const groupPairs = setup.pairs.filter(p => (p.groupNumber ?? 1) === g);
@@ -2330,8 +2340,12 @@ function buildSetupReview() {
         html += `
           <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
                       padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
-            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
-                        color:var(--gold);margin-bottom:0.35rem;">${pair.name}</div>
+            ${isTournTeamMode
+              ? `<input type="text" class="sg-team-name-input review-team-name"
+                  data-pair="${setup.pairs.indexOf(pair)}"
+                  value="${pair.teamName ?? pair.name}" placeholder="Team name">`
+              : `<div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
+                        color:var(--gold);margin-bottom:0.35rem;">${pair.name}</div>`}
             ${[p0, p1].map((p, si) => {
               const pi  = si === 0 ? pi0 : pi1;
               const hi  = si === 0 ? h0  : h1;
@@ -2348,12 +2362,18 @@ function buildSetupReview() {
       });
     }
   } else {
+    const isTeamFmt = ['best2'].includes(setup.scoring); // texas handled separately above
+    const isTournTeamMode = !!setup.tournamentId && activeTournament?.scoring_mode_team !== 'individual';
     const numGroups = Math.max(1, ...named.map(p => p.groupNumber ?? 1));
     for (let g = 1; g <= numGroups; g++) {
       const groupPlayers = named.filter(p => (p.groupNumber ?? 1) === g);
-      if (numGroups > 1) {
+      if (isTeamFmt && isTournTeamMode) {
+        const existingName = groupPlayers[0]?.teamName ?? `Team ${g}`;
+        html += `<input type="text" class="sg-team-name-input review-group-team-name"
+            data-group="${g}" value="${existingName}" placeholder="Team ${g} name">`;
+      } else if (numGroups > 1) {
         html += `<div style="font-size:0.8rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
-          color:var(--muted);margin:0.75rem 0 0.35rem;">Group ${g}</div>`;
+          color:var(--muted);margin:0.75rem 0 0.35rem;">${isTeamFmt ? `Team ${g}` : `Group ${g}`}</div>`;
       }
       groupPlayers.forEach(p => {
         const hi  = named.indexOf(p);
@@ -2370,11 +2390,26 @@ function buildSetupReview() {
             </span>
           </div>`;
       });
+      if (isTeamFmt && isTournTeamMode) html += `<div style="margin-bottom:1rem;"></div>`;
     }
   }
 
   html += '</div>';
   document.getElementById('review-content').innerHTML = html;
+
+  // Wire up team name inputs — store onto setup.players / setup.pairs as user types
+  document.querySelectorAll('.review-team-name').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const pairIdx = parseInt(inp.dataset.pair);
+      if (setup.pairs[pairIdx]) setup.pairs[pairIdx].teamName = inp.value.trim();
+    });
+  });
+  document.querySelectorAll('.review-group-team-name').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const g = parseInt(inp.dataset.group);
+      named.filter(p => (p.groupNumber ?? 1) === g).forEach(p => { p.teamName = inp.value.trim(); });
+    });
+  });
 }
 
 document.getElementById('setup-review-back') ?.addEventListener('click', () => showScreen('screen-setup-groups'));
@@ -2398,21 +2433,38 @@ async function teeOff() {
       // Build tournGroups from setup.players
       const namedPlayers = setup.players.filter(p => p.name);
       const maxGroup     = Math.max(1, ...namedPlayers.map(p => p.groupNumber ?? 1));
-      tournGroups = Array.from({ length: maxGroup }, (_, g) => ({
-        groupNumber: g + 1,
-        players: namedPlayers
-          .filter(p => (p.groupNumber ?? 1) === g + 1)
-          .map(p => {
-            // Match by tournamentPlayerId first, then profileId, then name
-            const tp = activeTournPlayers.find(tp =>
-              (p.tournamentPlayerId && tp.id === p.tournamentPlayerId) ||
-              (p.profileId && tp.profile_id === p.profileId) ||
-              tp.name === p.name
-            );
-            return tp?.id ?? null;
-          })
-          .filter(Boolean),
-      }));
+      const isPairsFmt   = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
+
+      tournGroups = Array.from({ length: maxGroup }, (_, g) => {
+        const groupNum = g + 1;
+        // Resolve team name for this group:
+        // - Pairs formats: from setup.pairs[*].teamName (set on review screen)
+        // - Best2/Texas: from setup.players[*].teamName (set on review screen)
+        let teamName = null;
+        if (isPairsFmt && setup.pairs?.length) {
+          const pair = setup.pairs.find(pr => (pr.groupNumber ?? 1) === groupNum);
+          teamName = pair?.teamName ?? pair?.name ?? null;
+        } else {
+          const gp = namedPlayers.find(p => (p.groupNumber ?? 1) === groupNum);
+          teamName = gp?.teamName ?? null;
+        }
+        return {
+          groupNumber: groupNum,
+          teamName,
+          players: namedPlayers
+            .filter(p => (p.groupNumber ?? 1) === groupNum)
+            .map(p => {
+              // Match by tournamentPlayerId first, then profileId, then name
+              const tp = activeTournPlayers.find(tp =>
+                (p.tournamentPlayerId && tp.id === p.tournamentPlayerId) ||
+                (p.profileId && tp.profile_id === p.profileId) ||
+                tp.name === p.name
+              );
+              return tp?.id ?? null;
+            })
+            .filter(Boolean),
+        };
+      });
 
       if (!tournGroups.some(g => g.players.length > 0)) {
         alert('Could not match players to tournament roster. Please go back and check the player list.');
@@ -2666,9 +2718,6 @@ async function resumeRound(id) {
         activeTournRounds    = await tournamentRoundsLoad(tId);
         activeTournAllScores = await tournamentAllScoresLoad(tId);
         activeTournRound     = activeTournRounds.find(r => r.id === gameState.tournamentRoundId) ?? null;
-        if (activeTournament?.tournament_type === 'team') {
-          activeTournTeams = await tournamentTeamsLoad(tId);
-        }
       } catch (e) { console.error('resumeRound: failed to reload tournament globals', e); }
     }
     subscribeToRound(id);
@@ -3521,11 +3570,16 @@ function showLeaderboard() {
 }
 
 function renderLeaderboard() {
-  const fmt      = gameState.format;
+  const fmt       = gameState.format;
   const isTourney = !!gameState.tournamentId;
-  const tableEl  = document.getElementById('leaderboard-table');
-  const metaEl   = document.getElementById('leaderboard-meta');
+  const tableEl   = document.getElementById('leaderboard-table');
+  const metaEl    = document.getElementById('leaderboard-meta');
   if (!tableEl) return;
+
+  const TEAM_PAIR_FORMATS = ['betterball','csm','foursomes','greensomes','best2','texas'];
+  const isTeamPairFmt = TEAM_PAIR_FORMATS.includes(fmt);
+  const tournGameType = isTourney ? (activeTournament?.scoring_mode_team ?? 'individual') : null;
+  const isTeamScored  = isTourney && isTeamPairFmt && tournGameType !== 'individual';
 
   // Determine score label from format
   const isStroke   = fmt === 'stroke';
@@ -3533,47 +3587,67 @@ function renderLeaderboard() {
   const isMatch    = ['match','betterball','csm','foursomes','greensomes'].includes(fmt);
   const isSkins    = fmt === 'skins';
   const isItc      = fmt === 'itc';
+  const isPoints   = ['stableford','split6','itc'].includes(fmt);
   const texasSbFmt = isTexas && (gameState.texasScoringFmt ?? 'stableford') === 'stableford';
   const scoreLabel = isTexas   ? (texasSbFmt ? 'Pts' : 'Gross')
     : isStroke  ? 'Net'
-    : isMatch   ? 'Holes'
+    : isMatch && !isTeamScored ? 'Holes'
+    : isMatch && isTeamScored  ? 'Pts'  // match results converted to pts for tournament accumulation
     : isSkins   ? 'Skins'
     : isItc     ? 'Pts'
     : 'Pts'; // stableford, split6, best2
 
   metaEl.textContent = `${gameState.courseName} · ${gameState.teeName} · ${fmtLabel(fmt)}`.toUpperCase();
 
-  // ── Non-tournament: live group scores only ───────────────────────
+  // ── ROUND LEADERBOARD: team rows for team/pairs formats ───────────
+  // Applies whether or not this is a tournament — a team/pairs format always
+  // shows team-level rows in the round view (one row per group).
+  if (isTeamPairFmt) {
+    const states = gameState.allGroupStates ?? [gameState];
+    const rows = states.filter(s => s && s.names).map((s, i) => {
+      const teamName = s.teamName ?? `Team ${s.groupNumber ?? i + 1}`;
+      const members  = s.names.join(', ');
+      const holesPlayed = s.log?.length ?? 0;
+      let score;
+      if (isTexas) {
+        score = texasSbFmt ? (s.texasPts ?? 0) : (s.grossTotal ?? 0);
+      } else if (fmt === 'best2') {
+        score = s.groupTotal ?? 0;
+      } else {
+        // betterball/csm/foursomes/greensomes — show match status for THIS round
+        const ms = s.matchScore ?? 0;
+        const up = Math.abs(ms);
+        score = ms === 0 ? 'All Sq' : (ms > 0 ? `${up} Up` : `${up} Down`);
+      }
+      return { teamName, members, score, holesPlayed };
+    });
+
+    // Sort: numeric scores descending (or ascending for gross), match results by ms desc
+    const numericRows = rows.filter(r => typeof r.score === 'number');
+    const nonNumericRows = rows.filter(r => typeof r.score !== 'number');
+    numericRows.sort((a, b) => (isTexas && !texasSbFmt) ? a.score - b.score : b.score - a.score);
+    const sortedRows = [...numericRows, ...nonNumericRows];
+
+    tableEl.innerHTML = buildLeaderboardTable(
+      sortedRows.map((r, rank) => ({
+        rank:   rank + 1,
+        label:  r.teamName,
+        sub:    r.members,
+        score:  r.score,
+        thru:   r.holesPlayed,
+        isLead: rank === 0,
+      })),
+      isMatch ? 'Result' : scoreLabel
+    );
+
+    // In tournament team mode, also show a hint that the full tournament
+    // standings (cumulative) are available via the tournament detail screen.
+    return;
+  }
+
+  // ── Non-tournament, non-team format: live group scores ────────────
   if (!isTourney) {
     const states = gameState.allGroupStates ?? [gameState];
-
-    if (isTexas) {
-      // One row per group/team — sorted by pts (stableford) or gross (stroke)
-      const rows = states
-        .filter(s => s && s.names)
-        .map((s, i) => ({
-          teamName:   s.teamName ?? `Team ${i + 1}`,
-          members:    s.names.join(', '),
-          score:      texasSbFmt ? (s.texasPts ?? 0) : (s.grossTotal ?? 0),
-          teamHcp:    s.teamHcp ?? 0,
-          holesPlayed: s.log?.length ?? 0,
-        }))
-        .sort((a, b) => texasSbFmt ? b.score - a.score : a.score - b.score);
-
-      tableEl.innerHTML = buildLeaderboardTable(
-        rows.map((r, rank) => ({
-          rank:   rank + 1,
-          label:  r.teamName,
-          sub:    r.members,
-          score:  r.score || (r.holesPlayed === 0 ? `HCP ${r.teamHcp}` : '0'),
-          thru:   r.holesPlayed,
-          isLead: rank === 0,
-        })),
-        scoreLabel
-      );
-      return;
-    }
-
     const rows = buildMultiGroupLeaderboard(states);
 
     if (!rows.length) {
@@ -3603,12 +3677,12 @@ function renderLeaderboard() {
     return;
   }
 
-  // ── Tournament mode ──────────────────────────────────────────────
-  const scoringMode   = 'cumulative';
-  const completedRnds = (activeTournRounds ?? []).filter(r => r.status === 'completed');
+  // ── Tournament mode, individual format (Stableford/Stroke) ────────
+  const scoringMode      = 'cumulative';
+  const completedRnds    = (activeTournRounds ?? []).filter(r => r.status === 'completed');
   const numHolesPerRound = gameState.numHoles ?? 18;
-  const liveHoles     = gameState.log?.length ?? 0;
-  const liveStates    = gameState.allGroupStates ?? [gameState];
+  const liveHoles        = gameState.log?.length ?? 0;
+  const liveStates       = gameState.allGroupStates ?? [gameState];
 
   // Build a map of live player scores from current round (all groups)
   const liveScoreByName = {};
@@ -3620,7 +3694,6 @@ function renderLeaderboard() {
     });
   });
 
-  // Individual standings — one row per player, cumulative + live round
   const standings = buildStandings(
     activeTournPlayers ?? [], completedRnds, activeTournAllScores ?? [],
     fmt, scoringMode
@@ -6088,11 +6161,23 @@ function showTournamentSetup() {
   document.getElementById('tourn-num-rounds').value = '3';
   document.getElementById('tourn-hcp-mode').value   = 'fixed';
   updateRoundsToggle(false);
+  updateGameTypeButtons('individual');
   tournSetupPlayers = [];
   try { localStorage.removeItem('lb-tourn-setup-id'); } catch {}
   activeTournament = null;
   showScreen('screen-tournament-setup');
 }
+
+function updateGameTypeButtons(mode) {
+  document.getElementById('tourn-game-type').value = mode;
+  document.querySelectorAll('.tourn-mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+}
+
+document.getElementById('btn-mode-individual')?.addEventListener('click', () => updateGameTypeButtons('individual'));
+document.getElementById('btn-mode-team-fixed')?.addEventListener('click', () => updateGameTypeButtons('team_fixed'));
+document.getElementById('btn-mode-team-individual')?.addEventListener('click', () => updateGameTypeButtons('team_individual'));
 
 function updateRoundsToggle(isOpenEnded) {
   const cbx      = document.getElementById('tourn-open-ended');
@@ -6120,12 +6205,14 @@ document.getElementById('btn-tourn-setup-next')?.addEventListener('click', async
     const isOpenEnded = document.getElementById('tourn-open-ended').checked;
     const numRounds   = isOpenEnded ? null : parseInt(document.getElementById('tourn-num-rounds').value);
     const hcpMode     = document.getElementById('tourn-hcp-mode').value;
+    const gameType    = document.getElementById('tourn-game-type').value; // individual | team_fixed | team_individual
 
     // Create tournament — format will be set per round
     const tourn = await tournamentCreate({
       organiserId: currentUser.id, name,
       format: 'stableford', // placeholder, overridden per round
       numRounds, hcpMode, scoringMode: 'cumulative',
+      scoringModeTeam: gameType,
     });
 
     activeTournament = tourn;
@@ -6750,11 +6837,13 @@ async function _teeOffRound(tournId, courseId, teeName, date) {
         gs.teamHcp         = texasTeamHandicap(gHcpArr, setup.texasMode ?? 'average', 100);
         gs.texasMode       = setup.texasMode ?? 'average';
         gs.texasScoringFmt = setup.texasScoringFmt ?? 'stableford';
-        gs.teamName        = `Team ${tg.groupNumber}`;
         gs.grossTotal      = 0;
         gs.texasPts        = 0;
         gs.driverUsage     = { par3: [], par4: [], par5: [] };
       }
+
+      // Team name: use the name set on the review screen, falling back to a generic label
+      gs.teamName = tg.teamName?.trim() || defaultTeamName(gNames) || `Team ${tg.groupNumber}`;
 
       gs.tournamentId      = tournId;
       gs.tournamentRoundId = troundRecord.id;
@@ -6768,6 +6857,23 @@ async function _teeOffRound(tournId, courseId, teeName, date) {
 
     if (!groupStates.length) {
       throw new Error('Could not build any groups for this round. Please check the player list and try again.');
+    }
+
+    // Persist team_name on tournament_players so the next round can pre-fill
+    // fixed teams correctly even if players are re-fetched fresh.
+    if (activeTournament.scoring_mode_team === 'team_fixed') {
+      for (const gs of groupStates) {
+        const memberIds = gs.playerProfileIds?.length
+          ? activeTournPlayers.filter(p => gs.names.includes(p.name)).map(p => p.id)
+          : [];
+        for (const pid of memberIds) {
+          const tp = activeTournPlayers.find(p => p.id === pid);
+          if (tp && tp.team_name !== gs.teamName) {
+            await tournamentPlayerUpdate(pid, { team_name: gs.teamName }).catch(() => {});
+            tp.team_name = gs.teamName;
+          }
+        }
+      }
     }
 
     // Find the organiser's own group — fall back to group 0
@@ -6980,58 +7086,6 @@ async function showGroupInviteModal(otherGroups, troundRecord, course, roundForm
 }
 
 // Shared tournament+player creation helper
-async function _createTournamentAndPlayers(type) {
-  const name        = document.getElementById('tourn-name').value.trim();
-  const isOpenEnded = document.getElementById('tourn-open-ended').checked;
-  const numRounds   = isOpenEnded ? null : parseInt(document.getElementById('tourn-num-rounds').value);
-  const hcpMode     = document.getElementById('tourn-hcp-mode').value;
-  const scoringMode = document.getElementById('tourn-scoring-mode').value;
-
-  let tourn;
-  if (type === 'team') {
-    const teamFormat  = document.getElementById('tourn-team-format').value;
-    const teamSize    = parseInt(document.getElementById('tourn-team-size').value);
-    const rotation    = document.getElementById('tourn-rotation').value;
-    const format      = ['foursomes','greensomes'].includes(teamFormat) ? 'stroke' : 'stableford';
-    tourn = await tournamentCreate({
-      organiserId: currentUser.id, name, format, numRounds, hcpMode, scoringMode,
-      tournamentType: 'team', teamSize, teamRotation: rotation, teamFormat,
-    });
-  } else {
-    const format = document.getElementById('tourn-format').value;
-    tourn = await tournamentCreate({
-      organiserId: currentUser.id, name, format, numRounds, hcpMode, scoringMode,
-    });
-  }
-
-  const players = await tournamentPlayersAdd(tourn.id, tournSetupPlayers.filter(p => p.name).map(p => ({
-    name: p.name, profileId: p.profileId ?? null, startingHcp: p.hcp,
-  })));
-
-  // Teams for fixed team tournaments
-  if (type === 'team' && document.getElementById('tourn-rotation').value === 'fixed') {
-    const teamSize = parseInt(document.getElementById('tourn-team-size').value);
-    const numTeams = Math.ceil(tournSetupPlayers.length / teamSize);
-    const teamData = Array.from({ length: numTeams }, (_, ti) => {
-      const idxs = tournSetupPlayers.map((_, i) => i).filter(i => Math.floor(i / teamSize) === ti);
-      const memberIds = idxs.map(pi => players[pi]?.id).filter(Boolean);
-      const autoName  = defaultTeamName(idxs.map(pi => tournSetupPlayers[pi]?.name).filter(Boolean));
-      return { name: autoName || `Team ${ti + 1}`, playerIds: memberIds };
-    });
-    await tournamentTeamsCreate(tourn.id, teamData);
-  }
-
-  // Reload so activeTournPlayers is available
-  activeTournament     = await tournamentLoadById(tourn.id);
-  activeTournPlayers   = await tournamentPlayersLoad(tourn.id);
-  activeTournRounds    = await tournamentRoundsLoad(tourn.id);
-  activeTournAllScores = [];
-  if (activeTournament?.tournament_type === 'team') {
-    activeTournTeams = await tournamentTeamsLoad(tourn.id);
-  }
-  return tourn;
-}
-
 // ----------------------------------------------------------------
 // TOURNAMENT DETAIL
 // ----------------------------------------------------------------
@@ -7068,35 +7122,48 @@ async function showTournamentRoundComplete(tournamentId) {
   activeTournPlayers   = await tournamentPlayersLoad(tournamentId);
   activeTournRounds    = await tournamentRoundsLoad(tournamentId);
   activeTournAllScores = await tournamentAllScoresLoad(tournamentId);
-  if (activeTournament?.tournament_type === 'team') {
-    activeTournTeams = await tournamentTeamsLoad(tournamentId);
-  }
 
   const completedRounds = activeTournRounds.filter(r => r.status === 'completed');
   const lastRound       = completedRounds[completedRounds.length - 1];
   const roundNum        = lastRound?.round_number ?? 1;
   const totalRounds     = activeTournament.num_rounds;
-  const isComplete      = completedRounds.length >= totalRounds;
+  const isComplete      = totalRounds ? completedRounds.length >= totalRounds : false;
 
   document.getElementById('trc-title').textContent = activeTournament.name;
-  document.getElementById('trc-round-label').textContent =
-    `Round ${roundNum} of ${totalRounds} — Complete`;
+  document.getElementById('trc-round-label').textContent = totalRounds
+    ? `Round ${roundNum} of ${totalRounds} — Complete`
+    : `Round ${roundNum} — Complete`;
 
   // Round result summary
   if (lastRound) {
     const lastScores = activeTournAllScores.filter(s => s.tournament_round_id === lastRound.id);
-    const isStroke   = activeTournament.format === 'stroke';
-    const isTeam     = activeTournament.tournament_type === 'team';
+    const isStroke    = (lastRound.format ?? activeTournament.format) === 'stroke';
+    const gameType    = activeTournament.scoring_mode_team ?? 'individual';
 
-    if (isTeam) {
-      // Team tournament — show single team score
-      const teamScore = lastScores.find(s => !s.absent)?.points ?? 0;
-      document.getElementById('trc-round-result').innerHTML = `
-        <div style="text-align:center;padding:1rem 0;">
-          <div style="font-size:0.7rem;letter-spacing:0.12em;color:var(--muted);margin-bottom:0.25rem;">TEAM SCORE</div>
-          <div style="font-size:3rem;font-weight:700;color:var(--gold);">${teamScore}</div>
-          <div style="font-size:0.78rem;color:var(--muted);">pts · best 2 scores combined</div>
+    if (gameType !== 'individual') {
+      // Team mode — one line per team for this round
+      const byTeam = {};
+      lastScores.filter(s => !s.absent && s.team_name).forEach(s => {
+        if (!byTeam[s.team_name]) byTeam[s.team_name] = { score: isStroke ? s.net_score : s.points, members: [] };
+        const player = activeTournPlayers.find(p => p.id === s.tournament_player_id);
+        if (player) byTeam[s.team_name].members.push(player.name);
+      });
+      const teamRows = Object.entries(byTeam).sort((a, b) =>
+        isStroke ? a[1].score - b[1].score : b[1].score - a[1].score
+      );
+      const resultLines = teamRows.map(([teamName, info], i) => {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+        const score = isStroke ? `${info.score} net` : `${info.score} pts`;
+        return `<div style="padding:0.4rem 0;border-bottom:1px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;font-size:0.95rem;font-weight:700;">
+            <span>${medal} ${teamName}</span>
+            <span style="color:var(--gold);font-weight:700;">${score}</span>
+          </div>
+          <div style="font-size:0.78rem;color:var(--muted2);">${info.members.join(', ')}</div>
         </div>`;
+      }).join('');
+      document.getElementById('trc-round-result').innerHTML = resultLines ||
+        '<div style="color:var(--muted);">No scores recorded.</div>';
     } else {
       const sorted = [...lastScores].filter(s => !s.absent).sort((a, b) =>
         isStroke ? a.net_score - b.net_score : b.points - a.points
@@ -7134,61 +7201,38 @@ async function showTournamentRoundComplete(tournamentId) {
 
 function renderTrcStandings() {
   const el = document.getElementById('trc-standings');
-  // Route to team standings for team tournaments
-  if (activeTournament?.tournament_type === 'team') {
-    renderTeamStandings(el);
-    return;
+  if (!el) return;
+
+  const lastRound = [...activeTournRounds].filter(r => r.status === 'completed').pop();
+  const format    = lastRound?.format ?? activeTournament.format ?? 'stableford';
+  const isStroke  = format === 'stroke';
+  const gameType  = activeTournament.scoring_mode_team ?? 'individual';
+  const colLabel  = isStroke ? 'Net' : 'Pts';
+
+  let rows = [];
+  if (gameType === 'team_fixed') {
+    const standings = buildTeamStandings(activeTournPlayers, activeTournRounds, activeTournAllScores, format, 'cumulative');
+    rows = standings.map((row, idx) => ({
+      rank: idx + 1, label: row.name, sub: row.memberNames?.join(', ') ?? '',
+      score: row.total ?? '--', thru: row.roundsPlayed, isLead: idx === 0,
+    }));
+  } else if (gameType === 'team_individual') {
+    const standings = buildIndividualFromTeamStandings(activeTournPlayers, activeTournRounds, activeTournAllScores, format, 'cumulative');
+    rows = standings.map((row, idx) => ({
+      rank: idx + 1, label: row.name, sub: null,
+      score: row.total ?? '--', thru: row.roundsPlayed, isLead: idx === 0,
+    }));
+  } else {
+    const standings = buildStandings(activeTournPlayers, activeTournRounds, activeTournAllScores, format, 'cumulative');
+    rows = standings.map((row, idx) => ({
+      rank: idx + 1, label: row.name, sub: null,
+      score: row.total ?? '--', thru: row.roundsPlayed, isLead: idx === 0,
+    }));
   }
-  const scoringMode = activeTournament.scoring_mode ?? 'cumulative';
-  const standings   = buildStandings(
-    activeTournPlayers, activeTournRounds, activeTournAllScores,
-    activeTournament.format, scoringMode
-  );
 
-  const isStroke     = scoringMode === 'stroke';
-  const isPointsGame = scoringMode === 'points_game';
-  const modeLabel    = { cumulative: 'Pts', stroke: 'Net', points_game: 'T.Pts' }[scoringMode] ?? 'Total';
-
-  let html = `<table class="sc-table" style="width:100%;font-size:0.82rem;">
-    <thead><tr>
-      <th style="text-align:left;">Player</th>
-      <th>HCP</th>`;
-
-  activeTournRounds.filter(r => r.status === 'completed').forEach(r => {
-    const d = r.date ? new Date(r.date).toLocaleDateString('en-GB', { day:'numeric', month:'short' }) : `R${r.round_number}`;
-    html += `<th>${d}</th>`;
-  });
-  html += `<th style="color:var(--gold);">${modeLabel}</th>`;
-  if (isStroke) html += `<th style="color:var(--muted);">Gross</th>`;
-  html += '</tr></thead><tbody>';
-
-  standings.forEach((row, idx) => {
-    const isLead = idx === 0;
-    html += `<tr${isLead ? ' style="background:rgba(212,168,67,0.06);"' : ''}>
-      <td style="text-align:left;font-weight:${isLead?'700':'500'};color:${isLead?'var(--gold)':''};">
-        ${row.position}. ${row.name}
-      </td>
-      <td style="color:var(--muted);font-size:0.75rem;">${row.currentHcp}</td>`;
-
-    activeTournRounds.filter(r => r.status === 'completed').forEach(r => {
-      const rr = row.roundResults.find(x => x.roundId === r.id);
-      let val = '--';
-      if (!rr?.absent) {
-        if (isPointsGame)  val = rr?.tournPts ?? '--';
-        else if (isStroke) val = rr?.net      ?? '--';
-        else               val = rr?.pts      ?? '--';
-      }
-      html += `<td>${val}</td>`;
-    });
-
-    html += `<td style="color:var(--gold);font-weight:700;">${row.total ?? '--'}</td>`;
-    if (isStroke) html += `<td style="color:var(--muted);">${row.totalGross ?? '--'}</td>`;
-    html += '</tr>';
-  });
-
-  html += '</tbody></table>';
-  if (el) el.innerHTML = html;
-  else document.getElementById('trc-standings').innerHTML = html;
+  el.innerHTML = rows.length
+    ? buildLeaderboardTable(rows, colLabel)
+    : '<div style="color:var(--muted);font-size:0.9rem;padding:0.75rem 0;">No rounds completed yet.</div>';
 }
 
 // Wire up buttons
@@ -7283,56 +7327,59 @@ function renderTournamentStandings() {
   const lastRound   = [...activeTournRounds].filter(r => r.status === 'completed').pop();
   const format      = lastRound?.format ?? activeTournament.format ?? 'stableford';
   const isStroke    = format === 'stroke';
+  const isMatch     = ['betterball','csm','foursomes','greensomes'].includes(format);
+  const gameType    = activeTournament.scoring_mode_team ?? 'individual';
+  const completedRnds = activeTournRounds.filter(r => r.status === 'completed');
 
   const anchor = document.getElementById('td-standings-anchor');
   if (anchor) {
-    const fmtLabel = FORMAT_LABELS[format] ?? format;
+    const fmtLabelText = FORMAT_LABELS[format] ?? format;
+    const modeNote = gameType === 'team_fixed' ? 'team totals' : gameType === 'team_individual' ? 'individual totals' : 'cumulative';
     anchor.innerHTML = `Standings <span style="font-size:0.7rem;color:var(--muted);font-weight:normal;
-      margin-left:0.5rem;">${fmtLabel} · cumulative</span>`;
+      margin-left:0.5rem;">${fmtLabelText} · ${modeNote}</span>`;
   }
 
-  const standings = buildStandings(
-    activeTournPlayers, activeTournRounds, activeTournAllScores, format, scoringMode
-  );
+  const colLabel = isStroke ? 'Net' : isMatch ? 'Pts' : 'Pts';
 
-  if (!standings.length) {
+  let rows = [];
+  if (gameType === 'team_fixed') {
+    const standings = buildTeamStandings(activeTournPlayers, activeTournRounds, activeTournAllScores, format, scoringMode);
+    rows = standings.map((row, idx) => ({
+      rank:   idx + 1,
+      label:  row.name,
+      sub:    row.memberNames?.join(', ') ?? '',
+      score:  row.total || '--',
+      thru:   `${row.roundsPlayed}/${completedRnds.length}`,
+      isLead: idx === 0,
+    }));
+  } else if (gameType === 'team_individual') {
+    const standings = buildIndividualFromTeamStandings(activeTournPlayers, activeTournRounds, activeTournAllScores, format, scoringMode);
+    rows = standings.map((row, idx) => ({
+      rank:   idx + 1,
+      label:  row.name,
+      sub:    null,
+      score:  row.total || '--',
+      thru:   `${row.roundsPlayed}/${completedRnds.length}`,
+      isLead: idx === 0,
+    }));
+  } else {
+    const standings = buildStandings(activeTournPlayers, activeTournRounds, activeTournAllScores, format, scoringMode);
+    rows = standings.map((row, idx) => ({
+      rank:   idx + 1,
+      label:  row.name,
+      sub:    null,
+      score:  row.total || '--',
+      thru:   `${row.roundsPlayed}/${completedRnds.length}`,
+      isLead: idx === 0,
+    }));
+  }
+
+  if (!rows.length) {
     el.innerHTML = '<div style="color:var(--muted);font-size:0.9rem;padding:0.75rem 0;">No rounds completed yet.</div>';
     return;
   }
 
-  const colLabel = isStroke ? 'Net' : 'Pts';
-
-  let html = `<table class="sc-table" style="width:100%;font-size:0.85rem;">
-    <thead><tr>
-      <th style="text-align:left;">Player</th>
-      <th>HCP</th>`;
-
-  activeTournRounds.filter(r => r.status === 'completed').forEach(r => {
-    const d = r.date ? new Date(r.date).toLocaleDateString('en-GB', { day:'numeric', month:'short' }) : `R${r.round_number}`;
-    html += `<th title="${r.course_name ?? ''}">${d}</th>`;
-  });
-
-  html += `<th style="color:var(--gold);">${colLabel}</th></tr></thead><tbody>`;
-
-  standings.forEach((row, idx) => {
-    const isLead = idx === 0;
-    html += `<tr${isLead ? ' style="background:rgba(212,168,67,0.06);"' : ''}>
-      <td style="text-align:left;font-weight:${isLead?'700':'500'};color:${isLead?'var(--gold)':''};">
-        ${row.position}. ${row.name}
-      </td>
-      <td style="color:var(--muted);">${row.currentHcp}</td>`;
-
-    activeTournRounds.filter(r => r.status === 'completed').forEach(r => {
-      const rr  = row.roundResults?.find(x => x.roundId === r.id);
-      const val = rr?.absent ? '—' : (isStroke ? rr?.net : rr?.pts) ?? '--';
-      html += `<td>${val}</td>`;
-    });
-
-    html += `<td style="color:var(--gold);font-weight:700;">${row.total || '--'}</td></tr>`;
-  });
-
-  html += '</tbody></table>';
-  el.innerHTML = html;
+  el.innerHTML = buildLeaderboardTable(rows, colLabel);
 }
 
 function renderTournamentRoundsList() {
@@ -7432,7 +7479,11 @@ document.getElementById('btn-td-leaderboard')?.addEventListener('click', () => {
   document.getElementById('td-standings-anchor')
     ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
-document.getElementById('btn-view-leaderboard')?.addEventListener('click', () => showTournamentLive());
+document.getElementById('btn-view-leaderboard')?.addEventListener('click', async () => {
+  const liveRound = activeTournRounds.find(r => r.status === 'active');
+  if (!liveRound?.round_id) { alert('Could not find the live round to rejoin.'); return; }
+  await resumeRound(liveRound.round_id);
+});
 document.getElementById('btn-start-next-round')?.addEventListener('click', async () => {
   await showTournamentRoundSetup();
 });
@@ -7494,6 +7545,7 @@ async function showAdjustableHcpModal() {
 function continueRoundSetup(roundNumber) {
   // Pre-populate setup from tournament players, defaulting to previous round groups
   const players = activeTournPlayers.filter(p => !p.excluded);
+  const isFixedTeamTourn = activeTournament.scoring_mode_team === 'team_fixed';
 
   // Try to get previous round group assignments from saved state
   const saved = restoreTroundSetup();
@@ -7508,19 +7560,38 @@ function continueRoundSetup(roundNumber) {
   setup.pairs          = [];
   setup.numGroups      = 1;
 
-  // Pre-populate players with previous group assignments
-  setup.players = players.map(p => {
-    const gi = prevGroups.findIndex(g => g.players?.includes(p.id));
-    return {
-      name:               p.name,
-      hcpIndex:           p.current_hcp,
-      courseHandicap:     p.current_hcp,
-      groupNumber:        gi >= 0 ? gi + 1 : 1,
-      profileId:          p.profile_id ?? null,
-      isScorer:           p.profile_id === currentUser?.id,
-      tournamentPlayerId: p.id,
-    };
-  });
+  if (isFixedTeamTourn) {
+    // Group by persistent team_name — players keep their team regardless of
+    // any positional shuffling in previous rounds' group data.
+    const teamNames = [...new Set(players.map(p => p.team_name).filter(Boolean))];
+    setup.players = players.map(p => {
+      const teamIdx = p.team_name ? teamNames.indexOf(p.team_name) : -1;
+      return {
+        name:               p.name,
+        hcpIndex:           p.current_hcp,
+        courseHandicap:     p.current_hcp,
+        groupNumber:        teamIdx >= 0 ? teamIdx + 1 : teamNames.length + 1,
+        profileId:          p.profile_id ?? null,
+        isScorer:           p.profile_id === currentUser?.id,
+        tournamentPlayerId: p.id,
+        teamName:           p.team_name ?? null,
+      };
+    });
+  } else {
+    // Pre-populate players with previous round's positional group assignments
+    setup.players = players.map(p => {
+      const gi = prevGroups.findIndex(g => g.players?.includes(p.id));
+      return {
+        name:               p.name,
+        hcpIndex:           p.current_hcp,
+        courseHandicap:     p.current_hcp,
+        groupNumber:        gi >= 0 ? gi + 1 : 1,
+        profileId:          p.profile_id ?? null,
+        isScorer:           p.profile_id === currentUser?.id,
+        tournamentPlayerId: p.id,
+      };
+    });
+  }
 
   // Go through normal format picker → course → players (pre-populated) → groups → review → teeOff
   // Players screen will show pre-populated list, groups screen will show previous groups
@@ -7645,112 +7716,6 @@ document.getElementById('btn-delete-tournament')?.addEventListener('click', asyn
 // ----------------------------------------------------------------
 // TOURNAMENT LIVE LEADERBOARD
 // ----------------------------------------------------------------
-document.getElementById('tlive-back')?.addEventListener('click', () => {
-  if (gameState?.tournamentId) showScreen('screen-game');
-  else if (activeTournament) showTournamentDetail(activeTournament.id);
-  else showScreen('screen-home');
-});
-document.getElementById('btn-game-leaderboard')?.addEventListener('click', () => {
-  // If in a tournament round, show tournament leaderboard, else show regular
-  if (gameState?.tournamentId) showTournamentLive();
-  else showLeaderboard();
-});
-
-function showTournamentLive() {
-  showScreen('screen-tournament-live');
-  const fmt = activeTournament?.format ?? gameState?.format;
-  document.getElementById('tlive-title').textContent =
-    activeTournament?.name ?? 'Live Leaderboard';
-  document.getElementById('tlive-meta').textContent =
-    `${gameState?.courseName ?? ''} · Round ${activeTournRounds.filter(r=>r.status!=='pending').length}`;
-
-  renderTliveRound();
-  renderTliveTournament();
-
-  // Subscribe for live updates
-  if (activeTournament && !tournRealtimeCh) {
-    tournRealtimeCh = realtimeSubscribeTournament(activeTournament.id, async () => {
-      activeTournAllScores = await tournamentAllScoresLoad(activeTournament.id);
-      renderTliveRound();
-      renderTliveTournament();
-    });
-  }
-}
-
-document.getElementById('tlive-tab-round')?.addEventListener('click', () => {
-  document.getElementById('tlive-tab-round').className      = 'btn btn-primary';
-  document.getElementById('tlive-tab-tournament').className = 'btn btn-outline';
-  document.getElementById('tlive-round-table').style.display      = '';
-  document.getElementById('tlive-tournament-table').style.display = 'none';
-});
-
-document.getElementById('tlive-tab-tournament')?.addEventListener('click', () => {
-  document.getElementById('tlive-tab-tournament').className = 'btn btn-primary';
-  document.getElementById('tlive-tab-round').className      = 'btn btn-outline';
-  document.getElementById('tlive-tournament-table').style.display = '';
-  document.getElementById('tlive-round-table').style.display      = 'none';
-});
-
-function renderTliveRound() {
-  const el = document.getElementById('tlive-round-table');
-  if (!gameState) { el.innerHTML = ''; return; }
-  // Use existing multi-group leaderboard logic
-  const states = gameState.allGroupStates ?? [gameState];
-  const rows   = buildMultiGroupLeaderboard(states);
-  const fmt    = gameState.format;
-  const isStableford = fmt === 'stableford';
-  const isStroke     = fmt === 'stroke';
-
-  let html = `<table class="sc-table" style="width:100%;"><thead><tr>
-    <th style="text-align:left;">Player</th>
-    <th>Grp</th><th>Holes</th><th>Gross</th>
-    ${isStroke ? '<th style="color:var(--green);">Net</th>' : ''}
-    ${isStableford ? '<th style="color:var(--gold);">Pts</th>' : ''}
-  </tr></thead><tbody>`;
-
-  rows.forEach((row, rank) => {
-    html += `<tr${rank===0?' style="background:rgba(212,168,67,0.06);"':''}>
-      <td style="font-weight:${rank===0?'700':'500'};color:${rank===0?'var(--gold)':''};text-align:left;">
-        ${rank+1}. ${row.name}
-      </td>
-      <td>${row.group}</td>
-      <td>${row.holesPlayed}</td>
-      <td>${row.gross||'--'}</td>
-      ${isStroke?`<td style="color:var(--green);font-weight:600;">${row.net??'--'}</td>`:''}
-      ${isStableford?`<td style="color:var(--gold);font-weight:700;">${row.pts??'--'}</td>`:''}
-    </tr>`;
-  });
-  html += '</tbody></table>';
-  el.innerHTML = html;
-}
-
-function renderTliveTournament() {
-  const el = document.getElementById('tlive-tournament-table');
-  if (!activeTournament) { el.innerHTML = ''; return; }
-  const standings = buildStandings(
-    activeTournPlayers, activeTournRounds, activeTournAllScores, activeTournament.format
-  );
-  const isStroke = activeTournament.format === 'stroke';
-  let html = `<table class="sc-table" style="width:100%;"><thead><tr>
-    <th style="text-align:left;">Player</th><th>HCP</th>
-    <th style="color:${isStroke?'var(--green)':'var(--gold)'};">Total</th>
-    ${isStroke?'<th style="color:var(--muted);">Gross</th>':''}
-  </tr></thead><tbody>`;
-  standings.forEach((row, idx) => {
-    html += `<tr${idx===0?' style="background:rgba(212,168,67,0.06);"':''}>
-      <td style="font-weight:${idx===0?'700':'500'};color:${idx===0?'var(--gold)':''};text-align:left;">
-        ${row.position}. ${row.name}
-      </td>
-      <td style="color:var(--muted);">${row.currentHcp}</td>
-      <td style="font-weight:600;color:${isStroke?'var(--green)':'var(--gold)'};">${row.total||'--'}</td>
-      ${isStroke?`<td style="color:var(--muted);">${row.totalGross||'--'}</td>`:''}
-    </tr>`;
-  });
-  html += '</tbody></table>';
-  el.innerHTML = html;
-}
-
-// ----------------------------------------------------------------
 // TOURNAMENT PUBLIC VIEW (via link ?tournament=id)
 // ----------------------------------------------------------------
 async function handleTournamentViewLink(tournamentId) {
@@ -7761,40 +7726,42 @@ async function handleTournamentViewLink(tournamentId) {
     const rounds  = await tournamentRoundsLoad(tournamentId);
     const scores  = await tournamentAllScoresLoad(tournamentId);
 
+    const lastRound = [...rounds].filter(r => r.status === 'completed').pop();
+    const format     = lastRound?.format ?? tourn.format ?? 'stableford';
+    const isStroke   = format === 'stroke';
+    const gameType   = tourn.scoring_mode_team ?? 'individual';
+    const completedRnds = rounds.filter(r => r.status === 'completed');
+
     document.getElementById('tview-title').textContent = tourn.name;
     document.getElementById('tview-meta').textContent  =
-      `${fmtLabel(tourn.format)} · ${rounds.filter(r=>r.status==='completed').length} of ${tourn.num_rounds} rounds completed`;
+      `${fmtLabel(format)} · ${completedRnds.length} of ${tourn.num_rounds ?? '∞'} rounds completed`;
 
-    const standings = buildStandings(players, rounds, scores, tourn.format, tourn.scoring_mode ?? 'cumulative');
-    const isStroke  = tourn.format === 'stroke';
+    const colLabel = isStroke ? 'Net' : 'Pts';
 
-    let html = `<table class="sc-table" style="width:100%;font-size:0.78rem;">
-      <thead><tr>
-        <th style="text-align:left;">Player</th><th>HCP</th>`;
-    rounds.filter(r=>r.status==='completed').forEach(r => {
-      const d = r.date ? new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : `R${r.round_number}`;
-      html += `<th>${d}</th>`;
-    });
-    html += `<th style="color:${isStroke?'var(--green)':'var(--gold)'};">Total</th>`;
-    if (isStroke) html += '<th>Gross</th>';
-    html += '</tr></thead><tbody>';
+    let rows = [];
+    if (gameType === 'team_fixed') {
+      const standings = buildTeamStandings(players, rounds, scores, format, 'cumulative');
+      rows = standings.map((row, idx) => ({
+        rank: idx + 1, label: row.name, sub: row.memberNames?.join(', ') ?? '',
+        score: row.total || '--', thru: `${row.roundsPlayed}/${completedRnds.length}`, isLead: idx === 0,
+      }));
+    } else if (gameType === 'team_individual') {
+      const standings = buildIndividualFromTeamStandings(players, rounds, scores, format, 'cumulative');
+      rows = standings.map((row, idx) => ({
+        rank: idx + 1, label: row.name, sub: null,
+        score: row.total || '--', thru: `${row.roundsPlayed}/${completedRnds.length}`, isLead: idx === 0,
+      }));
+    } else {
+      const standings = buildStandings(players, rounds, scores, format, tourn.scoring_mode ?? 'cumulative');
+      rows = standings.map((row, idx) => ({
+        rank: idx + 1, label: row.name, sub: null,
+        score: row.total || '--', thru: `${row.roundsPlayed}/${completedRnds.length}`, isLead: idx === 0,
+      }));
+    }
 
-    standings.forEach((row, idx) => {
-      html += `<tr${idx===0?' style="background:rgba(212,168,67,0.06);"':''}>
-        <td style="text-align:left;font-weight:${idx===0?'700':'500'};color:${idx===0?'var(--gold)':''};">
-          ${row.position}. ${row.name}
-        </td>
-        <td style="color:var(--muted);">${row.currentHcp}</td>`;
-      rounds.filter(r=>r.status==='completed').forEach(r => {
-        const rr = row.roundResults.find(x => x.roundId === r.id);
-        html += `<td>${rr?.absent?'--':isStroke?(rr?.net??'--'):(rr?.pts??'--')}</td>`;
-      });
-      html += `<td style="font-weight:700;color:${isStroke?'var(--green)':'var(--gold)'};">${row.total||'--'}</td>`;
-      if (isStroke) html += `<td style="color:var(--muted);">${row.totalGross||'--'}</td>`;
-      html += '</tr>';
-    });
-    html += '</tbody></table>';
-    document.getElementById('tview-standings').innerHTML = html;
+    document.getElementById('tview-standings').innerHTML = rows.length
+      ? buildLeaderboardTable(rows, colLabel)
+      : '<div class="history-empty">No rounds completed yet.</div>';
   } catch (err) {
     document.getElementById('tview-standings').innerHTML =
       `<div class="history-empty">Could not load tournament: ${err.message}</div>`;
@@ -7825,16 +7792,32 @@ async function saveTournamentScores() {
       return tp?.id ?? null;
     };
 
+    const MATCH_FORMATS = ['betterball','csm','foursomes','greensomes'];
+
     const scores = [];
     let playingIds = new Set();
 
     // Save scores from EVERY group in this round, not just the active group
     for (const gs of allGroups) {
       const format    = gs.format;
-      const isStroke  = format === 'stroke';
+      const isStroke   = format === 'stroke';
       const isBest2    = format === 'best2';
+      const isTexas    = format === 'texas';
+      const isMatchFmt = MATCH_FORMATS.includes(format);
       const log        = gs.log ?? [];
-      const teamScore  = isBest2 ? (gs.groupTotal ?? 0) : null;
+      const teamName   = gs.teamName ?? null;
+
+      // Determine the team-level score for THIS group, applied to every member.
+      // Stableford/stroke/split6: per-player score (no team concept).
+      // Best 2: gs.groupTotal already shared across the group.
+      // Texas: team pts or gross, shared across the group.
+      // Match-style pairs (betterball/csm/foursomes/greensomes): convert match
+      // result into points so it accumulates sensibly across a tournament —
+      // win = 2pts, halve = 1pt, loss = 0pts, per pair (not per group).
+      let groupTeamScore = null;
+      if (isBest2)  groupTeamScore = gs.groupTotal ?? 0;
+      if (isTexas)  groupTeamScore = (gs.texasScoringFmt ?? 'stableford') === 'stableford'
+        ? (gs.texasPts ?? 0) : (gs.grossTotal ?? 0);
 
       gs.names?.forEach((name, i) => {
         const tPlayerId = findTPlayerId(name);
@@ -7842,14 +7825,29 @@ async function saveTournamentScores() {
         playingIds.add(tPlayerId);
 
         const gross = log.reduce((s, e) => s + (e.grosses?.[i] ?? 0), 0);
-        const net   = isStroke ? (gs.totals?.[i] ?? 0) : null;
-        const pts   = isBest2 ? teamScore : (!isStroke ? (gs.totals?.[i] ?? 0) : null);
+        let net = null, pts = null;
+
+        if (isStroke)        net = gs.totals?.[i] ?? 0;
+        else if (isBest2)     pts = groupTeamScore;
+        else if (isTexas)     pts = groupTeamScore;
+        else if (isMatchFmt) {
+          // Pair A = indices 0,1 / Pair B = indices 2,3 within this group's gameState
+          const ms = gs.matchScore ?? 0;
+          const onPairA = i < 2;
+          const won  = onPairA ? ms > 0 : ms < 0;
+          const lost = onPairA ? ms < 0 : ms > 0;
+          pts = ms === 0 ? 1 : (won ? 2 : (lost ? 0 : 1));
+        } else {
+          // stableford / split6 / itc / skins fallback — per-player points
+          pts = gs.totals?.[i] ?? 0;
+        }
 
         scores.push({
           tournamentPlayerId: tPlayerId,
           gross, net, points: pts,
           hcpUsed: gs.handicapIndexes?.[i] ?? 0,
           absent:  false,
+          teamName,
         });
       });
     }
@@ -7864,6 +7862,7 @@ async function saveTournamentScores() {
         points: 0,
         hcpUsed: p.current_hcp,
         absent: true,
+        teamName: null,
       }));
 
     await tournamentScoresSave(tRoundId, [...scores, ...absentScores]);
@@ -8320,120 +8319,3 @@ document.getElementById('btn-save-privacy')?.addEventListener('click', async () 
     btn.textContent = 'SAVE PREFERENCES';
   }
 });
-
-// ================================================================
-// TEAM TOURNAMENT
-// ================================================================
-
-let activeTournTeams    = [];  // tournament_teams rows
-let activeTournRoundFmt = null; // format chosen for current round
-
-const TOURN_TEAM_FORMATS = {
-  2: [
-    { value: 'betterball',  label: 'Better Ball' },
-    { value: 'csm',         label: 'Combined Stableford' },
-    { value: 'foursomes',   label: 'Foursomes' },
-    { value: 'greensomes',  label: 'Greensomes' },
-  ],
-  3: [
-    { value: 'best2',       label: 'Best 2 of 3' },
-  ],
-  4: [
-    { value: 'best2',       label: 'Best 2 of 4' },
-  ],
-};
-
-function updateTournFormatOptions() {
-  const type     = document.getElementById('tourn-type')?.value ?? 'individual';
-  const teamSize = parseInt(document.getElementById('tourn-team-size')?.value) || 2;
-
-  // Show/hide the right format selector
-  const indivWrap = document.getElementById('tourn-indiv-format-wrap');
-  const teamWrap  = document.getElementById('tourn-team-format-wrap');
-  if (indivWrap) indivWrap.style.display = type === 'individual' ? '' : 'none';
-  if (teamWrap)  teamWrap.style.display  = type === 'team'       ? '' : 'none';
-
-  // Populate team formats based on size
-  if (type === 'team') {
-    const sel     = document.getElementById('tourn-team-format');
-    const formats = TOURN_TEAM_FORMATS[teamSize] ?? TOURN_TEAM_FORMATS[2];
-    if (sel) {
-      sel.innerHTML = formats.map(f =>
-        `<option value="${f.value}">${f.label}</option>`
-      ).join('');
-    }
-  }
-}
-
-// Wire up — call on team size change
-
-
-// ── Team tournament standings ────────────────────────────────────
-function renderTeamStandings(containerEl) {
-  if (!activeTournament || !containerEl) return;
-  const rotation    = activeTournament.team_rotation;
-  const scoringMode = activeTournament.scoring_mode ?? 'cumulative';
-
-  let html = '';
-
-  if (rotation === 'fixed' && activeTournTeams.length) {
-    const standings = buildTeamStandings(
-      activeTournTeams, activeTournPlayers, activeTournRounds, activeTournAllScores,
-      activeTournament.format, scoringMode
-    );
-
-    html = `<table class="sc-table" style="width:100%;font-size:0.82rem;">
-      <thead><tr>
-        <th style="text-align:left;">Team</th>`;
-    activeTournRounds.filter(r => r.status==='completed').forEach(r => {
-      const d = r.date ? new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : `R${r.round_number}`;
-      html += `<th>${d}</th>`;
-    });
-    html += `<th style="color:var(--gold);">Total</th></tr></thead><tbody>`;
-
-    standings.forEach((row, idx) => {
-      const isLead = idx === 0;
-      html += `<tr${isLead?' style="background:rgba(212,168,67,0.06);"':''}>
-        <td style="text-align:left;font-weight:${isLead?'700':'500'};color:${isLead?'var(--gold)':''};">
-          ${row.position}. ${row.name}
-          <div style="font-size:0.65rem;color:var(--muted);">${row.teamPlayers.map(p=>p.name.split(' ')[0]).join(', ')}</div>
-        </td>`;
-      activeTournRounds.filter(r=>r.status==='completed').forEach(r => {
-        const rr = row.roundResults.find(x => x.roundId === r.id);
-        html += `<td>${rr?.score ?? '--'}</td>`;
-      });
-      html += `<td style="color:var(--gold);font-weight:700;">${row.total ?? '--'}</td></tr>`;
-    });
-    html += '</tbody></table>';
-
-  } else {
-    // Rotating teams or individual fallback — show individual standings
-    const standings = buildRotatingStandings(
-      activeTournPlayers, activeTournRounds, activeTournAllScores, scoringMode
-    );
-    html = `<table class="sc-table" style="width:100%;font-size:0.82rem;">
-      <thead><tr>
-        <th style="text-align:left;">Player</th><th>HCP</th>`;
-    activeTournRounds.filter(r=>r.status==='completed').forEach(r => {
-      const d = r.date ? new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : `R${r.round_number}`;
-      html += `<th>${d}</th>`;
-    });
-    html += `<th style="color:var(--gold);">Total</th></tr></thead><tbody>`;
-    standings.forEach((row, idx) => {
-      const isLead = idx === 0;
-      html += `<tr${isLead?' style="background:rgba(212,168,67,0.06);"':''}>
-        <td style="text-align:left;font-weight:${isLead?'700':'500'};color:${isLead?'var(--gold)':''};">
-          ${row.position}. ${row.name}
-        </td>
-        <td style="color:var(--muted);">${row.currentHcp}</td>`;
-      activeTournRounds.filter(r=>r.status==='completed').forEach(r => {
-        const rr = row.roundResults.find(x=>x.roundId===r.id);
-        html += `<td>${rr?.pts ?? rr?.tournPts ?? '--'}</td>`;
-      });
-      html += `<td style="color:var(--gold);font-weight:700;">${row.total ?? '--'}</td></tr>`;
-    });
-    html += '</tbody></table>';
-  }
-
-  containerEl.innerHTML = html;
-}
