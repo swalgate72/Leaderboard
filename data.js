@@ -331,10 +331,27 @@ export async function roundComplete(roundId, gameState) {
 }
 
 export async function roundAbandon(roundId) {
+  // "Abandon & Save Progress" — the round stops being actively played but
+  // stays resumable. Previously this set status to 'cancelled', which
+  // dropped it out of every active-round query and made it unrecoverable —
+  // 'paused' keeps it out of the live-game UI while still showing up in
+  // Active Games so the organiser can pick it back up later.
   const { error } = await sb
     .from('rounds')
     .update({
-      status:     'cancelled',
+      status:     'paused',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', roundId);
+  if (error) throw error;
+}
+
+export async function roundReactivate(roundId) {
+  // Flip a paused round back to active when the organiser resumes it.
+  const { error } = await sb
+    .from('rounds')
+    .update({
+      status:     'active',
       updated_at: new Date().toISOString(),
     })
     .eq('id', roundId);
@@ -358,21 +375,23 @@ export async function roundDelete(roundId) {
 }
 
 export async function roundsLoadActive(userId) {
-  // Find rounds where user is organiser
+  // Find rounds where user is organiser — include both 'active' (currently being
+  // played) and 'paused' (saved via Abandon & Save Progress, resumable) so saved
+  // games actually show up for the organiser to pick back up.
   const { data: ownRounds, error: e1 } = await sb
     .from('rounds')
-    .select('id, course_name, tee_name, game_format, player_names, game_state, started_at, updated_at')
+    .select('id, course_name, tee_name, game_format, player_names, game_state, started_at, updated_at, status')
     .eq('organiser_id', userId)
-    .eq('status', 'active')
+    .in('status', ['active', 'paused'])
     .order('updated_at', { ascending: false });
   if (e1) throw e1;
 
   // Also find rounds where user is a player (joined as group scorer/watcher)
   const { data: playerRounds, error: e2 } = await sb
     .from('round_players')
-    .select('round_id, rounds!inner(id, course_name, tee_name, game_format, player_names, game_state, started_at, updated_at)')
+    .select('round_id, rounds!inner(id, course_name, tee_name, game_format, player_names, game_state, started_at, updated_at, status)')
     .eq('profile_id', userId)
-    .eq('rounds.status', 'active');
+    .in('rounds.status', ['active', 'paused']);
 
   const joined = (playerRounds ?? [])
     .map(r => r.rounds)
