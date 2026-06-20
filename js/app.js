@@ -22,7 +22,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620d';
+} from '../data.js?v=20260620e';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -33,13 +33,13 @@ import {
   greensomesPairHandicap, foursomedPairHandicap,
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
-} from '../game.js?v=20260620d';
+} from '../game.js?v=20260620e';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620d';
+} from '../tournament.js?v=20260620e';
 
 // ================================================================
 // PLAYER COLOURS
@@ -747,8 +747,7 @@ function showFormatPicker(category) {
   const isTournMode  = !!setup.tournamentId;
   const tournGameType = isTournMode ? (activeTournament?.scoring_mode_team ?? 'individual') : null;
 
-  document.getElementById('setup-format-screen-title').textContent =
-    `Choose Format [DEBUG: tournId=${setup.tournamentId ?? 'none'} type=${tournGameType ?? 'n/a'} rawDB=${JSON.stringify(activeTournament?.scoring_mode_team)}]`;
+  document.getElementById('setup-format-screen-title').textContent = 'Choose Format';
 
   const list = document.getElementById('setup-format-list');
 
