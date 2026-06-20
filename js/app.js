@@ -22,7 +22,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620b';
+} from '../data.js?v=20260620c';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -33,13 +33,13 @@ import {
   greensomesPairHandicap, foursomedPairHandicap,
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
-} from '../game.js?v=20260620b';
+} from '../game.js?v=20260620c';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620b';
+} from '../tournament.js?v=20260620c';
 
 // ================================================================
 // PLAYER COLOURS
