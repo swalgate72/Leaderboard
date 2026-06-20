@@ -1349,6 +1349,25 @@
         </div>
 
         <div class="field">
+          <label>Game Type</label>
+          <div style="display:grid;gap:0.5rem;">
+            <button type="button" class="tourn-mode-btn active" id="btn-mode-individual" data-mode="individual">
+              <div class="tourn-mode-btn-title">👤 Individual Games</div>
+              <div class="tourn-mode-btn-sub">Stableford or Stroke Play · everyone plays for themselves</div>
+            </button>
+            <button type="button" class="tourn-mode-btn" id="btn-mode-team-fixed" data-mode="team_fixed">
+              <div class="tourn-mode-btn-title">🤝 Team Games — Team Scores</div>
+              <div class="tourn-mode-btn-sub">Same teams all tournament · leaderboard shows team totals</div>
+            </button>
+            <button type="button" class="tourn-mode-btn" id="btn-mode-team-individual" data-mode="team_individual">
+              <div class="tourn-mode-btn-title">🔀 Team/Pairs Games — Individual Scores</div>
+              <div class="tourn-mode-btn-sub">Teams can change each round · leaderboard shows player totals</div>
+            </button>
+          </div>
+          <input type="hidden" id="tourn-game-type" value="individual">
+        </div>
+
+        <div class="field">
           <label>Number of Rounds</label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.5rem;">
             <button type="button" id="btn-fixed-rounds" class="holes-btn active">Fixed number</button>
@@ -1574,26 +1593,6 @@
 <!-- ══════════════════════════════════════════
      TOURNAMENT LIVE LEADERBOARD
      ══════════════════════════════════════════ -->
-<div id="screen-tournament-live" class="screen">
-  <div class="sticky-header">
-    <button class="btn btn-ghost" id="tlive-back">← Back</button>
-    <h2 id="tlive-title">Live Leaderboard</h2>
-    <div class="sync-badge synced" style="margin-left:auto;">
-      <div class="sync-dot pulse"></div><span>Live</span>
-    </div>
-  </div>
-  <div style="padding:0.75rem 1rem;max-width:520px;margin:0 auto;">
-    <div id="tlive-meta" style="font-size:0.68rem;color:var(--muted);margin-bottom:0.75rem;"></div>
-    <!-- Tab buttons -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;margin-bottom:1rem;">
-      <button class="btn btn-primary" id="tlive-tab-round">This Round</button>
-      <button class="btn btn-outline" id="tlive-tab-tournament">Tournament</button>
-    </div>
-    <div id="tlive-round-table"></div>
-    <div id="tlive-tournament-table" style="display:none;"></div>
-  </div>
-</div>
-
 <!-- ══════════════════════════════════════════
      TOURNAMENT PUBLIC VIEW (read-only via link)
      ══════════════════════════════════════════ -->

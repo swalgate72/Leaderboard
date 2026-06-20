@@ -2380,3 +2380,50 @@ html.light .bottom-nav-btn.active {
   color: var(--muted);
   flex-shrink: 0;
 }
+
+/* ── Tournament Game Type buttons ─────────────────────────────────── */
+.tourn-mode-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.tourn-mode-btn.active {
+  border-color: var(--gold-border);
+  background: rgba(212,168,67,0.08);
+}
+.tourn-mode-btn-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--white);
+  line-height: 1.15;
+}
+.tourn-mode-btn.active .tourn-mode-btn-title { color: var(--gold); }
+.tourn-mode-btn-sub {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted2);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+/* ── Team name field on groups screen ─────────────────────────────── */
+.sg-team-name-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1.5px solid var(--gold-border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.7rem;
+  color: var(--gold);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
+}
+.sg-team-name-input::placeholder { color: var(--muted); font-weight: 600; }

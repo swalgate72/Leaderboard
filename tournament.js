@@ -244,44 +244,113 @@ export function buildMultiGroupLeaderboard(groupStates) {
 // ================================================================
 
 /**
- * Build team standings for a fixed-team tournament.
- * Teams accumulate scores across rounds.
+ * Build team standings for a fixed-team tournament (scoring_mode_team = 'team_fixed').
+ * Teams are identified purely by team_name (snapshotted per round in
+ * tournament_round_scores.team_name) — no separate teams table.
+ * Each round, all members of a team share the same score value, so we
+ * just take one representative score per team per round.
  */
-export function buildTeamStandings(teams, players, rounds, allScores, format, scoringMode) {
-  const isStroke     = format === 'stroke';
+export function buildTeamStandings(players, rounds, allScores, format, scoringMode) {
+  const isStroke      = format === 'stroke';
   const completedRnds = rounds.filter(r => r.status === 'completed');
 
-  const rows = teams.map(team => {
-    const teamPlayers = players.filter(p => p.team_id === team.id);
-    const roundResults = completedRnds.map(r => {
-      const memberScores = teamPlayers.map(p => {
-        return allScores.find(s => s.tournament_round_id === r.id && s.tournament_player_id === p.id);
-      }).filter(s => s && !s.absent);  // exclude absent players
+  // Determine the current/most-recent team name + roster for each team
+  // by walking rounds in order and tracking team_name → member names.
+  const teamRosterByName = {}; // { teamName: Set of player names (most recent) }
+  const teamNamesInOrder = [];
 
-      // A team only earns a round score if at least 2 of their own members played.
-      // This prevents a cross-team scorer's points bleeding into the wrong team's total.
-      if (memberScores.length < 2) return { roundId: r.id, score: null, played: false };
-
-      let roundScore = null;
-      if (isStroke) {
-        roundScore = Math.min(...memberScores.map(s => s.net_score ?? 999));
-      } else {
-        // For best2/betterball: the team score is already stored on each member's row
-        // (all share the same group total), so just take the value from the first member.
-        roundScore = memberScores[0].points ?? 0;
-      }
-      return { roundId: r.id, score: roundScore, played: true };
+  completedRnds.forEach(r => {
+    const rScores = allScores.filter(s => s.tournament_round_id === r.id && s.team_name);
+    rScores.forEach(s => {
+      const tn = s.team_name;
+      if (!teamRosterByName[tn]) { teamRosterByName[tn] = new Set(); teamNamesInOrder.push(tn); }
+      const player = players.find(p => p.id === s.tournament_player_id);
+      if (player) teamRosterByName[tn].add(player.name);
     });
-
-    const total = roundResults.reduce((s, r) => s + (r.score ?? 0), 0);
-    return { teamId: team.id, name: team.name, teamPlayers, roundResults, total };
   });
 
-  rows.sort((a, b) => isStroke ? a.total - b.total : b.total - a.total);
+  const rows = teamNamesInOrder.map(teamName => {
+    const roundResults = completedRnds.map(r => {
+      const rScores = allScores.filter(s =>
+        s.tournament_round_id === r.id && s.team_name === teamName && !s.absent
+      );
+      if (!rScores.length) return { roundId: r.id, score: null, played: false };
+      // All members of a team share the same score that round — take the first
+      const score = isStroke ? (rScores[0].net_score ?? 0) : (rScores[0].points ?? 0);
+      return { roundId: r.id, score, played: true };
+    });
+
+    const playedResults = roundResults.filter(r => r.played);
+    const total = playedResults.reduce((s, r) => s + (r.score ?? 0), 0);
+    const memberNames = [...(teamRosterByName[teamName] ?? [])];
+
+    return {
+      name: teamName,
+      memberNames,
+      roundResults,
+      total,
+      roundsPlayed: playedResults.length,
+    };
+  });
+
+  rows.sort((a, b) => {
+    if (a.roundsPlayed !== b.roundsPlayed) return b.roundsPlayed - a.roundsPlayed;
+    return isStroke ? a.total - b.total : b.total - a.total;
+  });
 
   let pos = 1;
   rows.forEach((r, i) => {
-    if (i > 0 && r.total === rows[i-1].total) r.position = rows[i-1].position;
+    if (i > 0 && r.total === rows[i - 1].total) r.position = rows[i - 1].position;
+    else r.position = pos;
+    pos++;
+  });
+
+  return rows;
+}
+
+/**
+ * Build individual standings for a team tournament where teams/pairs can
+ * change each round (scoring_mode_team = 'team_individual').
+ * Each player accumulates whatever their team scored in every round they
+ * personally played in — even though teammates change round to round.
+ */
+export function buildIndividualFromTeamStandings(players, rounds, allScores, format, scoringMode) {
+  const isStroke      = format === 'stroke';
+  const completedRnds = rounds.filter(r => r.status === 'completed');
+
+  const rows = players.filter(p => !p.excluded).map(p => {
+    const roundResults = completedRnds.map(r => {
+      const score = allScores.find(s =>
+        s.tournament_round_id === r.id && s.tournament_player_id === p.id
+      );
+      return {
+        roundId:    r.id,
+        teamName:   score?.team_name ?? null,
+        pts:        score?.points    ?? null,
+        net:        score?.net_score ?? null,
+        played:     !!score && !score.absent,
+      };
+    });
+
+    const playedRounds = roundResults.filter(r => r.played);
+    const total = isStroke
+      ? playedRounds.reduce((s, r) => s + (r.net ?? 0), 0)
+      : playedRounds.reduce((s, r) => s + (r.pts ?? 0), 0);
+
+    return {
+      playerId: p.id, name: p.name, currentHcp: p.current_hcp,
+      roundResults, total, roundsPlayed: playedRounds.length,
+    };
+  });
+
+  rows.sort((a, b) => {
+    if (a.roundsPlayed !== b.roundsPlayed) return b.roundsPlayed - a.roundsPlayed;
+    return isStroke ? a.total - b.total : b.total - a.total;
+  });
+
+  let pos = 1;
+  rows.forEach((r, i) => {
+    if (i > 0 && r.total === rows[i - 1].total) r.position = rows[i - 1].position;
     else r.position = pos;
     pos++;
   });
