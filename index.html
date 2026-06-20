@@ -1204,15 +1204,21 @@
      ABANDON CONFIRM MODAL
      ══════════════════════════════════════════ -->
 <div class="modal-overlay abandon-modal" id="modal-abandon">
-  <div class="modal-box" style="text-align:center;max-width:360px;border-color:var(--red-border);">
+  <div class="modal-box" style="text-align:center;max-width:380px;border-color:var(--red-border);">
     <div style="font-size:2rem;margin-bottom:0.5rem;">⚠️</div>
-    <div class="modal-title" style="color:var(--red);margin-bottom:0.5rem;">Abandon Round?</div>
-    <div class="text-muted mb-md" style="font-size:0.82rem;line-height:1.5;">
-      This will permanently delete all data for this round. It cannot be undone.
+    <div class="modal-title" style="color:var(--red);margin-bottom:0.5rem;">Abandon Game?</div>
+    <div class="text-muted mb-md" style="font-size:0.85rem;line-height:1.5;">
+      Choose how you'd like to abandon this round.
     </div>
-    <div class="two-col">
+    <div style="display:grid;gap:0.5rem;">
       <button class="btn btn-outline" id="abandon-cancel">Cancel</button>
-      <button class="btn btn-danger"  id="abandon-confirm">Yes, Abandon</button>
+      <button class="btn btn-outline" id="abandon-save"
+        style="border-color:var(--gold-border);color:var(--gold);">
+        Abandon &amp; Save Progress
+      </button>
+      <button class="btn btn-danger" id="abandon-delete">
+        Abandon &amp; Delete
+      </button>
     </div>
   </div>
 </div>
