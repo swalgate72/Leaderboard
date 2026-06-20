@@ -376,6 +376,8 @@ export function buildInitialState({
   groupNumber       = null,
   totalGroups       = null,
   organiserId       = null,
+  longestDriveHoles = [],  // array of hole numbers (1-18), absolute not relative to offset
+  nearestPinHoles   = [],  // array of hole numbers (1-18)
 }) {
   const nPlayers = names.length;
   const base = {
@@ -398,6 +400,11 @@ export function buildInitialState({
     organiserId,
     hole: 0,
     log:  [],
+    // Longest Drive / Nearest the Pin side-competitions — independent of format/scoring
+    longestDriveHoles,
+    nearestPinHoles,
+    ldResults:  {}, // { [holeNumber]: { playerIdx, playerName, yards, lat, lng, accuracy, markedBy, ts } }
+    ntpResults: {}, // { [holeNumber]: { playerIdx, playerName, cm, markedBy, ts } }
   };
 
   // Format-specific state
@@ -1080,4 +1087,49 @@ export function buildMultiGroupLeaderboard(groupStates) {
   }
 
   return rows;
+}
+
+// ================================================================
+// LONGEST DRIVE / NEAREST THE PIN — distance calculation
+// ================================================================
+
+// Haversine distance between two lat/lng points, returned in yards.
+export function gpsDistanceYards(lat1, lng1, lat2, lng2) {
+  const R = 6371000; // Earth radius in metres
+  const toRad = (d) => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const metres = R * c;
+  return Math.round(metres * 1.09361); // metres -> yards
+}
+
+// Merge LD/NTP results across all groups in a round into a single
+// sorted leaderboard per competition hole. Used by both the in-game
+// leaderboard and tournament aggregation.
+export function buildSideCompResults(groupStates, kind) {
+  // kind: 'ld' (longest drive, higher wins) or 'ntp' (nearest pin, lower wins)
+  const resultsKey = kind === 'ld' ? 'ldResults' : 'ntpResults';
+  const holesKey   = kind === 'ld' ? 'longestDriveHoles' : 'nearestPinHoles';
+  const valueKey   = kind === 'ld' ? 'yards' : 'cm';
+
+  const holes = groupStates.find(s => s?.[holesKey]?.length)?.[holesKey] ?? [];
+  const byHole = {};
+
+  holes.forEach(holeNum => {
+    let best = null;
+    groupStates.forEach(gs => {
+      const r = gs?.[resultsKey]?.[holeNum];
+      if (!r) return;
+      if (!best) { best = r; return; }
+      if (kind === 'ld' ? r[valueKey] > best[valueKey] : r[valueKey] < best[valueKey]) {
+        best = r;
+      }
+    });
+    byHole[holeNum] = best;
+  });
+
+  return { holes, byHole };
 }

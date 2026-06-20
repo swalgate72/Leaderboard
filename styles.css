@@ -2427,3 +2427,115 @@ html.light .bottom-nav-btn.active {
   margin-bottom: 0.5rem;
 }
 .sg-team-name-input::placeholder { color: var(--muted); font-weight: 600; }
+
+/* ── Toggle switch (LD / NTP enable) ──────────────────────────────── */
+.lb-toggle {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+.lb-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0; height: 0;
+}
+.lb-toggle-track {
+  display: block;
+  width: 46px;
+  height: 26px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 13px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.lb-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 19px;
+  height: 19px;
+  background: var(--muted);
+  border-radius: 50%;
+  transition: transform 0.15s, background 0.15s;
+}
+.lb-toggle input:checked + .lb-toggle-track {
+  background: var(--green-dim);
+  border-color: var(--green-border);
+}
+.lb-toggle input:checked + .lb-toggle-track .lb-toggle-thumb {
+  transform: translateX(20px);
+  background: var(--green);
+}
+
+/* ── LD / NTP hole picker grid ────────────────────────────────────── */
+.ld-ntp-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.4rem;
+}
+.ld-ntp-hole-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.2rem;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+}
+.ld-ntp-hole-btn .h-num {
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--white);
+  line-height: 1;
+}
+.ld-ntp-hole-btn .h-par {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 1px;
+}
+.ld-ntp-hole-btn.selected {
+  background: var(--gold-dim);
+  border-color: var(--gold-border);
+}
+.ld-ntp-hole-btn.selected .h-num { color: var(--gold); }
+.ld-ntp-hole-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── In-game LD/NTP badge ─────────────────────────────────────────── */
+.ld-ntp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  animation: ldNtpPulse 2s ease-in-out infinite;
+}
+.ld-ntp-badge.ld-badge {
+  background: linear-gradient(135deg, #d4a843, #e8c96a);
+  color: #2a1f08;
+}
+.ld-ntp-badge.ntp-badge {
+  background: linear-gradient(135deg, #5ba3d9, #7cc4f0);
+  color: #08233a;
+}
+@keyframes ldNtpPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212,168,67,0.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(212,168,67,0); }
+}
+.ntp-badge { animation-name: ntpPulse; }
+@keyframes ntpPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(91,163,217,0.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(91,163,217,0); }
+}

@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260620e">
+  <link rel="stylesheet" href="styles.css?v=20260620f">
 </head>
 <body>
 
@@ -322,6 +322,56 @@
     <!-- Hidden selects kept for JS compatibility — not shown to user -->
     <select id="setup-num-players" style="display:none;"></select>
     <select id="setup-num-groups" style="display:none;"></select>
+
+    <!-- Longest Drive -->
+    <div class="card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>🏌️ Longest Drive</span>
+        <label class="lb-toggle">
+          <input type="checkbox" id="ld-enabled">
+          <span class="lb-toggle-track"><span class="lb-toggle-thumb"></span></span>
+        </label>
+      </div>
+      <div id="ld-config" class="hidden">
+        <div class="field">
+          <label>How many?</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+            <button type="button" class="holes-btn active" id="ld-count-1" data-count="1">1</button>
+            <button type="button" class="holes-btn" id="ld-count-2" data-count="2">2</button>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Select hole(s) — par 3s excluded</label>
+          <div class="ld-ntp-grid" id="ld-hole-grid"></div>
+          <div class="hint" id="ld-hint" style="margin-top:0.4rem;">Choose 1 hole</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nearest the Pin -->
+    <div class="card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>🎯 Nearest the Pin</span>
+        <label class="lb-toggle">
+          <input type="checkbox" id="ntp-enabled">
+          <span class="lb-toggle-track"><span class="lb-toggle-thumb"></span></span>
+        </label>
+      </div>
+      <div id="ntp-config" class="hidden">
+        <div class="field">
+          <label>How many?</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+            <button type="button" class="holes-btn active" id="ntp-count-1" data-count="1">1</button>
+            <button type="button" class="holes-btn" id="ntp-count-2" data-count="2">2</button>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Select hole(s) — par 3s only</label>
+          <div class="ld-ntp-grid" id="ntp-hole-grid"></div>
+          <div class="hint" id="ntp-hint" style="margin-top:0.4rem;">Choose 1 hole · measured in cm</div>
+        </div>
+      </div>
+    </div>
 
     <!-- Texas Scramble options — shown only for that format -->
     <div class="card hidden" id="texas-options-card">
@@ -670,6 +720,7 @@
     </div>
 
     <div style="padding:0 1rem;">
+      <div id="leaderboard-ld-ntp"></div>
       <div id="leaderboard-table"></div>
     </div>
 
@@ -1267,7 +1318,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260620e"></script>
+<script type="module" src="js/app.js?v=20260620f"></script>
 
 
 <!-- ══════════════════════════════════════════
@@ -1536,6 +1587,51 @@
     <div class="two-col">
       <button class="btn btn-outline" id="confirm-delete-round-cancel">Cancel</button>
       <button class="btn btn-danger" id="confirm-delete-round-confirm">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LONGEST DRIVE / NEAREST THE PIN MARKING MODAL ══ -->
+<div class="modal-overlay" id="modal-ld-ntp-mark">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title" id="ld-ntp-modal-title">Mark</div>
+      <button class="btn-close" id="ld-ntp-modal-close">✕</button>
+    </div>
+
+    <div class="hint mb-sm">Who hit it?</div>
+    <div id="ld-ntp-player-list" style="margin-bottom:0.75rem;"></div>
+
+    <!-- NTP: manual cm entry -->
+    <div id="ld-ntp-value-section" class="hidden">
+      <div class="field">
+        <label>Distance from pin (cm)</label>
+        <input id="ld-ntp-cm-input" type="number" min="0" step="1" placeholder="e.g. 245" inputmode="numeric">
+      </div>
+      <button class="btn btn-green" id="ld-ntp-cm-save" style="width:100%;padding:0.85rem;font-weight:800;">
+        Save Distance
+      </button>
+    </div>
+
+    <!-- LD: GPS capture, two steps -->
+    <div id="ld-ntp-gps-section" class="hidden">
+      <div id="ld-ntp-gps-step1">
+        <div class="hint mb-sm">Step 1 — stand at the tee and mark it.</div>
+        <button class="btn btn-outline" id="ld-ntp-gps-mark-tee" style="width:100%;padding:0.85rem;font-weight:800;">
+          📍 Mark Tee Position
+        </button>
+      </div>
+      <div id="ld-ntp-gps-step2" class="hidden">
+        <div class="hint mb-sm">Step 2 — walk to the ball and mark it.</div>
+        <button class="btn btn-green" id="ld-ntp-gps-mark-ball" style="width:100%;padding:0.85rem;font-weight:800;">
+          📍 Mark Ball Position
+        </button>
+      </div>
+      <div id="ld-ntp-gps-result" class="hidden" style="text-align:center;padding:0.75rem 0;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:2rem;color:var(--gold);"
+             id="ld-ntp-gps-result-text"></div>
+      </div>
+      <div class="hint" id="ld-ntp-gps-status" style="margin-top:0.6rem;text-align:center;"></div>
     </div>
   </div>
 </div>
