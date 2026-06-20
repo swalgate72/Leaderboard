@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260620f">
+  <link rel="stylesheet" href="styles.css?v=20260620g">
 </head>
 <body>
 
@@ -151,13 +151,13 @@
           <span id="home-active-games-badge" style="display:none;background:var(--gold);color:#0e1a13;
             border-radius:10px;padding:0 5px;font-size:0.75rem;font-weight:800;"></span>
         </button>
-        <button id="btn-home-active-tournaments" class="btn"
+        <button id="btn-home-game-invites" class="btn"
           style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);
                  color:#fff;padding:0.65rem;font-family:'Barlow Condensed',sans-serif;
                  font-size:1rem;font-weight:800;border-radius:var(--radius-sm);
                  display:flex;align-items:center;justify-content:center;gap:0.4rem;">
-          🏆 Tournaments
-          <span id="home-active-tourns-badge" style="display:none;background:var(--gold);color:#0e1a13;
+          📩 Game Invites
+          <span id="home-game-invites-badge" style="display:none;background:var(--gold);color:#0e1a13;
             border-radius:10px;padding:0 5px;font-size:0.75rem;font-weight:800;"></span>
         </button>
       </div>
@@ -1318,7 +1318,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260620f"></script>
+<script type="module" src="js/app.js?v=20260620g"></script>
 
 
 <!-- ══════════════════════════════════════════
@@ -1644,6 +1644,17 @@
       <button class="btn-close" id="modal-active-tournaments-close">✕</button>
     </div>
     <div id="active-tournaments-list" style="padding:0.5rem 0;"></div>
+  </div>
+</div>
+
+<!-- ══ GAME INVITES HISTORY MODAL ══ -->
+<div class="modal-overlay" id="modal-game-invites">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">📩 Game Invites</div>
+      <button class="btn-close" id="modal-game-invites-close">✕</button>
+    </div>
+    <div id="game-invites-list" style="padding:0.5rem 0;"></div>
   </div>
 </div>
 

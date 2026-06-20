@@ -569,6 +569,19 @@ export async function gameInviteLoad(inviteId) {
   return data ?? null;
 }
 
+// Full invite history for a user — both sent (as inviter) and received (as recipient),
+// any status. Used by the "Game Invites" button on the home banner.
+export async function gameInvitesLoadHistory(userId, limit = 30) {
+  const { data, error } = await sb
+    .from('sms_invites')
+    .select('*')
+    .or(`inviter_id.eq.${userId},recipient_profile_id.eq.${userId}`)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data ?? [];
+}
+
 export function realtimeSubscribeGameInvites(userId, onInvite) {
   return sb
     .channel(`game_invites:${userId}`)
