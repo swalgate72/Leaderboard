@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620i';
+} from '../data.js?v=20260620j';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620i';
+} from '../game.js?v=20260620j';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620i';
+} from '../tournament.js?v=20260620j';
 
 // ================================================================
 // PLAYER COLOURS
@@ -5088,17 +5088,26 @@ document.getElementById('confirm-delete-round-confirm')?.addEventListener('click
   try {
     if (bulkIdsJson) {
       const ids = JSON.parse(bulkIdsJson);
+      const failures = [];
       for (const id of ids) {
-        await roundDelete(id).catch(err => console.error('[bulk delete] failed for', id, err));
         try {
-          const stored = localStorage.getItem('lb-active-round');
-          if (stored === id) localStorage.removeItem('lb-active-round');
-        } catch {}
+          await roundDelete(id);
+          try {
+            const stored = localStorage.getItem('lb-active-round');
+            if (stored === id) localStorage.removeItem('lb-active-round');
+          } catch {}
+        } catch (err) {
+          console.error('[bulk delete] failed for', id, err);
+          failures.push(err.message || 'unknown error');
+        }
       }
       _agSelectedIds.clear();
       _agSelectMode = false;
       document.getElementById('active-games-select-toggle').textContent = 'Select';
       document.getElementById('active-games-bulk-bar')?.classList.add('hidden');
+      if (failures.length) {
+        alert(`${failures.length} of ${ids.length} game(s) could not be deleted: ${failures[0]}`);
+      }
     } else if (rid) {
       await roundDelete(rid);
       try {
