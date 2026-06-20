@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620j';
+} from '../data.js?v=20260620k';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620j';
+} from '../game.js?v=20260620k';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620j';
+} from '../tournament.js?v=20260620k';
 
 // ================================================================
 // PLAYER COLOURS
@@ -519,11 +519,18 @@ document.getElementById('btn-signup')?.addEventListener('click', async () => {
   const btn = document.getElementById('btn-signup');
   btn.disabled = true; btn.textContent = 'Creating…';
   try {
-    await authSignUp(email, pw, fname, lname);
-    setMsg('auth-success', 'Account created! Check your email to confirm, then sign in.');
+    const { hasSession } = await authSignUp(email, pw, fname, lname);
+    if (hasSession) {
+      // Email confirmation is off — signUp already returned an active session,
+      // so the auth state listener will sign the user straight into the app.
+      // No "check your email" message needed since there's no confirmation step.
+      setMsg('auth-success', 'Account created! Signing you in…');
+    } else {
+      setMsg('auth-success', 'Account created! Check your email to confirm, then sign in.');
+      btn.disabled = false; btn.textContent = 'CREATE ACCOUNT →';
+    }
   } catch (err) {
     setMsg('auth-error', err.message || 'Sign up failed.');
-  } finally {
     btn.disabled = false; btn.textContent = 'CREATE ACCOUNT →';
   }
 });
