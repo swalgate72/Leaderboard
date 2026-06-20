@@ -2687,6 +2687,9 @@ function renderGameTopBar() {
   document.getElementById('game-course-name').textContent = gameState.courseName ?? '';
   document.getElementById('game-sub').textContent =
     `${gameState.teeName ?? ''} Tees · ${fmtLabel(gameState.format)}`;
+  const holesPlayed = gameState.log?.length ?? 0;
+  const throughEl = document.getElementById('game-through');
+  if (throughEl) throughEl.textContent = holesPlayed > 0 ? `Through ${holesPlayed}` : '';
   const mini = document.getElementById('game-logo-mini');
   if (mini) mini.innerHTML = PENCIL_SVG_MINI;
 }
@@ -2860,6 +2863,13 @@ function renderHolePanel() {
   const total = gameState.numHoles ?? 18;
 
   if (h >= total) { showEndRound(); return; }
+
+  // Keep "Through N" label in the hero in sync
+  const throughEl = document.getElementById('game-through');
+  if (throughEl) {
+    const holesPlayed = gameState.log?.length ?? 0;
+    throughEl.textContent = holesPlayed > 0 ? `Through ${holesPlayed}` : '';
+  }
 
   const si     = gameState.si[h];
   const par    = gameState.par[h];
@@ -6044,24 +6054,89 @@ async function showTournaments() {
   list.innerHTML = '<div class="history-empty">Loading…</div>';
   try {
     const tournaments = await tournamentsLoad(currentUser.id);
-    if (!tournaments.length) {
-      list.innerHTML = '<div class="history-empty">No tournaments yet -- create one above.</div>';
+    const active = tournaments.filter(t => t.status !== 'completed');
+
+    if (!active.length) {
+      list.innerHTML = '<div class="history-empty">No active tournaments — configure one above.</div>';
       return;
     }
-    list.innerHTML = tournaments.map(t => `
-      <div class="history-item" data-tid="${t.id}" style="cursor:pointer;">
-        <div class="hi-icon">🏆</div>
-        <div class="hi-body">
-          <div class="hi-title">${t.name}</div>
-          <div class="hi-date">${fmtLabel(t.format)} · ${t.num_rounds} rounds · ${t.hcp_mode} HCP</div>
-          <div class="hi-winner" style="color:${t.status === 'completed' ? 'var(--muted)' : 'var(--green)'};">
-            ${t.status === 'completed' ? 'Completed' : 'In Progress'}
-          </div>
-        </div>
-        <div class="hi-arrow">›</div>
-      </div>`).join('');
 
-    list.querySelectorAll('.history-item').forEach(item => {
+    // Load rounds for each active tournament to show courses booked
+    const withRounds = await Promise.all(active.map(async t => {
+      const rounds = await tournamentRoundsLoad(t.id).catch(() => []);
+      return { t, rounds };
+    }));
+
+    list.innerHTML = withRounds.map(({ t, rounds }) => {
+      const courses = rounds.map(r => r.course_name).filter(Boolean);
+      const coursesLabel = courses.length
+        ? courses.join(', ')
+        : 'No rounds booked yet';
+      return `
+        <button class="tourn-list-btn" data-tid="${t.id}">
+          <div class="tourn-list-icon">🏆</div>
+          <div class="tourn-list-body">
+            <div class="tourn-list-name">${t.name}</div>
+            <div class="tourn-list-courses">${coursesLabel}</div>
+          </div>
+          <div class="tourn-list-chevron">›</div>
+        </button>`;
+    }).join('');
+
+    list.querySelectorAll('.tourn-list-btn').forEach(item => {
+      item.addEventListener('click', () => showTournamentDetail(item.dataset.tid));
+    });
+  } catch (err) {
+    list.innerHTML = `<div class="history-empty">${err.message}</div>`;
+  }
+}
+
+document.getElementById('btn-tournament-history')?.addEventListener('click', () => showTournamentHistory());
+document.getElementById('tournament-history-back')?.addEventListener('click', () => showTournaments());
+
+async function showTournamentHistory() {
+  showScreen('screen-tournament-history');
+  const list = document.getElementById('tournament-history-list');
+  list.innerHTML = '<div class="history-empty">Loading…</div>';
+  try {
+    const tournaments = await tournamentsLoad(currentUser.id);
+    const completed = tournaments.filter(t => t.status === 'completed');
+
+    if (!completed.length) {
+      list.innerHTML = '<div class="history-empty">No completed tournaments yet.</div>';
+      return;
+    }
+
+    // Load standings summary for each completed tournament
+    const withStandings = await Promise.all(completed.map(async t => {
+      const [players, rounds, scores] = await Promise.all([
+        tournamentPlayersLoad(t.id).catch(() => []),
+        tournamentRoundsLoad(t.id).catch(() => []),
+        tournamentAllScoresLoad(t.id).catch(() => []),
+      ]);
+      const lastRound = [...rounds].filter(r => r.status === 'completed').pop();
+      const format = lastRound?.format ?? t.format ?? 'stableford';
+      const standings = buildStandings(players, rounds, scores, format, 'cumulative');
+      return { t, standings, rounds };
+    }));
+
+    list.innerHTML = withStandings.map(({ t, standings, rounds }) => {
+      const winner = standings[0]?.name ?? '--';
+      const winnerScore = standings[0]?.total ?? '--';
+      const courses = [...new Set(rounds.map(r => r.course_name).filter(Boolean))];
+      return `
+        <button class="tourn-list-btn" data-tid="${t.id}">
+          <div class="tourn-list-icon">🏅</div>
+          <div class="tourn-list-body">
+            <div class="tourn-list-name">${t.name}</div>
+            <div class="tourn-list-courses">${courses.join(', ') || '--'}</div>
+            <div class="tourn-list-winner">🥇 ${winner} — ${winnerScore}</div>
+          </div>
+          <div class="tourn-list-chevron">›</div>
+        </button>`;
+    }).join('');
+
+    list.querySelectorAll('.tourn-list-btn').forEach(item => {
       item.addEventListener('click', () => showTournamentDetail(item.dataset.tid));
     });
   } catch (err) {
