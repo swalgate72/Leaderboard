@@ -22,7 +22,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620e';
+} from '../data.js?v=20260620f';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -33,13 +33,14 @@ import {
   greensomesPairHandicap, foursomedPairHandicap,
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
-} from '../game.js?v=20260620e';
+  gpsDistanceYards, buildSideCompResults,
+} from '../game.js?v=20260620f';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620e';
+} from '../tournament.js?v=20260620f';
 
 // ================================================================
 // PLAYER COLOURS
@@ -73,6 +74,12 @@ const setup = {
   pairs:           [],
   tournamentId:       null, // set when starting a tournament round
   tournRoundNumber:   null,
+  ldEnabled:   false,
+  ldCount:     1,
+  ldHoles:     [],   // selected hole numbers (1-18)
+  ntpEnabled:  false,
+  ntpCount:    1,
+  ntpHoles:    [],
 };
 
 let roundId    = null;
@@ -876,11 +883,113 @@ function startSetup() {
     }
     if (texasCard) texasCard._wired = true;
   }
+
+  // Reset LD/NTP state for a fresh setup
+  setup.ldEnabled = false; setup.ldCount = 1; setup.ldHoles = [];
+  setup.ntpEnabled = false; setup.ntpCount = 1; setup.ntpHoles = [];
+  document.getElementById('ld-enabled').checked = false;
+  document.getElementById('ntp-enabled').checked = false;
+  document.getElementById('ld-config')?.classList.add('hidden');
+  document.getElementById('ntp-config')?.classList.add('hidden');
+  setHoleCountBtns('ld', 1);
+  setHoleCountBtns('ntp', 1);
+  wireLdNtpToggles();
+
   populateCourseSelect();
   populateNumPlayerSelect();
   populateNumGroupSelect();
   document.getElementById('setup-hcp-pct').value = 100;
   showScreen('screen-setup-course');
+}
+
+// ── Longest Drive / Nearest the Pin setup wiring ───────────────────
+function setHoleCountBtns(kind, count) {
+  setup[`${kind}Count`] = count;
+  [1, 2].forEach(n => {
+    document.getElementById(`${kind}-count-${n}`)?.classList.toggle('active', n === count);
+  });
+  // Trim any over-selected holes if count was reduced
+  if (setup[`${kind}Holes`].length > count) {
+    setup[`${kind}Holes`] = setup[`${kind}Holes`].slice(0, count);
+  }
+  renderLdNtpGrid(kind);
+  updateLdNtpHint(kind);
+}
+
+function updateLdNtpHint(kind) {
+  const count    = setup[`${kind}Count`];
+  const selected = setup[`${kind}Holes`].length;
+  const hintEl   = document.getElementById(`${kind}-hint`);
+  if (!hintEl) return;
+  const unit = kind === 'ntp' ? ' · measured in cm' : '';
+  hintEl.textContent = selected >= count
+    ? `${selected} of ${count} hole${count > 1 ? 's' : ''} selected${unit}`
+    : `Choose ${count} hole${count > 1 ? 's' : ''}${unit}`;
+}
+
+function renderLdNtpGrid(kind) {
+  const grid = document.getElementById(`${kind}-hole-grid`);
+  if (!grid) return;
+  const course = allCourses.find(c => c.id === setup.courseId);
+  const tee    = course?.tees?.[setup.teeIdx];
+  if (!tee) { grid.innerHTML = '<div class="hint">Select a course and tee first</div>'; return; }
+
+  const { offset, count } = holeRange(setup.holes);
+  const parSlice = tee.par.slice(offset, offset + count);
+  // par 3s excluded from LD (need a real tee shot), par 3s ONLY for NTP (no fairway approach)
+  const isEligible = (par) => kind === 'ld' ? par !== 3 : par === 3;
+
+  grid.innerHTML = parSlice.map((par, i) => {
+    const holeNum  = offset + i + 1;
+    const eligible = isEligible(par);
+    const selected = setup[`${kind}Holes`].includes(holeNum);
+    return `<div class="ld-ntp-hole-btn${eligible ? '' : ' disabled'}${selected ? ' selected' : ''}"
+              data-hole="${holeNum}" data-kind="${kind}">
+              <span class="h-num">${holeNum}</span>
+              <span class="h-par">Par ${par}</span>
+            </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.ld-ntp-hole-btn:not(.disabled)').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const holeNum = parseInt(btn.dataset.hole, 10);
+      const holes   = setup[`${kind}Holes`];
+      const idx     = holes.indexOf(holeNum);
+      if (idx >= 0) {
+        holes.splice(idx, 1);
+      } else {
+        if (holes.length >= setup[`${kind}Count`]) holes.shift(); // bump oldest if at cap
+        holes.push(holeNum);
+      }
+      renderLdNtpGrid(kind);
+      updateLdNtpHint(kind);
+    });
+  });
+}
+
+function wireLdNtpToggles() {
+  const ldToggle  = document.getElementById('ld-enabled');
+  const ntpToggle = document.getElementById('ntp-enabled');
+  if (ldToggle && !ldToggle._wired) {
+    ldToggle.addEventListener('change', () => {
+      setup.ldEnabled = ldToggle.checked;
+      document.getElementById('ld-config')?.classList.toggle('hidden', !ldToggle.checked);
+      if (ldToggle.checked) renderLdNtpGrid('ld');
+    });
+    ldToggle._wired = true;
+  }
+  if (ntpToggle && !ntpToggle._wired) {
+    ntpToggle.addEventListener('change', () => {
+      setup.ntpEnabled = ntpToggle.checked;
+      document.getElementById('ntp-config')?.classList.toggle('hidden', !ntpToggle.checked);
+      if (ntpToggle.checked) renderLdNtpGrid('ntp');
+    });
+    ntpToggle._wired = true;
+  }
+  document.getElementById('ld-count-1')?.addEventListener('click', () => setHoleCountBtns('ld', 1));
+  document.getElementById('ld-count-2')?.addEventListener('click', () => setHoleCountBtns('ld', 2));
+  document.getElementById('ntp-count-1')?.addEventListener('click', () => setHoleCountBtns('ntp', 1));
+  document.getElementById('ntp-count-2')?.addEventListener('click', () => setHoleCountBtns('ntp', 2));
 }
 
 function populateCourseSelect() {
@@ -923,11 +1032,17 @@ function onCourseSelectChange() {
   renderSIPreview(course, setup.teeIdx);
 }
 
-document.getElementById('setup-course-select')?.addEventListener('change', onCourseSelectChange);
+document.getElementById('setup-course-select')?.addEventListener('change', () => {
+  onCourseSelectChange();
+  if (setup.ldEnabled)  renderLdNtpGrid('ld');
+  if (setup.ntpEnabled) renderLdNtpGrid('ntp');
+});
 document.getElementById('setup-tee-select')?.addEventListener('change', e => {
   setup.teeIdx = parseInt(e.target.value, 10);
   const course = allCourses.find(c => c.id === setup.courseId);
   if (course) renderSIPreview(course, setup.teeIdx);
+  if (setup.ldEnabled)  renderLdNtpGrid('ld');
+  if (setup.ntpEnabled) renderLdNtpGrid('ntp');
 });
 
 function renderSIPreview(course, teeIdx) {
@@ -947,13 +1062,16 @@ function renderSIPreview(course, teeIdx) {
   show('setup-si-preview');
 }
 
-document.querySelectorAll('.holes-btn').forEach(btn => {
+document.querySelectorAll('[data-holes]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.holes-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('[data-holes]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     setup.holes = btn.dataset.holes === '18' ? 18 : btn.dataset.holes;
     const course = allCourses.find(c => c.id === setup.courseId);
     if (course) renderSIPreview(course, setup.teeIdx);
+    // Hole numbers and par-3 eligibility shift with front9/back9 — re-render and clear stale selections
+    if (setup.ldEnabled)  { setup.ldHoles  = []; renderLdNtpGrid('ld');  updateLdNtpHint('ld'); }
+    if (setup.ntpEnabled) { setup.ntpHoles = []; renderLdNtpGrid('ntp'); updateLdNtpHint('ntp'); }
   });
 });
 
@@ -2536,6 +2654,8 @@ async function teeOff() {
       teeName:         tee.name,
       groupNumber:     g + 1,
       totalGroups:     setup.numGroups,
+      longestDriveHoles: setup.ldEnabled  ? setup.ldHoles  : [],
+      nearestPinHoles:   setup.ntpEnabled ? setup.ntpHoles : [],
     });
 
     // Texas Scramble: compute and store team handicap and options
@@ -2912,8 +3032,17 @@ function renderHolePanel() {
   const fmt    = gameState.format;
 
   document.getElementById('game-hole-num').textContent = dispH;
+
+  const isLdHole  = (gameState.longestDriveHoles ?? []).includes(dispH);
+  const isNtpHole = (gameState.nearestPinHoles   ?? []).includes(dispH);
+  const badgeHtml = isLdHole
+    ? `<span class="ld-ntp-badge ld-badge">🏌️ Longest Drive</span>`
+    : isNtpHole
+      ? `<span class="ld-ntp-badge ntp-badge">🎯 Nearest the Pin</span>`
+      : '';
+
   document.getElementById('game-hole-si').innerHTML =
-    `<span class="si-big">SI ${si} · Par ${par}</span>`;
+    `<span class="si-big">SI ${si} · Par ${par}</span>${badgeHtml ? `<div style="margin-top:0.4rem;">${badgeHtml}</div>` : ''}`;
 
   const backBtn = document.getElementById('btn-back-hole');
   if (backBtn) backBtn.disabled = h === 0;
@@ -3192,6 +3321,11 @@ function renderHolePanel() {
     inputsEl.appendChild(driverWrap);
   }
 
+  // ── Longest Drive / Nearest the Pin marking card ──────────────────
+  if ((isLdHole || isNtpHole) && userIsScorer) {
+    inputsEl.appendChild(buildLdNtpCard(dispH, isLdHole ? 'ld' : 'ntp'));
+  }
+
   // Wire permanent Change Scorer button
   const passBtn = document.getElementById('btn-pass-scorer');
   if (passBtn) {
@@ -3206,6 +3340,190 @@ function renderHolePanel() {
     };
   }
 }
+
+// ────────────────────────────────────────────────────────────────
+// LONGEST DRIVE / NEAREST THE PIN — marking UI
+// ────────────────────────────────────────────────────────────────
+
+function buildLdNtpCard(holeNum, kind) {
+  const resultsKey = kind === 'ld' ? 'ldResults' : 'ntpResults';
+  const existing   = gameState[resultsKey]?.[holeNum];
+  const card = document.createElement('div');
+  card.style.cssText = `margin-top:0.85rem;padding:0.85rem;border-radius:var(--radius-sm);
+    background:${kind === 'ld' ? 'rgba(212,168,67,0.08)' : 'rgba(91,163,217,0.08)'};
+    border:1.5px solid ${kind === 'ld' ? 'var(--gold-border)' : 'var(--blue-border)'};`;
+
+  const title = kind === 'ld' ? '🏌️ Mark Longest Drive' : '🎯 Mark Nearest the Pin';
+
+  if (existing) {
+    const valueLabel = kind === 'ld' ? `${existing.yards} yds` : `${existing.cm} cm`;
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${title}</div>
+          <div style="font-size:0.9rem;font-weight:700;color:var(--muted2);margin-top:2px;">
+            ${existing.playerName} — <span style="color:${kind === 'ld' ? 'var(--gold)' : 'var(--blue)'};font-weight:800;">${valueLabel}</span>
+          </div>
+        </div>
+        <button class="btn btn-outline ld-ntp-remark" style="padding:0.5rem 0.9rem;font-size:0.85rem;">Re-mark</button>
+      </div>`;
+    card.querySelector('.ld-ntp-remark')?.addEventListener('click', () => openLdNtpMarkModal(holeNum, kind));
+  } else {
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${title}</div>
+        <button class="btn btn-green ld-ntp-mark" style="padding:0.55rem 1rem;font-size:0.9rem;font-weight:800;">Mark</button>
+      </div>`;
+    card.querySelector('.ld-ntp-mark')?.addEventListener('click', () => openLdNtpMarkModal(holeNum, kind));
+  }
+  return card;
+}
+
+function openLdNtpMarkModal(holeNum, kind) {
+  const modal = document.getElementById('modal-ld-ntp-mark');
+  if (!modal) return;
+  modal.dataset.holeNum = holeNum;
+  modal.dataset.kind = kind;
+
+  document.getElementById('ld-ntp-modal-title').textContent =
+    kind === 'ld' ? '🏌️ Mark Longest Drive' : '🎯 Mark Nearest the Pin';
+
+  const playerWrap = document.getElementById('ld-ntp-player-list');
+  playerWrap.innerHTML = gameState.names.map((name, pi) => `
+    <button class="ld-ntp-player-btn" data-pi="${pi}"
+      style="display:flex;align-items:center;gap:8px;width:100%;padding:0.65rem 0.85rem;
+             background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);
+             margin-bottom:0.4rem;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.05rem;
+             text-align:left;">
+      <span class="dot" style="background:${pHex(pi)};"></span>${name}
+    </button>`).join('');
+
+  document.getElementById('ld-ntp-value-section').classList.add('hidden');
+  document.getElementById('ld-ntp-gps-section').classList.add('hidden');
+  modal.dataset.selectedPi = '';
+
+  playerWrap.querySelectorAll('.ld-ntp-player-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      playerWrap.querySelectorAll('.ld-ntp-player-btn').forEach(b => {
+        b.style.borderColor = 'var(--border)'; b.style.background = 'var(--surface2)';
+      });
+      btn.style.borderColor = 'var(--gold-border)'; btn.style.background = 'rgba(212,168,67,0.1)';
+      modal.dataset.selectedPi = btn.dataset.pi;
+      if (kind === 'ntp') {
+        document.getElementById('ld-ntp-value-section').classList.remove('hidden');
+        document.getElementById('ld-ntp-cm-input').value = '';
+        document.getElementById('ld-ntp-cm-input').focus();
+      } else {
+        document.getElementById('ld-ntp-gps-section').classList.remove('hidden');
+        resetLdGpsCapture();
+      }
+    });
+  });
+
+  modal.classList.add('open');
+}
+
+document.getElementById('ld-ntp-modal-close')?.addEventListener('click', () => {
+  if (_ldWatchId != null) { navigator.geolocation?.clearWatch(_ldWatchId); _ldWatchId = null; }
+  document.getElementById('modal-ld-ntp-mark')?.classList.remove('open');
+});
+
+// ── NTP: manual cm entry ───────────────────────────────────────────
+document.getElementById('ld-ntp-cm-save')?.addEventListener('click', async () => {
+  const modal = document.getElementById('modal-ld-ntp-mark');
+  const pi    = parseInt(modal.dataset.selectedPi, 10);
+  const cm    = parseInt(document.getElementById('ld-ntp-cm-input').value, 10);
+  if (isNaN(pi)) { alert('Select a player first.'); return; }
+  if (isNaN(cm) || cm < 0) { alert('Enter a valid distance in cm.'); return; }
+
+  const holeNum = parseInt(modal.dataset.holeNum, 10);
+  gameState.ntpResults = gameState.ntpResults ?? {};
+  gameState.ntpResults[holeNum] = {
+    playerIdx: pi, playerName: gameState.names[pi], cm,
+    markedBy: currentUser?.id ?? null, ts: new Date().toISOString(),
+  };
+  if (gameState.allGroupStates?.length > 1) {
+    const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === gameState.groupNumber);
+    if (idx >= 0) gameState.allGroupStates[idx].ntpResults = gameState.ntpResults;
+  }
+  await saveRoundState();
+  modal.classList.remove('open');
+  renderHolePanel();
+});
+
+// ── LD: GPS capture (tee position, then ball position) ─────────────
+let _ldTeePos = null, _ldWatchId = null;
+
+function resetLdGpsCapture() {
+  _ldTeePos = null;
+  if (_ldWatchId != null) { navigator.geolocation?.clearWatch(_ldWatchId); _ldWatchId = null; }
+  const statusEl = document.getElementById('ld-ntp-gps-status');
+  if (statusEl) statusEl.textContent = '';
+  document.getElementById('ld-ntp-gps-step1')?.classList.remove('hidden');
+  document.getElementById('ld-ntp-gps-step2')?.classList.add('hidden');
+  document.getElementById('ld-ntp-gps-result')?.classList.add('hidden');
+}
+
+function captureGpsPosition(onAccurate, statusElId) {
+  const statusEl = document.getElementById(statusElId);
+  if (!navigator.geolocation) {
+    if (statusEl) statusEl.textContent = 'GPS not available on this device.';
+    return null;
+  }
+  if (statusEl) statusEl.textContent = '📍 Locating… hold still';
+  const watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const acc = pos.coords.accuracy;
+      if (statusEl) statusEl.textContent = `Accuracy: ${Math.round(acc)}m${acc <= 10 ? ' ✓' : ' — waiting for better signal…'}`;
+      if (acc <= 10) {
+        navigator.geolocation.clearWatch(watchId);
+        onAccurate({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: acc });
+      }
+    },
+    (err) => { if (statusEl) statusEl.textContent = 'Could not get GPS position: ' + err.message; },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+  );
+  return watchId;
+}
+
+document.getElementById('ld-ntp-gps-mark-tee')?.addEventListener('click', () => {
+  _ldWatchId = captureGpsPosition((pos) => {
+    _ldTeePos = pos;
+    document.getElementById('ld-ntp-gps-step1').classList.add('hidden');
+    document.getElementById('ld-ntp-gps-step2').classList.remove('hidden');
+  }, 'ld-ntp-gps-status');
+});
+
+document.getElementById('ld-ntp-gps-mark-ball')?.addEventListener('click', () => {
+  _ldWatchId = captureGpsPosition(async (pos) => {
+    if (!_ldTeePos) return;
+    const yards = gpsDistanceYards(_ldTeePos.lat, _ldTeePos.lng, pos.lat, pos.lng);
+
+    const modal   = document.getElementById('modal-ld-ntp-mark');
+    const pi      = parseInt(modal.dataset.selectedPi, 10);
+    const holeNum = parseInt(modal.dataset.holeNum, 10);
+
+    gameState.ldResults = gameState.ldResults ?? {};
+    gameState.ldResults[holeNum] = {
+      playerIdx: pi, playerName: gameState.names[pi], yards,
+      lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy,
+      markedBy: currentUser?.id ?? null, ts: new Date().toISOString(),
+    };
+    if (gameState.allGroupStates?.length > 1) {
+      const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === gameState.groupNumber);
+      if (idx >= 0) gameState.allGroupStates[idx].ldResults = gameState.ldResults;
+    }
+    await saveRoundState();
+
+    document.getElementById('ld-ntp-gps-step2').classList.add('hidden');
+    document.getElementById('ld-ntp-gps-result').classList.remove('hidden');
+    document.getElementById('ld-ntp-gps-result-text').textContent = `${yards} yards`;
+    setTimeout(() => {
+      modal.classList.remove('open');
+      renderHolePanel();
+    }, 1200);
+  }, 'ld-ntp-gps-status');
+});
 
 function makePlayerInputRow(pi, h, par) {
   const fmt     = gameState.format;
@@ -3548,6 +3866,55 @@ function showLeaderboard() {
   });
 }
 
+function renderLdNtpLeaderboardCard() {
+  const container = document.getElementById('leaderboard-ld-ntp');
+  if (!container) return;
+
+  const states = gameState.allGroupStates?.length ? gameState.allGroupStates : [gameState];
+  const ldData  = buildSideCompResults(states, 'ld');
+  const ntpData = buildSideCompResults(states, 'ntp');
+
+  if (!ldData.holes.length && !ntpData.holes.length) { container.innerHTML = ''; return; }
+
+  const rowsFor = (data, kind) => data.holes.map(holeNum => {
+    const r = data.byHole[holeNum];
+    const label = kind === 'ld' ? '🏌️' : '🎯';
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:0.55rem 0.85rem;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:1.1rem;">${label}</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:0.95rem;color:var(--muted2);">
+            Hole ${holeNum}
+          </span>
+        </div>
+        ${r
+          ? `<div style="text-align:right;">
+              <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.05rem;">${r.playerName}</span>
+              <span style="color:${kind === 'ld' ? 'var(--gold)' : 'var(--blue)'};font-weight:800;margin-left:6px;">
+                ${kind === 'ld' ? `${r.yards} yds` : `${r.cm} cm`}
+              </span>
+            </div>`
+          : `<span style="color:var(--muted);font-size:0.85rem;">Not yet marked</span>`}
+      </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+                margin-bottom:1rem;overflow:hidden;">
+      ${ldData.holes.length ? `
+        <div style="padding:0.5rem 0.85rem;background:rgba(212,168,67,0.08);
+                    font-size:0.75rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);">
+          Longest Drive
+        </div>${rowsFor(ldData, 'ld')}` : ''}
+      ${ntpData.holes.length ? `
+        <div style="padding:0.5rem 0.85rem;background:rgba(91,163,217,0.08);
+                    font-size:0.75rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--blue);">
+          Nearest the Pin
+        </div>${rowsFor(ntpData, 'ntp')}` : ''}
+    </div>`;
+}
+
 function renderLeaderboard() {
   const fmt       = gameState.format;
   const isTourney = !!gameState.tournamentId;
@@ -3577,6 +3944,8 @@ function renderLeaderboard() {
     : 'Pts'; // stableford, split6, best2
 
   metaEl.textContent = `${gameState.courseName} · ${gameState.teeName} · ${fmtLabel(fmt)}`.toUpperCase();
+
+  renderLdNtpLeaderboardCard();
 
   // ── ROUND LEADERBOARD: team rows for team/pairs formats ───────────
   // Applies whether or not this is a tournament — a team/pairs format always
@@ -4014,9 +4383,14 @@ function buildVerticalScorecard(state, mode) {
       return `<td class="sc-score-cell">${inner}</td>`;
     }).join('');
 
+    const holeDisp1 = h + 1 + (state.holeOffset ?? 0);
+    const isLdRow  = (state.longestDriveHoles ?? []).includes(holeDisp1);
+    const isNtpRow = (state.nearestPinHoles   ?? []).includes(holeDisp1);
+    const ldNtpIcon = isLdRow ? ' 🏌️' : isNtpRow ? ' 🎯' : '';
+
     bodyRows += `
       <tr class="${isCurrent ? 'sc-row-current' : ''}">
-        <td><span class="sc-hole-cell">${h + 1}</span> &nbsp; <span class="sc-meta-cell">(Par ${par[h] ?? '-'} · SI ${si[h] ?? '-'})</span></td>
+        <td><span class="sc-hole-cell">${h + 1}</span>${ldNtpIcon} &nbsp; <span class="sc-meta-cell">(Par ${par[h] ?? '-'} · SI ${si[h] ?? '-'})</span></td>
         ${cells}
       </tr>`;
 
@@ -6867,6 +7241,8 @@ async function _teeOffRound(tournId, courseId, teeName, date) {
         courseName: course.name, teeName,
         groupNumber:  tg.groupNumber,
         totalGroups:  tournGroups.length,
+        longestDriveHoles: setup.ldEnabled  ? setup.ldHoles  : [],
+        nearestPinHoles:   setup.ntpEnabled ? setup.ntpHoles : [],
       });
 
       // Texas Scramble: compute team handicap
@@ -8116,7 +8492,12 @@ document.getElementById('btn-hole-edit-confirm')?.addEventListener('click', asyn
     tournamentId:    gameState.tournamentId,
     tournamentRoundId: gameState.tournamentRoundId,
     groupNumber:     gameState.groupNumber,
+    longestDriveHoles: gameState.longestDriveHoles ?? [],
+    nearestPinHoles:   gameState.nearestPinHoles   ?? [],
   });
+  // Rebuild wipes results since they're independent of score replay — restore them
+  rebuiltState.ldResults  = gameState.ldResults  ?? {};
+  rebuiltState.ntpResults = gameState.ntpResults ?? {};
 
   // Replay holes 0..holeIdx-1 with original scores
   for (let i = 0; i < holeIdx; i++) {
