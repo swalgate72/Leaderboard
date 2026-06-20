@@ -546,6 +546,17 @@ export async function smsInviteCreate({ roundId, roundPlayerId, inviterId, name,
   return data; // { id, token }
 }
 
+export async function smsInviteDelete(inviteId) {
+  const { error } = await sb.from('sms_invites').delete().eq('id', inviteId);
+  if (error) throw error;
+}
+
+export async function smsInvitesDeleteMany(inviteIds) {
+  if (!inviteIds?.length) return;
+  const { error } = await sb.from('sms_invites').delete().in('id', inviteIds);
+  if (error) throw error;
+}
+
 export async function gameInvitesPollPending(userId, since) {
   const { data, error } = await sb
     .from('sms_invites')
@@ -578,6 +589,27 @@ export async function gameInvitesLoadHistory(userId, limit = 30) {
     .or(`inviter_id.eq.${userId},recipient_profile_id.eq.${userId}`)
     .order('created_at', { ascending: false })
     .limit(limit);
+  if (error) throw error;
+  return data ?? [];
+}
+
+// All invites sent for a specific round (used by the organiser's "Resend" screen
+// to work out who has and hasn't received/accepted an invite yet).
+export async function invitesForRoundLoad(roundId) {
+  const { data, error } = await sb
+    .from('sms_invites')
+    .select('*')
+    .eq('round_id', roundId);
+  if (error) throw error;
+  return data ?? [];
+}
+
+// All invites sent for a specific tournament round.
+export async function invitesForTournamentRoundLoad(tournamentRoundId) {
+  const { data, error } = await sb
+    .from('sms_invites')
+    .select('*')
+    .eq('tournament_round_id', tournamentRoundId);
   if (error) throw error;
   return data ?? [];
 }

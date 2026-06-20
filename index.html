@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260620g">
+  <link rel="stylesheet" href="styles.css?v=20260620h">
 </head>
 <body>
 
@@ -694,6 +694,14 @@
       </button>
     </div>
 
+    <!-- Row 2b: Resend Invites — organiser only, shown via JS -->
+    <button class="btn btn-outline hidden" id="btn-resend-invites"
+      style="width:100%;padding:0.55rem;font-size:0.9rem;font-weight:800;
+             font-family:'Barlow Condensed',sans-serif;margin-bottom:0.4rem;
+             border-color:var(--gold-border);color:var(--gold);">
+      📩 Resend Invites
+    </button>
+
     <!-- Row 3: Full-width pencil logo -->
     <div id="game-logo-mini"
       style="width:100%;display:flex;align-items:center;justify-content:center;
@@ -1318,7 +1326,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260620g"></script>
+<script type="module" src="js/app.js?v=20260620h"></script>
 
 
 <!-- ══════════════════════════════════════════
@@ -1535,6 +1543,8 @@
       <div style="display:grid;gap:0.5rem;">
         <button class="btn btn-green" id="btn-start-next-round"
           style="padding:1rem;font-size:1.1rem;font-weight:800;">⛳ START ROUND 1 →</button>
+        <button class="btn btn-outline hidden" id="btn-td-resend-invites"
+          style="border-color:var(--gold-border);color:var(--gold);">📩 Resend Invites</button>
         <button class="btn btn-outline" id="btn-td-co-organiser">👤 Add Co-organiser</button>
         <button class="btn btn-outline" id="btn-share-tournament">🔗 Share Tournament Link</button>
         <button class="btn btn-outline" id="btn-finish-tournament"
@@ -1570,7 +1580,20 @@
   <div class="modal-box" style="max-width:420px;">
     <div class="modal-header">
       <div class="modal-title">⛳ Active Games</div>
-      <button class="btn-close" id="modal-active-games-close">✕</button>
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <button class="btn btn-ghost" id="active-games-select-toggle"
+          style="font-size:0.85rem;font-weight:800;padding:0.3rem 0.6rem;color:var(--muted2);">Select</button>
+        <button class="btn-close" id="modal-active-games-close">✕</button>
+      </div>
+    </div>
+    <div id="active-games-bulk-bar" class="hidden"
+      style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;
+             padding:0.5rem 1rem;background:var(--surface2);border-bottom:1px solid var(--border);">
+      <button class="btn btn-ghost" id="active-games-select-all"
+        style="font-size:0.8rem;font-weight:800;padding:0.25rem 0.5rem;color:var(--muted2);">Select All</button>
+      <span id="active-games-selected-count" style="font-size:0.8rem;color:var(--muted);"></span>
+      <button class="btn btn-danger" id="active-games-delete-selected"
+        style="font-size:0.85rem;font-weight:800;padding:0.4rem 0.8rem;" disabled>Delete Selected</button>
     </div>
     <div id="active-games-list" style="padding:0.5rem 0;"></div>
   </div>
@@ -1647,12 +1670,37 @@
   </div>
 </div>
 
+<!-- ══ RESEND INVITES MODAL ══ -->
+<div class="modal-overlay" id="modal-resend-invites">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">📩 Resend Invites</div>
+      <button class="btn-close" id="modal-resend-invites-close">✕</button>
+    </div>
+    <div class="hint mb-sm">Tap a player to resend their invite.</div>
+    <div id="resend-invites-list" style="padding:0.5rem 0;"></div>
+  </div>
+</div>
+
 <!-- ══ GAME INVITES HISTORY MODAL ══ -->
 <div class="modal-overlay" id="modal-game-invites">
   <div class="modal-box" style="max-width:420px;">
     <div class="modal-header">
       <div class="modal-title">📩 Game Invites</div>
-      <button class="btn-close" id="modal-game-invites-close">✕</button>
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <button class="btn btn-ghost" id="game-invites-select-toggle"
+          style="font-size:0.85rem;font-weight:800;padding:0.3rem 0.6rem;color:var(--muted2);">Select</button>
+        <button class="btn-close" id="modal-game-invites-close">✕</button>
+      </div>
+    </div>
+    <div id="game-invites-bulk-bar" class="hidden"
+      style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;
+             padding:0.5rem 1rem;background:var(--surface2);border-bottom:1px solid var(--border);">
+      <button class="btn btn-ghost" id="game-invites-select-all"
+        style="font-size:0.8rem;font-weight:800;padding:0.25rem 0.5rem;color:var(--muted2);">Select All</button>
+      <span id="game-invites-selected-count" style="font-size:0.8rem;color:var(--muted);"></span>
+      <button class="btn btn-danger" id="game-invites-delete-selected"
+        style="font-size:0.85rem;font-weight:800;padding:0.4rem 0.8rem;" disabled>Delete Selected</button>
     </div>
     <div id="game-invites-list" style="padding:0.5rem 0;"></div>
   </div>
