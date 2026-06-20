@@ -40,7 +40,11 @@ export async function authSignUp(email, password, firstName, lastName) {
     options: { data: { first_name: firstName, last_name: lastName } },
   });
   if (error) throw error;
-  return data.user;
+  // When email confirmation is OFF in Supabase, signUp returns an active
+  // session immediately (no confirmation email step needed). When it's ON,
+  // only a user comes back and a session is created later, after the user
+  // clicks the confirmation link. Callers need to know which case this is.
+  return { user: data.user, hasSession: !!data.session };
 }
 
 export async function authSignOut() {
