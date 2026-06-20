@@ -269,7 +269,8 @@ a { color: inherit; text-decoration: none; }
 
 html.light .field > label { color: var(--muted); }
 
-input, select, textarea {
+input:not([type="checkbox"]):not([type="radio"]),
+select, textarea {
   background: rgba(255,255,255,0.05);
   border: 1px solid var(--border2);
   border-radius: var(--radius-sm);
@@ -284,6 +285,12 @@ input, select, textarea {
   appearance: none;
 }
 
+input[type="checkbox"], input[type="radio"] {
+  width: auto;
+  -webkit-appearance: checkbox;
+  appearance: checkbox;
+}
+
 input:focus, select:focus, textarea:focus {
   border-color: var(--gold);
 }
@@ -292,7 +299,7 @@ input::placeholder, textarea::placeholder {
   color: rgba(255,255,255,0.2);
 }
 
-html.light input,
+html.light input:not([type="checkbox"]):not([type="radio"]),
 html.light select,
 html.light textarea {
   background: rgba(0,0,0,0.04);
