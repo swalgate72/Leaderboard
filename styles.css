@@ -2326,3 +2326,57 @@ html.light .bottom-nav-btn.active {
   height: 100vh;
   overflow: hidden;
 }
+
+/* ── Tournament list buttons (active + history) ──────────────────── */
+.tourn-list-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  text-align: left;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.tourn-list-btn:active { background: var(--surface3, rgba(255,255,255,0.06)); }
+
+.tourn-list-icon {
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+
+.tourn-list-body { flex: 1; min-width: 0; }
+
+.tourn-list-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: var(--white);
+  line-height: 1.15;
+}
+
+.tourn-list-courses {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted2);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tourn-list-winner {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gold);
+  margin-top: 3px;
+}
+
+.tourn-list-chevron {
+  font-size: 1.4rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}

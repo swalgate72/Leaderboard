@@ -536,10 +536,15 @@
       <span>Saving</span>
     </div>
 
-    <!-- Course + tee/format -->
-    <div id="game-course-name"
-      style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.35rem;
-             line-height:1;letter-spacing:0.02em;margin-bottom:0.15rem;"></div>
+    <!-- Course name + Through N on same line -->
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:0.5rem;margin-bottom:0.15rem;">
+      <div id="game-course-name"
+        style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.35rem;
+               line-height:1;letter-spacing:0.02em;"></div>
+      <div id="game-through"
+        style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.35rem;
+               line-height:1;letter-spacing:0.02em;color:rgba(255,255,255,0.85);flex-shrink:0;"></div>
+    </div>
     <div id="game-sub"
       style="font-size:0.78rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;
              color:rgba(255,255,255,0.65);margin-bottom:0.75rem;"></div>
@@ -1269,13 +1274,56 @@
      TOURNAMENT LIST SCREEN
      ══════════════════════════════════════════ -->
 <div id="screen-tournaments" class="screen">
-  <div class="sticky-header">
-    <button class="btn btn-ghost" id="tournaments-back">← Back</button>
-    <h2>Tournaments</h2>
-    <button class="btn btn-ghost" id="btn-new-tournament" style="color:var(--gold);">+ New</button>
+  <div style="padding:0 0 2rem;max-width:520px;margin:0 auto;">
+
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="tournaments-back"
+          style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+      </div>
+      <div class="home-hero-title">Tournaments</div>
+    </div>
+
+    <div class="page-pad-sm" style="padding-top:1rem;">
+
+      <!-- Big configure new tournament button -->
+      <button class="btn btn-green" id="btn-new-tournament"
+        style="width:100%;padding:1.1rem;font-size:1.25rem;font-weight:800;
+               font-family:'Barlow Condensed',sans-serif;letter-spacing:0.03em;margin-bottom:1.25rem;">
+        🏆 Configure New Tournament
+      </button>
+
+      <!-- Active tournaments list -->
+      <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
+                  color:var(--gold);margin-bottom:0.6rem;">Active Tournaments</div>
+      <div id="tournaments-list" style="display:grid;gap:0.6rem;margin-bottom:1.5rem;"></div>
+
+      <!-- Tournament history -->
+      <button class="btn btn-outline" id="btn-tournament-history"
+        style="width:100%;padding:0.9rem;font-size:1.05rem;font-weight:800;
+               font-family:'Barlow Condensed',sans-serif;letter-spacing:0.03em;">
+        📜 Tournament History
+      </button>
+
+    </div>
   </div>
-  <div style="padding:1rem;max-width:520px;margin:0 auto;">
-    <div id="tournaments-list"></div>
+</div>
+
+<!-- ══ TOURNAMENT HISTORY ══ -->
+<div id="screen-tournament-history" class="screen">
+  <div style="padding:0 0 2rem;max-width:520px;margin:0 auto;">
+
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="tournament-history-back"
+          style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+      </div>
+      <div class="home-hero-title">Tournament History</div>
+    </div>
+
+    <div class="page-pad-sm" style="padding-top:1rem;">
+      <div id="tournament-history-list" style="display:grid;gap:0.6rem;"></div>
+    </div>
   </div>
 </div>
 
