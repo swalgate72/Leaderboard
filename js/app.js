@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620h';
+} from '../data.js?v=20260620i';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620h';
+} from '../game.js?v=20260620i';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620h';
+} from '../tournament.js?v=20260620i';
 
 // ================================================================
 // PLAYER COLOURS
@@ -5152,13 +5152,18 @@ document.getElementById('game-invites-select-all')?.addEventListener('click', ()
 
 document.getElementById('game-invites-delete-selected')?.addEventListener('click', async () => {
   if (!_giSelectedIds.size) return;
-  if (!confirm(`Delete ${_giSelectedIds.size} invite${_giSelectedIds.size > 1 ? 's' : ''} from your history? This won't affect anyone who already joined.`)) return;
+  const count = _giSelectedIds.size;
+  if (!confirm(`Delete ${count} invite${count > 1 ? 's' : ''} from your history? This won't affect anyone who already joined.`)) return;
+  const btn = document.getElementById('game-invites-delete-selected');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
   try {
     await smsInvitesDeleteMany([..._giSelectedIds]);
+    _giSelectedIds.clear();
   } catch (err) {
     alert('Could not delete invites: ' + (err.message || 'unknown error'));
+  } finally {
+    if (btn) btn.textContent = 'Delete Selected';
   }
-  _giSelectedIds.clear();
   await renderGameInvitesList();
 });
 
