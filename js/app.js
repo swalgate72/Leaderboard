@@ -656,17 +656,10 @@ async function loadHomeStatsAndActive(myName) {
     }
 
     actives.forEach(r => {
-      rows.push(`
-        <div class="home-active-row" data-kind="round" data-id="${r.id}">
-          <div class="home-active-icon">⛳</div>
-          <div class="home-active-body">
-            <div class="home-active-title">Active Game — ${r.course_name ?? 'Round'}</div>
-            <div class="home-active-sub">${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees</div>
-          </div>
-          <button class="btn btn-ghost btn-dismiss-round" data-id="${r.id}"
-            style="font-size:0.85rem;color:var(--muted);border:none;padding:0.25rem 0.5rem;flex-shrink:0;"
-            title="Dismiss">✕</button>
-        </div>`);
+      // Active rounds are intentionally NOT shown in the top banner —
+      // they're accessible via the "Active Games" button below, which has
+      // proper Resume/Delete controls. Showing them here led to abandoned
+      // rounds piling up in the hero card with no reliable way to clear them.
     });
     activeTournaments.forEach(t => {
       rows.push(`
@@ -689,22 +682,8 @@ async function loadHomeStatsAndActive(myName) {
         loadHomeStatsAndActive(myName ?? '');
       });
 
-      // Dismiss stuck active round — force abandon
-      row.querySelector('.btn-dismiss-round')?.addEventListener('click', async e => {
-        e.stopPropagation();
-        const rid = e.currentTarget.dataset.id;
-        try { await roundAbandon(rid); } catch {}
-        try {
-          const stored = localStorage.getItem('lb-active-round');
-          if (stored === rid) localStorage.removeItem('lb-active-round');
-        } catch {}
-        loadHomeStatsAndActive(myName ?? '');
-      });
-
       row.addEventListener('click', () => {
-        if (row.dataset.kind === 'round') {
-          resumeRound(row.dataset.id);
-        } else if (row.dataset.kind === 'draft') {
+        if (row.dataset.kind === 'draft') {
           tryRestoreSetupState().then(ok => {
             if (!ok) { clearSetupDraft(); showHome(); }
           });
@@ -4401,6 +4380,11 @@ document.getElementById('btn-home-active-games')?.addEventListener('click', asyn
   const listEl = document.getElementById('active-games-list');
   listEl.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);">Loading…</div>';
   document.getElementById('modal-active-games').classList.add('open');
+  await renderActiveGamesList();
+});
+
+async function renderActiveGamesList() {
+  const listEl = document.getElementById('active-games-list');
   try {
     // Load active rounds + any pending game invites
     const [rounds, inviteRows] = await Promise.all([
@@ -4415,9 +4399,11 @@ document.getElementById('btn-home-active-games')?.addEventListener('click', asyn
 
     const items = [];
 
-    // Active rounds this user is scoring
+    // Active rounds this user is scoring — Resume + Delete
     rounds.forEach(r => {
       items.push({
+        kind: 'round',
+        roundId: r.id,
         icon: '⛳',
         title: r.course_name ?? 'Round',
         sub: `${fmtLabel(r.game_state?.format ?? '')} · Group ${r.game_state?.groupNumber ?? 1}`,
@@ -4426,9 +4412,10 @@ document.getElementById('btn-home-active-games')?.addEventListener('click', asyn
       });
     });
 
-    // Pending game invites
+    // Pending game invites — Join only, no delete
     invites.forEach(inv => {
       items.push({
+        kind: 'invite',
         icon: '📩',
         title: inv.name ?? 'Game invite',
         sub: `Group ${inv.group_number ?? 1} · Tap to join`,
@@ -4443,29 +4430,68 @@ document.getElementById('btn-home-active-games')?.addEventListener('click', asyn
     listEl.innerHTML = items.length === 0
       ? '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:0.95rem;">No active games or pending invites.</div>'
       : items.map((item, i) => `
-          <div data-item="${i}" style="display:flex;align-items:center;gap:0.75rem;
-               padding:0.85rem 1rem;border-bottom:1px solid var(--border);cursor:pointer;">
+          <div style="display:flex;align-items:center;gap:0.75rem;
+               padding:0.85rem 1rem;border-bottom:1px solid var(--border);">
             <div style="font-size:1.5rem;flex-shrink:0;">${item.icon}</div>
-            <div style="flex:1;">
+            <div style="flex:1;min-width:0;">
               <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.15rem;">${item.title}</div>
               <div style="font-size:0.85rem;color:var(--muted2);font-weight:700;">${item.sub}</div>
             </div>
-            <button class="btn btn-green" data-item="${i}"
-              style="padding:0.45rem 1rem;font-size:0.9rem;font-weight:800;flex-shrink:0;">
-              ${item.actionLabel}
-            </button>
+            <div style="display:flex;gap:0.4rem;flex-shrink:0;">
+              <button class="btn btn-green active-games-action" data-item="${i}"
+                style="padding:0.45rem 0.9rem;font-size:0.9rem;font-weight:800;">
+                ${item.actionLabel}
+              </button>
+              ${item.kind === 'round' ? `
+                <button class="btn btn-outline active-games-delete" data-round-id="${item.roundId}"
+                  style="padding:0.45rem 0.6rem;font-size:0.95rem;border-color:var(--red-border);color:var(--red);"
+                  title="Delete this game">🗑</button>
+              ` : ''}
+            </div>
           </div>`).join('');
 
-    listEl.querySelectorAll('[data-item]').forEach(el => {
-      el.addEventListener('click', () => {
-        const idx = parseInt(el.dataset.item);
+    listEl.querySelectorAll('.active-games-action').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.item);
         document.getElementById('modal-active-games').classList.remove('open');
         items[idx]?.action();
+      });
+    });
+
+    listEl.querySelectorAll('.active-games-delete').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const rid = btn.dataset.roundId;
+        const item = items.find(it => it.roundId === rid);
+        document.getElementById('confirm-delete-round-text').textContent =
+          `This will permanently delete "${item?.title ?? 'this round'}" and all its scores. This cannot be undone.`;
+        document.getElementById('modal-confirm-delete-round').dataset.pendingRoundId = rid;
+        document.getElementById('modal-confirm-delete-round').classList.add('open');
       });
     });
   } catch (err) {
     listEl.innerHTML = `<div style="padding:1rem;color:var(--red);">Error loading games: ${err.message}</div>`;
   }
+}
+
+document.getElementById('confirm-delete-round-cancel')?.addEventListener('click', () => {
+  document.getElementById('modal-confirm-delete-round').classList.remove('open');
+});
+document.getElementById('confirm-delete-round-confirm')?.addEventListener('click', async () => {
+  const modal = document.getElementById('modal-confirm-delete-round');
+  const rid   = modal.dataset.pendingRoundId;
+  modal.classList.remove('open');
+  if (!rid) return;
+  try {
+    await roundDelete(rid);
+    try {
+      const stored = localStorage.getItem('lb-active-round');
+      if (stored === rid) localStorage.removeItem('lb-active-round');
+    } catch {}
+  } catch (err) {
+    alert('Could not delete the game: ' + (err.message || 'unknown error'));
+  }
+  await renderActiveGamesList();
+  updateActiveGamesBadge();
 });
 document.getElementById('modal-active-games-close')?.addEventListener('click', () => {
   document.getElementById('modal-active-games').classList.remove('open');
@@ -4638,13 +4664,24 @@ document.getElementById('abandon-delete')?.addEventListener('click', async () =>
 
 async function doAbandon(shouldDelete) {
   const tid = setup.tournamentId;
-
-  if (roundId) {
-    try {
-      if (shouldDelete) await roundDelete(roundId);
-      else await roundAbandon(roundId);
-    } catch {}
+  // Fall back to the locally-stored round id if the in-memory one is missing
+  // (e.g. abandon triggered from a stale screen state)
+  let targetRoundId = roundId;
+  if (!targetRoundId) {
+    try { targetRoundId = localStorage.getItem('lb-active-round'); } catch {}
   }
+
+  if (targetRoundId) {
+    try {
+      if (shouldDelete) await roundDelete(targetRoundId);
+      else await roundAbandon(targetRoundId);
+    } catch (err) {
+      console.error('doAbandon: failed to update round', err);
+      alert('Could not abandon the round — please try again. (' + (err.message || 'unknown error') + ')');
+      return; // don't navigate away if the DB update failed — let the user retry
+    }
+  }
+
   realtimeUnsubscribe(realtimeCh); realtimeCh = null;
   roundId = null; gameState = null;
   try { localStorage.removeItem('lb-active-round'); } catch {}
