@@ -14,6 +14,7 @@ import {
   friendsLoad, friendRequestsLoadPending,
   friendRequestSend, friendRequestAccept, friendRequestDecline, friendRemove,
   smsInviteCreate, gameInviteLoad, gameInvitesPollPending, gameInvitesLoadHistory, smsInviteLookup, smsInviteAccept,
+  smsInvitesDeleteMany, invitesForRoundLoad, invitesForTournamentRoundLoad,
   smsBuildInviteLink, smsBuildMessage,
   realtimeSubscribeRound, realtimeBroadcastRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   tournamentCreate, tournamentsLoad, tournamentLoadById, tournamentUpdate, tournamentDelete,
@@ -22,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620g';
+} from '../data.js?v=20260620h';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -34,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620g';
+} from '../game.js?v=20260620h';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620g';
+} from '../tournament.js?v=20260620h';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3094,6 +3095,12 @@ function renderHolePanel() {
     ? (!gameState?.organiserId || gameState.organiserId === currentUser?.id)
     : (scorerPid !== '__unclaimed__' && scorerPid !== null && scorerPid === currentUser?.id);
 
+  // Resend Invites — only the round organiser (who sent the original invites) sees this,
+  // and only when there's more than one group (otherwise nobody to invite).
+  const isOrganiser    = gameState?.organiserId && gameState.organiserId === currentUser?.id;
+  const hasOtherGroups = (gameState?.allGroupStates?.length ?? 1) > 1;
+  toggle('btn-resend-invites', !!(isOrganiser && hasOtherGroups));
+
   const inputsEl = document.getElementById('game-inputs');
   inputsEl.innerHTML = '';
 
@@ -4788,11 +4795,171 @@ async function updateActiveGamesBadge() {
 }
 
 // ── Active Games modal ───────────────────────────────────────────
+// ── Resend Invites (in-game, organiser only) ───────────────────────
+document.getElementById('btn-resend-invites')?.addEventListener('click', async () => {
+  if (!gameState?.allGroupStates?.length) return;
+  await openResendInvitesModal({
+    roundId,
+    isTournament: false,
+    organiserId: gameState.organiserId,
+    organiserName: currentProfile
+      ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+      : 'Your organiser',
+    groups: gameState.allGroupStates.map(gs => ({
+      groupNumber: gs.groupNumber,
+      players: (gs.names ?? []).map((name, i) => ({
+        name,
+        profileId: gs.playerProfileIds?.[i] ?? null,
+      })),
+    })),
+  });
+});
+
+// ── Resend Invites (tournament detail, organiser/co-organiser) ─────
+document.getElementById('btn-td-resend-invites')?.addEventListener('click', async () => {
+  const liveRound = activeTournRounds.find(r => r.status === 'active');
+  if (!liveRound?.round_id) {
+    alert('No active round to resend invites for. Start a round first.');
+    return;
+  }
+  const groups = {};
+  activeTournPlayers.forEach(p => {
+    // We don't have per-round group numbers readily on activeTournPlayers,
+    // so just present everyone with a profile as one list — still lets the
+    // organiser see status and resend per player.
+    if (!groups[1]) groups[1] = [];
+    groups[1].push({ name: p.name, profileId: p.profile_id ?? null });
+  });
+  await openResendInvitesModal({
+    roundId: liveRound.round_id,
+    isTournament: true,
+    tournamentRoundId: liveRound.id,
+    organiserId: activeTournament.organiser_id,
+    organiserName: currentProfile
+      ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+      : 'Your organiser',
+    groups: Object.entries(groups).map(([g, players]) => ({ groupNumber: parseInt(g), players })),
+  });
+});
+
+async function openResendInvitesModal({ roundId, isTournament, tournamentRoundId, organiserId, organiserName, groups }) {
+  const listEl = document.getElementById('resend-invites-list');
+  listEl.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);">Loading…</div>';
+  document.getElementById('modal-resend-invites').classList.add('open');
+
+  try {
+    const existingInvites = isTournament
+      ? await invitesForTournamentRoundLoad(tournamentRoundId)
+      : await invitesForRoundLoad(roundId);
+
+    // Flatten all players with a profile, excluding the organiser themself
+    const allPlayers = [];
+    groups.forEach(g => {
+      g.players.forEach(p => {
+        if (p.profileId && p.profileId !== organiserId) {
+          allPlayers.push({ ...p, groupNumber: g.groupNumber });
+        }
+      });
+    });
+
+    if (!allPlayers.length) {
+      listEl.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:0.95rem;">No other players with a Leaderboard account in this round.</div>';
+      return;
+    }
+
+    const statusFor = (profileId) => {
+      const invs = existingInvites.filter(i => i.recipient_profile_id === profileId);
+      if (!invs.length) return { text: 'Not sent', color: 'var(--muted)' };
+      if (invs.some(i => i.status === 'accepted')) return { text: 'Accepted', color: 'var(--green)' };
+      return { text: 'Pending', color: 'var(--gold)' };
+    };
+
+    listEl.innerHTML = allPlayers.map((p, i) => {
+      const st = statusFor(p.profileId);
+      return `
+        <button class="resend-invite-row" data-idx="${i}"
+          style="display:flex;align-items:center;gap:0.75rem;width:100%;text-align:left;
+                 padding:0.7rem 1rem;border-bottom:1px solid var(--border);background:none;border-left:none;border-right:none;border-top:none;">
+          <span class="dot" style="background:${pHex(i % 8)};flex-shrink:0;"></span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${p.name}</div>
+            <div style="font-size:0.8rem;color:var(--muted2);font-weight:700;">Group ${p.groupNumber}</div>
+          </div>
+          <div style="font-size:0.8rem;font-weight:800;color:${st.color};flex-shrink:0;">${st.text}</div>
+          <span style="font-size:1.1rem;color:var(--muted);flex-shrink:0;">↻</span>
+        </button>`;
+    }).join('');
+
+    listEl.querySelectorAll('.resend-invite-row').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const p = allPlayers[parseInt(btn.dataset.idx, 10)];
+        btn.style.opacity = '0.5';
+        try {
+          await smsInviteCreate({
+            roundId,
+            inviterId: organiserId,
+            name: organiserName,
+            mobile: null,
+            recipientProfileId: p.profileId,
+            tournamentRoundId: isTournament ? tournamentRoundId : null,
+            groupNumber: p.groupNumber,
+          });
+          btn.querySelector('div:nth-child(3)')?.remove();
+          const statusSpan = btn.children[2];
+          if (statusSpan) { statusSpan.textContent = 'Sent ✓'; statusSpan.style.color = 'var(--gold)'; }
+        } catch (err) {
+          alert('Could not resend invite: ' + (err.message || 'unknown error'));
+        } finally {
+          btn.style.opacity = '1';
+        }
+      });
+    });
+  } catch (err) {
+    listEl.innerHTML = `<div style="padding:1rem;color:var(--red);">Error loading invite status: ${err.message}</div>`;
+  }
+}
+document.getElementById('modal-resend-invites-close')?.addEventListener('click', () => {
+  document.getElementById('modal-resend-invites').classList.remove('open');
+});
+
 document.getElementById('btn-home-active-games')?.addEventListener('click', async () => {
   const listEl = document.getElementById('active-games-list');
   listEl.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);">Loading…</div>';
   document.getElementById('modal-active-games').classList.add('open');
+  _agSelectMode = false; _agSelectedIds.clear();
+  document.getElementById('active-games-bulk-bar')?.classList.add('hidden');
+  document.getElementById('active-games-select-toggle').textContent = 'Select';
   await renderActiveGamesList();
+});
+
+let _agSelectMode = false;
+const _agSelectedIds = new Set(); // round IDs only — invites aren't selectable for delete here
+
+document.getElementById('active-games-select-toggle')?.addEventListener('click', () => {
+  _agSelectMode = !_agSelectMode;
+  _agSelectedIds.clear();
+  document.getElementById('active-games-select-toggle').textContent = _agSelectMode ? 'Cancel' : 'Select';
+  document.getElementById('active-games-bulk-bar')?.classList.toggle('hidden', !_agSelectMode);
+  renderActiveGamesList();
+});
+
+document.getElementById('active-games-select-all')?.addEventListener('click', () => {
+  const checkboxes = document.querySelectorAll('.active-games-checkbox');
+  const allChecked = [...checkboxes].every(cb => _agSelectedIds.has(cb.dataset.roundId));
+  checkboxes.forEach(cb => {
+    if (allChecked) _agSelectedIds.delete(cb.dataset.roundId);
+    else _agSelectedIds.add(cb.dataset.roundId);
+  });
+  renderActiveGamesList();
+});
+
+document.getElementById('active-games-delete-selected')?.addEventListener('click', () => {
+  if (!_agSelectedIds.size) return;
+  document.getElementById('confirm-delete-round-text').textContent =
+    `This will permanently delete ${_agSelectedIds.size} game${_agSelectedIds.size > 1 ? 's' : ''} and all their scores. This cannot be undone.`;
+  document.getElementById('modal-confirm-delete-round').dataset.pendingRoundIds = JSON.stringify([..._agSelectedIds]);
+  delete document.getElementById('modal-confirm-delete-round').dataset.pendingRoundId;
+  document.getElementById('modal-confirm-delete-round').classList.add('open');
 });
 
 async function renderActiveGamesList() {
@@ -4839,28 +5006,51 @@ async function renderActiveGamesList() {
       });
     });
 
+    const selectedCountEl = document.getElementById('active-games-selected-count');
+    const deleteSelBtn    = document.getElementById('active-games-delete-selected');
+    if (selectedCountEl) selectedCountEl.textContent = _agSelectedIds.size ? `${_agSelectedIds.size} selected` : '';
+    if (deleteSelBtn) deleteSelBtn.disabled = _agSelectedIds.size === 0;
+
     listEl.innerHTML = items.length === 0
       ? '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:0.95rem;">No active games or pending invites.</div>'
       : items.map((item, i) => `
           <div style="display:flex;align-items:center;gap:0.75rem;
                padding:0.85rem 1rem;border-bottom:1px solid var(--border);">
+            ${_agSelectMode && item.kind === 'round'
+              ? `<input type="checkbox" class="active-games-checkbox" data-round-id="${item.roundId}"
+                  ${_agSelectedIds.has(item.roundId) ? 'checked' : ''}
+                  style="width:20px;height:20px;flex-shrink:0;accent-color:var(--red);">`
+              : _agSelectMode ? `<div style="width:20px;flex-shrink:0;"></div>` : ''}
             <div style="font-size:1.5rem;flex-shrink:0;">${item.icon}</div>
             <div style="flex:1;min-width:0;">
               <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.15rem;">${item.title}</div>
               <div style="font-size:0.85rem;color:var(--muted2);font-weight:700;">${item.sub}</div>
             </div>
-            <div style="display:flex;gap:0.4rem;flex-shrink:0;">
-              <button class="btn btn-green active-games-action" data-item="${i}"
-                style="padding:0.45rem 0.9rem;font-size:0.9rem;font-weight:800;">
-                ${item.actionLabel}
-              </button>
-              ${item.kind === 'round' ? `
-                <button class="btn btn-outline active-games-delete" data-round-id="${item.roundId}"
-                  style="padding:0.45rem 0.6rem;font-size:0.95rem;border-color:var(--red-border);color:var(--red);"
-                  title="Delete this game">🗑</button>
-              ` : ''}
-            </div>
+            ${!_agSelectMode ? `
+              <div style="display:flex;gap:0.4rem;flex-shrink:0;">
+                <button class="btn btn-green active-games-action" data-item="${i}"
+                  style="padding:0.45rem 0.9rem;font-size:0.9rem;font-weight:800;">
+                  ${item.actionLabel}
+                </button>
+                ${item.kind === 'round' ? `
+                  <button class="btn btn-outline active-games-delete" data-round-id="${item.roundId}"
+                    style="padding:0.45rem 0.6rem;font-size:0.95rem;border-color:var(--red-border);color:var(--red);"
+                    title="Delete this game">🗑</button>
+                ` : ''}
+              </div>
+            ` : ''}
           </div>`).join('');
+
+    listEl.querySelectorAll('.active-games-checkbox').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) _agSelectedIds.add(cb.dataset.roundId);
+        else _agSelectedIds.delete(cb.dataset.roundId);
+        const cnt = document.getElementById('active-games-selected-count');
+        const btn = document.getElementById('active-games-delete-selected');
+        if (cnt) cnt.textContent = _agSelectedIds.size ? `${_agSelectedIds.size} selected` : '';
+        if (btn) btn.disabled = _agSelectedIds.size === 0;
+      });
+    });
 
     listEl.querySelectorAll('.active-games-action').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -4877,6 +5067,7 @@ async function renderActiveGamesList() {
         document.getElementById('confirm-delete-round-text').textContent =
           `This will permanently delete "${item?.title ?? 'this round'}" and all its scores. This cannot be undone.`;
         document.getElementById('modal-confirm-delete-round').dataset.pendingRoundId = rid;
+        delete document.getElementById('modal-confirm-delete-round').dataset.pendingRoundIds;
         document.getElementById('modal-confirm-delete-round').classList.add('open');
       });
     });
@@ -4890,18 +5081,36 @@ document.getElementById('confirm-delete-round-cancel')?.addEventListener('click'
 });
 document.getElementById('confirm-delete-round-confirm')?.addEventListener('click', async () => {
   const modal = document.getElementById('modal-confirm-delete-round');
+  const bulkIdsJson = modal.dataset.pendingRoundIds;
   const rid   = modal.dataset.pendingRoundId;
   modal.classList.remove('open');
-  if (!rid) return;
+
   try {
-    await roundDelete(rid);
-    try {
-      const stored = localStorage.getItem('lb-active-round');
-      if (stored === rid) localStorage.removeItem('lb-active-round');
-    } catch {}
+    if (bulkIdsJson) {
+      const ids = JSON.parse(bulkIdsJson);
+      for (const id of ids) {
+        await roundDelete(id).catch(err => console.error('[bulk delete] failed for', id, err));
+        try {
+          const stored = localStorage.getItem('lb-active-round');
+          if (stored === id) localStorage.removeItem('lb-active-round');
+        } catch {}
+      }
+      _agSelectedIds.clear();
+      _agSelectMode = false;
+      document.getElementById('active-games-select-toggle').textContent = 'Select';
+      document.getElementById('active-games-bulk-bar')?.classList.add('hidden');
+    } else if (rid) {
+      await roundDelete(rid);
+      try {
+        const stored = localStorage.getItem('lb-active-round');
+        if (stored === rid) localStorage.removeItem('lb-active-round');
+      } catch {}
+    }
   } catch (err) {
     alert('Could not delete the game: ' + (err.message || 'unknown error'));
   }
+  delete modal.dataset.pendingRoundId;
+  delete modal.dataset.pendingRoundIds;
   await renderActiveGamesList();
   updateActiveGamesBadge();
 });
@@ -4914,8 +5123,54 @@ document.getElementById('btn-home-game-invites')?.addEventListener('click', asyn
   const listEl = document.getElementById('game-invites-list');
   listEl.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--muted);">Loading…</div>';
   document.getElementById('modal-game-invites').classList.add('open');
+  _giSelectMode = false; _giSelectedIds.clear();
+  document.getElementById('game-invites-bulk-bar')?.classList.add('hidden');
+  document.getElementById('game-invites-select-toggle').textContent = 'Select';
+  await renderGameInvitesList();
+});
+
+let _giSelectMode = false;
+const _giSelectedIds = new Set();
+
+document.getElementById('game-invites-select-toggle')?.addEventListener('click', () => {
+  _giSelectMode = !_giSelectMode;
+  _giSelectedIds.clear();
+  document.getElementById('game-invites-select-toggle').textContent = _giSelectMode ? 'Cancel' : 'Select';
+  document.getElementById('game-invites-bulk-bar')?.classList.toggle('hidden', !_giSelectMode);
+  renderGameInvitesList();
+});
+
+document.getElementById('game-invites-select-all')?.addEventListener('click', () => {
+  const checkboxes = document.querySelectorAll('.game-invites-checkbox');
+  const allChecked = [...checkboxes].every(cb => _giSelectedIds.has(cb.dataset.inviteId));
+  checkboxes.forEach(cb => {
+    if (allChecked) _giSelectedIds.delete(cb.dataset.inviteId);
+    else _giSelectedIds.add(cb.dataset.inviteId);
+  });
+  renderGameInvitesList();
+});
+
+document.getElementById('game-invites-delete-selected')?.addEventListener('click', async () => {
+  if (!_giSelectedIds.size) return;
+  if (!confirm(`Delete ${_giSelectedIds.size} invite${_giSelectedIds.size > 1 ? 's' : ''} from your history? This won't affect anyone who already joined.`)) return;
+  try {
+    await smsInvitesDeleteMany([..._giSelectedIds]);
+  } catch (err) {
+    alert('Could not delete invites: ' + (err.message || 'unknown error'));
+  }
+  _giSelectedIds.clear();
+  await renderGameInvitesList();
+});
+
+async function renderGameInvitesList() {
+  const listEl = document.getElementById('game-invites-list');
   try {
     const invites = await gameInvitesLoadHistory(currentUser.id, 30);
+
+    const selectedCountEl = document.getElementById('game-invites-selected-count');
+    const deleteSelBtn    = document.getElementById('game-invites-delete-selected');
+    if (selectedCountEl) selectedCountEl.textContent = _giSelectedIds.size ? `${_giSelectedIds.size} selected` : '';
+    if (deleteSelBtn) deleteSelBtn.disabled = _giSelectedIds.size === 0;
 
     if (!invites.length) {
       listEl.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:0.95rem;">No invites yet.</div>';
@@ -4940,6 +5195,11 @@ document.getElementById('btn-home-game-invites')?.addEventListener('click', asyn
         : '';
       return `
         <div style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1rem;border-bottom:1px solid var(--border);">
+          ${_giSelectMode
+            ? `<input type="checkbox" class="game-invites-checkbox" data-invite-id="${inv.id}"
+                ${_giSelectedIds.has(inv.id) ? 'checked' : ''}
+                style="width:20px;height:20px;flex-shrink:0;accent-color:var(--red);">`
+            : ''}
           <div style="font-size:1.3rem;flex-shrink:0;">${isSent ? '↗️' : '↘️'}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.05rem;">
@@ -4949,12 +5209,25 @@ document.getElementById('btn-home-game-invites')?.addEventListener('click', asyn
               ${inv.tournament_round_id ? 'Tournament round' : 'Game'}${inv.group_number ? ` · Group ${inv.group_number}` : ''} · ${dateStr}
             </div>
           </div>
-          ${canJoin
-            ? `<button class="btn btn-green game-invite-join-btn" data-idx="${i}"
-                style="padding:0.4rem 0.85rem;font-size:0.85rem;font-weight:800;flex-shrink:0;">Join</button>`
-            : `<div style="font-size:0.8rem;font-weight:800;color:${st.color};flex-shrink:0;">${st.text}</div>`}
+          ${!_giSelectMode
+            ? (canJoin
+                ? `<button class="btn btn-green game-invite-join-btn" data-idx="${i}"
+                    style="padding:0.4rem 0.85rem;font-size:0.85rem;font-weight:800;flex-shrink:0;">Join</button>`
+                : `<div style="font-size:0.8rem;font-weight:800;color:${st.color};flex-shrink:0;">${st.text}</div>`)
+            : ''}
         </div>`;
     }).join('');
+
+    listEl.querySelectorAll('.game-invites-checkbox').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) _giSelectedIds.add(cb.dataset.inviteId);
+        else _giSelectedIds.delete(cb.dataset.inviteId);
+        const cnt = document.getElementById('game-invites-selected-count');
+        const btn = document.getElementById('game-invites-delete-selected');
+        if (cnt) cnt.textContent = _giSelectedIds.size ? `${_giSelectedIds.size} selected` : '';
+        if (btn) btn.disabled = _giSelectedIds.size === 0;
+      });
+    });
 
     listEl.querySelectorAll('.game-invite-join-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -4966,7 +5239,7 @@ document.getElementById('btn-home-game-invites')?.addEventListener('click', asyn
   } catch (err) {
     listEl.innerHTML = `<div style="padding:1rem;color:var(--red);">Error loading invites: ${err.message}</div>`;
   }
-});
+}
 document.getElementById('modal-game-invites-close')?.addEventListener('click', () => {
   document.getElementById('modal-game-invites').classList.remove('open');
 });
@@ -7755,6 +8028,9 @@ async function showTournamentDetail(tournamentId) {
 
   const coOrgBtn = document.getElementById('btn-td-co-organiser');
   if (coOrgBtn) coOrgBtn.style.display = canManage ? '' : 'none';
+
+  const resendBtn = document.getElementById('btn-td-resend-invites');
+  if (resendBtn) resendBtn.classList.toggle('hidden', !(canManage && hasActiveRound));
 }
 
 function renderTournamentStandings() {
