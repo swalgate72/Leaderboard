@@ -22,7 +22,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js';
+} from '../data.js?v=20260620b';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -33,13 +33,13 @@ import {
   greensomesPairHandicap, foursomedPairHandicap,
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
-} from '../game.js';
+} from '../game.js?v=20260620b';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js';
+} from '../tournament.js?v=20260620b';
 
 // ================================================================
 // PLAYER COLOURS
@@ -765,13 +765,6 @@ function showFormatPicker(category) {
   const TOURNAMENT_EXCLUDED = ['match','skins','itc','split6'];
   const isTournMode  = !!setup.tournamentId;
   const tournGameType = isTournMode ? (activeTournament?.scoring_mode_team ?? 'individual') : null;
-  console.log('[DEBUG showFormatPicker]', {
-    isTournMode,
-    tournamentId: setup.tournamentId,
-    activeTournament: activeTournament,
-    scoring_mode_team: activeTournament?.scoring_mode_team,
-    tournGameType,
-  });
 
   let sectionsHtml = '';
   if (!isTournMode) {
