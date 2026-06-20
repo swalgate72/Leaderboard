@@ -8,7 +8,7 @@ import {
   authForgotPassword, authOnStateChange, authGetUser,
   profileLoad, profileSave, profileFindByEmail, profileFindByUsername,
   coursesLoadAll, courseLoadById, courseSave, courseDelete, coursesEnsureDefaults,
-  roundCreate, roundSaveState, roundComplete, roundAbandon, roundDelete,
+  roundCreate, roundSaveState, roundComplete, roundAbandon, roundReactivate, roundDelete,
   roundsLoadActive, roundLoadById, roundsLoadHistory,
   roundPlayersSave, roundPlayersLoad,
   friendsLoad, friendRequestsLoadPending,
@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620k';
+} from '../data.js?v=20260620l';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620k';
+} from '../game.js?v=20260620l';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620k';
+} from '../tournament.js?v=20260620l';
 
 // ================================================================
 // PLAYER COLOURS
@@ -456,7 +456,7 @@ async function onSignedIn(user) {
     try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
     if (storedRoundId && !actives.some(r => r.id === storedRoundId)) {
       const stored = await roundLoadById(storedRoundId);
-      if (stored?.status === 'active') actives.unshift(stored);
+      if (['active','paused'].includes(stored?.status)) actives.unshift(stored);
       else try { localStorage.removeItem('lb-active-round'); } catch {}
     }
 
@@ -585,7 +585,7 @@ async function showHome() {
     try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
     if (storedRoundId && !actives.some(r => r.id === storedRoundId)) {
       const stored = await roundLoadById(storedRoundId);
-      if (stored?.status === 'active') actives.unshift(stored);
+      if (['active','paused'].includes(stored?.status)) actives.unshift(stored);
       else try { localStorage.removeItem('lb-active-round'); } catch {}
     }
 
@@ -641,7 +641,7 @@ async function loadHomeStatsAndActive(myName) {
     try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
     if (storedRoundId && !actives.some(r => r.id === storedRoundId)) {
       const stored = await roundLoadById(storedRoundId).catch(() => null);
-      if (stored?.status === 'active') {
+      if (['active','paused'].includes(stored?.status)) {
         actives.unshift(stored);
       } else {
         // Stale — clear it
@@ -2853,6 +2853,13 @@ async function resumeRound(id) {
       }
     }
     gameState = gs;
+
+    // If this round was paused (saved via Abandon & Save Progress), mark it
+    // active again now that someone's actually resumed play.
+    if (round.status === 'paused') {
+      await roundReactivate(id).catch(err => console.error('resumeRound: failed to reactivate', err));
+    }
+
     // If this is a tournament round, reload tournament globals so
     // saveTournamentScores has activeTournPlayers when the round ends.
     if (gameState?.tournamentId) {
@@ -4987,12 +4994,13 @@ async function renderActiveGamesList() {
 
     // Active rounds this user is scoring — Resume + Delete
     rounds.forEach(r => {
+      const isPaused = r.status === 'paused';
       items.push({
         kind: 'round',
         roundId: r.id,
-        icon: '⛳',
+        icon: isPaused ? '⏸️' : '⛳',
         title: r.course_name ?? 'Round',
-        sub: `${fmtLabel(r.game_state?.format ?? '')} · Group ${r.game_state?.groupNumber ?? 1}`,
+        sub: `${fmtLabel(r.game_state?.format ?? '')} · Group ${r.game_state?.groupNumber ?? 1}${isPaused ? ' · Saved' : ''}`,
         action: () => resumeRound(r.id),
         actionLabel: 'Resume',
       });
