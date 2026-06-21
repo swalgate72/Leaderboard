@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620r';
+} from '../data.js?v=20260620s';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620r';
+} from '../game.js?v=20260620s';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620r';
+} from '../tournament.js?v=20260620s';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3257,30 +3257,76 @@ function renderHolePanel() {
     }
 
   } else if (isFoursome) {
-    [['A', 0, 1], ['B', 2, 3]].forEach(([label, p0, p1]) => {
-      const pairName = `${gameState.names[p0]} & ${gameState.names[p1]}`;
+    const ms        = gameState.matchScore ?? 0;
+    const played    = gameState.log?.length ?? 0;
+    const holesLeft = (gameState.numHoles ?? 18) - played;
+    const up        = Math.abs(ms);
+
+    [['A', 0, 1, ms], ['B', 2, 3, -ms]].forEach(([label, p0, p1, teamMs]) => {
+      const teamStatus = ms === 0
+        ? 'All Square'
+        : teamMs > 0
+          ? `${up > holesLeft ? `${up}&${holesLeft}` : `${up} Up`}`
+          : `${up > holesLeft ? `${up}&${holesLeft}` : `${up} Down`}`;
+
+      // Team status header — same visual language as Better Ball / CSM
+      const header = document.createElement('div');
+      header.style.cssText = 'padding:0.65rem 0 0.35rem;border-top:1px solid var(--border);margin-top:0.25rem;';
+      header.innerHTML = `
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.5rem;
+                     color:${ms === 0 ? 'var(--white)' : teamMs > 0 ? 'var(--gold)' : 'var(--muted2)'};">
+          Pair ${label}
+        </span>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.1rem;
+                     color:${ms === 0 ? 'var(--muted2)' : teamMs > 0 ? 'var(--gold)' : 'var(--muted2)'};
+                     margin-left:0.6rem;">
+          ${teamStatus}
+        </span>`;
+      inputsEl.appendChild(header);
+
+      // One shared score for the pair (alternate shot — single ball) — names
+      // stacked vertically so they never collide with the score button,
+      // regardless of how long either name is.
+      const existingEntry = gameState.log?.[h];
+      const existingGross = existingEntry?.grosses?.[label === 'A' ? 0 : 1];
+      const hasExisting    = existingGross != null;
+      const scoreBtnVal    = hasExisting ? String(existingGross) : 'Score';
+      let scoreBtnStyle;
+      if (!hasExisting) {
+        scoreBtnStyle = 'border:2px solid var(--border);background:var(--surface2);color:var(--muted);';
+      } else {
+        const color = scoreColorForRelToPar(existingGross - par, existingGross);
+        scoreBtnStyle = `border:2px solid ${color};background:${color};color:${existingGross === 1 ? '#000' : '#fff'};`;
+      }
+
       const row = document.createElement('div');
-      row.className = 'gi-row';
+      row.className = 'gi-row gi-row-pair';
       row.innerHTML = `
-        <div>
-          <div class="gi-name">
-            <span class="dot" style="background:${pHex(p0)};"></span>
-            Pair ${label}: ${pairName}
+        <div style="flex:1;min-width:0;">
+          <div class="gi-name" style="display:flex;align-items:center;gap:6px;">
+            <span class="dot" style="background:${pHex(p0)};flex-shrink:0;"></span>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${gameState.names[p0]}</span>
           </div>
-          <div class="gi-hcp">Match HCP ${gameState.matchHandicaps?.[p0] ?? 0} & ${gameState.matchHandicaps?.[p1] ?? 0}</div>
+          <div class="gi-name" style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+            <span class="dot" style="background:${pHex(p1)};flex-shrink:0;"></span>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${gameState.names[p1]}</span>
+          </div>
+          <div class="gi-hcp" style="margin-top:2px;">Match HCP ${gameState.matchHandicaps?.[p0] ?? 0} &amp; ${gameState.matchHandicaps?.[p1] ?? 0}</div>
         </div>
-        <div class="counter">
-          <button class="c-btn" data-pair="${label}" data-dir="-1">−</button>
-          <div class="c-val" id="cv-pair-${label}">${par}</div>
-          <button class="c-btn" data-pair="${label}" data-dir="1">＋</button>
+        <div style="flex-shrink:0;">
+          <div id="cv-pair-${label}" data-value="${hasExisting ? existingGross : ''}"
+            class="score-btn" data-pair="${label}"
+            style="min-width:64px;min-height:52px;display:flex;align-items:center;justify-content:center;
+                   border-radius:10px;
+                   font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:800;
+                   cursor:pointer;user-select:none;${scoreBtnStyle}">
+            ${scoreBtnVal}
+          </div>
         </div>`;
       inputsEl.appendChild(row);
-      row.querySelectorAll('.c-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const valEl = document.getElementById(`cv-pair-${label}`);
-          let v = parseInt(valEl.textContent) + parseInt(btn.dataset.dir);
-          valEl.textContent = Math.max(1, Math.min(15, v));
-        });
+
+      row.querySelector(`#cv-pair-${label}`)?.addEventListener('click', () => {
+        openPairScorePicker(label, h, par, p0);
       });
     });
   } else if (isPairs) {
@@ -3843,6 +3889,119 @@ function closeScorePicker() {
   document.getElementById('modal-score-picker').classList.remove('open');
 }
 
+// Foursomes / Greensomes: one shared score per pair (alternate shot — single
+// ball), so this writes to cv-pair-A/B instead of an individual cv${pi}.
+// Net/points shown in the picker use the pair's combined match handicap.
+function openPairScorePicker(label, h, par, anchorPi) {
+  const cvEl    = document.getElementById(`cv-pair-${label}`);
+  const current = cvEl?.dataset.value;
+
+  const p0 = label === 'A' ? 0 : 2, p1 = label === 'A' ? 1 : 3;
+  const pairNames = `${gameState.names[p0]?.split(' ')[0] ?? ''} & ${gameState.names[p1]?.split(' ')[0] ?? ''}`;
+
+  document.getElementById('sp-player-name').textContent = `Pair ${label} — ${pairNames}`;
+  document.getElementById('sp-context').textContent = `Hole ${h + 1} · Par ${par}`;
+
+  const fmt     = gameState.format;
+  const pairHcp = fmt === 'greensomes'
+    ? greensomesPairHandicap(gameState.matchHandicaps[p0], gameState.matchHandicaps[p1])
+    : foursomedPairHandicap(gameState.matchHandicaps[p0], gameState.matchHandicaps[p1]);
+  const extra   = strokesOnHole(pairHcp, gameState.si[h]);
+
+  let min, max;
+  if (par <= 3)       { min = 1; max = 9;  }
+  else if (par === 4) { min = 1; max = 10; }
+  else                { min = 2; max = 11; }
+  min = Math.max(1, min);
+
+  const buildBtn = (v) => {
+    const isCurrent = current && parseInt(current) === v;
+    const relToPar = v - par;
+    const net      = v - extra;
+    const pts      = stablefordPoints(v, extra, par); // for display only — match play decides the hole, not points
+
+    let circleColor;
+    if (v === 1)               circleColor = 'var(--gold)';
+    else if (relToPar === 0)   circleColor = 'var(--green)';
+    else if (relToPar < 0)     circleColor = '#d64545';
+    else if (relToPar <= 2)    circleColor = '#3a7bd5';
+    else                       circleColor = '#2a2a2a';
+
+    const ring = isCurrent ? 'box-shadow:0 0 0 3px var(--gold);' : '';
+
+    return `<button class="sp-num-btn" data-val="${v}"
+      style="display:grid;grid-template-columns:1fr 2fr 1fr;align-items:center;gap:0.4fr;
+             padding:0.55rem 0.5rem;border-radius:12px;border:none;cursor:pointer;
+             background:var(--surface2);${ring}">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:${v === 1 ? 'var(--gold)' : relToPar < 0 ? '#d64545' : 'var(--white)'};">${net}</span>
+      <span style="display:flex;align-items:center;justify-content:center;width:54px;height:54px;margin:0 auto;
+                    border-radius:50%;background:${circleColor};color:${v === 1 ? '#000' : '#fff'};
+                    font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.7rem;">${v}</span>
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:var(--muted2);">${pts > 0 ? pts : '-'}</span>
+    </button>`;
+  };
+
+  const gridEl = document.getElementById('sp-grid');
+  const pickupVal = par + extra + 1;
+
+  gridEl.innerHTML =
+    Array.from({ length: max - min + 1 }, (_, i) => buildBtn(min + i)).join('')
+    + `<button id="sp-pickup" class="btn"
+        style="width:100%;font-size:0.95rem;font-weight:700;padding:0.85rem;margin-top:0.2rem;
+               background:var(--gold);border:none;color:#000;">
+        🏌️ Pick Up / Concede Hole
+      </button>`;
+
+  gridEl.querySelectorAll('.sp-num-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = parseInt(btn.dataset.val, 10);
+      setPairScoreValue(label, h, par, v, false);
+      closeScorePicker();
+    });
+  });
+
+  document.getElementById('sp-cancel').onclick = closeScorePicker;
+  document.getElementById('modal-score-picker').classList.add('open');
+
+  document.getElementById('sp-pickup').onclick = () => {
+    setPairScoreValue(label, h, par, pickupVal, true);
+    closeScorePicker();
+  };
+
+  const targetVal = (current ? parseInt(current, 10) : null) ?? (par - 1);
+  const targetBtn = gridEl.querySelector(`.sp-num-btn[data-val="${Math.max(min, targetVal)}"]`);
+  if (targetBtn) {
+    requestAnimationFrame(() => {
+      const gridRect = gridEl.getBoundingClientRect();
+      const btnRect  = targetBtn.getBoundingClientRect();
+      const delta    = (btnRect.top - gridRect.top) - 6;
+      gridEl.scrollTop = Math.max(0, gridEl.scrollTop + delta);
+    });
+  } else {
+    gridEl.scrollTop = 0;
+  }
+}
+
+function setPairScoreValue(label, h, par, value, isPickup) {
+  const cvEl = document.getElementById(`cv-pair-${label}`);
+  if (!cvEl) return;
+  cvEl.dataset.value  = String(value);
+  cvEl.dataset.pickup = isPickup ? '1' : '0';
+  cvEl.textContent    = String(value);
+  if (isPickup) {
+    cvEl.style.color       = '#fff';
+    cvEl.style.background  = 'var(--gold)';
+    cvEl.style.borderColor = 'var(--gold)';
+    cvEl.innerHTML = `${value}<span style="font-size:0.6rem;display:block;font-weight:600;">PICKUP</span>`;
+  } else {
+    const relToPar = value - par;
+    const color = scoreColorForRelToPar(relToPar, value);
+    cvEl.style.color       = value === 1 ? '#000' : '#fff';
+    cvEl.style.background  = color;
+    cvEl.style.borderColor = color;
+  }
+}
+
 // Shared colour logic for a recorded gross score relative to par
 // Matches the score picker: gold = hole-in-one, par = green, under par = red, 1-2 over = blue, 3+ over = black/dark
 function scoreColorForRelToPar(relToPar, value) {
@@ -3904,8 +4063,8 @@ async function recordHole() {
     if (!gross || gross < 1) { alert('Please enter a score for the team.'); return; }
     grosses = [gross, driver];
   } else if (isFoursome) {
-    const vA = parseInt(document.getElementById('cv-pair-A')?.textContent, 10);
-    const vB = parseInt(document.getElementById('cv-pair-B')?.textContent, 10);
+    const vA = parseInt(document.getElementById('cv-pair-A')?.dataset?.value, 10);
+    const vB = parseInt(document.getElementById('cv-pair-B')?.dataset?.value, 10);
     if (!vA || !vB) { alert('Please enter scores for both pairs.'); return; }
     grosses = [vA, vB];
   } else {
