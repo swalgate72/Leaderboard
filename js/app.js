@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620q';
+} from '../data.js?v=20260620r';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620q';
+} from '../game.js?v=20260620r';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620q';
+} from '../tournament.js?v=20260620r';
 
 // ================================================================
 // PLAYER COLOURS
@@ -1366,7 +1366,11 @@ function renderSetupPairsScreen() {
     card.className = 'card mb-sm sp-pair-drop';
     card.dataset.pair = pairIdx;
 
-    const members = pair.playerIndices.map(pi => setup.players[pi]);
+    // Render-time safety net: never display more than 2 members for a pair,
+    // even if playerIndices somehow ended up longer than that. This is a
+    // last line of defence on top of the dedup/cap logic in dropPlayerIntoPair.
+    const cappedIndices = [...new Set(pair.playerIndices)].slice(0, 2);
+    const members = cappedIndices.map(pi => setup.players[pi]);
     card.innerHTML = `
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
         <div class="card-title" style="margin:0;flex:1;">Pair ${pairIdx + 1}</div>
@@ -1382,7 +1386,7 @@ function renderSetupPairsScreen() {
             style="padding:0.65rem;text-align:center;color:var(--muted);font-size:0.9rem;
                    border:1.5px dashed var(--border);border-radius:var(--radius-sm);">
             Drop player here</div>`;
-          const pi = pair.playerIndices[slot];
+          const pi = cappedIndices[slot];
           return `<div class="sp-player-chip" draggable="true" data-pi="${pi}"
             style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.75rem;
                    background:var(--surface2);border:1px solid var(--border);
@@ -1510,47 +1514,54 @@ function renderSetupPairsScreen() {
 
 function dropPlayerIntoPair(pi, pairIdx) {
   const pair = setup.pairs[pairIdx];
-  if (!pair) return;
-  if (pair.playerIndices.includes(pi)) return; // already in this pair
+  if (!pair || isNaN(pi) || !setup.players[pi]) return;
 
-  // If target pair is full (2 players), swap — move dragged player in,
-  // and move the slot-0 player of the target pair back to dragged player's old pair
-  if (pair.playerIndices.length >= 2) {
-    const sourcePairIdx = setup.players[pi]?.pairIndex ?? -1;
-    const sourcePair    = sourcePairIdx >= 0 ? setup.pairs[sourcePairIdx] : null;
-    const displaced     = pair.playerIndices[0]; // the player getting bumped out
-
-    // Move displaced player to source pair
-    if (sourcePair) {
-      sourcePair.playerIndices = sourcePair.playerIndices.filter(i => i !== pi);
-      sourcePair.playerIndices.push(displaced);
-      setup.players[displaced].pairIndex = sourcePairIdx;
-      // Update source pair name
-      const [sA, sB] = sourcePair.playerIndices;
-      sourcePair.name = `${setup.players[sA]?.name.split(' ')[0] ?? ''} & ${setup.players[sB]?.name.split(' ')[0] ?? ''}`;
-    } else {
-      // No source pair — displaced player goes to pool
-      setup.players[displaced].pairIndex = -1;
-      pair.playerIndices = pair.playerIndices.filter(i => i !== displaced);
+  // Defensive cleanup: remove this player from EVERY pair's playerIndices,
+  // not just whichever pair setup.players[pi].pairIndex currently claims they're
+  // in. This is what actually prevents duplicates — if pairIndex was ever stale
+  // (e.g. from a fast drag, or a render that hadn't caught up), the player could
+  // still be lingering in another pair's array even though their own pairIndex
+  // says otherwise. Scrubbing every pair first makes this immune to that.
+  let displacedFromTarget = null;
+  setup.pairs.forEach((p, idx) => {
+    if (p.playerIndices.includes(pi)) {
+      p.playerIndices = p.playerIndices.filter(i => i !== pi);
     }
+  });
 
-    // Move dragged player into target pair
-    pair.playerIndices = pair.playerIndices.filter(i => i !== pi);
-    pair.playerIndices.push(pi);
-    setup.players[pi].pairIndex = pairIdx;
-    const [tA, tB] = pair.playerIndices;
-    pair.name = `${setup.players[tA]?.name.split(' ')[0] ?? ''} & ${setup.players[tB]?.name.split(' ')[0] ?? ''}`;
-
-    renderSetupPairsScreen();
-    return;
+  // If the target pair is already full (2 players) after the scrub above,
+  // bump the first remaining member out to make room — they go back to
+  // whichever pair the dragged player just vacated, or the pool if none.
+  if (pair.playerIndices.length >= 2) {
+    displacedFromTarget = pair.playerIndices.shift();
   }
 
-  // Target pair has room — just add
-  removePlayerFromPair(pi, false);
-  setup.players[pi].pairIndex = pairIdx;
+  // Place the dragged player into the target pair (guaranteed not already
+  // present, since we just scrubbed every pair above)
   pair.playerIndices.push(pi);
+  setup.players[pi].pairIndex = pairIdx;
 
-  // Auto-update pair name when complete
+  // Re-home the displaced player, if any
+  if (displacedFromTarget != null && setup.players[displacedFromTarget]) {
+    // Try to put them in whatever pair still has room; otherwise pool
+    const openPair = setup.pairs.find((p, idx) => idx !== pairIdx && p.playerIndices.length < 2);
+    if (openPair) {
+      openPair.playerIndices.push(displacedFromTarget);
+      setup.players[displacedFromTarget].pairIndex = setup.pairs.indexOf(openPair);
+      if (openPair.playerIndices.length === 2) {
+        const [a, b] = openPair.playerIndices;
+        openPair.name = `${setup.players[a]?.name.split(' ')[0] ?? ''} & ${setup.players[b]?.name.split(' ')[0] ?? ''}`;
+      }
+    } else {
+      setup.players[displacedFromTarget].pairIndex = -1; // pool
+    }
+  }
+
+  // Final safety net: deduplicate every pair's playerIndices in case anything
+  // above still somehow produced a repeat (belt-and-braces — should be a no-op).
+  setup.pairs.forEach(p => { p.playerIndices = [...new Set(p.playerIndices)]; });
+
+  // Auto-update the target pair's name once it has both members
   if (pair.playerIndices.length === 2) {
     const [piA, piB] = pair.playerIndices;
     const nameA = setup.players[piA]?.name.split(' ')[0] ?? '';
@@ -1563,9 +1574,13 @@ function dropPlayerIntoPair(pi, pairIdx) {
 
 function removePlayerFromPair(pi, reRender = true) {
   const p = setup.players[pi];
-  if (!p || p.pairIndex === -1) return;
-  const pair = setup.pairs[p.pairIndex];
-  if (pair) pair.playerIndices = pair.playerIndices.filter(i => i !== pi);
+  if (!p) return;
+  // Scrub from every pair, not just whichever one p.pairIndex currently points
+  // at — same defensive approach as dropPlayerIntoPair, so a stale pairIndex
+  // can't leave a lingering duplicate reference behind.
+  setup.pairs.forEach(pair => {
+    pair.playerIndices = pair.playerIndices.filter(i => i !== pi);
+  });
   p.pairIndex = -1;
   if (reRender) renderSetupPairsScreen();
 }
