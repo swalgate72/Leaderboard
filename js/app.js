@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620t';
+} from '../data.js?v=20260620u';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620t';
+} from '../game.js?v=20260620u';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620t';
+} from '../tournament.js?v=20260620u';
 
 // ================================================================
 // PLAYER COLOURS
@@ -752,7 +752,7 @@ const TEAM_FORMATS = [
   { key: 'betterball', icon: '⛳', label: 'Better Ball',    desc: 'Pairs · best net score per pair competes' },
   { key: 'csm',        icon: '📊', label: 'Combined Score', desc: 'Pairs · combined stableford · match play' },
   { key: 'foursomes',  icon: '🤝', label: 'Foursomes Match Play', desc: 'Pairs · alternate shots, one ball · combined handicap (50% of pair total)' },
-  { key: 'greensomes', icon: '🤝', label: 'Greensomes',     desc: 'Pairs · both drive then alternate · WHS handicap' },
+  { key: 'greensomes', icon: '🤝', label: 'Greensomes Match Play', desc: 'Pairs · both drive, then alternate · combined handicap (60/40 split)' },
   { key: 'best2',      icon: '🥇', label: 'Best 2',         desc: 'Best 2 stableford scores per group · groups vs groups' },
   { key: 'texas',      icon: '🤠', label: 'Texas Scramble', desc: 'All play from best drive · one team score per hole · 2-4 players' },
 ];
