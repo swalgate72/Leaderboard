@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620l';
+} from '../data.js?v=20260620m';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620l';
+} from '../game.js?v=20260620m';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620l';
+} from '../tournament.js?v=20260620m';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3827,9 +3827,18 @@ function setScoreValue(pi, h, par, value, isPickup) {
 // ----------------------------------------------------------------
 // RECORD HOLE
 // ----------------------------------------------------------------
-document.getElementById('btn-record-hole')?.addEventListener('click', () => recordHole());
+document.getElementById('btn-record-hole')?.addEventListener('click', async () => {
+  const btn = document.getElementById('btn-record-hole');
+  if (btn?.disabled) return; // already saving — ignore extra taps
+  if (btn) btn.disabled = true;
+  try {
+    await recordHole();
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+});
 
-function recordHole() {
+async function recordHole() {
   const fmt = gameState.format;
   const h   = gameState.hole;
   const par = gameState.par[h];
@@ -3883,12 +3892,12 @@ function recordHole() {
     if (matchPlayIsOver(gameState.matchScore, played, total) && !gameState.matchDecided) {
       gameState.matchDecided = true;
       showMatchWonModal();
-      saveRoundState();
+      await saveRoundState();
       return;
     }
   }
 
-  saveRoundState();
+  await saveRoundState();
   if (gameState.hole >= (gameState.numHoles ?? 18)) { showEndRound(); return; }
   renderScoreHeader();
   renderHolePanel();
@@ -4630,27 +4639,43 @@ async function saveRoundState() {
   if (!roundId || !gameState) return;
   const badge = document.getElementById('game-sync-badge');
   badge?.classList.remove('hidden');
-  try {
-    const { allGroupStates, ...stateToSave } = gameState;
-    if (allGroupStates?.length > 1) {
-      // Only save individual group states — never a merged state
-      // A group state should have names.length <= numPlayers/numGroups
-      const expectedPerGroup = Math.ceil(gameState.names?.length / allGroupStates.length) || 4;
-      stateToSave.allGroupStates = allGroupStates.map(gs => {
-        const { allGroupStates: _, ...stripped } = gs;
-        // Safety: if a slot has too many names it's a merged state — skip it
-        if (stripped.names?.length > expectedPerGroup * 1.5) {
-          // Return original group state from initial setup
-          return { ...stripped, names: stripped.names?.slice(0, expectedPerGroup) };
-        }
-        return stripped;
-      });
-    }
-    await roundSaveState(roundId, stateToSave, stateToSave.names);
-    await realtimeBroadcastRound(realtimeCh, stateToSave, _sessionId);
+
+  const { allGroupStates, ...stateToSave } = gameState;
+  if (allGroupStates?.length > 1) {
+    // Only save individual group states — never a merged state
+    // A group state should have names.length <= numPlayers/numGroups
+    const expectedPerGroup = Math.ceil(gameState.names?.length / allGroupStates.length) || 4;
+    stateToSave.allGroupStates = allGroupStates.map(gs => {
+      const { allGroupStates: _, ...stripped } = gs;
+      // Safety: if a slot has too many names it's a merged state — skip it
+      if (stripped.names?.length > expectedPerGroup * 1.5) {
+        // Return original group state from initial setup
+        return { ...stripped, names: stripped.names?.slice(0, expectedPerGroup) };
+      }
+      return stripped;
+    });
   }
-  catch (err) { console.error('saveRoundState error', err); }
-  finally { badge?.classList.add('hidden'); }
+
+  // The DB write is retried once before giving up — a single transient failure
+  // (e.g. a session token mid-refresh right after sign-in) shouldn't cost a
+  // recorded score. If both attempts fail, the user is told explicitly rather
+  // than the score silently vanishing with no feedback.
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await roundSaveState(roundId, stateToSave, stateToSave.names);
+      await realtimeBroadcastRound(realtimeCh, stateToSave, _sessionId).catch(() => {});
+      badge?.classList.add('hidden');
+      return; // success
+    } catch (err) {
+      lastErr = err;
+      console.error(`saveRoundState error (attempt ${attempt})`, err);
+      if (attempt === 1) await new Promise(r => setTimeout(r, 600));
+    }
+  }
+
+  badge?.classList.add('hidden');
+  alert('Your last score could not be saved — please check your connection and try recording that hole again. (' + (lastErr?.message || 'unknown error') + ')');
 }
 
 function subscribeToRound(id) {
