@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620m';
+} from '../data.js?v=20260620n';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620m';
+} from '../game.js?v=20260620n';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620m';
+} from '../tournament.js?v=20260620n';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3734,12 +3734,15 @@ function openScorePicker(pi, h, par) {
     ? indivStrokesOnHole(gameState.playingHandicaps[pi], gameState.si[h])
     : strokesOnHole(gameState.matchHandicaps[pi], gameState.si[h]);
 
-  const gridEl = document.getElementById('sp-grid');
-  // Range: 2 under par to 3 over par (e.g. Par 3 -> 1-6, Par 4 -> 2-7, Par 5 -> 3-8)
-  const min = Math.max(1, par - 2), max = par + 3;
+  // Full range per par, scrollable rather than paginated:
+  //   Par 3: 1-9   Par 4: 1-10   Par 5: 2-11
+  let min, max;
+  if (par <= 3)       { min = 1; max = 9;  }
+  else if (par === 4) { min = 1; max = 10; }
+  else                { min = 2; max = 11; }
+  min = Math.max(1, min);
 
-  gridEl.innerHTML = Array.from({ length: max - min + 1 }, (_, i) => {
-    const v        = min + i;
+  const buildBtn = (v) => {
     const isCurrent = current && parseInt(current) === v;
     const relToPar = v - par;
     const net      = v - extra;
@@ -3765,7 +3768,18 @@ function openScorePicker(pi, h, par) {
                     font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.7rem;">${v}</span>
       <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:var(--muted2);">${pts > 0 ? pts : '-'}</span>
     </button>`;
-  }).join('');
+  };
+
+  const gridEl = document.getElementById('sp-grid');
+  const morePickupVal = par + extra + 1; // one worse than the score that would earn a point
+
+  gridEl.innerHTML =
+    Array.from({ length: max - min + 1 }, (_, i) => buildBtn(min + i)).join('')
+    + `<button id="sp-pickup" class="btn btn-outline"
+        style="width:100%;font-size:0.95rem;font-weight:700;padding:0.85rem;margin-top:0.2rem;
+               border-color:var(--gold-border);color:var(--gold);">
+        🏌️ Pick Up / DNF
+      </button>`;
 
   gridEl.querySelectorAll('.sp-num-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -3778,15 +3792,12 @@ function openScorePicker(pi, h, par) {
   document.getElementById('sp-pickup').onclick = () => {
     // Pickup = par + handicap strokes received on this hole + 1
     // (one worse than the score that would earn a Stableford point)
-    const fmt   = gameState.format;
-    const isIndiv = ['stableford','stroke','best2','split6'].includes(fmt);
-    const extra = isIndiv
-      ? indivStrokesOnHole(gameState.playingHandicaps[pi], gameState.si[h])
-      : strokesOnHole(gameState.matchHandicaps[pi], gameState.si[h]);
-    const pickupVal = par + extra + 1;
-    setScoreValue(pi, h, par, pickupVal, true);
+    setScoreValue(pi, h, par, morePickupVal, true);
     closeScorePicker();
   };
+
+  // Scroll the picker back to the top each time it opens
+  gridEl.scrollTop = 0;
 
   document.getElementById('sp-cancel').onclick = closeScorePicker;
   document.getElementById('modal-score-picker').classList.add('open');
