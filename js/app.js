@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620p';
+} from '../data.js?v=20260620q';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620p';
+} from '../game.js?v=20260620q';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620p';
+} from '../tournament.js?v=20260620q';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3624,8 +3624,8 @@ function makePlayerInputRow(pi, h, par) {
   } else if (isPickup) {
     scoreBtnStyle = 'border:2px solid var(--gold);background:var(--gold);color:#fff;';
   } else {
-    const color = scoreColorForRelToPar(existingGross - par);
-    scoreBtnStyle = `border:2px solid ${color};background:${color};color:#fff;`;
+    const color = scoreColorForRelToPar(existingGross - par, existingGross);
+    scoreBtnStyle = `border:2px solid ${color};background:${color};color:${existingGross === 1 ? '#000' : '#fff'};`;
   }
 
   const row = document.createElement('div');
@@ -3749,12 +3749,13 @@ function openScorePicker(pi, h, par) {
     const pts      = stablefordPoints(v, extra, par);
 
     // Colour by gross relative to par:
-    // green = par, red = under par, blue = bogey/double, black = triple+
+    // gold = hole-in-one, green = par, red = under par, blue = bogey/double, black = triple+
     let circleColor;
-    if (relToPar === 0)       circleColor = 'var(--green)';
-    else if (relToPar < 0)    circleColor = '#d64545';
-    else if (relToPar <= 2)   circleColor = '#3a7bd5';
-    else                      circleColor = '#2a2a2a';
+    if (v === 1)               circleColor = 'var(--gold)';
+    else if (relToPar === 0)   circleColor = 'var(--green)';
+    else if (relToPar < 0)     circleColor = '#d64545';
+    else if (relToPar <= 2)    circleColor = '#3a7bd5';
+    else                       circleColor = '#2a2a2a';
 
     const ring = isCurrent ? 'box-shadow:0 0 0 3px var(--gold);' : '';
 
@@ -3762,9 +3763,9 @@ function openScorePicker(pi, h, par) {
       style="display:grid;grid-template-columns:1fr 2fr 1fr;align-items:center;gap:0.4fr;
              padding:0.55rem 0.5rem;border-radius:12px;border:none;cursor:pointer;
              background:var(--surface2);${ring}">
-      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:${relToPar < 0 ? '#d64545' : 'var(--white)'};">${net}</span>
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:${v === 1 ? 'var(--gold)' : relToPar < 0 ? '#d64545' : 'var(--white)'};">${net}</span>
       <span style="display:flex;align-items:center;justify-content:center;width:54px;height:54px;margin:0 auto;
-                    border-radius:50%;background:${circleColor};color:#fff;
+                    border-radius:50%;background:${circleColor};color:${v === 1 ? '#000' : '#fff'};
                     font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.7rem;">${v}</span>
       <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:var(--muted2);">${pts > 0 ? pts : '-'}</span>
     </button>`;
@@ -3828,8 +3829,9 @@ function closeScorePicker() {
 }
 
 // Shared colour logic for a recorded gross score relative to par
-// Matches the score picker: par = green, under par = red, 1-2 over = blue, 3+ over = black/dark
-function scoreColorForRelToPar(relToPar) {
+// Matches the score picker: gold = hole-in-one, par = green, under par = red, 1-2 over = blue, 3+ over = black/dark
+function scoreColorForRelToPar(relToPar, value) {
+  if (value === 1)        return 'var(--gold)';
   if (relToPar === 0)     return 'var(--green)';
   if (relToPar < 0)       return '#d64545';
   if (relToPar <= 2)      return '#3a7bd5';
@@ -3842,14 +3844,15 @@ function setScoreValue(pi, h, par, value, isPickup) {
   cvEl.dataset.value  = String(value);
   cvEl.dataset.pickup = isPickup ? '1' : '0';
   cvEl.textContent    = String(value);
-  cvEl.style.color       = '#fff';
   if (isPickup) {
+    cvEl.style.color       = '#fff';
     cvEl.style.background  = 'var(--gold)';
     cvEl.style.borderColor = 'var(--gold)';
     cvEl.innerHTML = `${value}<span style="font-size:0.6rem;display:block;font-weight:600;">PICKUP</span>`;
   } else {
     const relToPar = value - par;
-    const color = scoreColorForRelToPar(relToPar);
+    const color = scoreColorForRelToPar(relToPar, value);
+    cvEl.style.color       = value === 1 ? '#000' : '#fff';
     cvEl.style.background  = color;
     cvEl.style.borderColor = color;
   }
