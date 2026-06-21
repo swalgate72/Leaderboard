@@ -306,15 +306,19 @@ export async function roundCreate({ organiserId, courseName, teeName, gameFormat
 }
 
 export async function roundSaveState(roundId, gameState, playerNames) {
-  const { error } = await sb
+  const { data, error } = await sb
     .from('rounds')
     .update({
       game_state:   gameState,
       player_names: playerNames,
       updated_at:   new Date().toISOString(),
     })
-    .eq('id', roundId);
+    .eq('id', roundId)
+    .select('id'); // force Supabase to confirm a row was actually updated
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('Score save was blocked — no round was updated. Please try again.');
+  }
 }
 
 export async function roundComplete(roundId, gameState) {
