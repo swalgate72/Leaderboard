@@ -1179,6 +1179,14 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 .gi-row:last-child { margin-bottom: 0; }
 .gi-row.in-chair   { border-color: var(--gold-border); background: rgba(212,168,67,0.06); }
 
+/* Foursomes/Greensomes pair row — names stack vertically, score button
+   stays pinned to the right regardless of name length, no wrapping. */
+.gi-row-pair {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .gi-name {
   font-size: 1.25rem;
   font-weight: 800;
