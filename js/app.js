@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620v';
+} from '../data.js?v=20260620w';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620v';
+} from '../game.js?v=20260620w';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620v';
+} from '../tournament.js?v=20260620w';
 
 // ================================================================
 // PLAYER COLOURS
@@ -1371,6 +1371,27 @@ function renderSetupPairsScreen() {
     // last line of defence on top of the dedup/cap logic in dropPlayerIntoPair.
     const cappedIndices = [...new Set(pair.playerIndices)].slice(0, 2);
     const members = cappedIndices.map(pi => setup.players[pi]);
+
+    // Combined pair handicap — only meaningful once both slots are filled.
+    // Foursomes/Greensomes only; this screen is reused by Better Ball/CSM too,
+    // which don't have a single combined-handicap concept.
+    const isHcpFmt = ['foursomes','greensomes'].includes(setup.scoring);
+    let pairHcpBadge = '';
+    if (isHcpFmt && members.length === 2 && members[0] && members[1]) {
+      const hcp0 = members[0].courseHandicap ?? members[0].hcpIndex ?? 0;
+      const hcp1 = members[1].courseHandicap ?? members[1].hcpIndex ?? 0;
+      const pairHcp = setup.scoring === 'greensomes'
+        ? greensomesPairHandicap(hcp0, hcp1)
+        : foursomedPairHandicap(hcp0, hcp1);
+      pairHcpBadge = `
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+                      font-size:1.2rem;color:var(--white);line-height:1;">${pairHcp}</div>
+          <div style="font-size:0.6rem;color:var(--muted);font-weight:700;
+                      text-transform:uppercase;letter-spacing:0.05em;">Pair HCP</div>
+        </div>`;
+    }
+
     card.innerHTML = `
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
         <div class="card-title" style="margin:0;flex:1;">Pair ${pairIdx + 1}</div>
@@ -1379,6 +1400,7 @@ function renderSetupPairsScreen() {
           style="flex:2;background:none;border:none;border-bottom:1px solid var(--border);
                  color:var(--gold);font-family:'Barlow Condensed',sans-serif;
                  font-weight:800;font-size:1.05rem;outline:none;padding-bottom:2px;">
+        ${pairHcpBadge}
       </div>
       <div class="sp-pair-slots" data-pair="${pairIdx}" style="display:grid;gap:0.4rem;min-height:48px;">
         ${members.map((p, slot) => {
