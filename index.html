@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260620m">
+  <link rel="stylesheet" href="styles.css?v=20260620n">
 </head>
 <body>
 
@@ -1239,10 +1239,9 @@
                 margin-bottom:0.4rem;">
       <div>Net</div><div></div><div>Pts</div>
     </div>
-    <div id="sp-grid" style="display:grid;gap:0.4rem;margin-bottom:0.75rem;"></div>
-    <button id="sp-pickup" class="btn btn-outline" style="width:100%;font-size:0.95rem;font-weight:700;padding:0.85rem;border-color:var(--gold-border);color:var(--gold);">
-      🏌️ Pick Up / DNF
-    </button>
+    <div id="sp-grid" style="display:grid;gap:0.4rem;margin-bottom:0.75rem;
+                              max-height:48vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+                              padding-right:2px;"></div>
     <button id="sp-cancel" class="btn btn-ghost" style="width:100%;margin-top:0.5rem;font-size:0.85rem;color:var(--muted);">
       Cancel
     </button>
@@ -1326,7 +1325,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260620m"></script>
+<script type="module" src="js/app.js?v=20260620n"></script>
 
 
 <!-- ══════════════════════════════════════════
