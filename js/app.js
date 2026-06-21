@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620u';
+} from '../data.js?v=20260620v';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620u';
+} from '../game.js?v=20260620v';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620u';
+} from '../tournament.js?v=20260620v';
 
 // ================================================================
 // PLAYER COLOURS
@@ -1743,6 +1743,8 @@ function renderSetupGroupCards() {
 
   container.innerHTML = warning;
 
+  const isTexasFmt = setup.scoring === 'texas';
+
   groups.forEach((groupPlayers, g) => {
     const overLimit = groupPlayers.length > 4;
     const card      = document.createElement('div');
@@ -1750,11 +1752,29 @@ function renderSetupGroupCards() {
     card.dataset.group = g + 1;
     if (overLimit) card.style.borderColor = 'var(--red-border)';
 
+    // Texas Scramble: this group IS the scramble team — show their combined
+    // team handicap, recalculated live from whoever is currently in the group.
+    let texasHcpBadge = '';
+    if (isTexasFmt && groupPlayers.length > 0) {
+      const idxArr = groupPlayers.map(p => p.courseHandicap ?? p.hcpIndex ?? 0);
+      const teamHcp = texasTeamHandicap(idxArr, setup.texasMode ?? 'average', setup.hcpPct ?? 100);
+      texasHcpBadge = `
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+                      font-size:1.3rem;color:var(--gold);">${teamHcp}</div>
+          <div style="font-size:0.65rem;color:var(--muted);font-weight:700;
+                      text-transform:uppercase;letter-spacing:0.05em;">Team HCP</div>
+        </div>`;
+    }
+
     card.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
         <div class="card-title" style="margin:0;">Group ${g + 1}</div>
-        <div style="font-size:0.85rem;font-weight:700;color:${overLimit ? 'var(--red)' : 'var(--muted2)'};">
-          ${groupPlayers.length} player${groupPlayers.length !== 1 ? 's' : ''}${overLimit ? ' — max 4' : ''}
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <div style="font-size:0.85rem;font-weight:700;color:${overLimit ? 'var(--red)' : 'var(--muted2)'};">
+            ${groupPlayers.length} player${groupPlayers.length !== 1 ? 's' : ''}${overLimit ? ' — max 4' : ''}
+          </div>
+          ${texasHcpBadge}
         </div>
       </div>
       <div class="sg-player-list" data-group="${g + 1}">
@@ -1989,6 +2009,11 @@ function renderSetupPairGroupCards() {
           : groupPairs.map(pair => {
               const [pi0, pi1] = pair.playerIndices;
               const p0 = setup.players[pi0], p1 = setup.players[pi1];
+              const hcp0 = p0?.courseHandicap ?? p0?.hcpIndex ?? 0;
+              const hcp1 = p1?.courseHandicap ?? p1?.hcpIndex ?? 0;
+              const pairHcp = setup.scoring === 'greensomes'
+                ? greensomesPairHandicap(hcp0, hcp1)
+                : foursomedPairHandicap(hcp0, hcp1);
               return `<div class="spg-pair-row" draggable="true"
                 data-uid="${pair._uid}" data-group="${g + 1}"
                 style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.75rem;
@@ -2004,7 +2029,12 @@ function renderSetupPairGroupCards() {
                     ${p1?.name ?? '?'} · HCP ${fmtHandicap(p1?.hcpIndex ?? 0)}
                   </div>
                 </div>
-                <span style="font-size:0.75rem;color:var(--muted);font-weight:700;">↕ swap</span>
+                <div style="text-align:right;flex-shrink:0;">
+                  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+                              font-size:1.3rem;color:var(--white);">${pairHcp}</div>
+                  <div style="font-size:0.65rem;color:var(--muted);font-weight:700;
+                              text-transform:uppercase;letter-spacing:0.05em;">Pair HCP</div>
+                </div>
               </div>`;
             }).join('')}
       </div>`;
