@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620s';
+} from '../data.js?v=20260620t';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620s';
+} from '../game.js?v=20260620t';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620s';
+} from '../tournament.js?v=20260620t';
 
 // ================================================================
 // PLAYER COLOURS
@@ -751,7 +751,7 @@ const SOLO_FORMATS = [
 const TEAM_FORMATS = [
   { key: 'betterball', icon: '⛳', label: 'Better Ball',    desc: 'Pairs · best net score per pair competes' },
   { key: 'csm',        icon: '📊', label: 'Combined Score', desc: 'Pairs · combined stableford · match play' },
-  { key: 'foursomes',  icon: '🤝', label: 'Foursomes',      desc: 'Pairs · alternate shots · WHS handicap' },
+  { key: 'foursomes',  icon: '🤝', label: 'Foursomes Match Play', desc: 'Pairs · alternate shots, one ball · combined handicap (50% of pair total)' },
   { key: 'greensomes', icon: '🤝', label: 'Greensomes',     desc: 'Pairs · both drive then alternate · WHS handicap' },
   { key: 'best2',      icon: '🥇', label: 'Best 2',         desc: 'Best 2 stableford scores per group · groups vs groups' },
   { key: 'texas',      icon: '🤠', label: 'Texas Scramble', desc: 'All play from best drive · one team score per hole · 2-4 players' },
@@ -3262,6 +3262,21 @@ function renderHolePanel() {
     const holesLeft = (gameState.numHoles ?? 18) - played;
     const up        = Math.abs(ms);
 
+    // Foursomes Match Play: each pair's combined handicap = 50% of their
+    // two handicap indexes added together. The lowest pair plays off
+    // scratch; the other pair receives the difference over the match.
+    // (Greensomes uses its own 60/40 weighting via greensomesPairHandicap,
+    // computed the same way but kept separate per format.)
+    const idxs   = gameState.handicapIndexes ?? [];
+    const fmt    = gameState.format;
+    const rawPairHcp = (a, b) => fmt === 'greensomes'
+      ? Math.round(0.6 * Math.min(idxs[a] ?? 0, idxs[b] ?? 0) + 0.4 * Math.max(idxs[a] ?? 0, idxs[b] ?? 0))
+      : Math.round(((idxs[a] ?? 0) + (idxs[b] ?? 0)) * 0.5);
+    const pairAHcpRaw = rawPairHcp(0, 1);
+    const pairBHcpRaw = rawPairHcp(2, 3);
+    const lowestPairHcp = Math.min(pairAHcpRaw, pairBHcpRaw);
+    const pairAllowance = { A: pairAHcpRaw - lowestPairHcp, B: pairBHcpRaw - lowestPairHcp };
+
     [['A', 0, 1, ms], ['B', 2, 3, -ms]].forEach(([label, p0, p1, teamMs]) => {
       const teamStatus = ms === 0
         ? 'All Square'
@@ -3299,6 +3314,11 @@ function renderHolePanel() {
         scoreBtnStyle = `border:2px solid ${color};background:${color};color:${existingGross === 1 ? '#000' : '#fff'};`;
       }
 
+      const allowance  = pairAllowance[label];
+      const hcpLineTxt = allowance === 0
+        ? 'Team HCP — Plays off Scratch'
+        : `Team HCP — Receives ${allowance} shot${allowance === 1 ? '' : 's'}`;
+
       const row = document.createElement('div');
       row.className = 'gi-row gi-row-pair';
       row.innerHTML = `
@@ -3311,7 +3331,7 @@ function renderHolePanel() {
             <span class="dot" style="background:${pHex(p1)};flex-shrink:0;"></span>
             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${gameState.names[p1]}</span>
           </div>
-          <div class="gi-hcp" style="margin-top:2px;">Match HCP ${gameState.matchHandicaps?.[p0] ?? 0} &amp; ${gameState.matchHandicaps?.[p1] ?? 0}</div>
+          <div class="gi-hcp" style="margin-top:2px;">${hcpLineTxt}</div>
         </div>
         <div style="flex-shrink:0;">
           <div id="cv-pair-${label}" data-value="${hasExisting ? existingGross : ''}"
