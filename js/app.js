@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620o';
+} from '../data.js?v=20260620p';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620o';
+} from '../game.js?v=20260620p';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620o';
+} from '../tournament.js?v=20260620p';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3796,6 +3796,13 @@ function openScorePicker(pi, h, par) {
     closeScorePicker();
   };
 
+  document.getElementById('sp-cancel').onclick = closeScorePicker;
+
+  // Open the modal FIRST — while it's display:none, every element inside it
+  // (including sp-grid and its buttons) reports zero size and zero position,
+  // so any scroll-position math done before this point is meaningless.
+  document.getElementById('modal-score-picker').classList.add('open');
+
   // Default scroll position: show Birdie (par - 1) at the top of the list,
   // so Eagle/better is just a small scroll up and most scores need no
   // scrolling at all. If a score is already set for this hole, scroll to
@@ -3803,13 +3810,17 @@ function openScorePicker(pi, h, par) {
   const targetVal = (current ? parseInt(current, 10) : null) ?? (par - 1);
   const targetBtn = gridEl.querySelector(`.sp-num-btn[data-val="${Math.max(min, targetVal)}"]`);
   if (targetBtn) {
-    gridEl.scrollTop = Math.max(0, targetBtn.offsetTop - gridEl.offsetTop);
+    // Use rendered positions via getBoundingClientRect, computed on the next
+    // frame so layout has settled after the modal became visible.
+    requestAnimationFrame(() => {
+      const gridRect = gridEl.getBoundingClientRect();
+      const btnRect  = targetBtn.getBoundingClientRect();
+      const delta    = (btnRect.top - gridRect.top) - 6; // small top padding
+      gridEl.scrollTop = Math.max(0, gridEl.scrollTop + delta);
+    });
   } else {
     gridEl.scrollTop = 0;
   }
-
-  document.getElementById('sp-cancel').onclick = closeScorePicker;
-  document.getElementById('modal-score-picker').classList.add('open');
 }
 
 function closeScorePicker() {
