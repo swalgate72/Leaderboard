@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620n';
+} from '../data.js?v=20260620o';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620n';
+} from '../game.js?v=20260620o';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620n';
+} from '../tournament.js?v=20260620o';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3775,9 +3775,9 @@ function openScorePicker(pi, h, par) {
 
   gridEl.innerHTML =
     Array.from({ length: max - min + 1 }, (_, i) => buildBtn(min + i)).join('')
-    + `<button id="sp-pickup" class="btn btn-outline"
+    + `<button id="sp-pickup" class="btn"
         style="width:100%;font-size:0.95rem;font-weight:700;padding:0.85rem;margin-top:0.2rem;
-               border-color:var(--gold-border);color:var(--gold);">
+               background:var(--gold);border:none;color:#000;">
         🏌️ Pick Up / DNF
       </button>`;
 
@@ -3796,8 +3796,17 @@ function openScorePicker(pi, h, par) {
     closeScorePicker();
   };
 
-  // Scroll the picker back to the top each time it opens
-  gridEl.scrollTop = 0;
+  // Default scroll position: show Birdie (par - 1) at the top of the list,
+  // so Eagle/better is just a small scroll up and most scores need no
+  // scrolling at all. If a score is already set for this hole, scroll to
+  // that instead so re-opening the picker shows the current pick.
+  const targetVal = (current ? parseInt(current, 10) : null) ?? (par - 1);
+  const targetBtn = gridEl.querySelector(`.sp-num-btn[data-val="${Math.max(min, targetVal)}"]`);
+  if (targetBtn) {
+    gridEl.scrollTop = Math.max(0, targetBtn.offsetTop - gridEl.offsetTop);
+  } else {
+    gridEl.scrollTop = 0;
+  }
 
   document.getElementById('sp-cancel').onclick = closeScorePicker;
   document.getElementById('modal-score-picker').classList.add('open');
