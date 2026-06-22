@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620w';
+} from '../data.js?v=20260620x';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620w';
+} from '../game.js?v=20260620x';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620w';
+} from '../tournament.js?v=20260620x';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3719,7 +3719,7 @@ document.getElementById('ld-ntp-gps-mark-ball')?.addEventListener('click', () =>
 
 function makePlayerInputRow(pi, h, par) {
   const fmt     = gameState.format;
-  const isIndiv = ['stableford','stroke','best2','split6'].includes(fmt);
+  const isIndiv = ['stableford','stroke','best2'].includes(fmt);
   const extra   = isIndiv
     ? indivStrokesOnHole(gameState.playingHandicaps[pi], gameState.si[h])
     : strokesOnHole(gameState.matchHandicaps[pi], gameState.si[h]);
@@ -3862,7 +3862,7 @@ function openScorePicker(pi, h, par) {
   document.getElementById('sp-context').textContent = `Hole ${h + 1} · Par ${par}`;
 
   const fmt     = gameState.format;
-  const isIndiv = ['stableford','stroke','best2','split6'].includes(fmt);
+  const isIndiv = ['stableford','stroke','best2'].includes(fmt);
   const extra   = isIndiv
     ? indivStrokesOnHole(gameState.playingHandicaps[pi], gameState.si[h])
     : strokesOnHole(gameState.matchHandicaps[pi], gameState.si[h]);
