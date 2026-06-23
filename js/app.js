@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260621d';
+} from '../data.js?v=20260621e';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260621d';
+} from '../game.js?v=20260621e';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260621d';
+} from '../tournament.js?v=20260621e';
 
 // ================================================================
 // PLAYER COLOURS
@@ -7032,31 +7032,243 @@ document.getElementById('history-back')?.addEventListener('click', () => showHom
 function showHistoryDetail(rid, rounds) {
   const r = rounds.find(x => x.id === rid); if (!r) return;
   const state = r.game_state;
-  document.getElementById('hd-title').textContent = `${r.course_name ?? '--'} · ${fmtLabel(r.game_format)}`;
-  if (state) {
-    const summary = getResultSummary(state);
+
+  document.getElementById('hd-title').textContent =
+    `${r.course_name ?? '--'} · ${fmtLabel(r.game_format)}`;
+
+  // Clear tabs back to default (leaderboard visible)
+  document.getElementById('hd-tab-leaderboard').style.display = '';
+  document.getElementById('hd-tab-scorecard').style.display   = 'none';
+  document.querySelectorAll('.hd-tab-btn').forEach((btn, i) => {
+    const isFirst = i === 0;
+    btn.classList.toggle('active', isFirst);
+    btn.style.borderBottomColor = isFirst ? 'var(--gold)' : 'transparent';
+    btn.style.color             = isFirst ? 'var(--gold)' : 'var(--muted2)';
+  });
+
+  if (!state) {
+    document.getElementById('hd-result').innerHTML      = '';
+    document.getElementById('hd-leaderboard').innerHTML = '<div style="color:var(--muted);padding:1rem;">No data saved for this round.</div>';
+    document.getElementById('hd-scorecard').innerHTML   = '';
+    document.getElementById('hd-side-comps').innerHTML  = '';
+    document.getElementById('hd-sc-mode-row').classList.add('hidden');
+    document.getElementById('hd-sc-groups').classList.add('hidden');
+  } else {
+    const allStates = state.allGroupStates?.length ? state.allGroupStates : [state];
+    const merged    = mergeGroupStates(allStates, state);
+    const fmt       = merged.format;
+    const summary   = getResultSummary(merged);
+
+    // ── Result summary ───────────────────────────────────────────────
     document.getElementById('hd-result').innerHTML = `
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:1rem;">
-        <div style="font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:0.3rem;">${fmtLabel(r.game_format)} · ${r.tee_name} Tees</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold);">${summary.winner ?? 'Completed'}</div>
-        <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">${summary.summary ?? ''}</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;">
+        <div style="font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:0.3rem;">
+          ${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees · ${merged.log?.length ?? 0} holes
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold);">
+          ${summary.winner ?? 'Completed'}
+        </div>
+        ${summary.summary ? `<div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">${summary.summary}</div>` : ''}
       </div>`;
-    const allStates = state.allGroupStates ?? [state];
-    document.getElementById('hd-scorecard').innerHTML = buildLandscapeScorecard(mergeGroupStates(allStates, state));
+
+    // ── LD/NTP side competition results ─────────────────────────────
+    const ldData  = buildSideCompResults(allStates, 'ld');
+    const ntpData = buildSideCompResults(allStates, 'ntp');
+    const sideEl  = document.getElementById('hd-side-comps');
+    if (ldData.holes.length || ntpData.holes.length) {
+      const rowsFor = (data, kind) => data.holes.map(holeNum => {
+        const res = data.byHole[holeNum];
+        const icon = kind === 'ld' ? '🏌️' : '🎯';
+        return `<div style="display:flex;align-items:center;justify-content:space-between;
+                            padding:0.55rem 0.85rem;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:1.1rem;">${icon}</span>
+            <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;
+                         font-size:0.95rem;color:var(--muted2);">Hole ${holeNum}</span>
+          </div>
+          ${res
+            ? `<div style="text-align:right;">
+                <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.05rem;">${res.playerName}</span>
+                <span style="color:${kind === 'ld' ? 'var(--gold)' : 'var(--blue)'};font-weight:800;margin-left:6px;">
+                  ${kind === 'ld' ? `${res.yards} yds` : `${res.cm} cm`}
+                </span>
+              </div>`
+            : `<span style="color:var(--muted);font-size:0.85rem;">Not marked</span>`}
+        </div>`;
+      }).join('');
+
+      sideEl.innerHTML = `
+        <div style="background:var(--surface2);border:1px solid var(--border);
+                    border-radius:var(--radius-sm);overflow:hidden;margin-bottom:0.5rem;">
+          ${ldData.holes.length ? `
+            <div style="padding:0.5rem 0.85rem;background:rgba(212,168,67,0.08);
+                        font-size:0.75rem;font-weight:800;letter-spacing:0.08em;
+                        text-transform:uppercase;color:var(--gold);">Longest Drive</div>
+            ${rowsFor(ldData, 'ld')}` : ''}
+          ${ntpData.holes.length ? `
+            <div style="padding:0.5rem 0.85rem;background:rgba(91,163,217,0.08);
+                        font-size:0.75rem;font-weight:800;letter-spacing:0.08em;
+                        text-transform:uppercase;color:var(--blue);">Nearest the Pin</div>
+            ${rowsFor(ntpData, 'ntp')}` : ''}
+        </div>`;
+    } else {
+      sideEl.innerHTML = '';
+    }
+
+    // ── Leaderboard ──────────────────────────────────────────────────
+    const lbEl    = document.getElementById('hd-leaderboard');
+    const isStroke  = fmt === 'stroke';
+    const isTexas   = fmt === 'texas';
+    const isMatch   = ['match','betterball','csm','foursomes','greensomes'].includes(fmt);
+    const isSkins   = fmt === 'skins';
+    const isItc     = fmt === 'itc';
+    const isBest2   = fmt === 'best2';
+    const texasSbFmt = isTexas && (state.texasScoringFmt ?? 'stableford') === 'stableford';
+    const scoreLabel = isTexas  ? (texasSbFmt ? 'Pts'   : 'Gross')
+                     : isStroke ? 'Net'
+                     : isSkins  ? 'Skins'
+                     : 'Pts';
+
+    const TEAM_PAIR_FORMATS = ['betterball','csm','foursomes','greensomes','best2','texas'];
+    if (TEAM_PAIR_FORMATS.includes(fmt)) {
+      // Team/pairs formats — one row per group
+      const rows = allStates.filter(s => s?.names).map((s, i) => {
+        const teamName  = s.teamName ?? `Team ${s.groupNumber ?? i + 1}`;
+        const members   = s.names.join(', ');
+        const holesPlayed = s.log?.length ?? 0;
+        let score;
+        if (isTexas)   score = texasSbFmt ? (s.texasPts ?? 0) : (s.grossTotal ?? 0);
+        else if (isBest2) score = s.groupTotal ?? 0;
+        else {
+          const ms = s.matchScore ?? 0;
+          const up = Math.abs(ms);
+          score = ms === 0 ? 'All Sq' : (ms > 0 ? `${up} Up` : `${up} Down`);
+        }
+        return { rank: i + 1, label: teamName, sub: members, score, thru: holesPlayed, isLead: i === 0 };
+      });
+      // Sort numeric scores
+      const numRows = rows.filter(r => typeof r.score === 'number');
+      const strRows = rows.filter(r => typeof r.score !== 'number');
+      numRows.sort((a, b) => (isTexas && !texasSbFmt) ? a.score - b.score : b.score - a.score);
+      const sorted = [...numRows, ...strRows].map((r, i) => ({ ...r, rank: i + 1, isLead: i === 0 }));
+      lbEl.innerHTML = buildLeaderboardTable(sorted, isMatch ? 'Result' : scoreLabel);
+    } else {
+      // Individual formats — per-player rows from merged state
+      const rows = buildMultiGroupLeaderboard(allStates);
+      if (!rows.length) {
+        lbEl.innerHTML = '<div style="padding:1rem;color:var(--muted);">No scores recorded.</div>';
+      } else {
+        lbEl.innerHTML = buildLeaderboardTable(
+          rows.map((row, i) => {
+            let score;
+            if (isStroke)    score = row.net ?? '--';
+            else if (isMatch) score = row.pts != null ? (row.pts > 0 ? `${row.pts} Up` : row.pts < 0 ? `${Math.abs(row.pts)} Down` : 'All Sq') : 'All Sq';
+            else              score = row.pts ?? '--';
+            return { rank: i + 1, label: row.name, sub: null, score, thru: row.holesPlayed, isLead: i === 0 };
+          }),
+          scoreLabel
+        );
+      }
+    }
+
+    // ── Scorecard (vertical, swipeable groups) ───────────────────────
+    const modes    = scorecardModesFor(fmt);
+    const modeRow  = document.getElementById('hd-sc-mode-row');
+    const groupsEl = document.getElementById('hd-sc-groups');
+
+    let hdScMode  = modes[0];
+    let hdScGroup = 0;
+
+    const groups = [...allStates].sort((a, b) => (a.groupNumber ?? 0) - (b.groupNumber ?? 0));
+
+    const renderHdScorecard = () => {
+      const g     = groups[hdScGroup] ?? groups[0];
+      const sc    = buildVerticalScorecard(g, hdScMode);
+      document.getElementById('hd-scorecard').innerHTML = sc;
+    };
+
+    if (modes.length > 1) {
+      modeRow.classList.remove('hidden');
+      modeRow.querySelectorAll('.hd-sc-mode-btn').forEach(btn => {
+        btn.onclick = () => {
+          hdScMode = btn.dataset.mode;
+          modeRow.querySelectorAll('.hd-sc-mode-btn').forEach(b => {
+            const active = b.dataset.mode === hdScMode;
+            b.classList.toggle('active', active);
+            b.style.background   = active ? 'var(--gold)'    : 'var(--surface2)';
+            b.style.color        = active ? '#000'            : 'var(--white)';
+            b.style.borderColor  = active ? 'var(--gold)'    : 'var(--border)';
+          });
+          renderHdScorecard();
+        };
+        const active = btn.dataset.mode === hdScMode;
+        btn.style.background  = active ? 'var(--gold)'  : 'var(--surface2)';
+        btn.style.color       = active ? '#000'          : 'var(--white)';
+        btn.style.borderColor = active ? 'var(--gold)'  : 'var(--border)';
+        btn.style.border      = '2px solid';
+        btn.style.borderRadius = 'var(--radius-sm)';
+        btn.style.cursor      = 'pointer';
+      });
+    } else {
+      modeRow.classList.add('hidden');
+    }
+
+    if (groups.length > 1) {
+      groupsEl.classList.remove('hidden');
+      groupsEl.style.display = 'flex';
+      groupsEl.innerHTML = groups.map((g, i) => `
+        <button class="hd-grp-btn${i === 0 ? ' active' : ''}" data-idx="${i}"
+          style="padding:0.4rem 0.85rem;font-size:0.88rem;font-weight:800;border-radius:20px;
+                 background:${i === 0 ? 'var(--gold)' : 'var(--surface2)'};
+                 color:${i === 0 ? '#000' : 'var(--white)'};
+                 border:2px solid ${i === 0 ? 'var(--gold)' : 'var(--border)'};cursor:pointer;">
+          Group ${g.groupNumber ?? i + 1}
+        </button>`).join('');
+      groupsEl.querySelectorAll('.hd-grp-btn').forEach(btn => {
+        btn.onclick = () => {
+          hdScGroup = parseInt(btn.dataset.idx);
+          groupsEl.querySelectorAll('.hd-grp-btn').forEach(b => {
+            const active = parseInt(b.dataset.idx) === hdScGroup;
+            b.style.background  = active ? 'var(--gold)'  : 'var(--surface2)';
+            b.style.color       = active ? '#000'          : 'var(--white)';
+            b.style.borderColor = active ? 'var(--gold)'  : 'var(--border)';
+          });
+          renderHdScorecard();
+        };
+      });
+    } else {
+      groupsEl.classList.add('hidden');
+      groupsEl.style.display = 'none';
+    }
+
+    renderHdScorecard();
   }
 
-  // Wire up delete button
+  // ── Tab switching ─────────────────────────────────────────────────
+  document.querySelectorAll('.hd-tab-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.hd-tab-btn').forEach(b => {
+        const active = b === btn;
+        b.classList.toggle('active', active);
+        b.style.borderBottomColor = active ? 'var(--gold)' : 'transparent';
+        b.style.color             = active ? 'var(--gold)' : 'var(--muted2)';
+      });
+      const targetId = btn.dataset.tab;
+      ['hd-tab-leaderboard','hd-tab-scorecard'].forEach(id => {
+        document.getElementById(id).style.display = id === targetId ? '' : 'none';
+      });
+    };
+  });
+
+  // ── Delete button ─────────────────────────────────────────────────
   const delBtn = document.getElementById('btn-delete-round');
   if (delBtn) {
-    // Reset button state every time detail screen opens
     delBtn.disabled = false; delBtn.textContent = '🗑 Delete Round';
     delBtn.onclick = async () => {
       if (!confirm('Delete this round permanently? This cannot be undone.')) return;
-      // Navigate away immediately so button can't be double-clicked
       await showHistory();
       try {
         await roundDelete(r.id);
-        // Reload the list now the delete is done
         await loadHistory();
       } catch (err) {
         alert('Could not delete round: ' + err.message);
