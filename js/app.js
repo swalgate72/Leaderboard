@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620z';
+} from '../data.js?v=20260621b';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620z';
+} from '../game.js?v=20260621b';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620z';
+} from '../tournament.js?v=20260621b';
 
 // ================================================================
 // PLAYER COLOURS
@@ -5198,13 +5198,10 @@ function subscribeToGameInvites() {
     } catch (e) { console.error('[invite] load error', e); }
   });
 
-  // Fall back to polling if realtime not connected after 2s
-  setTimeout(() => {
-    const state = _gameInviteChannel?.state;
-    if (state !== 'joined' && state !== 'SUBSCRIBED') {
-      startInvitePoll();
-    }
-  }, 2000);
+  // Always start polling as a belt-and-braces fallback — realtime can drop
+  // silently on mobile (backgrounding the app, network switches, etc.).
+  // startInvitePoll() is a no-op if already running.
+  setTimeout(() => startInvitePoll(), 3000);
 }
 
 async function checkPendingInvitesNow() {
@@ -5221,14 +5218,16 @@ async function checkPendingInvitesNow() {
 
 async function startInvitePoll() {
   if (_gameInvitePollTimer) return;
-  _lastInviteCheck = new Date().toISOString();
+  // Don't pre-set _lastInviteCheck here — leave it null so the first poll
+  // has no time filter and catches anything pending (same as checkPendingInvitesNow).
   _gameInvitePollTimer = setInterval(async () => {
     try {
       const rows = await gameInvitesPollPending(currentUser.id, _lastInviteCheck);
       if (rows.length) {
-        _lastInviteCheck = new Date().toISOString();
         for (const row of rows) showGameInviteBanner(row);
       }
+      // Only advance the timestamp after a successful check
+      _lastInviteCheck = new Date().toISOString();
     } catch {}
   }, 5000);
 }
