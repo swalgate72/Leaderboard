@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260621c';
+} from '../data.js?v=20260621d';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260621c';
+} from '../game.js?v=20260621d';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260621c';
+} from '../tournament.js?v=20260621d';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3708,30 +3708,201 @@ function buildLdNtpCard(holeNum, kind) {
     background:${kind === 'ld' ? 'rgba(212,168,67,0.08)' : 'rgba(91,163,217,0.08)'};
     border:1.5px solid ${kind === 'ld' ? 'var(--gold-border)' : 'var(--blue-border)'};`;
 
-  const title = kind === 'ld' ? '🏌️ Mark Longest Drive' : '🎯 Mark Nearest the Pin';
+  // ── NTP: unchanged single-button flow ──────────────────────────────
+  if (kind === 'ntp') {
+    const title = '🎯 Nearest the Pin';
+    if (existing) {
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${title}</div>
+            <div style="font-size:0.9rem;font-weight:700;color:var(--muted2);margin-top:2px;">
+              ${existing.playerName} — <span style="color:var(--blue);font-weight:800;">${existing.cm} cm</span>
+            </div>
+          </div>
+          <button class="btn btn-outline ld-ntp-remark" style="padding:0.5rem 0.9rem;font-size:0.85rem;">Re-mark</button>
+        </div>`;
+      card.querySelector('.ld-ntp-remark')?.addEventListener('click', () => openLdNtpMarkModal(holeNum, 'ntp'));
+    } else {
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${title}</div>
+          <button class="btn btn-green ld-ntp-mark" style="padding:0.55rem 1rem;font-size:0.9rem;font-weight:800;">Mark</button>
+        </div>`;
+      card.querySelector('.ld-ntp-mark')?.addEventListener('click', () => openLdNtpMarkModal(holeNum, 'ntp'));
+    }
+    return card;
+  }
+
+  // ── LD: two-button inline flow ─────────────────────────────────────
+  // Tee position persists in gameState.ldTeePos[holeNum] across re-renders.
+  const teePos    = gameState.ldTeePos?.[holeNum] ?? null;
+  const teeMarked = !!teePos;
+  const titleEl   = `<div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.05rem;margin-bottom:0.65rem;">🏌️ Longest Drive</div>`;
 
   if (existing) {
-    const valueLabel = kind === 'ld' ? `${existing.yards} yds` : `${existing.cm} cm`;
+    // Fully recorded — show result + re-mark
     card.innerHTML = `
+      ${titleEl}
       <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${title}</div>
-          <div style="font-size:0.9rem;font-weight:700;color:var(--muted2);margin-top:2px;">
-            ${existing.playerName} — <span style="color:${kind === 'ld' ? 'var(--gold)' : 'var(--blue)'};font-weight:800;">${valueLabel}</span>
-          </div>
+        <div style="font-size:0.9rem;font-weight:700;color:var(--muted2);">
+          ${existing.playerName} — <span style="color:var(--gold);font-weight:800;">${existing.yards} yds</span>
         </div>
-        <button class="btn btn-outline ld-ntp-remark" style="padding:0.5rem 0.9rem;font-size:0.85rem;">Re-mark</button>
+        <button class="btn btn-outline ld-remark" style="padding:0.4rem 0.75rem;font-size:0.82rem;">Re-mark</button>
       </div>`;
-    card.querySelector('.ld-ntp-remark')?.addEventListener('click', () => openLdNtpMarkModal(holeNum, kind));
-  } else {
-    card.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${title}</div>
-        <button class="btn btn-green ld-ntp-mark" style="padding:0.55rem 1rem;font-size:0.9rem;font-weight:800;">Mark</button>
-      </div>`;
-    card.querySelector('.ld-ntp-mark')?.addEventListener('click', () => openLdNtpMarkModal(holeNum, kind));
+    card.querySelector('.ld-remark')?.addEventListener('click', () => {
+      gameState.ldResults = gameState.ldResults ?? {};
+      delete gameState.ldResults[holeNum];
+      gameState.ldTeePos  = gameState.ldTeePos  ?? {};
+      delete gameState.ldTeePos[holeNum];
+      renderHolePanel();
+    });
+    return card;
   }
+
+  // Two side-by-side buttons
+  const teeStyle = teeMarked
+    ? 'background:transparent;border:2.5px solid var(--green);color:var(--green);box-shadow:0 0 0 4px rgba(76,175,118,0.2);'
+    : 'background:var(--green);border:2px solid var(--green);color:#fff;';
+  const ballStyle = teeMarked
+    ? 'background:var(--gold);border:2px solid var(--gold);color:#000;cursor:pointer;'
+    : 'background:var(--surface2);border:2px solid var(--border);color:var(--muted);opacity:0.45;cursor:not-allowed;';
+  const statusTxt = teeMarked
+    ? `<div style="font-size:0.72rem;color:var(--green);font-weight:700;margin-top:0.5rem;text-align:center;">Tee position locked ✓ — walk to the ball, then tap "At Long Drive Ball"</div>`
+    : `<div style="font-size:0.72rem;color:var(--muted);margin-top:0.5rem;text-align:center;">Stand at the tee box and tap "Mark Tee Position"</div>`;
+
+  card.innerHTML = `
+    ${titleEl}
+    <div style="display:flex;gap:0.5rem;">
+      <button id="ld-btn-tee" style="flex:1;padding:0.75rem 0.4rem;border-radius:var(--radius-sm);
+        font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.9rem;
+        text-align:center;transition:all 0.2s;${teeStyle}">
+        ${teeMarked ? '✓ Tee Marked' : '📍 Mark Tee Position'}
+      </button>
+      <button id="ld-btn-ball" ${!teeMarked ? 'disabled' : ''} style="flex:1;padding:0.75rem 0.4rem;border-radius:var(--radius-sm);
+        font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.9rem;
+        text-align:center;transition:all 0.2s;${ballStyle}">
+        🏌️ At Long Drive Ball
+      </button>
+    </div>
+    ${statusTxt}`;
+
+  // Mark Tee Position
+  card.querySelector('#ld-btn-tee')?.addEventListener('click', () => {
+    if (teeMarked) {
+      // Tap again to reset tee
+      gameState.ldTeePos = gameState.ldTeePos ?? {};
+      delete gameState.ldTeePos[holeNum];
+      renderHolePanel();
+      return;
+    }
+    const btn = card.querySelector('#ld-btn-tee');
+    btn.textContent = '📍 Locating…';
+    btn.disabled    = true;
+    if (_ldWatchId != null) { navigator.geolocation?.clearWatch(_ldWatchId); _ldWatchId = null; }
+    _ldWatchId = captureGpsPosition((pos) => {
+      _ldWatchId = null;
+      gameState.ldTeePos = gameState.ldTeePos ?? {};
+      gameState.ldTeePos[holeNum] = { lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy };
+      renderHolePanel();
+    }, null);
+  });
+
+  // At Long Drive Ball — open player picker then GPS-capture ball position
+  card.querySelector('#ld-btn-ball')?.addEventListener('click', () => {
+    if (!teeMarked) return;
+    openLdBallModal(holeNum, teePos);
+  });
+
   return card;
+}
+
+// LD ball modal — pick the player whose ball it is, then GPS-capture position
+function openLdBallModal(holeNum, teePos) {
+  const modal = document.getElementById('modal-ld-ntp-mark');
+  if (!modal) return;
+  modal.dataset.holeNum = holeNum;
+  modal.dataset.kind    = 'ld';
+
+  document.getElementById('ld-ntp-modal-title').textContent = '🏌️ Longest Drive — Whose ball?';
+  document.getElementById('ld-ntp-value-section').classList.add('hidden');
+  document.getElementById('ld-ntp-gps-section').classList.add('hidden');
+  document.getElementById('ld-ntp-gps-status').textContent = '';
+  modal.dataset.selectedPi = '';
+
+  const playerWrap = document.getElementById('ld-ntp-player-list');
+  playerWrap.innerHTML = gameState.names.map((name, pi) => `
+    <button class="ld-ntp-player-btn" data-pi="${pi}"
+      style="display:flex;align-items:center;gap:8px;width:100%;padding:0.65rem 0.85rem;
+             background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);
+             margin-bottom:0.4rem;font-family:'Barlow Condensed',sans-serif;font-weight:700;
+             font-size:1.05rem;text-align:left;cursor:pointer;">
+      <span class="dot" style="background:${pHex(pi)};"></span>${name}
+    </button>`).join('');
+
+  // Remove any leftover confirm button from a previous open
+  document.getElementById('ld-ball-confirm-btn')?.remove();
+  const confirmBtn = document.createElement('button');
+  confirmBtn.id          = 'ld-ball-confirm-btn';
+  confirmBtn.className   = 'btn btn-green';
+  confirmBtn.style.cssText = 'width:100%;padding:0.85rem;font-weight:800;font-size:1.05rem;margin-top:0.5rem;display:none;';
+  confirmBtn.textContent = '📍 Confirm & Mark Ball Position';
+  playerWrap.after(confirmBtn);
+
+  playerWrap.querySelectorAll('.ld-ntp-player-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      playerWrap.querySelectorAll('.ld-ntp-player-btn').forEach(b => {
+        b.style.borderColor = 'var(--border)'; b.style.background = 'var(--surface2)';
+      });
+      btn.style.borderColor = 'var(--gold-border)';
+      btn.style.background  = 'rgba(212,168,67,0.1)';
+      modal.dataset.selectedPi = btn.dataset.pi;
+      confirmBtn.style.display = '';
+    });
+  });
+
+  confirmBtn.addEventListener('click', () => {
+    const pi = parseInt(modal.dataset.selectedPi, 10);
+    if (isNaN(pi)) { alert('Please select a player first.'); return; }
+    confirmBtn.textContent = '📍 Locating ball…';
+    confirmBtn.disabled    = true;
+
+    // Show GPS status below
+    document.getElementById('ld-ntp-gps-section').classList.remove('hidden');
+    document.getElementById('ld-ntp-gps-step1').classList.add('hidden');
+    document.getElementById('ld-ntp-gps-step2').classList.add('hidden');
+    document.getElementById('ld-ntp-gps-result').classList.add('hidden');
+    const statusEl = document.getElementById('ld-ntp-gps-status');
+    if (statusEl) statusEl.textContent = '📍 Locating… hold still';
+
+    if (_ldWatchId != null) { navigator.geolocation?.clearWatch(_ldWatchId); _ldWatchId = null; }
+    _ldWatchId = captureGpsPosition(async (pos) => {
+      _ldWatchId = null;
+      const yards = gpsDistanceYards(teePos.lat, teePos.lng, pos.lat, pos.lng);
+
+      gameState.ldResults = gameState.ldResults ?? {};
+      gameState.ldResults[holeNum] = {
+        playerIdx:  pi, playerName: gameState.names[pi], yards,
+        lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy,
+        markedBy: currentUser?.id ?? null, ts: new Date().toISOString(),
+      };
+      // Clear tee pos now consumed
+      if (gameState.ldTeePos) delete gameState.ldTeePos[holeNum];
+
+      if (gameState.allGroupStates?.length > 1) {
+        const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === gameState.groupNumber);
+        if (idx >= 0) {
+          gameState.allGroupStates[idx].ldResults = gameState.ldResults;
+          gameState.allGroupStates[idx].ldTeePos  = gameState.ldTeePos;
+        }
+      }
+      await saveRoundState();
+      modal.classList.remove('open');
+      renderHolePanel();
+    }, 'ld-ntp-gps-status');
+  });
+
+  modal.classList.add('open');
 }
 
 function openLdNtpMarkModal(holeNum, kind) {
@@ -3820,7 +3991,7 @@ function resetLdGpsCapture() {
 }
 
 function captureGpsPosition(onAccurate, statusElId) {
-  const statusEl = document.getElementById(statusElId);
+  const statusEl = statusElId ? document.getElementById(statusElId) : null;
   if (!navigator.geolocation) {
     if (statusEl) statusEl.textContent = 'GPS not available on this device.';
     return null;
@@ -3841,44 +4012,6 @@ function captureGpsPosition(onAccurate, statusElId) {
   return watchId;
 }
 
-document.getElementById('ld-ntp-gps-mark-tee')?.addEventListener('click', () => {
-  _ldWatchId = captureGpsPosition((pos) => {
-    _ldTeePos = pos;
-    document.getElementById('ld-ntp-gps-step1').classList.add('hidden');
-    document.getElementById('ld-ntp-gps-step2').classList.remove('hidden');
-  }, 'ld-ntp-gps-status');
-});
-
-document.getElementById('ld-ntp-gps-mark-ball')?.addEventListener('click', () => {
-  _ldWatchId = captureGpsPosition(async (pos) => {
-    if (!_ldTeePos) return;
-    const yards = gpsDistanceYards(_ldTeePos.lat, _ldTeePos.lng, pos.lat, pos.lng);
-
-    const modal   = document.getElementById('modal-ld-ntp-mark');
-    const pi      = parseInt(modal.dataset.selectedPi, 10);
-    const holeNum = parseInt(modal.dataset.holeNum, 10);
-
-    gameState.ldResults = gameState.ldResults ?? {};
-    gameState.ldResults[holeNum] = {
-      playerIdx: pi, playerName: gameState.names[pi], yards,
-      lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy,
-      markedBy: currentUser?.id ?? null, ts: new Date().toISOString(),
-    };
-    if (gameState.allGroupStates?.length > 1) {
-      const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === gameState.groupNumber);
-      if (idx >= 0) gameState.allGroupStates[idx].ldResults = gameState.ldResults;
-    }
-    await saveRoundState();
-
-    document.getElementById('ld-ntp-gps-step2').classList.add('hidden');
-    document.getElementById('ld-ntp-gps-result').classList.remove('hidden');
-    document.getElementById('ld-ntp-gps-result-text').textContent = `${yards} yards`;
-    setTimeout(() => {
-      modal.classList.remove('open');
-      renderHolePanel();
-    }, 1200);
-  }, 'ld-ntp-gps-status');
-});
 
 function makePlayerInputRow(pi, h, par) {
   const fmt     = gameState.format;
