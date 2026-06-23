@@ -602,14 +602,18 @@ export async function smsInvitesDeleteMany(inviteIds) {
 }
 
 export async function gameInvitesPollPending(userId, since) {
-  const { data, error } = await sb
+  let query = sb
     .from('sms_invites')
     .select('*')
     .eq('recipient_profile_id', userId)
     .eq('status', 'pending')
-    .gt('created_at', since)
     .order('created_at', { ascending: false })
-    .limit(5);
+    .limit(10);
+  // Only apply the time filter when a timestamp is supplied — passing null to
+  // .gt() makes PostgREST return zero rows rather than "no filter", which is
+  // why the initial pending-invite check on sign-in was silently finding nothing.
+  if (since) query = query.gt('created_at', since);
+  const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
 }
