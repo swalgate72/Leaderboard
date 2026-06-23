@@ -305,6 +305,22 @@ export async function roundCreate({ organiserId, courseName, teeName, gameFormat
   return data.id;
 }
 
+export async function roundPlayerClaimScorer(roundId, profileId) {
+  // Mark this profile as scorer in round_players so RLS allows them to
+  // update the round's game_state going forward.
+  // First clear any existing scorer flags for this round (only one scorer
+  // per round at a time), then set the new one.
+  await sb.from('round_players')
+    .update({ is_scorer: false })
+    .eq('round_id', roundId)
+    .eq('is_scorer', true);
+  const { error } = await sb.from('round_players')
+    .update({ is_scorer: true })
+    .eq('round_id', roundId)
+    .eq('profile_id', profileId);
+  if (error) throw error;
+}
+
 export async function roundSaveState(roundId, gameState, playerNames) {
   const { data, error } = await sb
     .from('rounds')
