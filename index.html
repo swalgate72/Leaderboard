@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260620x">
+  <link rel="stylesheet" href="styles.css?v=20260620y">
 </head>
 <body>
 
@@ -991,6 +991,52 @@
 </div>
 
 <!-- ══ ADD GAME PLAYER MODAL (individual/team setup) ══ -->
+<!-- ══ PLAYER HANDICAP PICKER MODAL ══ -->
+<div class="modal-overlay" id="modal-player-hcp">
+  <div class="modal-box" style="max-width:360px;">
+    <div class="modal-header">
+      <div class="modal-title" id="player-hcp-modal-title">Select Handicap</div>
+      <button class="btn-close" id="modal-player-hcp-close">✕</button>
+    </div>
+
+    <div class="hint mb-sm">Which handicap should be used for this game?</div>
+
+    <!-- Source selector buttons -->
+    <div style="display:grid;gap:0.4rem;margin-bottom:1rem;">
+      <button class="btn hcp-source-btn" id="hcp-src-index"
+        style="justify-content:space-between;padding:0.75rem 1rem;font-size:1rem;font-weight:700;">
+        <span>Handicap Index</span>
+        <span id="hcp-src-index-val" style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;"></span>
+      </button>
+      <button class="btn hcp-source-btn" id="hcp-src-course"
+        style="justify-content:space-between;padding:0.75rem 1rem;font-size:1rem;font-weight:700;">
+        <span>Course Handicap</span>
+        <span id="hcp-src-course-val" style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;"></span>
+      </button>
+      <button class="btn hcp-source-btn" id="hcp-src-playing"
+        style="justify-content:space-between;padding:0.75rem 1rem;font-size:1rem;font-weight:700;">
+        <span>Playing Index</span>
+        <span id="hcp-src-playing-val" style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;"></span>
+      </button>
+    </div>
+
+    <!-- Editable Playing Index (only shown when Playing Index is selected) -->
+    <div id="hcp-playing-edit" class="hidden" style="margin-bottom:1rem;">
+      <div style="font-size:0.8rem;font-weight:700;color:var(--muted2);margin-bottom:0.4rem;">
+        Edit Playing Index (overrides profile value):
+      </div>
+      <input id="hcp-playing-input" type="number" min="0" max="54" step="0.1"
+        style="font-size:1.4rem;font-weight:800;text-align:center;"
+        placeholder="e.g. 14">
+    </div>
+
+    <button class="btn btn-green" id="btn-player-hcp-confirm"
+      style="width:100%;padding:0.85rem;font-size:1.05rem;font-weight:800;">
+      ✓ CONFIRM
+    </button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-add-game-player">
   <div class="modal-box" style="max-width:360px;">
     <div class="modal-header">
@@ -1325,7 +1371,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260620x"></script>
+<script type="module" src="js/app.js?v=20260620y"></script>
 
 
 <!-- ══════════════════════════════════════════
