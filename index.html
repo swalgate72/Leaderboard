@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260620z">
+  <link rel="stylesheet" href="styles.css?v=20260621e">
 </head>
 <body>
 
@@ -1227,10 +1227,53 @@
     <h2 id="hd-title">Round</h2>
   </div>
   <div class="page-pad" style="padding-top:1rem;">
-    <div id="hd-result"   class="mb-md"></div>
-    <div class="label mb-sm">Scorecard</div>
-    <div id="hd-scorecard" style="overflow-x:auto;margin-bottom:1.5rem;"></div>
-    <button class="btn btn-danger" id="btn-delete-round" style="width:100%;">🗑 Delete Round</button>
+
+    <!-- Result summary card -->
+    <div id="hd-result" class="mb-md"></div>
+
+    <!-- LD/NTP side competition results (shown when present) -->
+    <div id="hd-side-comps" style="margin-bottom:1rem;"></div>
+
+    <!-- Tab buttons -->
+    <div style="display:flex;border-bottom:2px solid var(--border);margin-bottom:1rem;">
+      <button class="hd-tab-btn active" data-tab="hd-tab-leaderboard"
+        style="flex:1;padding:0.65rem;font-family:'Barlow Condensed',sans-serif;font-weight:800;
+               font-size:1rem;background:none;border:none;border-bottom:3px solid var(--gold);
+               color:var(--gold);cursor:pointer;margin-bottom:-2px;">
+        🏆 Leaderboard
+      </button>
+      <button class="hd-tab-btn" data-tab="hd-tab-scorecard"
+        style="flex:1;padding:0.65rem;font-family:'Barlow Condensed',sans-serif;font-weight:800;
+               font-size:1rem;background:none;border:none;border-bottom:3px solid transparent;
+               color:var(--muted2);cursor:pointer;margin-bottom:-2px;">
+        📋 Scorecard
+      </button>
+    </div>
+
+    <!-- Leaderboard tab -->
+    <div id="hd-tab-leaderboard">
+      <div id="hd-leaderboard"></div>
+    </div>
+
+    <!-- Scorecard tab -->
+    <div id="hd-tab-scorecard" style="display:none;">
+      <!-- Points/Strokes mode toggle (shown for relevant formats) -->
+      <div id="hd-sc-mode-row" class="hidden"
+        style="display:flex;gap:0.4rem;margin-bottom:0.75rem;">
+        <button class="hd-sc-mode-btn active" data-mode="points"
+          style="flex:1;padding:0.5rem;font-weight:800;font-size:0.9rem;">Points</button>
+        <button class="hd-sc-mode-btn" data-mode="strokes"
+          style="flex:1;padding:0.5rem;font-weight:800;font-size:0.9rem;">Strokes</button>
+      </div>
+      <!-- Group pager (multi-group rounds) -->
+      <div id="hd-sc-groups" class="hidden" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.75rem;"></div>
+      <!-- Scorecard body -->
+      <div id="hd-scorecard" style="overflow-x:auto;"></div>
+    </div>
+
+    <div style="margin-top:1.5rem;">
+      <button class="btn btn-danger" id="btn-delete-round" style="width:100%;">🗑 Delete Round</button>
+    </div>
   </div>
 </div>
 
@@ -1430,7 +1473,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260620z"></script>
+<script type="module" src="js/app.js?v=20260621e"></script>
 
 
 <!-- ══════════════════════════════════════════
