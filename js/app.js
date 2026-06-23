@@ -8,7 +8,7 @@ import {
   authForgotPassword, authOnStateChange, authGetUser,
   profileLoad, profileSave, profileFindByEmail, profileFindByUsername,
   coursesLoadAll, courseLoadById, courseSave, courseDelete, coursesEnsureDefaults,
-  roundCreate, roundSaveState, roundComplete, roundAbandon, roundReactivate, roundDelete,
+  roundCreate, roundSaveState, roundPlayerClaimScorer, roundComplete, roundAbandon, roundReactivate, roundDelete,
   roundsLoadActive, roundLoadById, roundsLoadHistory,
   roundPlayersSave, roundPlayersLoad,
   friendsLoad, friendRequestsLoadPending,
@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260621b';
+} from '../data.js?v=20260621c';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260621b';
+} from '../game.js?v=20260621c';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260621b';
+} from '../tournament.js?v=20260621c';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3378,6 +3378,12 @@ function renderHolePanel() {
         const idx = gameState.allGroupStates.findIndex(s => s.groupNumber === gameState.groupNumber);
         if (idx >= 0) gameState.allGroupStates[idx].scorerProfileId = currentUser.id;
       }
+      // Update round_players so RLS lets this scorer write game_state to the DB.
+      // Fire-and-forget — if it fails the save will still work if organiser is
+      // the RLS subject, or will surface its own error on next record attempt.
+      roundPlayerClaimScorer(roundId, currentUser.id).catch(err =>
+        console.warn('[claim-scorer] round_players update failed:', err)
+      );
       await saveRoundState();
       renderHolePanel(); // re-render into scorer mode
     });
@@ -5793,6 +5799,10 @@ async function _joinRoundWithRole(roundId, groupNumber, asScorer) {
     } else {
       gs.scorerProfileId = currentUser.id;
     }
+    // Update round_players so RLS lets this scorer write to the rounds table
+    roundPlayerClaimScorer(roundId, currentUser.id).catch(err =>
+      console.warn('[join-scorer] round_players update failed:', err)
+    );
     // Save the updated top-level state back to DB
     const { allGroupStates, ...topState } = gs;
     topState.allGroupStates = (allGroupStates ?? []).map(s => {
