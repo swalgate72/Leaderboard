@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620x';
+} from '../data.js?v=20260620y';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620x';
+} from '../game.js?v=20260620y';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620x';
+} from '../tournament.js?v=20260620y';
 
 // ================================================================
 // PLAYER COLOURS
@@ -1154,6 +1154,8 @@ document.getElementById('btn-setup-course-next')?.addEventListener('click', () =
       courseHandicap: myCourseHcp ?? myHcp,
       groupNumber: 1, profileId: currentUser?.id ?? null,
       mobile: currentProfile?.mobile ?? '', isScorer: true,
+      hcpSource: 'course',
+      gameHandicap: Math.round(myCourseHcp ?? myHcp ?? 0),
     }];
   }
 
@@ -1182,35 +1184,28 @@ function renderSetupPlayerList() {
 
   listEl.innerHTML = setup.players.filter(p => p.name).map((p, i) => {
     const pi = setup.players.indexOf(p);
+    const gameHcp   = p.gameHandicap ?? p.courseHandicap ?? p.hcpIndex ?? 0;
+    const sourceLabel = { index: 'Handicap Index', course: 'Course HCP', playing: 'Playing Index' }[p.hcpSource] ?? 'Course HCP';
     return `<div style="display:flex;align-items:center;gap:0.75rem;padding:0.9rem 1rem;
                 background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">
       <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
       <div style="flex:1;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.25rem;">${p.name}</div>
-        <div style="font-size:0.85rem;font-weight:700;color:var(--muted2);">
-          HCP ${fmtHandicap(p.hcpIndex)}${p.courseHandicap != null && p.courseHandicap !== p.hcpIndex ? ` · Course ${fmtHandicap(p.courseHandicap)}` : ''}
+        <div style="font-size:0.82rem;font-weight:700;color:var(--muted2);">
+          Game HCP <span style="color:var(--white);font-size:0.95rem;">${fmtHandicap(gameHcp)}</span>
+          <span style="color:var(--muted);font-size:0.75rem;margin-left:4px;">(${sourceLabel})</span>
         </div>
       </div>
-      <button class="btn btn-ghost" data-edit="${pi}"
-        style="font-size:0.85rem;color:var(--muted2);border-color:var(--border);padding:0.3rem 0.6rem;">✎</button>
+      <button class="btn btn-outline player-hcp-btn" data-pi="${pi}"
+        style="font-size:0.78rem;font-weight:800;color:var(--gold);border-color:var(--gold-border);
+               padding:0.3rem 0.65rem;letter-spacing:0.04em;">HCP</button>
       ${pi > 0 ? `<button class="btn btn-ghost" data-remove="${pi}"
         style="font-size:0.85rem;color:var(--red);border-color:var(--red-border);padding:0.3rem 0.6rem;">✕</button>` : ''}
     </div>`;
   }).join('');
 
-  listEl.querySelectorAll('[data-edit]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.edit);
-      const p   = setup.players[idx];
-      if (!p) return;
-      // Pre-fill the modal with existing values
-      document.getElementById('game-manual-name').value  = p.name;
-      document.getElementById('game-manual-hcp').value   = p.hcpIndex ?? '';
-      document.getElementById('game-manual-chcp').value  = p.courseHandicap ?? '';
-      // Store which player we're editing
-      document.getElementById('modal-add-game-player').dataset.editIdx = idx;
-      document.getElementById('modal-add-game-player').classList.add('open');
-    });
+  listEl.querySelectorAll('.player-hcp-btn').forEach(btn => {
+    btn.addEventListener('click', () => openPlayerHcpPicker(parseInt(btn.dataset.pi)));
   });
 
   listEl.querySelectorAll('[data-remove]').forEach(btn => {
@@ -1224,7 +1219,128 @@ function renderSetupPlayerList() {
   });
 }
 
-// Open add-player modal
+// ================================================================
+// PLAYER HCP PICKER MODAL
+// ================================================================
+
+// Resolves the three source values for a player:
+//   index   → raw handicap index (WHS figure)
+//   course  → course handicap (slope/rating adjusted)
+//   playing → course handicap * hcpPct allowance / 100, rounded
+function playerHcpValues(p) {
+  const index   = p.hcpIndex ?? 0;
+  const course  = p.courseHandicap ?? index;
+  const playing = Math.round(course * (setup.hcpPct ?? 100) / 100);
+  return { index, course, playing };
+}
+
+function openPlayerHcpPicker(pi) {
+  const p = setup.players[pi];
+  if (!p) return;
+
+  document.getElementById('player-hcp-modal-title').textContent = p.name;
+
+  const vals = playerHcpValues(p);
+  document.getElementById('hcp-src-index-val').textContent   = fmtHandicap(vals.index);
+  document.getElementById('hcp-src-course-val').textContent  = fmtHandicap(vals.course);
+  document.getElementById('hcp-src-playing-val').textContent = fmtHandicap(vals.playing);
+
+  document.getElementById('modal-player-hcp').dataset.pi = pi;
+
+  // Pre-fill editable playing field
+  const playingInput = document.getElementById('hcp-playing-input');
+  playingInput.value = (p.hcpSource === 'playing' && p.gameHandicap != null)
+    ? p.gameHandicap
+    : vals.playing;
+
+  _hcpPickerSource = p.hcpSource ?? 'course';
+  _updateHcpSourceButtons(_hcpPickerSource);
+
+  document.getElementById('modal-player-hcp').classList.add('open');
+}
+
+let _hcpPickerSource = 'course';
+
+function _updateHcpSourceButtons(source) {
+  _hcpPickerSource = source;
+  ['index','course','playing'].forEach(src => {
+    const btn = document.getElementById(`hcp-src-${src}`);
+    if (!btn) return;
+    const active = src === source;
+    btn.style.background  = active ? 'var(--gold)'        : 'var(--surface2)';
+    btn.style.borderColor = active ? 'var(--gold)'         : 'var(--border)';
+    btn.style.color       = active ? '#000'                : 'var(--white)';
+    const valEl = document.getElementById(`hcp-src-${src}-val`);
+    if (valEl) valEl.style.color = active ? '#000' : 'var(--gold)';
+  });
+  document.getElementById('hcp-playing-edit')
+    ?.classList.toggle('hidden', source !== 'playing');
+}
+
+// Wire source buttons
+['index','course','playing'].forEach(src => {
+  document.getElementById(`hcp-src-${src}`)?.addEventListener('click', () => {
+    const modal = document.getElementById('modal-player-hcp');
+    const pi    = parseInt(modal.dataset.pi);
+    const p     = setup.players[pi];
+    if (!p) return;
+    _updateHcpSourceButtons(src);
+    if (src === 'playing') {
+      const inp = document.getElementById('hcp-playing-input');
+      if (!inp.value) inp.value = String(playerHcpValues(p).playing);
+    }
+  });
+});
+
+document.getElementById('modal-player-hcp-close')?.addEventListener('click', () => {
+  document.getElementById('modal-player-hcp').classList.remove('open');
+});
+
+document.getElementById('btn-player-hcp-confirm')?.addEventListener('click', () => {
+  const modal  = document.getElementById('modal-player-hcp');
+  const pi     = parseInt(modal.dataset.pi);
+  const p      = setup.players[pi];
+  if (!p) return;
+
+  const source = _hcpPickerSource;
+  const vals   = playerHcpValues(p);
+
+  let gameHandicap;
+  if (source === 'index') {
+    gameHandicap = Math.round(vals.index);
+  } else if (source === 'course') {
+    gameHandicap = Math.round(vals.course);
+  } else {
+    // playing — honour any manual override in the input field
+    const raw = parseFloat(document.getElementById('hcp-playing-input').value);
+    gameHandicap = isNaN(raw) ? vals.playing : raw;
+  }
+
+  setup.players[pi].hcpSource    = source;
+  setup.players[pi].gameHandicap = gameHandicap;
+
+  // Changing the first named player's source propagates to all others who
+  // haven't been manually configured yet (i.e. still on the default 'course').
+  const namedPlayers = setup.players.filter(q => q.name);
+  if (namedPlayers[0] === p) {
+    setup.players.forEach((q, qi) => {
+      if (!q.name || qi === pi) return;
+      // Propagate if they're still on the default or haven't been touched
+      if (!q.hcpSource || q.hcpSource === 'course') {
+        q.hcpSource = source;
+        const qv = playerHcpValues(q);
+        q.gameHandicap = source === 'index'  ? Math.round(qv.index)
+                       : source === 'course' ? Math.round(qv.course)
+                       :                       Math.round(qv.playing);
+      }
+    });
+  }
+
+  modal.classList.remove('open');
+  renderSetupPlayerList();
+});
+
+// Open add-player modal (for adding a NEW player)
 document.getElementById('btn-setup-add-player')?.addEventListener('click', () => {
   document.getElementById('game-manual-name').value = '';
   document.getElementById('game-manual-hcp').value  = '';
@@ -1278,11 +1394,28 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', ()
 });
 
 function addSetupPlayer(name, hcpIndex, courseHandicap, profileId) {
+  // Inherit the source chosen by the first player (if any), defaulting to 'course'
+  const namedPlayers = setup.players.filter(p => p.name);
+  const inheritedSource = namedPlayers[0]?.hcpSource ?? 'course';
+
+  const newPlayer = {
+    name, hcpIndex, courseHandicap, groupNumber: 1,
+    profileId: profileId ?? null, isScorer: false,
+    hcpSource: inheritedSource,
+    gameHandicap: null, // will be set below
+  };
+
+  // Compute gameHandicap based on inherited source
+  const vals = { index: Math.round(hcpIndex ?? 0), course: Math.round(courseHandicap ?? hcpIndex ?? 0), playing: Math.round((courseHandicap ?? hcpIndex ?? 0) * (setup.hcpPct ?? 100) / 100) };
+  newPlayer.gameHandicap = inheritedSource === 'index'  ? vals.index
+                         : inheritedSource === 'playing' ? vals.playing
+                         : vals.course;
+
   const emptyIdx = setup.players.findIndex(p => !p.name);
   if (emptyIdx === -1) {
-    setup.players.push({ name, hcpIndex, courseHandicap, groupNumber: 1, profileId: profileId ?? null, isScorer: false });
+    setup.players.push(newPlayer);
   } else {
-    setup.players[emptyIdx] = { ...setup.players[emptyIdx], name, hcpIndex, courseHandicap, profileId: profileId ?? null };
+    setup.players[emptyIdx] = { ...setup.players[emptyIdx], ...newPlayer };
   }
   saveSetupState('screen-setup-players');
   saveSetupDraft();
@@ -2722,8 +2855,12 @@ async function teeOff() {
   // Remember last used tee for this course
   try { localStorage.setItem(`lb-last-tee-${setup.courseId}`, tee.name); } catch {}
 
-  // Use Course Handicap if set, otherwise fall back to HCP Index
-  const hcpArr = setup.players.map(p => (p.courseHandicap != null ? p.courseHandicap : p.hcpIndex) || 0);
+  // Use gameHandicap (set by HCP picker) if available, then Course HCP, then Index
+  const hcpArr = setup.players.map(p =>
+    p.gameHandicap != null ? p.gameHandicap
+    : p.courseHandicap != null ? p.courseHandicap
+    : p.hcpIndex ?? 0
+  );
   const hcpObj = calcHandicaps(hcpArr, setup.hcpPct);
 
   // For foursomes/greensomes override pair handicaps using official rules
@@ -2752,7 +2889,11 @@ async function teeOff() {
     }
 
     const gNames  = groupPlayers.map((p, j) => p.name || `Player ${j + 1}`);
-    const gHcpArr = groupPlayers.map(p => (p.courseHandicap != null ? p.courseHandicap : p.hcpIndex) || 0);
+    const gHcpArr = groupPlayers.map(p =>
+      p.gameHandicap != null ? p.gameHandicap
+      : p.courseHandicap != null ? p.courseHandicap
+      : p.hcpIndex ?? 0
+    );
     const gHcpObj = calcHandicaps(gHcpArr, setup.hcpPct);
 
     const gs = buildInitialState({
