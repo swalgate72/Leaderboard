@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260620y';
+} from '../data.js?v=20260620z';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260620y';
+} from '../game.js?v=20260620z';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260620y';
+} from '../tournament.js?v=20260620z';
 
 // ================================================================
 // PLAYER COLOURS
@@ -1223,10 +1223,7 @@ function renderSetupPlayerList() {
 // PLAYER HCP PICKER MODAL
 // ================================================================
 
-// Resolves the three source values for a player:
-//   index   → raw handicap index (WHS figure)
-//   course  → course handicap (slope/rating adjusted)
-//   playing → course handicap * hcpPct allowance / 100, rounded
+// Resolves the three base values for a player (before any manual adjustment)
 function playerHcpValues(p) {
   const index   = p.hcpIndex ?? 0;
   const course  = p.courseHandicap ?? index;
@@ -1234,62 +1231,93 @@ function playerHcpValues(p) {
   return { index, course, playing };
 }
 
+let _hcpPickerSource  = 'course'; // currently selected source
+let _hcpAdjusted      = {};       // { index, course, playing } — possibly user-nudged
+
 function openPlayerHcpPicker(pi) {
   const p = setup.players[pi];
   if (!p) return;
 
   document.getElementById('player-hcp-modal-title').textContent = p.name;
-
-  const vals = playerHcpValues(p);
-  document.getElementById('hcp-src-index-val').textContent   = fmtHandicap(vals.index);
-  document.getElementById('hcp-src-course-val').textContent  = fmtHandicap(vals.course);
-  document.getElementById('hcp-src-playing-val').textContent = fmtHandicap(vals.playing);
-
   document.getElementById('modal-player-hcp').dataset.pi = pi;
 
-  // Pre-fill editable playing field
-  const playingInput = document.getElementById('hcp-playing-input');
-  playingInput.value = (p.hcpSource === 'playing' && p.gameHandicap != null)
-    ? p.gameHandicap
-    : vals.playing;
+  const vals = playerHcpValues(p);
+
+  // Seed adjusted values: if the player already has a gameHandicap and matching
+  // source, start the counter at their previously-adjusted value; otherwise use
+  // the profile default so the counter starts at the right place.
+  _hcpAdjusted = {
+    index:   (p.hcpSource === 'index'   && p.gameHandicap != null) ? p.gameHandicap : Math.round(vals.index),
+    course:  (p.hcpSource === 'course'  && p.gameHandicap != null) ? p.gameHandicap : Math.round(vals.course),
+    playing: (p.hcpSource === 'playing' && p.gameHandicap != null) ? p.gameHandicap : Math.round(vals.playing),
+  };
 
   _hcpPickerSource = p.hcpSource ?? 'course';
-  _updateHcpSourceButtons(_hcpPickerSource);
 
+  // Fill profile-default labels under each row title
+  document.getElementById('hcp-index-profile').textContent   = `Profile: ${fmtHandicap(vals.index)}`;
+  document.getElementById('hcp-course-profile').textContent  = `Profile: ${fmtHandicap(vals.course)}`;
+  document.getElementById('hcp-playing-profile').textContent = `Profile: ${fmtHandicap(vals.playing)}`;
+
+  _renderHcpPickerRows();
   document.getElementById('modal-player-hcp').classList.add('open');
 }
 
-let _hcpPickerSource = 'course';
-
-function _updateHcpSourceButtons(source) {
-  _hcpPickerSource = source;
+function _renderHcpPickerRows() {
   ['index','course','playing'].forEach(src => {
-    const btn = document.getElementById(`hcp-src-${src}`);
-    if (!btn) return;
-    const active = src === source;
-    btn.style.background  = active ? 'var(--gold)'        : 'var(--surface2)';
-    btn.style.borderColor = active ? 'var(--gold)'         : 'var(--border)';
-    btn.style.color       = active ? '#000'                : 'var(--white)';
-    const valEl = document.getElementById(`hcp-src-${src}-val`);
-    if (valEl) valEl.style.color = active ? '#000' : 'var(--gold)';
-  });
-  document.getElementById('hcp-playing-edit')
-    ?.classList.toggle('hidden', source !== 'playing');
-}
+    const row       = document.getElementById(`hcp-row-${src}`);
+    const counter   = document.getElementById(`hcp-counter-${src}`);
+    const preview   = document.getElementById(`hcp-preview-${src}`);
+    const valSpan   = document.getElementById(`hcp-val-${src}`);
+    const isActive  = src === _hcpPickerSource;
 
-// Wire source buttons
-['index','course','playing'].forEach(src => {
-  document.getElementById(`hcp-src-${src}`)?.addEventListener('click', () => {
-    const modal = document.getElementById('modal-player-hcp');
-    const pi    = parseInt(modal.dataset.pi);
-    const p     = setup.players[pi];
-    if (!p) return;
-    _updateHcpSourceButtons(src);
-    if (src === 'playing') {
-      const inp = document.getElementById('hcp-playing-input');
-      if (!inp.value) inp.value = String(playerHcpValues(p).playing);
+    // Row styling
+    row.style.borderColor  = isActive ? 'var(--gold)'               : 'var(--border)';
+    row.style.background   = isActive ? 'rgba(212,168,67,0.1)'      : '';
+    row.style.color        = isActive ? 'var(--gold)'               : 'var(--white)';
+
+    // Muted labels inside the row
+    row.querySelectorAll('[style*="color:var(--muted2)"]').forEach(el => {
+      el.style.color = isActive ? 'rgba(212,168,67,0.7)' : 'var(--muted2)';
+    });
+    row.querySelectorAll('[style*="color:var(--muted)"]').forEach(el => {
+      el.style.color = isActive ? 'rgba(212,168,67,0.55)' : 'var(--muted)';
+    });
+
+    if (isActive) {
+      // Show counter, hide static preview
+      counter.style.display = 'flex';
+      preview.style.display = 'none';
+      if (valSpan) valSpan.textContent = String(_hcpAdjusted[src]);
+    } else {
+      // Show static preview value, hide counter
+      counter.style.display = 'none';
+      preview.style.display = '';
+      preview.textContent   = String(_hcpAdjusted[src]);
+      preview.style.color   = 'var(--muted2)';
     }
   });
+}
+
+// Row click → select source
+document.querySelectorAll('.hcp-src-row').forEach(row => {
+  row.addEventListener('click', (e) => {
+    // Ignore clicks that land on the +/- buttons themselves (they have their own handler)
+    if (e.target.classList.contains('hcp-adj-btn')) return;
+    _hcpPickerSource = row.dataset.src;
+    _renderHcpPickerRows();
+  });
+});
+
+// +/− buttons
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.hcp-adj-btn');
+  if (!btn) return;
+  const src = btn.dataset.src;
+  const dir = parseInt(btn.dataset.dir, 10);
+  _hcpAdjusted[src] = Math.max(0, Math.min(54, (_hcpAdjusted[src] ?? 0) + dir));
+  const valSpan = document.getElementById(`hcp-val-${src}`);
+  if (valSpan) valSpan.textContent = String(_hcpAdjusted[src]);
 });
 
 document.getElementById('modal-player-hcp-close')?.addEventListener('click', () => {
@@ -1297,41 +1325,29 @@ document.getElementById('modal-player-hcp-close')?.addEventListener('click', () 
 });
 
 document.getElementById('btn-player-hcp-confirm')?.addEventListener('click', () => {
-  const modal  = document.getElementById('modal-player-hcp');
-  const pi     = parseInt(modal.dataset.pi);
-  const p      = setup.players[pi];
+  const modal = document.getElementById('modal-player-hcp');
+  const pi    = parseInt(modal.dataset.pi);
+  const p     = setup.players[pi];
   if (!p) return;
 
-  const source = _hcpPickerSource;
-  const vals   = playerHcpValues(p);
-
-  let gameHandicap;
-  if (source === 'index') {
-    gameHandicap = Math.round(vals.index);
-  } else if (source === 'course') {
-    gameHandicap = Math.round(vals.course);
-  } else {
-    // playing — honour any manual override in the input field
-    const raw = parseFloat(document.getElementById('hcp-playing-input').value);
-    gameHandicap = isNaN(raw) ? vals.playing : raw;
-  }
+  const source      = _hcpPickerSource;
+  const gameHandicap = _hcpAdjusted[source] ?? Math.round(playerHcpValues(p)[source]);
 
   setup.players[pi].hcpSource    = source;
   setup.players[pi].gameHandicap = gameHandicap;
 
-  // Changing the first named player's source propagates to all others who
-  // haven't been manually configured yet (i.e. still on the default 'course').
+  // Propagate source (and recalculated defaults) to all other players
+  // who haven't been manually configured yet, when first player changes.
   const namedPlayers = setup.players.filter(q => q.name);
   if (namedPlayers[0] === p) {
     setup.players.forEach((q, qi) => {
       if (!q.name || qi === pi) return;
-      // Propagate if they're still on the default or haven't been touched
       if (!q.hcpSource || q.hcpSource === 'course') {
         q.hcpSource = source;
         const qv = playerHcpValues(q);
-        q.gameHandicap = source === 'index'  ? Math.round(qv.index)
-                       : source === 'course' ? Math.round(qv.course)
-                       :                       Math.round(qv.playing);
+        q.gameHandicap = source === 'index'   ? Math.round(qv.index)
+                       : source === 'playing' ? Math.round(qv.playing)
+                       :                        Math.round(qv.course);
       }
     });
   }
