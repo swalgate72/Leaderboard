@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260620y">
+  <link rel="stylesheet" href="styles.css?v=20260620z">
 </head>
 <body>
 
@@ -999,35 +999,94 @@
       <button class="btn-close" id="modal-player-hcp-close">✕</button>
     </div>
 
-    <div class="hint mb-sm">Which handicap should be used for this game?</div>
+    <div class="hint mb-sm">Tap a source to select it, then adjust with +/−</div>
 
-    <!-- Source selector buttons -->
-    <div style="display:grid;gap:0.4rem;margin-bottom:1rem;">
-      <button class="btn hcp-source-btn" id="hcp-src-index"
-        style="justify-content:space-between;padding:0.75rem 1rem;font-size:1rem;font-weight:700;">
-        <span>Handicap Index</span>
-        <span id="hcp-src-index-val" style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;"></span>
-      </button>
-      <button class="btn hcp-source-btn" id="hcp-src-course"
-        style="justify-content:space-between;padding:0.75rem 1rem;font-size:1rem;font-weight:700;">
-        <span>Course Handicap</span>
-        <span id="hcp-src-course-val" style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;"></span>
-      </button>
-      <button class="btn hcp-source-btn" id="hcp-src-playing"
-        style="justify-content:space-between;padding:0.75rem 1rem;font-size:1rem;font-weight:700;">
-        <span>Playing Index</span>
-        <span id="hcp-src-playing-val" style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;"></span>
-      </button>
-    </div>
+    <div style="display:grid;gap:0.5rem;margin-bottom:1.25rem;">
 
-    <!-- Editable Playing Index (only shown when Playing Index is selected) -->
-    <div id="hcp-playing-edit" class="hidden" style="margin-bottom:1rem;">
-      <div style="font-size:0.8rem;font-weight:700;color:var(--muted2);margin-bottom:0.4rem;">
-        Edit Playing Index (overrides profile value):
+      <!-- Handicap Index row -->
+      <div class="hcp-src-row" id="hcp-row-index" data-src="index"
+        style="border:2px solid var(--border);border-radius:var(--radius-sm);
+               padding:0.65rem 0.85rem;cursor:pointer;transition:all 0.15s;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.1em;
+                        text-transform:uppercase;color:var(--muted2);margin-bottom:2px;">Handicap Index</div>
+            <div id="hcp-index-profile" style="font-size:0.8rem;color:var(--muted);font-weight:600;"></div>
+          </div>
+          <div class="hcp-counter" id="hcp-counter-index"
+            style="display:none;align-items:center;gap:0.4rem;">
+            <button class="hcp-adj-btn" data-src="index" data-dir="-1"
+              style="width:36px;height:36px;border-radius:50%;font-size:1.3rem;font-weight:800;
+                     background:rgba(0,0,0,0.25);border:none;color:inherit;cursor:pointer;">−</button>
+            <span id="hcp-val-index"
+              style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+                     font-size:2rem;min-width:2.5rem;text-align:center;line-height:1;"></span>
+            <button class="hcp-adj-btn" data-src="index" data-dir="1"
+              style="width:36px;height:36px;border-radius:50%;font-size:1.3rem;font-weight:800;
+                     background:rgba(0,0,0,0.25);border:none;color:inherit;cursor:pointer;">+</button>
+          </div>
+          <span id="hcp-preview-index"
+            style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.8rem;
+                   color:var(--muted2);"></span>
+        </div>
       </div>
-      <input id="hcp-playing-input" type="number" min="0" max="54" step="0.1"
-        style="font-size:1.4rem;font-weight:800;text-align:center;"
-        placeholder="e.g. 14">
+
+      <!-- Course Handicap row -->
+      <div class="hcp-src-row" id="hcp-row-course" data-src="course"
+        style="border:2px solid var(--border);border-radius:var(--radius-sm);
+               padding:0.65rem 0.85rem;cursor:pointer;transition:all 0.15s;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.1em;
+                        text-transform:uppercase;color:var(--muted2);margin-bottom:2px;">Course Handicap</div>
+            <div id="hcp-course-profile" style="font-size:0.8rem;color:var(--muted);font-weight:600;"></div>
+          </div>
+          <div class="hcp-counter" id="hcp-counter-course"
+            style="display:none;align-items:center;gap:0.4rem;">
+            <button class="hcp-adj-btn" data-src="course" data-dir="-1"
+              style="width:36px;height:36px;border-radius:50%;font-size:1.3rem;font-weight:800;
+                     background:rgba(0,0,0,0.25);border:none;color:inherit;cursor:pointer;">−</button>
+            <span id="hcp-val-course"
+              style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+                     font-size:2rem;min-width:2.5rem;text-align:center;line-height:1;"></span>
+            <button class="hcp-adj-btn" data-src="course" data-dir="1"
+              style="width:36px;height:36px;border-radius:50%;font-size:1.3rem;font-weight:800;
+                     background:rgba(0,0,0,0.25);border:none;color:inherit;cursor:pointer;">+</button>
+          </div>
+          <span id="hcp-preview-course"
+            style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.8rem;
+                   color:var(--muted2);"></span>
+        </div>
+      </div>
+
+      <!-- Playing Index row -->
+      <div class="hcp-src-row" id="hcp-row-playing" data-src="playing"
+        style="border:2px solid var(--border);border-radius:var(--radius-sm);
+               padding:0.65rem 0.85rem;cursor:pointer;transition:all 0.15s;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.1em;
+                        text-transform:uppercase;color:var(--muted2);margin-bottom:2px;">Playing Index</div>
+            <div id="hcp-playing-profile" style="font-size:0.8rem;color:var(--muted);font-weight:600;"></div>
+          </div>
+          <div class="hcp-counter" id="hcp-counter-playing"
+            style="display:none;align-items:center;gap:0.4rem;">
+            <button class="hcp-adj-btn" data-src="playing" data-dir="-1"
+              style="width:36px;height:36px;border-radius:50%;font-size:1.3rem;font-weight:800;
+                     background:rgba(0,0,0,0.25);border:none;color:inherit;cursor:pointer;">−</button>
+            <span id="hcp-val-playing"
+              style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+                     font-size:2rem;min-width:2.5rem;text-align:center;line-height:1;"></span>
+            <button class="hcp-adj-btn" data-src="playing" data-dir="1"
+              style="width:36px;height:36px;border-radius:50%;font-size:1.3rem;font-weight:800;
+                     background:rgba(0,0,0,0.25);border:none;color:inherit;cursor:pointer;">+</button>
+          </div>
+          <span id="hcp-preview-playing"
+            style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.8rem;
+                   color:var(--muted2);"></span>
+        </div>
+      </div>
+
     </div>
 
     <button class="btn btn-green" id="btn-player-hcp-confirm"
@@ -1371,7 +1430,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260620y"></script>
+<script type="module" src="js/app.js?v=20260620z"></script>
 
 
 <!-- ══════════════════════════════════════════
