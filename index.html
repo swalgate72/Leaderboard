@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260622b">
+  <link rel="stylesheet" href="styles.css?v=20260622d">
 </head>
 <body>
 
@@ -111,8 +111,39 @@
 </div>
 
 <!-- ══════════════════════════════════════════
-     HOME SCREEN
+     RESET PASSWORD SCREEN
      ══════════════════════════════════════════ -->
+<div id="screen-reset-password" class="screen">
+  <div style="max-width:480px;margin:0 auto;padding:2rem 1rem;">
+    <div class="home-hero" style="border-radius:var(--radius-xl);margin-bottom:1.5rem;padding:1.5rem;">
+      <div class="home-hero-title" style="font-size:2rem;">Set New Password</div>
+      <div class="home-hero-club">Enter your new password below</div>
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label>New Password</label>
+        <input id="reset-new-password" type="password" placeholder="min 8 characters"
+          autocomplete="new-password" style="font-size:1.1rem;">
+      </div>
+      <div class="field">
+        <label>Confirm Password</label>
+        <input id="reset-confirm-password" type="password" placeholder="repeat password"
+          autocomplete="new-password" style="font-size:1.1rem;">
+      </div>
+      <div id="reset-password-error"
+        style="display:none;color:var(--red);font-size:0.88rem;font-weight:700;
+               margin-bottom:0.75rem;padding:0.5rem 0.75rem;background:rgba(214,69,69,0.1);
+               border-radius:var(--radius-sm);"></div>
+      <button class="btn btn-primary" id="btn-reset-password-submit"
+        style="width:100%;font-size:1.05rem;padding:0.9rem;">
+        SET NEW PASSWORD →
+      </button>
+    </div>
+  </div>
+</div>
+
+
 <div id="screen-home" class="screen">
   <div style="padding: 0 0 5.5rem; max-width: 480px; margin: 0 auto;">
 
@@ -1473,7 +1504,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260622b"></script>
+<script type="module" src="js/app.js?v=20260622d"></script>
 
 
 <!-- ══════════════════════════════════════════

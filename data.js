@@ -62,8 +62,13 @@ export async function authSignInWithGoogle() {
 
 export async function authForgotPassword(email) {
   const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: APP_URL,
+    redirectTo: APP_URL + '?reset=1',
   });
+  if (error) throw error;
+}
+
+export async function authUpdatePassword(newPassword) {
+  const { error } = await sb.auth.updateUser({ password: newPassword });
   if (error) throw error;
 }
 
