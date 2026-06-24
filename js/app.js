@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260622b';
+} from '../data.js?v=20260622c';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260622b';
+} from '../game.js?v=20260622c';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260622b';
+} from '../tournament.js?v=20260622c';
 
 // ================================================================
 // PLAYER COLOURS
@@ -5051,33 +5051,71 @@ async function saveRoundState() {
   const badge = document.getElementById('game-sync-badge');
   badge?.classList.remove('hidden');
 
-  const { allGroupStates, ...stateToSave } = gameState;
+  // Strip circular allGroupStates reference from the state we're about to save
+  const { allGroupStates, ...myGroupState } = gameState;
+
+  let stateToSave;
+
   if (allGroupStates?.length > 1) {
-    // Only save individual group states — never a merged state
-    // A group state should have names.length <= numPlayers/numGroups
-    const expectedPerGroup = Math.ceil(gameState.names?.length / allGroupStates.length) || 4;
-    stateToSave.allGroupStates = allGroupStates.map(gs => {
-      const { allGroupStates: _, ...stripped } = gs;
-      // Safety: if a slot has too many names it's a merged state — skip it
-      if (stripped.names?.length > expectedPerGroup * 1.5) {
-        // Return original group state from initial setup
-        return { ...stripped, names: stripped.names?.slice(0, expectedPerGroup) };
+    // Multi-group round: fetch the current DB state first so we can merge our
+    // group's updated scores into it without clobbering what the other scorer
+    // has written.  This is the fix for the "group 2 scores never show up"
+    // bug — previously every save overwrote the entire row, so whichever
+    // scorer saved last would erase the other's scores from allGroupStates.
+    let latestDbState = null;
+    try {
+      const fresh = await roundLoadById(roundId);
+      latestDbState = fresh?.game_state ?? null;
+    } catch {}
+
+    // Build the merged allGroupStates: start from what's in the DB (so other
+    // groups' data is preserved), then stamp in our own group's latest state.
+    const myGroupNumber = gameState.groupNumber ?? 1;
+    let mergedGroupStates;
+
+    if (latestDbState?.allGroupStates?.length > 1) {
+      mergedGroupStates = latestDbState.allGroupStates.map(gs => {
+        if ((gs.groupNumber ?? 1) === myGroupNumber) {
+          // Replace with our freshly-scored group state
+          const { allGroupStates: _, ...stripped } = myGroupState;
+          return stripped;
+        }
+        return gs;
+      });
+    } else {
+      // DB doesn't have allGroupStates yet (first save) — build from memory
+      mergedGroupStates = allGroupStates.map(gs => {
+        const { allGroupStates: _, ...stripped } = gs;
+        return stripped;
+      });
+      // Stamp our own group in at the right slot
+      const myIdx = mergedGroupStates.findIndex(gs => (gs.groupNumber ?? 1) === myGroupNumber);
+      if (myIdx >= 0) {
+        const { allGroupStates: _, ...stripped } = myGroupState;
+        mergedGroupStates[myIdx] = stripped;
       }
-      return stripped;
-    });
+    }
+
+    // The top-level state in the DB is always the organiser's group (group 1),
+    // so that resumeRound and renderLeaderboard get consistent top-level data.
+    const topGroup = mergedGroupStates.find(gs => (gs.groupNumber ?? 1) === 1) ?? mergedGroupStates[0];
+    stateToSave = { ...topGroup, allGroupStates: mergedGroupStates };
+
+    // Keep our in-memory allGroupStates in sync too
+    gameState.allGroupStates = mergedGroupStates;
+
+  } else {
+    // Single group — save directly
+    stateToSave = myGroupState;
   }
 
-  // The DB write is retried once before giving up — a single transient failure
-  // (e.g. a session token mid-refresh right after sign-in) shouldn't cost a
-  // recorded score. If both attempts fail, the user is told explicitly rather
-  // than the score silently vanishing with no feedback.
   let lastErr = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       await roundSaveState(roundId, stateToSave, stateToSave.names);
-      await realtimeBroadcastRound(realtimeCh, stateToSave, _sessionId).catch(() => {});
+      await realtimeBroadcastRound(realtimeCh, { ...myGroupState, groupNumber: gameState.groupNumber }, _sessionId).catch(() => {});
       badge?.classList.add('hidden');
-      return; // success
+      return;
     } catch (err) {
       lastErr = err;
       console.error(`saveRoundState error (attempt ${attempt})`, err);
@@ -5107,17 +5145,27 @@ function subscribeToRound(id) {
 
 
     // Always update other groups in allGroupStates (scorers need this for the scorecard)
-    if (gameState?.allGroupStates?.length > 1 && incoming.groupNumber &&
-        incoming.groupNumber !== gameState.groupNumber) {
+    const isOtherGroup = gameState?.allGroupStates?.length > 1 &&
+      incoming.groupNumber && incoming.groupNumber !== gameState.groupNumber;
+
+    if (isOtherGroup) {
       let idx = gameState.allGroupStates.findIndex(s => s.groupNumber === incoming.groupNumber);
-      if (idx < 0) idx = incoming.groupNumber - 1; // fall back to position
+      if (idx < 0) idx = incoming.groupNumber - 1;
       if (idx >= 0 && idx < gameState.allGroupStates.length) {
         gameState.allGroupStates[idx] = { ...incoming, allGroupStates: undefined };
       }
     }
 
-    // Scorers don't replace their own gameState
-    if (iAmScorer) return;
+    // Scorers don't replace their own gameState, but DO need to re-render
+    // the leaderboard when another group's scores arrive.
+    if (iAmScorer) {
+      if (isOtherGroup) {
+        // Re-render the leaderboard if it's currently visible
+        const lbScreen = document.getElementById('screen-leaderboard');
+        if (lbScreen?.classList.contains('active')) renderLeaderboard();
+      }
+      return;
+    }
 
     // Watchers/other-group scorers update gameState for their own group updates
     if (gameState?.allGroupStates?.length > 1) {
