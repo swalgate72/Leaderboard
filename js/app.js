@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260621e';
+} from '../data.js?v=20260622a';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,21 +35,19 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260621e';
+} from '../game.js?v=20260622a';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260621e';
+} from '../tournament.js?v=20260622a';
 
 // ================================================================
 // PLAYER COLOURS
 // ================================================================
 const P_HEX = ['#d4a843','#5ba3d9','#d96b4a','#e8c96a'];
-const P_CSS = ['var(--p0)','var(--p1)','var(--p2)','var(--p3)'];
 
-function pCol(i) { return P_CSS[i] ?? P_CSS[0]; }
 function pHex(i) { return P_HEX[i] ?? P_HEX[0]; }
 
 // ================================================================
@@ -310,7 +308,6 @@ function fmtHandicap(h) {
   return parseFloat(h).toFixed(1);
 }
 
-function pluralHoles(n) { return n === 1 ? '1 hole' : `${n} holes`; }
 
 function holeRange(holes) {
   if (holes === 'front9') return { offset: 0,  count: 9  };
@@ -2401,155 +2398,6 @@ function getMyCourseHandicapDefault() {
   return null;
 }
 
-function buildPlayerForms() {
-  const container = document.getElementById('setup-player-groups');
-  container.innerHTML = ''; setup.players = [];
-  const myName = currentProfile ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim() : '';
-  const myHcp  = currentProfile?.hcp ?? '';
-  const myCourseHcp = getMyCourseHandicapDefault();
-  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
-  const isBest2 = setup.scoring === 'best2';
-
-  // How many players per group
-  const playersPerGroup = Math.ceil(setup.numPlayers / setup.numGroups);
-
-  // Initialise all player slots
-  for (let i = 0; i < setup.numPlayers; i++) {
-    setup.players[i] = {
-      name:        i === 0 ? myName  : '',
-      hcpIndex:    i === 0 ? myHcp   : '',
-      groupNumber: Math.floor(i / playersPerGroup) + 1,
-      profileId:   i === 0 ? currentUser?.id : null,
-      mobile:      i === 0 ? currentProfile?.mobile ?? '' : '',
-      isScorer:    i === 0,
-      ...(i === 0 && myCourseHcp != null ? { courseHandicap: myCourseHcp, courseHcpManual: false } : {}),
-    };
-  }
-
-  for (let g = 1; g <= setup.numGroups; g++) {
-    const start = (g - 1) * playersPerGroup;
-    const end   = Math.min(g * playersPerGroup, setup.numPlayers);
-
-    const groupEl = document.createElement('div');
-    groupEl.className = 'group-block';
-    if (setup.numGroups > 1) groupEl.innerHTML = `<div class="group-label">Group ${g}</div>`;
-
-    if (isPairs) {
-      // Render as pair blocks
-      const numPairsInGroup = Math.ceil((end - start) / 2);
-      for (let pair = 0; pair < numPairsInGroup; pair++) {
-        const p0 = start + pair * 2;
-        const p1 = start + pair * 2 + 1;
-        const pairLabel = String.fromCharCode(65 + pair); // A, B, C...
-
-        const pairBlock = document.createElement('div');
-        pairBlock.className = 'pair-block pair-block-a';
-        pairBlock.innerHTML = `<div class="pair-label pair-label-a" style="margin-bottom:0.5rem;">Pair ${pairLabel}</div>`;
-
-        [p0, p1].forEach((pi, pairPos) => {
-          if (pi >= setup.numPlayers) return;
-          pairBlock.appendChild(makePlayerInputEl(pi, pairPos === 0 && pi === 0));
-        });
-        groupEl.appendChild(pairBlock);
-      }
-    } else {
-      for (let p = start; p < end; p++) {
-        groupEl.appendChild(makePlayerInputEl(p, p === 0));
-      }
-    }
-
-    // Scorer selection removed — players claim scorer role via the in-app invite banner
-    container.appendChild(groupEl);
-  }
-
-  // Build scorer radio buttons after all players are in DOM
-  for (let g = 1; g <= setup.numGroups; g++) {
-    const start = (g - 1) * playersPerGroup;
-    const end   = Math.min(g * playersPerGroup, setup.numPlayers);
-    const radios = document.getElementById(`scorer-radios-g${g}`);
-    if (!radios) continue;
-
-    // Ensure exactly one scorer per group — default to first in group
-    const hasScorer = setup.players.slice(start, end).some(p => p.isScorer);
-    if (!hasScorer) setup.players[start].isScorer = true;
-
-    for (let pi = start; pi < end; pi++) {
-      const btn = document.createElement('button');
-      btn.className = `btn ${setup.players[pi].isScorer ? 'btn-primary' : 'btn-outline'}`;
-      btn.style.cssText = 'padding:0.3rem 0.75rem;font-size:0.82rem;width:auto;';
-      btn.dataset.pi = pi;
-      btn.textContent = setup.players[pi].name || `Player ${pi - start + 1}`;
-      btn.addEventListener('click', () => {
-        // Clear scorer for this group, set new one
-        for (let p = start; p < end; p++) setup.players[p].isScorer = false;
-        setup.players[pi].isScorer = true;
-        radios.querySelectorAll('button').forEach((b, bi) => {
-          b.className = `btn ${pi === start + bi ? 'btn-primary' : 'btn-outline'}`;
-          b.style.cssText = 'padding:0.3rem 0.75rem;font-size:0.82rem;width:auto;';
-        });
-      });
-      radios.appendChild(btn);
-    }
-  }
-}
-
-function makePlayerInputEl(pi, isMe) {
-  const row = document.createElement('div');
-  row.className = 'player-slot';
-  const courseHcp = setup.players[pi].courseHandicap ?? setup.players[pi].hcpIndex ?? '';
-  row.innerHTML = `
-    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
-      <span class="dot" style="background:${pHex(pi % 8)};"></span>
-      <input id="pname-${pi}" type="text" placeholder="Player ${pi+1}"
-        value="${setup.players[pi].name}" style="flex:1;background:none;border:none;
-        color:var(--white);font-size:1.3rem;font-weight:800;outline:none;
-        border-bottom:1px solid var(--border);" autocomplete="off">
-      ${!isMe ? `<button class="btn btn-ghost" style="padding:0.25rem 0.6rem;font-size:0.8rem;" data-pick="${pi}">👤</button>` : ''}
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
-      <div class="field" style="margin:0;">
-        <label>HCP Index</label>
-        <input id="phcp-${pi}" type="number" step="0.1" min="0" max="54"
-          placeholder="0.0" value="${setup.players[pi].hcpIndex}"
-          style="font-size:1.2rem;font-weight:800;">
-      </div>
-      <div class="field" style="margin:0;">
-        <label>Course HCP</label>
-        <input id="pchcp-${pi}" type="number" step="1" min="0" max="54"
-          placeholder="0" value="${courseHcp}"
-          style="border-color:var(--gold-border);font-size:1.2rem;font-weight:800;">
-      </div>
-    </div>
-    <div style="font-size:0.62rem;color:var(--muted);margin-top:3px;">
-      Course HCP may differ from index (slope/rating adjustment)
-    </div>`;
-
-  row.querySelector(`#pname-${pi}`)?.addEventListener('input', e => {
-    setup.players[pi].name = e.target.value.trim();
-    const g = setup.players[pi].groupNumber;
-    const radios = document.getElementById(`scorer-radios-g${g}`);
-    if (radios) {
-      const btn = radios.querySelectorAll('button')[pi - ((g-1) * Math.ceil(setup.numPlayers / setup.numGroups))];
-      if (btn) btn.textContent = e.target.value.trim() || `Player ${pi+1}`;
-    }
-  });
-  row.querySelector(`#phcp-${pi}`)?.addEventListener('input', e => {
-    setup.players[pi].hcpIndex = parseFloat(e.target.value) || 0;
-    // Auto-update course hcp if not manually set
-    const cEl = document.getElementById(`pchcp-${pi}`);
-    if (cEl && !setup.players[pi].courseHcpManual) {
-      cEl.value = Math.round(parseFloat(e.target.value) || 0);
-      setup.players[pi].courseHandicap = Math.round(parseFloat(e.target.value) || 0);
-    }
-  });
-  row.querySelector(`#pchcp-${pi}`)?.addEventListener('input', e => {
-    setup.players[pi].courseHandicap = parseInt(e.target.value) || 0;
-    setup.players[pi].courseHcpManual = true; // user has overridden
-  });
-  const pickBtn = row.querySelector(`[data-pick="${pi}"]`);
-  if (pickBtn) pickBtn.addEventListener('click', () => openFriendPicker(pi));
-  return row;
-}
 
 function openFriendPicker(playerIdx, customCallback = null, excludeAlreadyAdded = null) {
   fpCallback = customCallback ?? (({ name, hcp, profileId }) => {
@@ -3202,7 +3050,7 @@ function renderTotalsBar() {
     let rawLabel = '';
     if (fmt === 'split6' && gameState.log?.length > 0) {
       const rawTotal = gameState.log.reduce((sum, e) => sum + (e.holePts?.[i] ?? 0), 0);
-      rawLabel = `<div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;color:${pCol(i)};margin-top:1px;">(${rawTotal})</div>`;
+      rawLabel = `<div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;color:rgba(255,255,255,0.6);margin-top:1px;">(${rawTotal})</div>`;
     }
 
     return `
@@ -3266,8 +3114,10 @@ function renderSkinsBar() {
   const bar = document.getElementById('game-skins-bar');
   bar.innerHTML = gameState.names.map((nm, i) => `
     <div class="skins-cell">
-      <div class="sk-name" style="color:${pCol(i)};">${nm.split(' ')[0].toUpperCase()}</div>
-      <div class="sk-pts" style="color:${pCol(i)};">${gameState.skins?.[i] ?? 0}</div>
+      <div class="sk-name" style="color:#fff;">
+        <span class="dot" style="background:${pHex(i)};display:inline-block;margin-right:3px;"></span>${nm.split(' ')[0].toUpperCase()}
+      </div>
+      <div class="sk-pts" style="color:#fff;">${gameState.skins?.[i] ?? 0}</div>
       <div class="sk-label">skin${(gameState.skins?.[i] ?? 0) !== 1 ? 's' : ''}</div>
     </div>`).join('');
   bar.classList.remove('hidden');
@@ -3279,8 +3129,10 @@ function renderITCBar() {
     const inChair = gameState.chair === i;
     return `
       <div class="itc-cell${inChair ? ' in-chair' : ''}">
-        <div class="itc-pname" style="color:${pCol(i)};">${nm.split(' ')[0].toUpperCase()}</div>
-        <div class="itc-pts" style="color:${pCol(i)};">${gameState.pts?.[i] ?? 0}</div>
+        <div class="itc-pname" style="color:#fff;">
+          <span class="dot" style="background:${pHex(i)};display:inline-block;margin-right:3px;"></span>${nm.split(' ')[0].toUpperCase()}
+        </div>
+        <div class="itc-pts" style="color:#fff;">${gameState.pts?.[i] ?? 0}</div>
         ${inChair ? `<div class="itc-chair-badge">🪑 Chair</div>` : ''}
       </div>`;
   }).join('');
@@ -3905,14 +3757,14 @@ function openLdBallModal(holeNum, teePos) {
   modal.classList.add('open');
 }
 
+// NTP player + cm entry modal (LD now uses openLdBallModal instead)
 function openLdNtpMarkModal(holeNum, kind) {
   const modal = document.getElementById('modal-ld-ntp-mark');
   if (!modal) return;
   modal.dataset.holeNum = holeNum;
-  modal.dataset.kind = kind;
+  modal.dataset.kind    = kind;
 
-  document.getElementById('ld-ntp-modal-title').textContent =
-    kind === 'ld' ? '🏌️ Mark Longest Drive' : '🎯 Mark Nearest the Pin';
+  document.getElementById('ld-ntp-modal-title').textContent = '🎯 Mark Nearest the Pin';
 
   const playerWrap = document.getElementById('ld-ntp-player-list');
   playerWrap.innerHTML = gameState.names.map((name, pi) => `
@@ -3935,14 +3787,9 @@ function openLdNtpMarkModal(holeNum, kind) {
       });
       btn.style.borderColor = 'var(--gold-border)'; btn.style.background = 'rgba(212,168,67,0.1)';
       modal.dataset.selectedPi = btn.dataset.pi;
-      if (kind === 'ntp') {
-        document.getElementById('ld-ntp-value-section').classList.remove('hidden');
-        document.getElementById('ld-ntp-cm-input').value = '';
-        document.getElementById('ld-ntp-cm-input').focus();
-      } else {
-        document.getElementById('ld-ntp-gps-section').classList.remove('hidden');
-        resetLdGpsCapture();
-      }
+      document.getElementById('ld-ntp-value-section').classList.remove('hidden');
+      document.getElementById('ld-ntp-cm-input').value = '';
+      document.getElementById('ld-ntp-cm-input').focus();
     });
   });
 
@@ -3977,18 +3824,9 @@ document.getElementById('ld-ntp-cm-save')?.addEventListener('click', async () =>
   renderHolePanel();
 });
 
-// ── LD: GPS capture (tee position, then ball position) ─────────────
-let _ldTeePos = null, _ldWatchId = null;
-
-function resetLdGpsCapture() {
-  _ldTeePos = null;
-  if (_ldWatchId != null) { navigator.geolocation?.clearWatch(_ldWatchId); _ldWatchId = null; }
-  const statusEl = document.getElementById('ld-ntp-gps-status');
-  if (statusEl) statusEl.textContent = '';
-  document.getElementById('ld-ntp-gps-step1')?.classList.remove('hidden');
-  document.getElementById('ld-ntp-gps-step2')?.classList.add('hidden');
-  document.getElementById('ld-ntp-gps-result')?.classList.add('hidden');
-}
+// _ldWatchId tracks the active geolocation watcher so it can be cancelled
+// if the user closes the modal or navigates away mid-capture.
+let _ldWatchId = null;
 
 function captureGpsPosition(onAccurate, statusElId) {
   const statusEl = statusElId ? document.getElementById(statusElId) : null;
@@ -4146,9 +3984,6 @@ function openTexasScorePicker(h, par) {
   document.getElementById('modal-score-picker').classList.add('open');
 }
 
-function openTexasScorePickerCleanup() {
-  document.getElementById('sp-pickup')?.classList.remove('hidden');
-}
 
 function openScorePicker(pi, h, par) {
   const cvEl = document.getElementById(`cv${pi}`);
@@ -7982,47 +7817,9 @@ document.getElementById('btn-tourn-format-next')?.addEventListener('click', asyn
 
 // ── Screen 3: Round 1 Setup ──────────────────────────────────────
 
-function buildGroupSetupScreen() {
-  // Populate course dropdown
-  const courseSel = document.getElementById('tourn-course-select');
-  const teeWrap   = document.getElementById('tourn-tee-wrap');
-  const teeSel    = document.getElementById('tourn-tee-select');
-  courseSel.innerHTML = '<option value="">-- Select course --</option>';
-  allCourses.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.id; opt.textContent = c.name;
-    courseSel.appendChild(opt);
-  });
-  courseSel.onchange = () => {
-    const course = allCourses.find(c => c.id === courseSel.value);
-    if (course?.tees?.length) {
-      teeSel.innerHTML = course.tees.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
-      teeWrap.style.display = '';
-    } else { teeWrap.style.display = 'none'; }
-  };
-  try {
-    const last = localStorage.getItem('lb-last-course');
-    if (last) { courseSel.value = last; courseSel.dispatchEvent(new Event('change')); }
-  } catch {}
-
-  document.getElementById('tourn-date').value = new Date().toISOString().split('T')[0];
-
-  // Auto-compute group count (aim for 4 per group)
-  const numPlayers    = tournSetupPlayers.filter(p => p.name).length;
-  const suggestedGrps = Math.max(1, Math.ceil(numPlayers / 4));
-  tournSetupNumGroups = suggestedGrps;
-
-  const suggestion = document.getElementById('tourn-group-suggestion');
-  if (suggestion) {
-    const perGroup = Math.ceil(numPlayers / suggestedGrps);
-    suggestion.textContent = `${numPlayers} players → ${suggestedGrps} group${suggestedGrps > 1 ? 's' : ''} of ~${perGroup}`;
-  }
-
-  renderGroupAssignmentCards();
-}
 
 function renderGroupAssignmentCards() {
-  // tournSetupNumGroups is set by buildGroupSetupScreen (auto-computed), user can adjust with +/-
+  // tournSetupNumGroups is auto-computed (aim for 4 per group), user can adjust with +/-
   const namedPlayers  = tournSetupPlayers.filter(p => p.name);
   const numPlayers    = namedPlayers.length;
   const container     = document.getElementById('tourn-group-cards');
@@ -8166,147 +7963,6 @@ function validateGroupSizes(groups) {
 let tournSetupPlayers = []; // flat list [{name, hcp, profileId, groupIndex}]
 let tournSetupNumGroups = 1;
 
-function buildGroupPlayerForms() {
-  tournSetupNumGroups = parseInt(document.getElementById('tourn-num-groups').value) || 1;
-
-  // Populate course dropdown
-  const courseSel = document.getElementById('tourn-course-select');
-  const teeWrap   = document.getElementById('tourn-tee-wrap');
-  const teeSel    = document.getElementById('tourn-tee-select');
-  courseSel.innerHTML = '<option value="">-- Select course --</option>';
-  allCourses.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.id; opt.textContent = c.name;
-    courseSel.appendChild(opt);
-  });
-  courseSel.onchange = () => {
-    const course = allCourses.find(c => c.id === courseSel.value);
-    if (course?.tees?.length) {
-      teeSel.innerHTML = course.tees.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
-      teeWrap.style.display = '';
-    } else { teeWrap.style.display = 'none'; }
-  };
-  // Pre-select last used course
-  try {
-    const lastCourse = localStorage.getItem('lb-last-course');
-    if (lastCourse) { courseSel.value = lastCourse; courseSel.dispatchEvent(new Event('change')); }
-  } catch {}
-
-  document.getElementById('tourn-date').value = new Date().toISOString().split('T')[0];
-
-  // Seed slots: current user in slot 0, rest blank — renderGroupCards will pad to full count
-  const myName = currentProfile
-    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim() : '';
-  tournSetupPlayers = [{ name: myName, hcp: currentProfile?.hcp ?? 0, profileId: currentUser.id, groupIndex: 0 }];
-
-  renderGroupCards('tourn-group-cards', tournSetupNumGroups, tournSetupPlayers,
-    (players) => { tournSetupPlayers = players; });
-}
-
-function renderGroupCards(containerId, numGroups, players, onUpdate) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  // Work out slots per group:
-  // For team tournaments: teamSize. For individual: total players / numGroups (min 1).
-  const type     = document.getElementById('tourn-type')?.value ?? 'individual';
-  const teamSize = parseInt(document.getElementById('tourn-team-size')?.value) || 2;
-  const slotsPerGroup = type === 'team'
-    ? teamSize
-    : Math.max(1, Math.ceil((players.length || numGroups) / numGroups));
-
-  // Ensure players array has exactly numGroups × slotsPerGroup entries
-  const totalSlots = numGroups * slotsPerGroup;
-  while (players.length < totalSlots) {
-    const gi = Math.floor(players.length / slotsPerGroup);
-    players.push({ name: '', hcp: 0, profileId: null, groupIndex: gi });
-  }
-  // Re-assign groupIndex by position
-  players.forEach((p, i) => { p.groupIndex = Math.floor(i / slotsPerGroup); });
-  onUpdate(players);
-
-  container.innerHTML = '';
-  for (let g = 0; g < numGroups; g++) {
-    const card = document.createElement('div');
-    card.className = 'card mb-sm';
-    card.innerHTML = `<div class="card-title">Group ${g + 1}</div>
-      <div id="group-slots-${containerId}-${g}"></div>`;
-    container.appendChild(card);
-    renderGroupSlots(containerId, g, players, slotsPerGroup, onUpdate);
-  }
-}
-
-function renderGroupSlots(containerId, g, players, slotsPerGroup, onUpdate) {
-  const el = document.getElementById(`group-slots-${containerId}-${g}`);
-  if (!el) return;
-  const startIdx = g * slotsPerGroup;
-
-  // Ensure exactly one scorer per group — default to first slot if none set
-  const groupIdxs = Array.from({ length: slotsPerGroup }, (_, s) => startIdx + s);
-  const hasScorer = groupIdxs.some(i => players[i]?.isScorer);
-  if (!hasScorer && players[startIdx]) players[startIdx].isScorer = true;
-
-  el.innerHTML = Array.from({ length: slotsPerGroup }, (_, s) => {
-    const idx     = startIdx + s;
-    const p       = players[idx] ?? { name: '', hcp: 0, profileId: null, isScorer: false };
-    const isScorer = p.isScorer ?? false;
-    const scorerStyle = isScorer
-      ? 'background:var(--green);color:#fff;border-color:var(--green);'
-      : 'background:var(--card);color:var(--muted);border-color:var(--border);';
-    return `
-      <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
-        <span class="dot" style="background:${pHex(idx % 8)};flex-shrink:0;"></span>
-        <input id="gpname-${containerId}-${idx}" type="text" value="${p.name}"
-          placeholder="Player ${s + 1} name"
-          style="flex:1;background:none;border:none;border-bottom:1px solid var(--border);
-                 color:var(--white);font-size:0.88rem;outline:none;padding-bottom:2px;">
-        <input id="gphcp-${containerId}-${idx}" type="number" value="${p.hcp || ''}"
-          placeholder="HCP" min="0" max="54" step="0.1"
-          style="width:55px;background:none;border:none;border-bottom:1px solid var(--border);
-                 color:var(--white);font-size:0.82rem;outline:none;text-align:center;padding-bottom:2px;">
-        <button class="btn btn-ghost btn-set-scorer" data-idx="${idx}" data-g="${g}" data-cid="${containerId}"
-          style="padding:0.2rem 0.45rem;font-size:0.65rem;flex-shrink:0;border-radius:5px;
-                 border:1.5px solid;letter-spacing:0.04em;${scorerStyle}"
-          title="${isScorer ? 'Scorer' : 'Set as scorer'}">✏️</button>
-        <button class="btn btn-ghost btn-pick-friend" data-idx="${idx}" data-cid="${containerId}"
-          style="padding:0.25rem 0.5rem;font-size:1rem;flex-shrink:0;opacity:0.7;"
-          title="Pick from friends">👤</button>
-      </div>`;
-  }).join('');
-
-  // Wire up inputs
-  el.querySelectorAll('[id^="gpname-"]').forEach(inp => {
-    const idx = parseInt(inp.id.split('-').pop());
-    inp.addEventListener('input', e => { if (players[idx]) players[idx].name = e.target.value.trim(); onUpdate(players); });
-  });
-  el.querySelectorAll('[id^="gphcp-"]').forEach(inp => {
-    const idx = parseInt(inp.id.split('-').pop());
-    inp.addEventListener('input', e => { if (players[idx]) players[idx].hcp = parseFloat(e.target.value) || 0; onUpdate(players); });
-  });
-
-  // Scorer toggle — clear group, set tapped player
-  el.querySelectorAll('.btn-set-scorer').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.idx);
-      groupIdxs.forEach(i => { if (players[i]) players[i].isScorer = false; });
-      if (players[idx]) players[idx].isScorer = true;
-      onUpdate(players);
-      renderGroupSlots(containerId, g, players, slotsPerGroup, onUpdate);
-    });
-  });
-
-  // Friend picker per slot
-  el.querySelectorAll('.btn-pick-friend').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.idx);
-      openFriendPicker(-1, (friend) => {
-        players[idx] = { ...players[idx], name: friend.name, hcp: friend.hcp ?? 0, profileId: friend.profileId ?? null };
-        onUpdate(players);
-        renderGroupSlots(containerId, g, players, slotsPerGroup, onUpdate);
-      });
-    });
-  });
-}
 
 document.getElementById('tournament-players-back')?.addEventListener('click', () =>
   showScreen('screen-tournament-format'));
@@ -8513,133 +8169,6 @@ async function _teeOffRound(tournId, courseId, teeName, date) {
   }
 }
 
-async function showRegularGameInviteModal(otherGroupScorers, course, tee, fmt) {
-  const modal   = document.getElementById('modal-group-invites');
-  const listEl  = document.getElementById('group-invites-list');
-  const doneBtn = document.getElementById('btn-group-invites-done');
-  const myName  = currentProfile
-    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
-    : 'Your organiser';
-
-  listEl.innerHTML = otherGroupScorers.map(({ groupNumber, scorer }) => `
-    <div style="padding:0.75rem;background:var(--surface2);border:1px solid var(--border);
-                border-radius:var(--radius-sm);margin-bottom:0.75rem;">
-      <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;
-                  letter-spacing:0.1em;margin-bottom:0.3rem;">
-        Group ${groupNumber} scorer · ${scorer.name}
-      </div>
-      <div id="reg-invite-status-${groupNumber}"
-        style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem;">
-        Sending invite…
-      </div>
-    </div>`).join('');
-
-  modal.classList.add('open');
-
-  // Send invites immediately since we already know who the scorers are
-  await Promise.all(otherGroupScorers.map(async ({ groupNumber, scorer }) => {
-    const statusEl = document.getElementById(`reg-invite-status-${groupNumber}`);
-    try {
-      await smsInviteCreate({
-        roundId:            roundId,
-        inviterId:          currentUser.id,
-        name:               myName,
-        mobile:             null,
-        recipientProfileId: scorer.profileId,
-        tournamentRoundId:  null,
-        groupNumber,
-      });
-      if (statusEl) {
-        statusEl.textContent = `✅ Invite sent to ${scorer.name}`;
-        statusEl.style.color = 'var(--green)';
-      }
-    } catch (err) {
-      console.error('[invite] smsInviteCreate failed:', err);
-      if (statusEl) { statusEl.textContent = `⚠️ Error: ${err.message}`; statusEl.style.color = 'var(--red)'; }
-    }
-  }));
-
-  doneBtn.onclick = () => { modal.classList.remove('open'); enterGameScreen(); };
-  document.getElementById('group-invites-close').onclick = () => {
-    modal.classList.remove('open'); enterGameScreen();
-  };
-}
-
-async function showGroupInviteModal(otherGroups, troundRecord, course, roundFormat) {
-  const modal   = document.getElementById('modal-group-invites');
-  const listEl  = document.getElementById('group-invites-list');
-  const doneBtn = document.getElementById('btn-group-invites-done');
-  const myName  = currentProfile
-    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
-    : 'Your organiser';
-
-  // Build one card per other group
-  listEl.innerHTML = otherGroups.map(g => {
-    const playerNames = g.players
-      .map(pid => activeTournPlayers.find(p => p.id === pid)?.name)
-      .filter(Boolean).join(', ');
-    return `
-      <div style="padding:0.75rem;background:var(--surface2);border:1px solid var(--border);
-                  border-radius:var(--radius-sm);margin-bottom:0.75rem;">
-        <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;
-                    letter-spacing:0.1em;margin-bottom:0.3rem;">
-          Group ${g.groupNumber} · ${playerNames}
-        </div>
-        <div id="group-invite-status-${g.groupNumber}"
-          style="font-size:0.8rem;color:var(--muted);margin-bottom:0.5rem;">
-          No scorer invited yet
-        </div>
-        <button class="btn btn-outline btn-invite-scorer" data-g="${g.groupNumber}"
-          style="width:100%;font-size:0.85rem;">
-          👤 Invite Scorer from Friends
-        </button>
-      </div>`;
-  }).join('');
-
-  // Wire up friend picker per group
-  listEl.querySelectorAll('.btn-invite-scorer').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const gNum = parseInt(btn.dataset.g);
-      const g    = otherGroups.find(x => x.groupNumber === gNum);
-      openFriendPicker(-1, async (friend) => {
-        if (!friend.profileId) {
-          alert('This friend needs to have a Leaderboard account to receive an in-app invite.');
-          return;
-        }
-        btn.disabled = true; btn.textContent = 'Sending…';
-        try {
-          await smsInviteCreate({
-            roundId:             roundId,
-            inviterId:           currentUser.id,
-            name:                myName,
-            mobile:              null,
-            recipientProfileId:  friend.profileId,
-            tournamentRoundId:   troundRecord.id,
-            groupNumber:         gNum,
-          });
-          const statusEl = document.getElementById(`group-invite-status-${gNum}`);
-          if (statusEl) {
-            statusEl.textContent = `✅ Invite sent to ${friend.name}`;
-            statusEl.style.color = 'var(--green)';
-          }
-          btn.textContent = '✅ Sent — invite another?';
-          btn.disabled = false;
-        } catch (err) {
-          alert('Could not send invite: ' + err.message);
-          btn.disabled = false;
-          btn.textContent = '👤 Invite Scorer from Friends';
-        }
-      });
-    });
-  });
-
-  modal.classList.add('open');
-
-  doneBtn.onclick = () => { modal.classList.remove('open'); enterGameScreen(); };
-  document.getElementById('group-invites-close').onclick = () => {
-    modal.classList.remove('open'); enterGameScreen();
-  };
-}
 
 // Shared tournament+player creation helper
 // ----------------------------------------------------------------
@@ -9170,19 +8699,6 @@ function renderTroundHcpRows() {
 
 // ── Course selection for tournament round ────────────────────────
 // ── Auto-save/restore round setup state ─────────────────────────
-function saveTroundSetup() {
-  if (!activeTournament) return;
-  try {
-    const state = {
-      courseId:  document.getElementById('tourn-course-select')?.value ?? '',
-      teeName:   document.getElementById('tourn-tee-select')?.value ?? '',
-      date:      document.getElementById('tourn-date')?.value ?? '',
-      numGroups: tournSetupNumGroups,
-      groups:    tournGroups,
-    };
-    localStorage.setItem(`lb-tround-${activeTournament.id}`, JSON.stringify(state));
-  } catch {}
-}
 
 function restoreTroundSetup() {
   if (!activeTournament) return null;
@@ -9492,60 +9008,6 @@ function showChallengeBanner(challenge) {
 }
 
 // ── Observer challenge button (in scorecard overlay) ─────────────
-function renderScorecardWithChallenges(state) {
-  const isScorer = currentUser?.id === state?.organiserId;
-  const rows     = buildScorecardRows(state);
-  const fmt      = state.format;
-
-  let html = buildScorecardHTML(state);
-
-  // If observer (not scorer) and round is active, add challenge buttons
-  if (!isScorer && state.status !== 'completed') {
-    // Replace the scorecard HTML with one that has challenge buttons per row
-    const log = state.log ?? [];
-    const holeOffset = state.holeOffset ?? 0;
-
-    html += `<div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:0.75rem;">
-      <div style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;
-                  color:var(--muted);margin-bottom:0.5rem;">Challenge a Score</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:0.35rem;">
-        ${log.map((e, i) => `
-          <button class="btn btn-outline challenge-hole-btn" data-hole="${holeOffset + i + 1}"
-            style="padding:0.3rem 0.4rem;font-size:0.75rem;">
-            H${holeOffset + i + 1}
-          </button>`).join('')}
-      </div>
-    </div>`;
-  }
-
-  return html;
-}
-
-// ── Wire up challenge buttons in scorecard overlay ────────────────
-function attachChallengeBtnListeners() {
-  document.querySelectorAll('.challenge-hole-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const hole = parseInt(btn.dataset.hole);
-      if (!confirm(`Challenge the score recorded for Hole ${hole}?`)) return;
-      try {
-        const myName = currentProfile
-          ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
-          : 'A player';
-        await challengeCreate({
-          roundId:       roundId,
-          challengerId:  currentUser.id,
-          challengerName: myName,
-          holeNumber:    hole,
-        });
-        btn.textContent = 'Sent!';
-        btn.disabled = true;
-        btn.style.color = 'var(--green)';
-      } catch (err) {
-        alert('Could not send challenge: ' + err.message);
-      }
-    });
-  });
-}
 
 // ── Hole edit mode (scorer opens specific hole to edit) ───────────
 function openHoleEdit(holeNumber) {
