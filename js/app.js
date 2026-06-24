@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260622a';
+} from '../data.js?v=20260622b';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260622a';
+} from '../game.js?v=20260622b';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260622a';
+} from '../tournament.js?v=20260622b';
 
 // ================================================================
 // PLAYER COLOURS
@@ -6728,11 +6728,29 @@ document.getElementById('btn-search-friend')?.addEventListener('click', async ()
     const hcpStr  = user.share_hcp !== false && user.hcp != null ? ` · HCP ${fmtHandicap(user.hcp)}` : '';
     document.getElementById('friend-found-name').textContent = nameStr + hcpStr;
     show('friend-search-result');
-    document.getElementById('btn-send-request').onclick = async () => {
-      await friendRequestSend(currentUser.id, user.id);
-      hide('friend-search-result');
-      document.getElementById('friend-search-empty').textContent = 'Friend request sent!';
-      show('friend-search-empty');
+    const sendBtn = document.getElementById('btn-send-request');
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send Request';
+    sendBtn.onclick = async () => {
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending…';
+      try {
+        await friendRequestSend(currentUser.id, user.id);
+        hide('friend-search-result');
+        document.getElementById('friend-search-email').value = '';
+        document.getElementById('friend-search-empty').textContent = '✓ Friend request sent!';
+        show('friend-search-empty');
+      } catch (err) {
+        // Supabase unique constraint error = request already exists
+        const isDuplicate = err?.code === '23505' || err?.message?.includes('duplicate') || err?.message?.includes('unique');
+        const msg = isDuplicate
+          ? 'A friend request to this person already exists, or you\'re already friends.'
+          : (err.message ?? 'Could not send request — please try again.');
+        document.getElementById('friend-search-empty').textContent = msg;
+        show('friend-search-empty');
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send Request';
+      }
     };
   } catch (err) {
     document.getElementById('friend-search-empty').textContent = err.message ?? 'Search failed.';
