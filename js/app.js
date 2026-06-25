@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260622e';
+} from '../data.js?v=20260622f';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260622e';
+} from '../game.js?v=20260622f';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260622e';
+} from '../tournament.js?v=20260622f';
 
 // ================================================================
 // PLAYER COLOURS
@@ -85,8 +85,6 @@ let roundId    = null;
 let gameState  = null;
 const _sessionId = Math.random().toString(36).slice(2);
 let realtimeCh = null;
-let abandonSource = null;
-
 const cwiz = {
   courseId: null, name: '', location: '', tees: [], holes: [],
   holeIdx: 0, returnTo: null,
@@ -586,18 +584,9 @@ async function showHome() {
       else try { localStorage.removeItem('lb-active-round'); } catch {}
     }
 
-    if (actives.length > 0) {
-      const r = actives[0];
-      document.getElementById('resume-title').textContent = `${r.course_name} · ${r.tee_name} Tees`;
-      document.getElementById('resume-sub').textContent   = `${fmtLabel(r.game_format)} · ${r.player_names?.join(', ') ?? ''}`;
-      roundId = r.id;
-      show('home-resume-banner');
-    } else {
-      hide('home-resume-banner'); roundId = null;
-    }
-  } catch { hide('home-resume-banner'); }
+  } catch {}
 
-  // Populate Best Score / Rounds stats + Active games/tournaments
+  // Populate Best Score / Rounds stats
   loadHomeStatsAndActive(myName);
 }
 
@@ -689,7 +678,6 @@ document.getElementById('nav-play')   ?.addEventListener('click', () => { setAct
 
 document.getElementById('coming-soon-close')?.addEventListener('click', () => hide('modal-coming-soon'));
 document.getElementById('btn-resume')?.addEventListener('click', async () => { if (roundId) await resumeRound(roundId); });
-document.getElementById('btn-abandon-home')?.addEventListener('click', () => { abandonSource = 'home'; document.getElementById('modal-abandon').classList.add('open'); });
 
 // ================================================================
 // FORMAT PICKER SCREEN
@@ -1091,7 +1079,7 @@ document.getElementById('setup-add-course-btn')?.addEventListener('click', () =>
 document.getElementById('setup-course-back')?.addEventListener('click', () => {
   showFormatPicker(setup.category ?? 'solo');
 });
-document.getElementById('setup-abandon-1')  ?.addEventListener('click', () => { abandonSource = 'setup'; document.getElementById('modal-abandon').classList.add('open'); });
+document.getElementById('setup-abandon-1')  ?.addEventListener('click', () => { clearSetupState(); clearSetupDraft(); showHome(); });
 
 document.getElementById('btn-setup-course-next')?.addEventListener('click', () => {
   if (!setup.courseId) { alert('Please select a course.'); return; }
@@ -2313,13 +2301,13 @@ document.getElementById('setup-groups-back')?.addEventListener('click', () => {
   else showScreen('screen-setup-players');
 });
 document.getElementById('setup-abandon-3')?.addEventListener('click', () => {
-  abandonSource = 'setup'; document.getElementById('modal-abandon').classList.add('open');
+  clearSetupState(); clearSetupDraft(); showHome();
 });
 document.getElementById('setup-abandon-pairs')?.addEventListener('click', () => {
-  abandonSource = 'setup'; document.getElementById('modal-abandon').classList.add('open');
+  clearSetupState(); clearSetupDraft(); showHome();
 });
 document.getElementById('setup-abandon-review')?.addEventListener('click', () => {
-  abandonSource = 'setup'; document.getElementById('modal-abandon').classList.add('open');
+  clearSetupState(); clearSetupDraft(); showHome();
 });
 document.getElementById('setup-pairs-back')?.addEventListener('click', () => showScreen('screen-setup-players'));
 
@@ -2424,7 +2412,7 @@ document.getElementById('fp-close')    ?.addEventListener('click', () => documen
 document.getElementById('fp-back-btn') ?.addEventListener('click', () => { show('fp-chips'); hide('fp-confirm'); });
 document.getElementById('setup-players-back')     ?.addEventListener('click', () => showScreen('screen-setup-course'));
 document.getElementById('btn-setup-players-back') ?.addEventListener('click', () => showScreen('screen-setup-course'));
-document.getElementById('setup-abandon-2')        ?.addEventListener('click', () => { abandonSource = 'setup'; document.getElementById('modal-abandon').classList.add('open'); });
+document.getElementById('setup-abandon-2')        ?.addEventListener('click', () => { clearSetupState(); clearSetupDraft(); showHome(); });
 
 // (btn-setup-players-next wired in player list section above)
 
@@ -4279,7 +4267,10 @@ document.getElementById('btn-back-hole')?.addEventListener('click', () => {
 });
 
 document.getElementById('btn-finish-early')?.addEventListener('click', () => showEndRound());
-document.getElementById('btn-game-abandon')?.addEventListener('click', () => { abandonSource = 'game'; document.getElementById('modal-abandon').classList.add('open'); });
+document.getElementById('btn-game-abandon')?.addEventListener('click', async () => {
+  // "Home" — save the round as paused so it appears in Active Games, then go home
+  await doAbandon(false);
+});
 
 document.getElementById('btn-game-leaderboard')?.addEventListener('click', () => showLeaderboard());
 document.getElementById('leaderboard-back')   ?.addEventListener('click', () => showScreen('screen-game'));
@@ -5801,20 +5792,6 @@ async function _joinRoundWithRole(roundId, groupNumber, asScorer) {
 // ----------------------------------------------------------------
 // ABANDON
 // ----------------------------------------------------------------
-document.getElementById('abandon-cancel')?.addEventListener('click', () => document.getElementById('modal-abandon').classList.remove('open'));
-
-// Abandon & Save Progress — marks round cancelled in DB but keeps the data
-document.getElementById('abandon-save')?.addEventListener('click', async () => {
-  document.getElementById('modal-abandon').classList.remove('open');
-  await doAbandon(false);
-});
-
-// Abandon & Delete — permanently removes the round
-document.getElementById('abandon-delete')?.addEventListener('click', async () => {
-  document.getElementById('modal-abandon').classList.remove('open');
-  await doAbandon(true);
-});
-
 async function doAbandon(shouldDelete) {
   const tid = setup.tournamentId;
   // Fall back to the locally-stored round id if the in-memory one is missing
