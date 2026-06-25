@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260622c';
+} from '../data.js?v=20260622e';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260622c';
+} from '../game.js?v=20260622e';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260622c';
+} from '../tournament.js?v=20260622e';
 
 // ================================================================
 // PLAYER COLOURS
@@ -604,7 +604,6 @@ async function showHome() {
 async function loadHomeStatsAndActive(myName) {
   const roundsEl = document.getElementById('home-stat-rounds');
   const bestEl   = document.getElementById('home-stat-best');
-  const activeEl = document.getElementById('home-active-list');
 
   // Best score / rounds played
   try {
@@ -625,86 +624,45 @@ async function loadHomeStatsAndActive(myName) {
     if (bestEl) bestEl.textContent = '--';
   }
 
-  // Active games + tournaments
-  if (!activeEl) return;
-  activeEl.innerHTML = '';
-  try {
-    const [actives, tournaments] = await Promise.all([
-      roundsLoadActive(currentUser.id).catch(() => []),
-      tournamentsLoad(currentUser.id).catch(() => []),
-    ]);
-
-    let storedRoundId = null;
-    try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
-    if (storedRoundId && !actives.some(r => r.id === storedRoundId)) {
-      const stored = await roundLoadById(storedRoundId).catch(() => null);
-      if (['active','paused'].includes(stored?.status)) {
-        actives.unshift(stored);
-      } else {
-        // Stale — clear it
-        try { localStorage.removeItem('lb-active-round'); } catch {}
-      }
-    }
-
-    const activeTournaments = tournaments.filter(t => t.status !== 'completed');
-
-    const rows = [];
-
-    // Setup draft (game being configured, not yet started)
-    const draft = readSetupDraft();
+  // Setup draft reminder — show if the user was mid-setup when they left
+  const draftEl = document.getElementById('home-draft-row');
+  const draft   = readSetupDraft();
+  if (draftEl) {
     if (draft) {
       const draftNames = draft.players?.slice(0, 3).join(', ') + (draft.players?.length > 3 ? '…' : '');
-      rows.push(`
-        <div class="home-active-row" data-kind="draft">
+      draftEl.innerHTML = `
+        <div class="home-active-row" data-kind="draft"
+          style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;
+                 background:var(--surface2);border:1px solid var(--border);
+                 border-radius:var(--radius-sm);cursor:pointer;">
           <div class="home-active-icon">✏️</div>
-          <div class="home-active-body">
+          <div class="home-active-body" style="flex:1;min-width:0;">
             <div class="home-active-title">Game Setup — ${draft.courseName ?? fmtLabel(draft.scoring)}</div>
-            <div class="home-active-sub">${fmtLabel(draft.scoring)}${draftNames ? ` · ${draftNames}` : ''}</div>
+            <div class="home-active-sub" style="font-size:0.82rem;color:var(--muted2);">${fmtLabel(draft.scoring)}${draftNames ? ` · ${draftNames}` : ''}</div>
           </div>
           <button class="btn btn-ghost" id="btn-dismiss-draft"
             style="font-size:0.85rem;color:var(--muted);border:none;padding:0.25rem 0.5rem;flex-shrink:0;"
             title="Dismiss">✕</button>
-        </div>`);
-    }
-
-    actives.forEach(r => {
-      // Active rounds are intentionally NOT shown in the top banner —
-      // they're accessible via the "Active Games" button below, which has
-      // proper Resume/Delete controls. Showing them here led to abandoned
-      // rounds piling up in the hero card with no reliable way to clear them.
-    });
-    activeTournaments.forEach(t => {
-      rows.push(`
-        <div class="home-active-row" data-kind="tournament" data-id="${t.id}">
-          <div class="home-active-icon">🏆</div>
-          <div class="home-active-body">
-            <div class="home-active-title">Active Tournament — ${t.name}</div>
-            <div class="home-active-sub">${fmtLabel(t.format)} · ${t.num_rounds} rounds</div>
-          </div>
-          <div class="home-active-chevron">›</div>
-        </div>`);
-    });
-
-    activeEl.innerHTML = rows.join('');
-    activeEl.querySelectorAll('.home-active-row').forEach(row => {
-      // Dismiss draft
-      row.querySelector('#btn-dismiss-draft')?.addEventListener('click', e => {
+        </div>`;
+      draftEl.style.display = '';
+      draftEl.querySelector('#btn-dismiss-draft')?.addEventListener('click', e => {
         e.stopPropagation();
         clearSetupDraft();
-        loadHomeStatsAndActive(myName ?? '');
+        draftEl.style.display = 'none';
       });
+      draftEl.querySelector('.home-active-row')?.addEventListener('click', (e) => {
+        if (e.target.id === 'btn-dismiss-draft') return;
+        tryRestoreSetupState().then(ok => {
+          if (!ok) { clearSetupDraft(); showHome(); }
+        });
+      });
+    } else {
+      draftEl.style.display = 'none';
+    }
+  }
 
-      row.addEventListener('click', () => {
-        if (row.dataset.kind === 'draft') {
-          tryRestoreSetupState().then(ok => {
-            if (!ok) { clearSetupDraft(); showHome(); }
-          });
-        } else {
-          showTournamentDetail(row.dataset.id);
-        }
-      });
-    });
-  } catch {}
+  // Update the Active Games and Invites badges
+  updateActiveGamesBadge();
 }
 
 // Bottom nav active-state helper
@@ -5275,18 +5233,25 @@ function hideGameInviteBanner() {
 
 async function updateActiveGamesBadge() {
   try {
-    const inviteRows = await gameInvitesPollPending(currentUser.id, null).catch(() => []);
-    const gameInvites  = inviteRows.filter(r => r.round_id && !r.tournament_round_id);
-    const tournInvites = inviteRows.filter(r => r.tournament_round_id);
-    const gamesBadge  = document.getElementById('home-active-games-badge');
-    const tournBadge  = document.getElementById('home-active-tourns-badge');
+    const [inviteRows, activeRounds] = await Promise.all([
+      gameInvitesPollPending(currentUser.id, null).catch(() => []),
+      roundsLoadActive(currentUser.id).catch(() => []),
+    ]);
+
+    // Active Games badge = rounds currently active or paused
+    const gamesBadge = document.getElementById('home-active-games-badge');
+    const roundCount = activeRounds.length;
     if (gamesBadge) {
-      gamesBadge.textContent = String(gameInvites.length);
-      gamesBadge.style.display = gameInvites.length > 0 ? '' : 'none';
+      gamesBadge.textContent = String(roundCount);
+      gamesBadge.style.display = roundCount > 0 ? 'inline-flex' : 'none';
     }
-    if (tournBadge) {
-      tournBadge.textContent = String(tournInvites.length);
-      tournBadge.style.display = tournInvites.length > 0 ? '' : 'none';
+
+    // Game Invites badge = pending invites (excluding tournament-only invites)
+    const gameInvites = inviteRows.filter(r => r.round_id);
+    const invitesBadge = document.getElementById('home-game-invites-badge');
+    if (invitesBadge) {
+      invitesBadge.textContent = String(gameInvites.length);
+      invitesBadge.style.display = gameInvites.length > 0 ? 'inline-flex' : 'none';
     }
   } catch {}
 }
