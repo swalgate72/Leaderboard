@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260622e">
+  <link rel="stylesheet" href="styles.css?v=20260622f">
 </head>
 <body>
 
@@ -197,19 +197,6 @@
     </div>
 
     <div style="padding: 0 1rem;">
-
-    <!-- Resume banner (shown if active round exists) -->
-    <div id="home-resume-banner" class="resume-banner hidden">
-      <div class="resume-banner-label">
-        <span class="live-dot"></span> Round in progress
-      </div>
-      <div class="resume-banner-title" id="resume-title">Loading…</div>
-      <div class="resume-banner-sub" id="resume-sub"></div>
-      <div class="resume-banner-actions mt-sm">
-        <button class="btn btn-green btn-full" id="btn-resume">▶ RESUME</button>
-        <button class="btn btn-ghost" id="btn-abandon-home">Abandon</button>
-      </div>
-    </div>
 
     <div class="home-section-label">What would you like to do?</div>
 
@@ -721,9 +708,8 @@
       </button>
       <button class="btn btn-outline" id="btn-game-abandon"
         style="padding:0.6rem;font-size:0.95rem;font-weight:800;
-               font-family:'Barlow Condensed',sans-serif;
-               border-color:var(--red-border,#8b2222);color:var(--red,#d64545);">
-        Abandon Game
+               font-family:'Barlow Condensed',sans-serif;">
+        🏠 Home
       </button>
     </div>
 
@@ -1447,26 +1433,6 @@
 <!-- ══════════════════════════════════════════
      ABANDON CONFIRM MODAL
      ══════════════════════════════════════════ -->
-<div class="modal-overlay abandon-modal" id="modal-abandon">
-  <div class="modal-box" style="text-align:center;max-width:380px;border-color:var(--red-border);">
-    <div style="font-size:2rem;margin-bottom:0.5rem;">⚠️</div>
-    <div class="modal-title" style="color:var(--red);margin-bottom:0.5rem;">Abandon Game?</div>
-    <div class="text-muted mb-md" style="font-size:0.85rem;line-height:1.5;">
-      Choose how you'd like to abandon this round.
-    </div>
-    <div style="display:grid;gap:0.5rem;">
-      <button class="btn btn-outline" id="abandon-cancel">Cancel</button>
-      <button class="btn btn-outline" id="abandon-save"
-        style="border-color:var(--gold-border);color:var(--gold);">
-        Abandon &amp; Save Progress
-      </button>
-      <button class="btn btn-danger" id="abandon-delete">
-        Abandon &amp; Delete
-      </button>
-    </div>
-  </div>
-</div>
-
 <!-- ══════════════════════════════════════════
      TOURNAMENT COMING SOON MODAL
      ══════════════════════════════════════════ -->
@@ -1506,7 +1472,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260622e"></script>
+<script type="module" src="js/app.js?v=20260622f"></script>
 
 
 <!-- ══════════════════════════════════════════
