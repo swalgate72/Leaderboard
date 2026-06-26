@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626k';
+} from '../data.js?v=20260626l';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626k';
+} from '../game.js?v=20260626l';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626k';
+} from '../tournament.js?v=20260626l';
 
 // ================================================================
 // PLAYER COLOURS
@@ -1164,10 +1164,8 @@ document.getElementById('setup-course-back')?.addEventListener('click', () => {
   showFormatPicker(setup.category ?? 'solo');
 });
 // Save & Close — save current setup position and return home
-function saveSetupAndClose(screenId) {
-  // Save full state to lb-setup-draft BEFORE calling showHome(),
-  // because showHome() → showScreen('screen-home') → clears lb-setup-state.
-  // We store everything needed into lb-setup-draft directly here.
+function saveSetupInPlace(screenId) {
+  // Save draft to localStorage — stay on the current screen, just confirm inline.
   try {
     const course = allCourses.find(c => c.id === setup.courseId);
     localStorage.setItem('lb-setup-draft', JSON.stringify({
@@ -1180,23 +1178,43 @@ function saveSetupAndClose(screenId) {
       savedAt:    Date.now(),
     }));
   } catch {}
-  showHome();
   updateActiveGamesBadge();
-  // Toast
+  // Inline confirmation — pulse the save button green briefly, then show a toast
+  const btnMap = {
+    'screen-setup-course':   'setup-save-1',
+    'screen-setup-players':  'setup-save-2',
+    'screen-setup-groups':   'setup-save-3',
+    'screen-setup-pairs':    'setup-save-pairs',
+    'screen-setup-review':   'setup-save-review',
+  };
+  const btn = document.getElementById(btnMap[screenId]);
+  if (btn) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✅ Saved!';
+    btn.style.background = 'var(--green)';
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.innerHTML = orig;
+      btn.style.background = '';
+      btn.disabled = false;
+    }, 1800);
+  }
+  // Toast (stays on screen, doesn't navigate)
   const toast = document.createElement('div');
-  toast.textContent = '💾 Setup saved — find it in Active Games';
+  toast.textContent = '💾 Game saved — visible in Active Games on Home';
   toast.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
     background:var(--green);color:#fff;padding:0.65rem 1.25rem;border-radius:20px;
-    font-weight:800;font-size:0.9rem;z-index:9999;pointer-events:none;`;
+    font-weight:800;font-size:0.9rem;z-index:9999;pointer-events:none;
+    white-space:nowrap;`;
   document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2500);
+  setTimeout(() => toast.remove(), 2800);
 }
 
-document.getElementById('setup-save-1')     ?.addEventListener('click', () => saveSetupAndClose('screen-setup-course'));
-document.getElementById('setup-save-2')     ?.addEventListener('click', () => saveSetupAndClose('screen-setup-players'));
-document.getElementById('setup-save-3')     ?.addEventListener('click', () => saveSetupAndClose('screen-setup-groups'));
-document.getElementById('setup-save-pairs') ?.addEventListener('click', () => saveSetupAndClose('screen-setup-pairs'));
-document.getElementById('setup-save-review')?.addEventListener('click', () => saveSetupAndClose('screen-setup-review'));
+document.getElementById('setup-save-1')     ?.addEventListener('click', () => saveSetupInPlace('screen-setup-course'));
+document.getElementById('setup-save-2')     ?.addEventListener('click', () => saveSetupInPlace('screen-setup-players'));
+document.getElementById('setup-save-3')     ?.addEventListener('click', () => saveSetupInPlace('screen-setup-groups'));
+document.getElementById('setup-save-pairs') ?.addEventListener('click', () => saveSetupInPlace('screen-setup-pairs'));
+document.getElementById('setup-save-review')?.addEventListener('click', () => saveSetupInPlace('screen-setup-review'));
 
 document.getElementById('btn-setup-course-next')?.addEventListener('click', () => {
   if (!setup.courseId) { alert('Please select a course.'); return; }
