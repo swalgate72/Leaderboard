@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626l';
+} from '../data.js?v=20260626m';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626l';
+} from '../game.js?v=20260626m';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626l';
+} from '../tournament.js?v=20260626m';
 
 // ================================================================
 // PLAYER COLOURS
@@ -1166,18 +1166,25 @@ document.getElementById('setup-course-back')?.addEventListener('click', () => {
 // Save & Close — save current setup position and return home
 function saveSetupInPlace(screenId) {
   // Save draft to localStorage — stay on the current screen, just confirm inline.
+  // Also write lb-setup-state so tryRestoreSetupState() can restore it from Active Games.
+  saveSetupState(screenId);
   try {
     const course = allCourses.find(c => c.id === setup.courseId);
-    localStorage.setItem('lb-setup-draft', JSON.stringify({
+    const draft = {
       screen:     screenId,
       setup:      setup,
       scoring:    setup.scoring,
       courseName: course?.name ?? null,
       teeName:    course?.tees?.[setup.teeIdx]?.name ?? null,
-      players:    setup.players.filter(p => p.name).map(p => p.name),
+      players:    (setup.players || []).filter(p => p.name).map(p => p.name),
       savedAt:    Date.now(),
-    }));
-  } catch {}
+    };
+    localStorage.setItem('lb-setup-draft', JSON.stringify(draft));
+    console.log('[saveSetupInPlace] draft saved for screen:', screenId,
+      '| key present:', !!localStorage.getItem('lb-setup-draft'));
+  } catch (err) {
+    console.error('[saveSetupInPlace] failed:', err);
+  }
   updateActiveGamesBadge();
   // Inline confirmation — pulse the save button green briefly, then show a toast
   const btnMap = {
@@ -5365,7 +5372,9 @@ async function updateActiveGamesBadge() {
     ]);
 
     // Active Games badge = active/paused rounds + any saved setup draft
-    const hasDraft   = !!(readSetupDraft()?.screen);
+    const _draft = readSetupDraft();
+    const hasDraft = !!(_draft?.screen);
+    console.log('[updateActiveGamesBadge] hasDraft:', hasDraft, '| draft screen:', _draft?.screen ?? 'none', '| hasSetup:', !!_draft?.setup);
     const gamesBadge = document.getElementById('home-active-games-badge');
     const roundCount = activeRounds.length + (hasDraft ? 1 : 0);
     if (gamesBadge) {
@@ -5569,6 +5578,7 @@ async function renderActiveGamesList() {
 
     // Saved setup draft — shown first so user can complete setup
     const savedDraft = readSetupDraft();
+    console.log('[renderActiveGamesList] savedDraft:', savedDraft ? `screen=${savedDraft.screen} hasSetup=${!!savedDraft.setup}` : 'null');
     if (savedDraft?.screen && savedDraft?.setup) {
       const course     = savedDraft.setup.courseId ? allCourses.find(c => c.id === savedDraft.setup.courseId) : null;
       const courseName = course?.name ?? savedDraft.courseName ?? 'Course not set';
