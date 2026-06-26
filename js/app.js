@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626i';
+} from '../data.js?v=20260626j';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626i';
+} from '../game.js?v=20260626j';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626i';
+} from '../tournament.js?v=20260626j';
 
 // ================================================================
 // PLAYER COLOURS
@@ -239,7 +239,46 @@ async function tryRestoreSetupState() {
   }
 }
 
-function tryRestoreTournamentSetupScreen() {
+// Restore setup from the lb-setup-draft object (used when lb-setup-state was cleared by navigation)
+async function _restoreSetupFromDraft(draft) {
+  if (!draft?.screen || !draft?.setup) return false;
+  try {
+    Object.assign(setup, draft.setup);
+    if (draft.screen === 'screen-setup-course') {
+      document.getElementById('setup-course-format-label').textContent = FORMAT_LABELS[setup.scoring] ?? setup.scoring;
+      populateCourseSelect();
+      populateNumPlayerSelect();
+      populateNumGroupSelect();
+      document.getElementById('setup-hcp-pct').value = setup.hcpPct ?? 100;
+      if (setup.courseId) {
+        document.getElementById('setup-course-select').value = setup.courseId;
+        onCourseSelectChange();
+        const teeSel = document.getElementById('setup-tee-select');
+        if (teeSel) teeSel.value = String(setup.teeIdx ?? 0);
+      }
+      showScreen('screen-setup-course');
+    } else if (draft.screen === 'screen-setup-players') {
+      renderSetupPlayerList();
+      showScreen('screen-setup-players');
+    } else if (draft.screen === 'screen-setup-groups') {
+      renderSetupGroupCards();
+      showScreen('screen-setup-groups');
+    } else if (draft.screen === 'screen-setup-pairs') {
+      renderSetupGroupCards();
+      showScreen('screen-setup-pairs');
+    } else if (draft.screen === 'screen-setup-review') {
+      renderSetupGroupCards();
+      buildSetupReview();
+      showScreen('screen-setup-review');
+    } else {
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('_restoreSetupFromDraft error', err);
+    return false;
+  }
+}
   try {
     const screenId = localStorage.getItem('lb-tournament-setup-screen');
     const draftId  = localStorage.getItem('lb-tourn-setup-id');
@@ -1124,16 +1163,29 @@ document.getElementById('setup-course-back')?.addEventListener('click', () => {
 });
 // Save & Close — save current setup position and return home
 function saveSetupAndClose(screenId) {
-  saveSetupState(screenId);
-  saveSetupDraft();
+  // Save full state to lb-setup-draft BEFORE calling showHome(),
+  // because showHome() → showScreen('screen-home') → clears lb-setup-state.
+  // We store everything needed into lb-setup-draft directly here.
+  try {
+    const course = allCourses.find(c => c.id === setup.courseId);
+    localStorage.setItem('lb-setup-draft', JSON.stringify({
+      screen:     screenId,
+      setup:      setup,
+      scoring:    setup.scoring,
+      courseName: course?.name ?? null,
+      teeName:    course?.tees?.[setup.teeIdx]?.name ?? null,
+      players:    setup.players.filter(p => p.name).map(p => p.name),
+      savedAt:    Date.now(),
+    }));
+  } catch {}
   showHome();
-  // Show a brief toast so user knows it's saved
+  updateActiveGamesBadge();
+  // Toast
   const toast = document.createElement('div');
   toast.textContent = '💾 Setup saved — find it in Active Games';
   toast.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
     background:var(--green);color:#fff;padding:0.65rem 1.25rem;border-radius:20px;
-    font-weight:800;font-size:0.9rem;z-index:9999;pointer-events:none;
-    animation:fadeInUp 0.2s ease;`;
+    font-weight:800;font-size:0.9rem;z-index:9999;pointer-events:none;`;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 2500);
 }
@@ -5293,7 +5345,7 @@ async function updateActiveGamesBadge() {
     ]);
 
     // Active Games badge = active/paused rounds + any saved setup draft
-    const hasDraft   = !!(restoreSetupState()?.screen);
+    const hasDraft   = !!(readSetupDraft()?.screen);
     const gamesBadge = document.getElementById('home-active-games-badge');
     const roundCount = activeRounds.length + (hasDraft ? 1 : 0);
     if (gamesBadge) {
@@ -5496,13 +5548,12 @@ async function renderActiveGamesList() {
     const items = [];
 
     // Saved setup draft — shown first so user can complete setup
-    const draft = readSetupDraft();
-    const savedState = restoreSetupState();
-    if (savedState?.screen && savedState?.setup) {
-      const course     = savedState.setup.courseId ? allCourses.find(c => c.id === savedState.setup.courseId) : null;
-      const courseName = course?.name ?? savedState.setup.courseName ?? 'Course not set';
-      const fmt        = savedState.setup.scoring;
-      const players    = savedState.setup.players?.filter(p => p.name).map(p => p.name) ?? [];
+    const savedDraft = readSetupDraft();
+    if (savedDraft?.screen && savedDraft?.setup) {
+      const course     = savedDraft.setup.courseId ? allCourses.find(c => c.id === savedDraft.setup.courseId) : null;
+      const courseName = course?.name ?? savedDraft.courseName ?? 'Course not set';
+      const fmt        = savedDraft.setup.scoring;
+      const players    = savedDraft.players ?? savedDraft.setup.players?.filter(p => p.name).map(p => p.name) ?? [];
       const screenLabels = {
         'screen-setup-course':  'Step 1 — Choose course',
         'screen-setup-players': 'Step 2 — Add players',
@@ -5510,7 +5561,7 @@ async function renderActiveGamesList() {
         'screen-setup-pairs':   'Step 3 — Pair up players',
         'screen-setup-review':  'Step 4 — Review & tee off',
       };
-      const step = screenLabels[savedState.screen] ?? 'Setup in progress';
+      const step = screenLabels[savedDraft.screen] ?? 'Setup in progress';
       items.push({
         kind:        'draft',
         icon:        '✏️',
@@ -5518,10 +5569,12 @@ async function renderActiveGamesList() {
         sub:         `${step}${players.length ? ` · ${players.slice(0,3).join(', ')}${players.length > 3 ? '…' : ''}` : ''}`,
         actionLabel: 'Complete Setup',
         action: async () => {
-          const ok = await tryRestoreSetupState();
+          // Restore the full setup object from the draft before navigating
+          if (savedDraft.setup) Object.assign(setup, savedDraft.setup);
+          const ok = await tryRestoreSetupState() || await _restoreSetupFromDraft(savedDraft);
           if (!ok) { clearSetupState(); clearSetupDraft(); showHome(); }
         },
-        discard: () => { clearSetupState(); clearSetupDraft(); renderActiveGamesList(); },
+        discard: () => { clearSetupState(); clearSetupDraft(); renderActiveGamesList(); updateActiveGamesBadge(); },
       });
     }
 
