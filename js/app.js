@@ -5,7 +5,7 @@
 
 import {
   authSignIn, authSignUp, authSignOut, authSignInWithGoogle,
-  authForgotPassword, authOnStateChange, authGetUser,
+  authForgotPassword, authUpdatePassword, authOnStateChange, authGetUser,
   profileLoad, profileSave, profileFindByEmail, profileFindByUsername,
   coursesLoadAll, courseLoadById, courseSave, courseDelete, coursesEnsureDefaults,
   roundCreate, roundSaveState, roundPlayerClaimScorer, roundComplete, roundAbandon, roundReactivate, roundDelete,
@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626a';
+} from '../data.js?v=20260626b';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626a';
+} from '../game.js?v=20260626b';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626a';
+} from '../tournament.js?v=20260626b';
 
 // ================================================================
 // PLAYER COLOURS
@@ -403,6 +403,10 @@ async function boot() {
   if (joinToken) { await handleJoinFlow(joinToken, troundParam, groupParam); return; }
 
   authOnStateChange(async (event, user) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      showResetPasswordScreen();
+      return;
+    }
     if (user) await onSignedIn(user);
     else       onSignedOut();
   });
@@ -415,6 +419,43 @@ function onSignedOut() {
   currentUser = null; currentProfile = null; roundId = null; gameState = null;
   showScreen('screen-auth');
 }
+
+// ================================================================
+// PASSWORD RESET SCREEN
+// ================================================================
+function showResetPasswordScreen() {
+  const errEl = document.getElementById('reset-password-error');
+  if (errEl) errEl.style.display = 'none';
+  const f1 = document.getElementById('reset-new-password');
+  const f2 = document.getElementById('reset-confirm-password');
+  if (f1) f1.value = '';
+  if (f2) f2.value = '';
+  showScreen('screen-reset-password');
+}
+
+document.getElementById('btn-reset-password-submit')?.addEventListener('click', async () => {
+  const pw1   = document.getElementById('reset-new-password').value;
+  const pw2   = document.getElementById('reset-confirm-password').value;
+  const errEl = document.getElementById('reset-password-error');
+  const showErr = msg => { if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; } };
+
+  if (!pw1 || pw1.length < 8) { showErr('Password must be at least 8 characters.'); return; }
+  if (pw1 !== pw2)             { showErr('Passwords do not match.'); return; }
+
+  const btn = document.getElementById('btn-reset-password-submit');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  if (errEl) errEl.style.display = 'none';
+
+  try {
+    await authUpdatePassword(pw1);
+    const user = await authGetUser();
+    if (user) await onSignedIn(user);
+    else showScreen('screen-auth');
+  } catch (err) {
+    showErr(err.message || 'Could not update password. Please try again.');
+    btn.disabled = false; btn.textContent = 'SET NEW PASSWORD →';
+  }
+});
 
 let _joiningViaInvite = false;
 
@@ -466,7 +507,7 @@ async function onSignedIn(user) {
     }
   } catch (err) {
     console.error('onSignedIn error', err);
-    showScreen('screen-home');
+    await showHome(); // use showHome() not showScreen() so content is populated
   }
 }
 
