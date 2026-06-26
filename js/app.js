@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626o';
+} from '../data.js?v=20260626p';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626o';
+} from '../game.js?v=20260626p';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626o';
+} from '../tournament.js?v=20260626p';
 
 // ================================================================
 // PLAYER COLOURS
@@ -188,6 +188,12 @@ function clearSetupState() {
   try { localStorage.removeItem('lb-setup-state'); } catch {}
 }
 
+// Safe assign into setup — strips keys that are read-only getters (e.g. format)
+function assignToSetup(src) {
+  if (!src) return;
+  const { format: _drop, ...rest } = src;
+  Object.assign(setup, rest);
+}
 // Attempt to restore an in-progress round setup after app reload.
 // Returns true if a screen was restored, false otherwise.
 async function tryRestoreSetupState() {
@@ -202,7 +208,7 @@ async function tryRestoreSetupState() {
   }
 
   // Restore the setup object
-  Object.assign(setup, saved.setup);
+  assignToSetup(saved.setup);
 
   try {
     if (saved.screen === 'screen-setup-format') {
@@ -247,7 +253,7 @@ async function tryRestoreSetupState() {
 async function _restoreSetupFromDraft(draft) {
   if (!draft?.screen || !draft?.setup) return false;
   try {
-    Object.assign(setup, draft.setup);
+    assignToSetup(draft.setup);
     if (draft.screen === 'screen-setup-course') {
       document.getElementById('setup-course-format-label').textContent = FORMAT_LABELS[setup.scoring] ?? setup.scoring;
       populateCourseSelect();
@@ -5620,10 +5626,11 @@ async function renderActiveGamesList() {
           sub:         `${step}${players.length ? ` · ${players.slice(0,3).join(', ')}${players.length > 3 ? '…' : ''}` : ''}`,
           actionLabel: 'Complete Setup',
           action: async () => {
-            if (su && Object.keys(su).length) Object.assign(setup, su);
+            if (su && Object.keys(su).length) assignToSetup(su);
             const ok = await tryRestoreSetupState() || await _restoreSetupFromDraft(savedDraft);
             if (!ok) {
               if (su && Object.keys(su).length) {
+                assignToSetup(su);
                 saveSetupState(savedDraft.screen);
                 const ok2 = await tryRestoreSetupState();
                 if (!ok2) { clearSetupState(); clearSetupDraft(); showHome(); }
