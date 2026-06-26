@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260622f';
+} from '../data.js?v=20260622g';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260622f';
+} from '../game.js?v=20260622g';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260622f';
+} from '../tournament.js?v=20260622g';
 
 // ================================================================
 // PLAYER COLOURS
@@ -554,6 +554,11 @@ async function showHome() {
   showScreen('screen-home');
   renderLogos();
   setActiveBottomNav('nav-play');
+
+  // Ryder Cup button — only visible to the authorised developer account
+  const RC_AUTHORISED_USER = '52e987a2-ce84-4b47-a2a8-e5a2910e8593';
+  const rcBtn = document.getElementById('btn-ryder-cup');
+  if (rcBtn) rcBtn.style.display = currentUser?.id === RC_AUTHORISED_USER ? '' : 'none';
 
   // Update invite badges on home buttons
   if (currentUser) updateActiveGamesBadge();
