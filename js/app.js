@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260622g';
+} from '../data.js?v=20260626a';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260622g';
+} from '../game.js?v=20260626a';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260622g';
+} from '../tournament.js?v=20260626a';
 
 // ================================================================
 // PLAYER COLOURS
@@ -141,11 +141,13 @@ function showScreen(id) {
 function saveSetupDraft() {
   try {
     const course = allCourses.find(c => c.id === setup.courseId);
+    const saved  = restoreSetupState();
     localStorage.setItem('lb-setup-draft', JSON.stringify({
       scoring:    setup.scoring,
       courseName: course?.name ?? null,
       teeName:    course?.tees?.[setup.teeIdx]?.name ?? null,
       players:    setup.players.filter(p => p.name).map(p => p.name),
+      screen:     saved?.screen ?? null,
       savedAt:    Date.now(),
     }));
   } catch {}
@@ -1084,7 +1086,27 @@ document.getElementById('setup-add-course-btn')?.addEventListener('click', () =>
 document.getElementById('setup-course-back')?.addEventListener('click', () => {
   showFormatPicker(setup.category ?? 'solo');
 });
-document.getElementById('setup-abandon-1')  ?.addEventListener('click', () => { clearSetupState(); clearSetupDraft(); showHome(); });
+// Save & Close — save current setup position and return home
+function saveSetupAndClose(screenId) {
+  saveSetupState(screenId);
+  saveSetupDraft();
+  showHome();
+  // Show a brief toast so user knows it's saved
+  const toast = document.createElement('div');
+  toast.textContent = '💾 Setup saved — find it in Active Games';
+  toast.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+    background:var(--green);color:#fff;padding:0.65rem 1.25rem;border-radius:20px;
+    font-weight:800;font-size:0.9rem;z-index:9999;pointer-events:none;
+    animation:fadeInUp 0.2s ease;`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+document.getElementById('setup-save-1')     ?.addEventListener('click', () => saveSetupAndClose('screen-setup-course'));
+document.getElementById('setup-save-2')     ?.addEventListener('click', () => saveSetupAndClose('screen-setup-players'));
+document.getElementById('setup-save-3')     ?.addEventListener('click', () => saveSetupAndClose('screen-setup-groups'));
+document.getElementById('setup-save-pairs') ?.addEventListener('click', () => saveSetupAndClose('screen-setup-pairs'));
+document.getElementById('setup-save-review')?.addEventListener('click', () => saveSetupAndClose('screen-setup-review'));
 
 document.getElementById('btn-setup-course-next')?.addEventListener('click', () => {
   if (!setup.courseId) { alert('Please select a course.'); return; }
@@ -5234,16 +5256,17 @@ async function updateActiveGamesBadge() {
       roundsLoadActive(currentUser.id).catch(() => []),
     ]);
 
-    // Active Games badge = rounds currently active or paused
+    // Active Games badge = active/paused rounds + any saved setup draft
+    const hasDraft   = !!(restoreSetupState()?.screen);
     const gamesBadge = document.getElementById('home-active-games-badge');
-    const roundCount = activeRounds.length;
+    const roundCount = activeRounds.length + (hasDraft ? 1 : 0);
     if (gamesBadge) {
       gamesBadge.textContent = String(roundCount);
       gamesBadge.style.display = roundCount > 0 ? 'inline-flex' : 'none';
     }
 
-    // Game Invites badge = pending invites (excluding tournament-only invites)
-    const gameInvites = inviteRows.filter(r => r.round_id);
+    // Game Invites badge
+    const gameInvites  = inviteRows.filter(r => r.round_id);
     const invitesBadge = document.getElementById('home-game-invites-badge');
     if (invitesBadge) {
       invitesBadge.textContent = String(gameInvites.length);
@@ -5436,6 +5459,36 @@ async function renderActiveGamesList() {
 
     const items = [];
 
+    // Saved setup draft — shown first so user can complete setup
+    const draft = readSetupDraft();
+    const savedState = restoreSetupState();
+    if (savedState?.screen && savedState?.setup) {
+      const course     = savedState.setup.courseId ? allCourses.find(c => c.id === savedState.setup.courseId) : null;
+      const courseName = course?.name ?? savedState.setup.courseName ?? 'Course not set';
+      const fmt        = savedState.setup.scoring;
+      const players    = savedState.setup.players?.filter(p => p.name).map(p => p.name) ?? [];
+      const screenLabels = {
+        'screen-setup-course':  'Step 1 — Choose course',
+        'screen-setup-players': 'Step 2 — Add players',
+        'screen-setup-groups':  'Step 3 — Arrange groups',
+        'screen-setup-pairs':   'Step 3 — Pair up players',
+        'screen-setup-review':  'Step 4 — Review & tee off',
+      };
+      const step = screenLabels[savedState.screen] ?? 'Setup in progress';
+      items.push({
+        kind:        'draft',
+        icon:        '✏️',
+        title:       fmt ? `${FORMAT_LABELS[fmt] ?? fmt} · ${courseName}` : `Setup in progress`,
+        sub:         `${step}${players.length ? ` · ${players.slice(0,3).join(', ')}${players.length > 3 ? '…' : ''}` : ''}`,
+        actionLabel: 'Complete Setup',
+        action: async () => {
+          const ok = await tryRestoreSetupState();
+          if (!ok) { clearSetupState(); clearSetupDraft(); showHome(); }
+        },
+        discard: () => { clearSetupState(); clearSetupDraft(); renderActiveGamesList(); },
+      });
+    }
+
     // Active rounds this user is scoring — Resume + Delete
     rounds.forEach(r => {
       const isPaused = r.status === 'paused';
@@ -5482,19 +5535,25 @@ async function renderActiveGamesList() {
               : _agSelectMode ? `<div style="width:20px;flex-shrink:0;"></div>` : ''}
             <div style="font-size:1.5rem;flex-shrink:0;">${item.icon}</div>
             <div style="flex:1;min-width:0;">
-              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.15rem;">${item.title}</div>
-              <div style="font-size:0.85rem;color:var(--muted2);font-weight:700;">${item.sub}</div>
+              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.15rem;
+                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.title}</div>
+              <div style="font-size:0.82rem;color:var(--muted2);font-weight:700;">${item.sub}</div>
             </div>
             ${!_agSelectMode ? `
               <div style="display:flex;gap:0.4rem;flex-shrink:0;">
                 <button class="btn btn-green active-games-action" data-item="${i}"
-                  style="padding:0.45rem 0.9rem;font-size:0.9rem;font-weight:800;">
+                  style="padding:0.45rem 0.9rem;font-size:0.85rem;font-weight:800;white-space:nowrap;">
                   ${item.actionLabel}
                 </button>
                 ${item.kind === 'round' ? `
                   <button class="btn btn-outline active-games-delete" data-round-id="${item.roundId}"
                     style="padding:0.45rem 0.6rem;font-size:0.95rem;border-color:var(--red-border);color:var(--red);"
                     title="Delete this game">🗑</button>
+                ` : ''}
+                ${item.kind === 'draft' ? `
+                  <button class="btn btn-outline active-games-discard" data-item="${i}"
+                    style="padding:0.45rem 0.6rem;font-size:0.95rem;border-color:var(--red-border);color:var(--red);"
+                    title="Discard setup">🗑</button>
                 ` : ''}
               </div>
             ` : ''}
@@ -5519,7 +5578,13 @@ async function renderActiveGamesList() {
       });
     });
 
-    listEl.querySelectorAll('.active-games-delete').forEach(btn => {
+    listEl.querySelectorAll('.active-games-discard').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.item);
+        items[idx]?.discard?.();
+        updateActiveGamesBadge();
+      });
+    });
       btn.addEventListener('click', () => {
         const rid = btn.dataset.roundId;
         const item = items.find(it => it.roundId === rid);
