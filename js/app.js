@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626f';
+} from '../data.js?v=20260626g';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626f';
+} from '../game.js?v=20260626g';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626f';
+} from '../tournament.js?v=20260626g';
 
 // ================================================================
 // PLAYER COLOURS
@@ -7527,6 +7527,15 @@ async function joinTournamentRoundAsScorer(user, troundId, groupNumber) {
 // KICK OFF
 // ================================================================
 document.addEventListener('DOMContentLoaded', boot);
+
+// IMMEDIATE TEST: runs when module loads — if you see a red border on Sign In, JS is working
+setTimeout(() => {
+  const btn = document.getElementById('btn-signin');
+  if (btn) {
+    btn.style.outline = '4px solid red';
+    btn.textContent = 'SIGN IN (JS OK) →';
+  }
+}, 100);
 
 // ================================================================
 // TOURNAMENT MODE
