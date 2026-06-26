@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626d';
+} from '../data.js?v=20260626e';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626d';
+} from '../game.js?v=20260626e';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626d';
+} from '../tournament.js?v=20260626e';
 
 // ================================================================
 // PLAYER COLOURS
@@ -389,6 +389,9 @@ async function boot() {
   applyTheme(theme);
   renderLogos();
 
+  // DEBUG: confirm boot is running
+  document.title = 'LB - booting';
+
   const params      = new URLSearchParams(window.location.search);
   const joinToken   = params.get('join');
   const tournViewId = params.get('tournament');
@@ -403,6 +406,8 @@ async function boot() {
   if (joinToken) { await handleJoinFlow(joinToken, troundParam, groupParam); return; }
 
   authOnStateChange(async (event, user) => {
+    // DEBUG: show auth state in title
+    document.title = `LB - auth:${event} user:${user ? 'yes' : 'no'}`;
     if (event === 'PASSWORD_RECOVERY') {
       showResetPasswordScreen();
       return;
