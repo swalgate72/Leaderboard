@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626j';
+} from '../data.js?v=20260626k';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626j';
+} from '../game.js?v=20260626k';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626j';
+} from '../tournament.js?v=20260626k';
 
 // ================================================================
 // PLAYER COLOURS
@@ -279,6 +279,8 @@ async function _restoreSetupFromDraft(draft) {
     return false;
   }
 }
+
+function tryRestoreTournamentSetupScreen() {
   try {
     const screenId = localStorage.getItem('lb-tournament-setup-screen');
     const draftId  = localStorage.getItem('lb-tourn-setup-id');
