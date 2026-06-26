@@ -1,1 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Ryder Cup — Leaderboard</title>
+  <link rel="stylesheet" href="../styles.css?v=20260622f">
+  <link rel="stylesheet" href="rc.css?v=20260622a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
 
+<div id="rc-app">
+
+  <!-- ══════════════════════════════════════════
+       SCREEN: LOADING
+       ══════════════════════════════════════════ -->
+  <div id="rc-screen-loading" class="rc-screen active">
+    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:1rem;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2rem;
+                  background:linear-gradient(135deg,var(--rc-red),var(--rc-blue));
+                  -webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+        RYDER CUP
+      </div>
+      <div style="color:var(--muted);font-size:0.9rem;">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN: NOT SIGNED IN
+       ══════════════════════════════════════════ -->
+  <div id="rc-screen-auth" class="rc-screen">
+    <div class="rc-header">
+      <div class="rc-header-content">
+        <div class="rc-header-title">⛳ Ryder Cup Mode</div>
+        <div class="rc-header-sub">Club competition format</div>
+      </div>
+    </div>
+    <div class="rc-page" style="text-align:center;padding-top:2rem;">
+      <div style="font-size:3rem;margin-bottom:1rem;">🏆</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;margin-bottom:0.5rem;">
+        Sign in to continue
+      </div>
+      <div class="rc-hint rc-mb-md">You need a Leaderboard account to access Ryder Cup mode.</div>
+      <a href="/" class="rc-btn rc-btn-primary" style="text-decoration:none;display:block;">← Back to Leaderboard</a>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN: HOME (tournament list / entry point)
+       ══════════════════════════════════════════ -->
+  <div id="rc-screen-home" class="rc-screen">
+    <div class="rc-header">
+      <div class="rc-header-content" style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div class="rc-header-title">⛳ Ryder Cup</div>
+          <div class="rc-header-sub" id="rc-home-user-name">Welcome</div>
+        </div>
+        <a href="/" style="background:rgba(255,255,255,0.15);border:none;border-radius:8px;
+           padding:0.4rem 0.75rem;color:#fff;font-size:0.8rem;font-weight:700;text-decoration:none;">
+          ← Home
+        </a>
+      </div>
+    </div>
+
+    <div class="rc-page">
+      <!-- Active tournament card -->
+      <div id="rc-active-tournament-card" class="rc-hidden">
+        <div class="rc-section-label">Active Tournament</div>
+        <div class="rc-card" id="rc-active-tourn-display" style="cursor:pointer;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.4rem;" id="rc-active-tourn-name">—</div>
+          <div class="rc-score-banner" style="border-radius:8px;overflow:hidden;margin-top:0.75rem;" id="rc-home-score-banner">
+            <div class="rc-score-team red">
+              <div class="rc-score-team-name" id="rc-home-red-name">Red</div>
+              <div class="rc-score-pts" id="rc-home-red-pts">0</div>
+            </div>
+            <div class="rc-score-divider">vs</div>
+            <div class="rc-score-team blue">
+              <div class="rc-score-team-name" id="rc-home-blue-name">Blue</div>
+              <div class="rc-score-pts" id="rc-home-blue-pts">0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pending invites -->
+      <div id="rc-pending-invites-section" class="rc-hidden">
+        <div class="rc-section-label">Tournament Invites</div>
+        <div id="rc-pending-invites-list"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="rc-section-label">Start or Join</div>
+      <button class="rc-btn rc-btn-primary rc-mb-sm" id="rc-btn-create-tournament">
+        🏆 Create New Tournament
+      </button>
+      <button class="rc-btn rc-btn-outline" id="rc-btn-view-all-tournaments">
+        View All My Tournaments
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN: ADMIN — Tournament Setup
+       ══════════════════════════════════════════ -->
+  <div id="rc-screen-admin-setup" class="rc-screen">
+    <div class="rc-sticky-header">
+      <button class="rc-btn rc-btn-ghost" id="rc-admin-setup-back" style="width:auto;padding:0.25rem 0.5rem;">←</button>
+      <div class="rc-sticky-title">Tournament Setup</div>
+    </div>
+    <div class="rc-page">
+      <div class="rc-field">
+        <label>Tournament Name</label>
+        <input id="rc-tourn-name" type="text" placeholder="e.g. East Berkshire Ryder Cup 2026">
+      </div>
+      <div class="rc-field">
+        <label>Number of Rounds</label>
+        <select id="rc-tourn-rounds">
+          <option value="1">1 Round</option>
+          <option value="2">2 Rounds</option>
+          <option value="3" selected>3 Rounds</option>
+          <option value="4">4 Rounds</option>
+          <option value="5">5 Rounds</option>
+        </select>
+      </div>
+      <div class="rc-field">
+        <label>Players Per Team</label>
+        <select id="rc-tourn-players">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6" selected>6</option>
+          <option value="8">8</option>
+          <option value="10">10</option>
+          <option value="12">12</option>
+        </select>
+      </div>
+
+      <hr class="rc-divider">
+      <div class="rc-section-label">Handicap Settings</div>
+      <div class="rc-field">
+        <label>Handicap Type</label>
+        <select id="rc-tourn-hcp-mode">
+          <option value="index">Handicap Index</option>
+          <option value="course" selected>Course Handicap</option>
+          <option value="playing">Playing Handicap (% of Course HCP)</option>
+        </select>
+      </div>
+      <div class="rc-field" id="rc-hcp-pct-field" style="display:none;">
+        <label>Allowance %</label>
+        <input id="rc-tourn-hcp-pct" type="number" value="85" min="50" max="100" placeholder="85">
+      </div>
+
+      <hr class="rc-divider">
+      <div class="rc-section-label">Team Names</div>
+      <div class="rc-grid-2">
+        <div class="rc-field">
+          <label style="color:var(--rc-red-light);">🔴 Red Team Name</label>
+          <input id="rc-red-team-name" type="text" placeholder="Red" value="Red">
+        </div>
+        <div class="rc-field">
+          <label style="color:var(--rc-blue-light);">🔵 Blue Team Name</label>
+          <input id="rc-blue-team-name" type="text" placeholder="Blue" value="Blue">
+        </div>
+      </div>
+
+      <hr class="rc-divider">
+      <div class="rc-section-label">Team Captains</div>
+      <div class="rc-hint rc-mb-md">Both captains must already have a Leaderboard account and be in your friends list.</div>
+      <div class="rc-card red-border rc-mb-sm" style="cursor:pointer;" id="rc-pick-red-captain">
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <div class="rc-team-dot red" style="width:14px;height:14px;"></div>
+          <div style="flex:1;">
+            <div style="font-size:0.7rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Red Captain</div>
+            <div id="rc-red-captain-name" style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">Tap to choose from friends</div>
+          </div>
+          <div style="color:var(--muted);">›</div>
+        </div>
+      </div>
+      <div class="rc-card blue-border" style="cursor:pointer;" id="rc-pick-blue-captain">
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+          <div class="rc-team-dot blue" style="width:14px;height:14px;"></div>
+          <div style="flex:1;">
+            <div style="font-size:0.7rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Blue Captain</div>
+            <div id="rc-blue-captain-name" style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">Tap to choose from friends</div>
+          </div>
+          <div style="color:var(--muted);">›</div>
+        </div>
+      </div>
+
+      <div id="rc-setup-error" class="rc-error rc-hidden"></div>
+      <button class="rc-btn rc-btn-primary" style="margin-top:1rem;" id="rc-btn-create-tourn">
+        Create Tournament →
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN: ADMIN — Round Setup
+       ══════════════════════════════════════════ -->
+  <div id="rc-screen-round-setup" class="rc-screen">
+    <div class="rc-sticky-header">
+      <button class="rc-btn rc-btn-ghost" id="rc-round-setup-back" style="width:auto;padding:0.25rem 0.5rem;">←</button>
+      <div class="rc-sticky-title" id="rc-round-setup-title">Round Setup</div>
+    </div>
+    <div class="rc-page">
+      <div class="rc-field">
+        <label>Course</label>
+        <select id="rc-round-course">
+          <option value="">— Select course —</option>
+        </select>
+      </div>
+      <div class="rc-field rc-hidden" id="rc-round-tee-field">
+        <label>Tee</label>
+        <select id="rc-round-tee"></select>
+      </div>
+
+      <div class="rc-field">
+        <label>Game Format</label>
+        <select id="rc-round-format">
+          <option value="match">Matchplay Singles</option>
+          <option value="betterball">Best Ball Matchplay</option>
+          <option value="csm">Combined Stableford Matchplay</option>
+          <option value="greensomes">Greensomes Matchplay</option>
+          <option value="foursomes">Foursomes Matchplay</option>
+          <option value="texas">Texas Scramble</option>
+        </select>
+      </div>
+
+      <!-- Side competitions -->
+      <div class="rc-section-label">Side Competitions (optional)</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+        <span style="font-size:0.9rem;font-weight:700;">🏌️ Longest Drive</span>
+        <input type="checkbox" id="rc-ld-enabled" style="width:20px;height:20px;">
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:0.9rem;font-weight:700;">🎯 Nearest the Pin</span>
+        <input type="checkbox" id="rc-ntp-enabled" style="width:20px;height:20px;">
+      </div>
+
+      <div id="rc-round-error" class="rc-error rc-hidden"></div>
+      <button class="rc-btn rc-btn-primary" style="margin-top:1.5rem;" id="rc-btn-save-round">
+        Save &amp; Invite Captains →
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN: ADMIN DASHBOARD
+       ══════════════════════════════════════════ -->
+  <div id="rc-screen-admin" class="rc-screen">
+    <div class="rc-header">
+      <div class="rc-header-content">
+        <div class="rc-header-title" id="rc-admin-tourn-name">Tournament</div>
+        <div class="rc-header-sub">Administrator View</div>
+      </div>
+    </div>
+
+    <!-- Live score banner -->
+    <div class="rc-score-banner" id="rc-admin-score-banner">
+      <div class="rc-score-team red">
+        <div class="rc-score-team-name" id="rc-admin-red-name">Red</div>
+        <div class="rc-score-pts" id="rc-admin-red-pts">0</div>
+      </div>
+      <div class="rc-score-divider">vs</div>
+      <div class="rc-score-team blue">
+        <div class="rc-score-team-name" id="rc-admin-blue-name">Blue</div>
+        <div class="rc-score-pts" id="rc-admin-blue-pts">0</div>
+      </div>
+    </div>
+
+    <div class="rc-page">
+      <div class="rc-section-label">Rounds</div>
+      <div id="rc-admin-rounds-list"></div>
+      <button class="rc-btn rc-btn-outline rc-mb-sm" id="rc-btn-add-round">
+        + Add Next Round
+      </button>
+
+      <hr class="rc-divider">
+      <div class="rc-section-label">Players</div>
+      <div id="rc-admin-players-list"></div>
+
+      <hr class="rc-divider">
+      <button class="rc-btn rc-btn-danger" id="rc-btn-finalise-tourn" style="margin-top:0.5rem;">
+        ✓ Finalise Tournament
+      </button>
+    </div>
+
+    <!-- Admin bottom nav -->
+    <nav class="rc-bottom-nav" id="rc-admin-nav">
+      <button class="rc-nav-btn active" data-screen="rc-screen-admin" id="rc-nav-admin-admin">
+        <span class="rc-nav-icon">⚙️</span>Admin
+      </button>
+      <button class="rc-nav-btn" data-screen="rc-screen-captain" id="rc-nav-admin-captain">
+        <span class="rc-nav-icon">🎖️</span>Captain
+      </button>
+      <button class="rc-nav-btn" data-screen="rc-screen-player" id="rc-nav-admin-games">
+        <span class="rc-nav-icon">⛳</span>Games
+      </button>
+    </nav>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN: CAPTAIN DASHBOARD
+       ══════════════════════════════════════════ -->
+  <div id="rc-screen-captain" class="rc-screen">
+    <div class="rc-header" id="rc-captain-header">
+      <div class="rc-header-content">
+        <div class="rc-header-title" id="rc-captain-team-name">My Team</div>
+        <div class="rc-header-sub" id="rc-captain-tourn-name">Tournament</div>
+      </div>
+    </div>
+
+    <!-- Live score banner -->
+    <div class="rc-score-banner" id="rc-captain-score-banner">
+      <div class="rc-score-team red">
+        <div class="rc-score-team-name" id="rc-captain-red-name">Red</div>
+        <div class="rc-score-pts" id="rc-captain-red-pts">0</div>
+      </div>
+      <div class="rc-score-divider">vs</div>
+      <div class="rc-score-team blue">
+        <div class="rc-score-team-name" id="rc-captain-blue-name">Blue</div>
+        <div class="rc-score-pts" id="rc-captain-blue-pts">0</div>
+      </div>
+    </div>
+
+    <div class="rc-page">
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+        <button class="rc-btn rc-btn-primary" id="rc-btn-invite-players" style="flex:1;">
+          + Invite Players
+        </button>
+        <button class="rc-btn rc-btn-outline" id="rc-btn-name-team" style="flex:1;">
+          ✏️ Team Name
+        </button>
+      </div>
+
+      <div class="rc-section-label">My Team</div>
+      <!-- Column headers -->
+      <div style="display:grid;grid-template-columns:1fr 3.5rem 4.5rem 5rem 2rem;gap:0.25rem;
+                  padding:0 0.1rem 0.35rem;font-size:0.6rem;font-weight:800;
+                  letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);">
+        <span>Player</span>
+        <span style="text-align:center;">H/Cap</span>
+        <span style="text-align:center;">This Cup</span>
+        <span style="text-align:center;">All Time</span>
+        <span></span>
+      </div>
+      <div id="rc-captain-team-list"></div>
+
+      <div class="rc-section-label">Round Actions</div>
+      <div id="rc-captain-round-actions"></div>
+    </div>
+
+    <!-- Captain/Admin bottom nav -->
+    <nav class="rc-bottom-nav" id="rc-captain-nav">
+      <button class="rc-nav-btn" data-nav="admin" id="rc-nav-cap-admin">
+        <span class="rc-nav-icon">⚙️</span>Admin
+      </button>
+      <button class="rc-nav-btn active" data-nav="captain" id="rc-nav-cap-captain">
+        <span class="rc-nav-icon">🎖️</span>Captain
+      </button>
+      <button class="rc-nav-btn" data-nav="games" id="rc-nav-cap-games">
+        <span class="rc-nav-icon">⛳</span>Games
+      </button>
+    </nav>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN: CAPTAIN — Lineup Selection
+       ══════════════════════════════════════════ -->
+  <div id="rc-screen-lineup" class="rc-screen">
+    <div class="rc-sticky-header">
+      <button class="rc-btn rc-btn-ghost" id="rc-lineup-back" style="width:auto;padding:0.25rem 0.5rem;">←</button>
+      <div class="rc-sticky-title" id="rc-lineup-title">Choose Your Order</div>
+    </div>
+    <div class="rc-page">
+      <div class="rc-hint rc-mb-md" id="rc-lineup-hint">
+        Drag players into your preferred order of play. Once you submit, your lineup is sealed until the other captain also submits.
+      </div>
+
+      <div class="rc-section-label">Your Order of Play</div>
+      <div id="rc-lineup-slots"></div>
+
+      <!-- Pool of unplaced players -->
+      <div id="rc-lineup-pool-section" class="rc-hidden">
+        <div class="rc-section-label">Not yet placed</div>
+        <div id="rc-lineup-pool"></div>
+      </div>
+
+      <div id="rc-lineup-format-info" style="margin-top:1rem;padding:0.75rem;background:var(--surface2);border-radius:8px;">
+        <div style="font-size:0.75rem;color:var(--muted);font-weight:700;" id="rc-lineup-format-label">Format</div>
+      </div>
+
+      <div id="rc-lineup-error" class="rc-error rc-hidden"></div>
+      <button class="rc-btn rc-btn-primary" style="margin-top:1rem;" id="rc-btn-submit-lineup">
+        🔒 Seal My Lineup
+      </button>
+      <div id="rc-lineup-waiting" class="rc-sealed-indicator waiting rc-hidden" style="margin-top:0.75rem;justify-content:center;">
+        ⏳ Waiting for the other captain to submit…
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN: ROUND OVERVIEW (draw reveal)
+       ══════════════════════════════════════════ -->
+  <div id="rc-screen-round-overview" class="rc-screen">
+    <div class="rc-sticky-header">
+      <button class="rc-btn rc-btn-ghost" id="rc-overview-back" style="width:auto;padding:0.25rem 0.5rem;">←</button>
+      <div class="rc-sticky-title" id="rc-overview-title">Draw</div>
+    </div>
+
+    <!-- Score banner -->
+    <div class="rc-score-banner" id="rc-overview-score-banner">
+      <div class="rc-score-team red"><div class="rc-score-team-name" id="rc-ov-red-name">Red</div><div class="rc-score-pts" id="rc-ov-red-pts">0</div></div>
+      <div class="rc-score-divider">vs</div>
+      <div class="rc-score-team blue"><div class="rc-score-team-name" id="rc-ov-blue-name">Blue</div><div class="rc-score-pts" id="rc-ov-blue-pts">0</div></div>
+    </div>
+
+    <div class="rc-page">
+      <div class="rc-section-label" id="rc-overview-format-label">Matches</div>
+      <div id="rc-overview-matches"></div>
+
+      <div id="rc-overview-actions" style="margin-top:1rem;"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN: PLAYER DASHBOARD
+       ══════════════════════════════════════════ -->
+  <div id="rc-screen-player" class="rc-screen">
+    <div class="rc-header" id="rc-player-header">
+      <div class="rc-header-content">
+        <div class="rc-header-title" id="rc-player-name-header">Player</div>
+        <div class="rc-header-sub" id="rc-player-team-header">Team</div>
+      </div>
+    </div>
+
+    <!-- Live score banner -->
+    <div class="rc-score-banner" id="rc-player-score-banner">
+      <div class="rc-score-team red"><div class="rc-score-team-name" id="rc-pl-red-name">Red</div><div class="rc-score-pts" id="rc-pl-red-pts">0</div></div>
+      <div class="rc-score-divider">vs</div>
+      <div class="rc-score-team blue"><div class="rc-score-team-name" id="rc-pl-blue-name">Blue</div><div class="rc-score-pts" id="rc-pl-blue-pts">0</div></div>
+    </div>
+
+    <div class="rc-page">
+      <!-- Next match -->
+      <div id="rc-player-next-match" class="rc-hidden">
+        <div class="rc-section-label">Your Next Match</div>
+        <div class="rc-card" id="rc-player-next-card" style="cursor:pointer;">
+          <div id="rc-player-next-content"></div>
+          <button class="rc-btn rc-btn-primary" style="margin-top:0.75rem;" id="rc-btn-open-scoring">
+            ⛳ Open Scoring
+          </button>
+        </div>
+      </div>
+
+      <!-- Tournament leaderboard -->
+      <div class="rc-section-label">Tournament Standing</div>
+      <div id="rc-player-leaderboard"></div>
+    </div>
+
+    <!-- Player bottom nav (greyed out admin/captain tabs) -->
+    <nav class="rc-bottom-nav">
+      <button class="rc-nav-btn active">
+        <span class="rc-nav-icon">⛳</span>Games
+      </button>
+    </nav>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN: IN-GAME SCORING
+       (wraps the existing game engine)
+       ══════════════════════════════════════════ -->
+  <div id="rc-screen-scoring" class="rc-screen">
+    <div class="rc-scoring-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+        <button class="rc-btn rc-btn-ghost" id="rc-scoring-home" style="width:auto;padding:0.25rem 0.5rem;font-size:0.85rem;">🏠 Home</button>
+        <div class="rc-scoring-match-label" id="rc-scoring-match-label">Match 1</div>
+        <div id="rc-scoring-sync" style="font-size:0.7rem;color:var(--muted);display:none;">● Saving</div>
+      </div>
+      <div class="rc-scoring-players">
+        <div class="rc-scoring-name red" id="rc-scoring-red-name">Red</div>
+        <div class="rc-scoring-vs" id="rc-scoring-status">All Square</div>
+        <div class="rc-scoring-name blue" id="rc-scoring-blue-name">Blue</div>
+      </div>
+    </div>
+
+    <!-- Score banner showing overall team points -->
+    <div class="rc-score-banner" id="rc-scoring-banner" style="font-size:0.85em;">
+      <div class="rc-score-team red"><div class="rc-score-team-name" id="rc-sc-red-name">Red</div><div class="rc-score-pts" id="rc-sc-red-pts" style="font-size:1.6rem;">0</div></div>
+      <div class="rc-score-divider" style="font-size:0.8rem;">Cup</div>
+      <div class="rc-score-team blue"><div class="rc-score-team-name" id="rc-sc-blue-name">Blue</div><div class="rc-score-pts" id="rc-sc-blue-pts" style="font-size:1.6rem;">0</div></div>
+    </div>
+
+    <!-- The actual hole scoring content goes here, injected by rc.js -->
+    <div id="rc-scoring-content" class="rc-page"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCREEN: LEADERBOARD (round results)
+       ══════════════════════════════════════════ -->
+  <div id="rc-screen-leaderboard" class="rc-screen">
+    <div class="rc-sticky-header">
+      <button class="rc-btn rc-btn-ghost" id="rc-lb-back" style="width:auto;padding:0.25rem 0.5rem;">←</button>
+      <div class="rc-sticky-title" id="rc-lb-title">Leaderboard</div>
+    </div>
+    <div class="rc-score-banner" id="rc-lb-score-banner">
+      <div class="rc-score-team red"><div class="rc-score-team-name" id="rc-lb-red-name">Red</div><div class="rc-score-pts" id="rc-lb-red-pts">0</div></div>
+      <div class="rc-score-divider">vs</div>
+      <div class="rc-score-team blue"><div class="rc-score-team-name" id="rc-lb-blue-name">Blue</div><div class="rc-score-pts" id="rc-lb-blue-pts">0</div></div>
+    </div>
+    <div class="rc-page">
+      <div id="rc-lb-rounds"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       MODAL: Friend picker (for captains/invites)
+       ══════════════════════════════════════════ -->
+  <div class="rc-modal-overlay" id="rc-modal-friend-picker">
+    <div class="rc-modal-box">
+      <div class="rc-modal-header">
+        <div class="rc-modal-title" id="rc-fp-title">Choose Friend</div>
+        <button class="rc-modal-close" id="rc-fp-close">✕</button>
+      </div>
+      <div id="rc-fp-list"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: Player notes -->
+  <div class="rc-modal-overlay" id="rc-modal-notes">
+    <div class="rc-modal-box">
+      <div class="rc-modal-header">
+        <div class="rc-modal-title" id="rc-notes-player-name">Notes</div>
+        <button class="rc-modal-close" id="rc-notes-close">✕</button>
+      </div>
+      <div class="rc-hint rc-mb-md">Private — only you can see these notes.</div>
+      <div class="rc-field">
+        <textarea id="rc-notes-input" rows="4" placeholder="Tactical notes, form, preferred formats…"></textarea>
+      </div>
+      <button class="rc-btn rc-btn-primary" id="rc-btn-save-notes">Save Notes</button>
+    </div>
+  </div>
+
+  <!-- MODAL: Envelope reveal -->
+  <div class="rc-modal-overlay" id="rc-modal-envelope">
+    <div class="rc-modal-box" style="text-align:center;">
+      <div style="font-size:2.5rem;margin-bottom:0.5rem;">📨</div>
+      <div class="rc-modal-title" id="rc-envelope-round-label" style="color:var(--rc-gold);margin-bottom:1.25rem;">THE DRAW</div>
+      <div class="rc-hint rc-mb-md">Both captains have submitted. Here are the matchups:</div>
+      <div id="rc-envelope-matches"></div>
+      <button class="rc-btn rc-btn-primary" style="margin-top:1.25rem;" id="rc-btn-envelope-close">
+        Let's Play! →
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL: Pending invite accept/decline -->
+  <div class="rc-modal-overlay" id="rc-modal-invite">
+    <div class="rc-modal-box" style="text-align:center;">
+      <div style="font-size:2rem;margin-bottom:0.75rem;">🏆</div>
+      <div class="rc-modal-title" style="margin-bottom:0.5rem;">Tournament Invite</div>
+      <div id="rc-invite-text" class="rc-hint rc-mb-md"></div>
+      <div class="rc-grid-2" style="gap:0.75rem;">
+        <button class="rc-btn rc-btn-danger" id="rc-btn-decline-invite">Decline</button>
+        <button class="rc-btn rc-btn-primary" id="rc-btn-accept-invite">Accept ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Score picker (reused from main app concept) -->
+  <div class="rc-modal-overlay" id="rc-modal-score-picker">
+    <div class="rc-modal-box">
+      <div class="rc-modal-header">
+        <div>
+          <div class="rc-modal-title" id="rc-sp-player-name">Player</div>
+          <div style="font-size:0.78rem;color:var(--muted);" id="rc-sp-context">Hole 1 · Par 4</div>
+        </div>
+        <button class="rc-modal-close" id="rc-sp-cancel">✕</button>
+      </div>
+      <div id="rc-sp-grid" style="display:grid;gap:0.4rem;max-height:55vh;overflow-y:auto;"></div>
+    </div>
+  </div>
+
+</div><!-- end #rc-app -->
+
+<script type="module" src="rc.js?v=20260622a"></script>
+</body>
+</html>
