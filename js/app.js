@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626q';
+} from '../data.js?v=20260626r';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626q';
+} from '../game.js?v=20260626r';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626q';
+} from '../tournament.js?v=20260626r';
 
 // ================================================================
 // PLAYER COLOURS
@@ -143,21 +143,28 @@ function showScreen(id) {
 }
 
 function saveSetupDraft() {
+  // Always write the full draft including setup object so Active Games can restore it.
+  // Get the current screen from lb-setup-state or the active DOM screen.
   try {
-    const course = allCourses.find(c => c.id === setup.courseId);
-    const saved  = restoreSetupState();
+    const saved      = restoreSetupState();
+    const screenId   = saved?.screen
+      ?? document.querySelector('.screen.active')?.id
+      ?? null;
+    const course     = allCourses.find(c => c.id === setup.courseId);
     localStorage.setItem('lb-setup-draft', JSON.stringify({
+      screen:     screenId,
+      setup:      setup,
       scoring:    setup.scoring,
       courseName: course?.name ?? null,
       teeName:    course?.tees?.[setup.teeIdx]?.name ?? null,
-      players:    setup.players.filter(p => p.name).map(p => p.name),
-      screen:     saved?.screen ?? null,
+      players:    (setup.players || []).filter(p => p.name).map(p => p.name),
       savedAt:    Date.now(),
     }));
   } catch {}
 }
 
 function clearSetupDraft() {
+  console.warn('[clearSetupDraft] called from:', new Error().stack?.split('\n').slice(1,4).join(' | '));
   try { localStorage.removeItem('lb-setup-draft'); } catch {}
 }
 
