@@ -11,7 +11,16 @@ const SUPABASE_URL  = 'https://fzknjqjnwnfuyfjrgacf.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6a25qcWpud25mdXlmanJnYWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxODIxNjgsImV4cCI6MjA5NTc1ODE2OH0.Hy-eeXpw9yv_b3LpobYFrfEZ6OwW55dHIZc4G0pPA1k';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON, {
-  auth: { persistSession: true, autoRefreshToken: true },
+  auth: {
+    autoRefreshToken:    true,
+    persistSession:      true,
+    detectSessionInUrl:  true,
+    storage: {
+      getItem:    k => { try { return localStorage.getItem(k); }    catch { return sessionStorage.getItem(k); } },
+      setItem:    (k,v) => { try { localStorage.setItem(k,v); }    catch { sessionStorage.setItem(k,v); } },
+      removeItem: k => { try { localStorage.removeItem(k); }       catch { sessionStorage.removeItem(k); } },
+    },
+  },
 });
 
 // ── Auth (delegates to Supabase auth, shared session) ───────────
