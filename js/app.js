@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626b';
+} from '../data.js?v=20260626c';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626b';
+} from '../game.js?v=20260626c';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626b';
+} from '../tournament.js?v=20260626c';
 
 // ================================================================
 // PLAYER COLOURS
@@ -540,8 +540,11 @@ document.getElementById('btn-signin')?.addEventListener('click', async () => {
       identifier = user.email;
     }
     await authSignIn(identifier, pw);
+    // authOnStateChange will fire onSignedIn if successful
   } catch (err) {
-    setMsg('auth-error', err.message || 'Sign in failed.');
+    const msg = err.message || 'Sign in failed.';
+    setMsg('auth-error', msg);
+    alert('Sign in error: ' + msg); // temporary debug
     btn.disabled = false; btn.textContent = 'SIGN IN →';
   }
 });
