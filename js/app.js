@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626r';
+} from '../data.js?v=20260626s';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626r';
+} from '../game.js?v=20260626s';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626r';
+} from '../tournament.js?v=20260626s';
 
 // ================================================================
 // PLAYER COLOURS
@@ -541,13 +541,26 @@ async function onSignedIn(user) {
 
     if (_joiningViaInvite) return;
 
-    const actives = await roundsLoadActive(user.id);
+    let actives = [];
+    try { actives = await roundsLoadActive(user.id); } catch (netErr) {
+      console.warn('onSignedIn: roundsLoadActive failed', netErr);
+    }
     let storedRoundId = null;
     try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
     if (storedRoundId && !actives.some(r => r.id === storedRoundId)) {
-      const stored = await roundLoadById(storedRoundId);
-      if (['active','paused'].includes(stored?.status)) actives.unshift(stored);
-      else try { localStorage.removeItem('lb-active-round'); } catch {}
+      try {
+        const stored = await roundLoadById(storedRoundId);
+        if (['active','paused'].includes(stored?.status)) actives.unshift(stored);
+        else try { localStorage.removeItem('lb-active-round'); } catch {}
+      } catch {
+        // Network failed — if we have a local cache for this round, resume anyway
+        try {
+          const cached = JSON.parse(localStorage.getItem('lb-game-state-cache') ?? 'null');
+          if (cached?.roundId === storedRoundId && cached?.state) {
+            actives.unshift({ id: storedRoundId, status: 'active', game_state: cached.state });
+          }
+        } catch {}
+      }
     }
 
     if (actives.length > 0) {
@@ -3025,7 +3038,30 @@ async function teeOff() {
 // ================================================================
 async function resumeRound(id) {
   try {
-    const round = await roundLoadById(id);
+    let round = null;
+    try {
+      round = await roundLoadById(id);
+    } catch (netErr) {
+      console.warn('resumeRound: network error loading round, trying local cache', netErr);
+    }
+    if (!round) {
+      // Try local cache
+      try {
+        const cached = JSON.parse(localStorage.getItem('lb-game-state-cache') ?? 'null');
+        if (cached?.roundId === id && cached?.state) {
+          console.warn('resumeRound: using cached state — operating offline');
+          round = { id, status: 'active', game_state: cached.state };
+          // Show offline banner
+          const banner = document.createElement('div');
+          banner.textContent = '📶 Offline — scores will sync when connected';
+          banner.style.cssText = `position:fixed;top:0;left:0;right:0;background:#b45309;
+            color:#fff;text-align:center;padding:0.4rem;font-weight:800;font-size:0.8rem;z-index:9999;`;
+          banner.id = 'offline-banner';
+          document.getElementById('offline-banner')?.remove();
+          document.body.prepend(banner);
+        }
+      } catch {}
+    }
     if (!round) return;
     roundId = id;
     let gs = round.game_state;
@@ -3073,6 +3109,8 @@ async function resumeRound(id) {
 function enterGameScreen() {
   clearSetupState();
   clearSetupDraft();
+  // Clear game state cache on entering a new game
+  try { localStorage.removeItem('lb-game-state-cache'); } catch {}
   showScreen('screen-game');
   renderGameTopBar();
   renderScoreHeader();
@@ -4359,11 +4397,37 @@ function setScoreValue(pi, h, par, value, isPickup) {
 document.getElementById('btn-record-hole')?.addEventListener('click', async () => {
   const btn = document.getElementById('btn-record-hole');
   if (btn?.disabled) return; // already saving — ignore extra taps
-  if (btn) btn.disabled = true;
+  const origText = btn?.textContent ?? 'RECORD HOLE →';
+  if (btn) { btn.disabled = true; }
+
+  // If save takes >1s, show a "Saving…" message so the user knows it's working
+  let slowTimer = null;
+  let toastEl = null;
+  if (btn) {
+    slowTimer = setTimeout(() => {
+      if (btn.disabled) {
+        btn.textContent = '⏳ Saving…';
+        // Also show a persistent toast so it's visible after the hole panel updates
+        toastEl = document.createElement('div');
+        toastEl.id = 'saving-toast';
+        toastEl.textContent = '📶 Poor signal — score saving, please wait…';
+        toastEl.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+          background:#b45309;color:#fff;padding:0.65rem 1.25rem;border-radius:20px;
+          font-weight:800;font-size:0.85rem;z-index:9999;pointer-events:none;white-space:nowrap;`;
+        document.body.appendChild(toastEl);
+      }
+    }, 1000);
+  }
+
   try {
     await recordHole();
   } finally {
-    if (btn) btn.disabled = false;
+    clearTimeout(slowTimer);
+    toastEl?.remove();
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
   }
 });
 
@@ -5235,6 +5299,8 @@ async function saveRoundState() {
     try {
       await roundSaveState(roundId, stateToSave, stateToSave.names);
       await realtimeBroadcastRound(realtimeCh, { ...myGroupState, groupNumber: gameState.groupNumber }, _sessionId).catch(() => {});
+      // Cache state locally so resumeRound can recover from network failure
+      try { localStorage.setItem('lb-game-state-cache', JSON.stringify({ roundId, state: stateToSave })); } catch {}
       badge?.classList.add('hidden');
       return;
     } catch (err) {
@@ -5244,8 +5310,18 @@ async function saveRoundState() {
     }
   }
 
-  badge?.classList.add('hidden');
-  alert('Your last score could not be saved — please check your connection and try recording that hole again. (' + (lastErr?.message || 'unknown error') + ')');
+  badge?.classList.remove('hidden');  // keep badge visible — score is NOT saved
+  badge?.setAttribute('title', 'Score not saved — tap Record Hole again');
+  // Non-blocking error toast — alert() blocks the UI which feels broken on mobile
+  const errToast = document.createElement('div');
+  errToast.textContent = '⚠️ Score not saved — poor signal. Tap Record Hole to retry.';
+  errToast.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+    background:var(--red,#c0392b);color:#fff;padding:0.75rem 1.25rem;border-radius:20px;
+    font-weight:800;font-size:0.85rem;z-index:9999;cursor:pointer;white-space:nowrap;
+    box-shadow:0 4px 12px rgba(0,0,0,0.3);`;
+  errToast.onclick = () => errToast.remove();
+  document.body.appendChild(errToast);
+  setTimeout(() => errToast.remove(), 6000);
 }
 
 function subscribeToRound(id) {
