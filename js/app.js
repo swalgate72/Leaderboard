@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626n';
+} from '../data.js?v=20260626o';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626n';
+} from '../game.js?v=20260626o';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626n';
+} from '../tournament.js?v=20260626o';
 
 // ================================================================
 // PLAYER COLOURS
@@ -5579,7 +5579,9 @@ async function renderActiveGamesList() {
   const listEl = document.getElementById('active-games-list');
   // Read draft FIRST — before any async calls — so a network failure can never hide it
   const savedDraft = readSetupDraft();
-  console.log('[renderActiveGamesList] savedDraft:', savedDraft ? `screen=${savedDraft.screen} hasSetup=${!!savedDraft.setup}` : 'null');
+  const _rawDraft = localStorage.getItem('lb-setup-draft');
+  console.log('[renderActiveGamesList] raw lb-setup-draft:', _rawDraft ? _rawDraft.slice(0,120) : 'NULL');
+  console.log('[renderActiveGamesList] parsed:', savedDraft ? `screen=${savedDraft.screen} hasSetup=${!!savedDraft.setup} scoring=${savedDraft.setup?.scoring ?? savedDraft.scoring}` : 'null');
   try {
     // Load active rounds + any pending game invites
     const [rounds, inviteRows] = await Promise.all([
@@ -5595,43 +5597,46 @@ async function renderActiveGamesList() {
     const items = [];
 
     // Saved setup draft — shown first so user can complete setup
-    if (savedDraft?.screen) {
-      const course     = savedDraft.setup.courseId ? allCourses.find(c => c.id === savedDraft.setup.courseId) : null;
-      const courseName = course?.name ?? savedDraft.courseName ?? 'Course not set';
-      const fmt        = savedDraft.setup.scoring;
-      const players    = savedDraft.players ?? savedDraft.setup.players?.filter(p => p.name).map(p => p.name) ?? [];
-      const screenLabels = {
-        'screen-setup-course':  'Step 1 — Choose course',
-        'screen-setup-players': 'Step 2 — Add players',
-        'screen-setup-groups':  'Step 3 — Arrange groups',
-        'screen-setup-pairs':   'Step 3 — Pair up players',
-        'screen-setup-review':  'Step 4 — Review & tee off',
-      };
-      const step = screenLabels[savedDraft.screen] ?? 'Setup in progress';
-      items.push({
-        kind:        'draft',
-        icon:        '✏️',
-        title:       fmt ? `${FORMAT_LABELS[fmt] ?? fmt} · ${courseName}` : `Setup in progress`,
-        sub:         `${step}${players.length ? ` · ${players.slice(0,3).join(', ')}${players.length > 3 ? '…' : ''}` : ''}`,
-        actionLabel: 'Complete Setup',
-        action: async () => {
-          // Restore: try lb-setup-state first, fall back to draft object
-          if (savedDraft.setup) Object.assign(setup, savedDraft.setup);
-          const ok = await tryRestoreSetupState() || await _restoreSetupFromDraft(savedDraft);
-          if (!ok) {
-            // Last resort: restore what we can from the draft alone
-            if (savedDraft.setup) {
-              Object.assign(setup, savedDraft.setup);
-              saveSetupState(savedDraft.screen);
-              const ok2 = await tryRestoreSetupState();
-              if (!ok2) { clearSetupState(); clearSetupDraft(); showHome(); }
-            } else {
-              clearSetupState(); clearSetupDraft(); showHome();
+    try {
+      if (savedDraft?.screen) {
+        const su         = savedDraft.setup ?? {};
+        const course     = su.courseId ? allCourses.find(c => c.id === su.courseId) : null;
+        const courseName = course?.name ?? savedDraft.courseName ?? 'Course not set';
+        const fmt        = su.scoring ?? savedDraft.scoring ?? null;
+        const players    = savedDraft.players
+          ?? (su.players ?? []).filter(p => p?.name).map(p => p.name);
+        const screenLabels = {
+          'screen-setup-course':  'Step 1 — Choose course',
+          'screen-setup-players': 'Step 2 — Add players',
+          'screen-setup-groups':  'Step 3 — Arrange groups',
+          'screen-setup-pairs':   'Step 3 — Pair up players',
+          'screen-setup-review':  'Step 4 — Review & tee off',
+        };
+        const step = screenLabels[savedDraft.screen] ?? 'Setup in progress';
+        items.push({
+          kind:        'draft',
+          icon:        '✏️',
+          title:       fmt ? `${FORMAT_LABELS[fmt] ?? fmt} · ${courseName}` : 'Setup in progress',
+          sub:         `${step}${players.length ? ` · ${players.slice(0,3).join(', ')}${players.length > 3 ? '…' : ''}` : ''}`,
+          actionLabel: 'Complete Setup',
+          action: async () => {
+            if (su && Object.keys(su).length) Object.assign(setup, su);
+            const ok = await tryRestoreSetupState() || await _restoreSetupFromDraft(savedDraft);
+            if (!ok) {
+              if (su && Object.keys(su).length) {
+                saveSetupState(savedDraft.screen);
+                const ok2 = await tryRestoreSetupState();
+                if (!ok2) { clearSetupState(); clearSetupDraft(); showHome(); }
+              } else {
+                clearSetupState(); clearSetupDraft(); showHome();
+              }
             }
-          }
-        },
-        discard: () => { clearSetupState(); clearSetupDraft(); renderActiveGamesList(); updateActiveGamesBadge(); },
-      });
+          },
+          discard: () => { clearSetupState(); clearSetupDraft(); renderActiveGamesList(); updateActiveGamesBadge(); },
+        });
+      }
+    } catch (draftErr) {
+      console.error('[renderActiveGamesList] draft section error:', draftErr);
     }
 
     // Active rounds this user is scoring — Resume + Delete
