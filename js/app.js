@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626p';
+} from '../data.js?v=20260626q';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626p';
+} from '../game.js?v=20260626q';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626p';
+} from '../tournament.js?v=20260626q';
 
 // ================================================================
 // PLAYER COLOURS
@@ -188,12 +188,13 @@ function clearSetupState() {
   try { localStorage.removeItem('lb-setup-state'); } catch {}
 }
 
-// Safe assign into setup — strips keys that are read-only getters (e.g. format)
+// Safe assign into setup — strips read-only getter keys (e.g. format)
 function assignToSetup(src) {
   if (!src) return;
   const { format: _drop, ...rest } = src;
   Object.assign(setup, rest);
 }
+
 // Attempt to restore an in-progress round setup after app reload.
 // Returns true if a screen was restored, false otherwise.
 async function tryRestoreSetupState() {
@@ -736,7 +737,8 @@ async function loadHomeStatsAndActive(myName) {
       draftEl.querySelector('.home-active-row')?.addEventListener('click', (e) => {
         if (e.target.id === 'btn-dismiss-draft') return;
         tryRestoreSetupState().then(ok => {
-          if (!ok) { clearSetupDraft(); showHome(); }
+          // On failure, leave draft intact so Active Games can still show it
+          if (!ok) showHome();
         });
       });
     } else {
