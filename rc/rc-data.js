@@ -20,6 +20,12 @@ export async function rcGetUser() {
   return data?.user ?? null;
 }
 
+export function rcOnAuthStateChange(callback) {
+  return sb.auth.onAuthStateChange((event, session) => {
+    callback(event, session?.user ?? null);
+  });
+}
+
 export async function rcGetProfile(userId) {
   const { data, error } = await sb
     .from('profiles')

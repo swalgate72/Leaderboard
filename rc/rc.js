@@ -6,6 +6,7 @@
 
 import {
   rcGetUser, rcGetProfile, rcLoadFriends,
+  rcOnAuthStateChange,
   rcCreateTournament, rcLoadTournament, rcLoadMyTournaments,
   rcLoadPlayerTournaments, rcUpdateTournament,
   rcInvitePlayer, rcLoadPlayers, rcAcceptInvite, rcDeclineInvite,
@@ -93,21 +94,36 @@ function showScreen(id) {
 // BOOT
 // ================================================================
 async function boot() {
-  try {
-    currentUser = await rcGetUser();
-    if (!currentUser) {
+  // Wait for Supabase to restore the session from localStorage before
+  // checking auth state. Using onAuthStateChange catches the INITIAL_SESSION
+  // event which fires once the session is restored — getUser() called directly
+  // on page load can return null before the session has been read from storage.
+  rcOnAuthStateChange(async (event, user) => {
+    if (event === 'SIGNED_OUT') {
       showScreen('rc-screen-auth');
       return;
     }
-    currentProfile = await rcGetProfile(currentUser.id);
-    allFriends     = await rcLoadFriends(currentUser.id);
-    allCourses     = await rcLoadCourses();
+    if (!user) return; // still loading
 
-    await loadHomeScreen();
-  } catch (err) {
-    console.error('[RC boot]', err);
-    showScreen('rc-screen-auth');
-  }
+    // Only run full boot once
+    if (currentUser) return;
+
+    try {
+      currentUser    = user;
+      currentProfile = await rcGetProfile(currentUser.id);
+      allFriends     = await rcLoadFriends(currentUser.id);
+      allCourses     = await rcLoadCourses();
+      await loadHomeScreen();
+    } catch (err) {
+      console.error('[RC boot]', err);
+      showScreen('rc-screen-auth');
+    }
+  });
+
+  // Fallback: if no auth event fires within 3s, show auth screen
+  setTimeout(() => {
+    if (!currentUser) showScreen('rc-screen-auth');
+  }, 3000);
 }
 
 // ================================================================
