@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626g';
+} from '../data.js?v=20260626h';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626g';
+} from '../game.js?v=20260626h';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626g';
+} from '../tournament.js?v=20260626h';
 
 // ================================================================
 // PLAYER COLOURS
@@ -5613,6 +5613,8 @@ async function renderActiveGamesList() {
         updateActiveGamesBadge();
       });
     });
+
+    listEl.querySelectorAll('.active-games-delete').forEach(btn => {
       btn.addEventListener('click', () => {
         const rid = btn.dataset.roundId;
         const item = items.find(it => it.roundId === rid);
