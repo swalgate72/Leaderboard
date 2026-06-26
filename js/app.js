@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626m';
+} from '../data.js?v=20260626n';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626m';
+} from '../game.js?v=20260626n';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626m';
+} from '../tournament.js?v=20260626n';
 
 // ================================================================
 // PLAYER COLOURS
@@ -133,7 +133,11 @@ function showScreen(id) {
     try { localStorage.removeItem('lb-setup-state'); } catch {}
   } else if (id !== 'screen-game') {
     // Leaving the setup flow for a non-game screen — clear persisted setup
-    try { localStorage.removeItem('lb-setup-state'); } catch {}
+    // BUT preserve lb-setup-state if a saved draft exists (so Active Games can restore it)
+    try {
+      const hasSavedDraft = !!(readSetupDraft()?.screen);
+      if (!hasSavedDraft) localStorage.removeItem('lb-setup-state');
+    } catch { try { localStorage.removeItem('lb-setup-state'); } catch {} }
     try { localStorage.removeItem('lb-tournament-setup-screen'); } catch {}
   }
 }
@@ -1222,6 +1226,17 @@ document.getElementById('setup-save-2')     ?.addEventListener('click', () => sa
 document.getElementById('setup-save-3')     ?.addEventListener('click', () => saveSetupInPlace('screen-setup-groups'));
 document.getElementById('setup-save-pairs') ?.addEventListener('click', () => saveSetupInPlace('screen-setup-pairs'));
 document.getElementById('setup-save-review')?.addEventListener('click', () => saveSetupInPlace('screen-setup-review'));
+
+// Home buttons on setup screens — autosave current state then go home
+function setupHomeAndSave(screenId) {
+  saveSetupInPlace(screenId);   // saves draft + state, updates badge, shows toast
+  showHome();
+}
+document.getElementById('setup-home-1')     ?.addEventListener('click', () => setupHomeAndSave('screen-setup-course'));
+document.getElementById('setup-home-2')     ?.addEventListener('click', () => setupHomeAndSave('screen-setup-players'));
+document.getElementById('setup-home-3')     ?.addEventListener('click', () => setupHomeAndSave('screen-setup-groups'));
+document.getElementById('setup-home-pairs') ?.addEventListener('click', () => setupHomeAndSave('screen-setup-pairs'));
+document.getElementById('setup-home-review')?.addEventListener('click', () => setupHomeAndSave('screen-setup-review'));
 
 document.getElementById('btn-setup-course-next')?.addEventListener('click', () => {
   if (!setup.courseId) { alert('Please select a course.'); return; }
@@ -5562,11 +5577,14 @@ document.getElementById('active-games-delete-selected')?.addEventListener('click
 
 async function renderActiveGamesList() {
   const listEl = document.getElementById('active-games-list');
+  // Read draft FIRST — before any async calls — so a network failure can never hide it
+  const savedDraft = readSetupDraft();
+  console.log('[renderActiveGamesList] savedDraft:', savedDraft ? `screen=${savedDraft.screen} hasSetup=${!!savedDraft.setup}` : 'null');
   try {
     // Load active rounds + any pending game invites
     const [rounds, inviteRows] = await Promise.all([
-      roundsLoadActive(currentUser.id).catch(() => []),
-      gameInvitesPollPending(currentUser.id, null).catch(() => []),
+      roundsLoadActive(currentUser?.id).catch(() => []),
+      gameInvitesPollPending(currentUser?.id, null).catch(() => []),
     ]);
     const invites = (await Promise.all(
       inviteRows
@@ -5577,9 +5595,7 @@ async function renderActiveGamesList() {
     const items = [];
 
     // Saved setup draft — shown first so user can complete setup
-    const savedDraft = readSetupDraft();
-    console.log('[renderActiveGamesList] savedDraft:', savedDraft ? `screen=${savedDraft.screen} hasSetup=${!!savedDraft.setup}` : 'null');
-    if (savedDraft?.screen && savedDraft?.setup) {
+    if (savedDraft?.screen) {
       const course     = savedDraft.setup.courseId ? allCourses.find(c => c.id === savedDraft.setup.courseId) : null;
       const courseName = course?.name ?? savedDraft.courseName ?? 'Course not set';
       const fmt        = savedDraft.setup.scoring;
@@ -5599,10 +5615,20 @@ async function renderActiveGamesList() {
         sub:         `${step}${players.length ? ` · ${players.slice(0,3).join(', ')}${players.length > 3 ? '…' : ''}` : ''}`,
         actionLabel: 'Complete Setup',
         action: async () => {
-          // Restore the full setup object from the draft before navigating
+          // Restore: try lb-setup-state first, fall back to draft object
           if (savedDraft.setup) Object.assign(setup, savedDraft.setup);
           const ok = await tryRestoreSetupState() || await _restoreSetupFromDraft(savedDraft);
-          if (!ok) { clearSetupState(); clearSetupDraft(); showHome(); }
+          if (!ok) {
+            // Last resort: restore what we can from the draft alone
+            if (savedDraft.setup) {
+              Object.assign(setup, savedDraft.setup);
+              saveSetupState(savedDraft.screen);
+              const ok2 = await tryRestoreSetupState();
+              if (!ok2) { clearSetupState(); clearSetupDraft(); showHome(); }
+            } else {
+              clearSetupState(); clearSetupDraft(); showHome();
+            }
+          }
         },
         discard: () => { clearSetupState(); clearSetupDraft(); renderActiveGamesList(); updateActiveGamesBadge(); },
       });
