@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626e';
+} from '../data.js?v=20260626f';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626e';
+} from '../game.js?v=20260626f';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626e';
+} from '../tournament.js?v=20260626f';
 
 // ================================================================
 // PLAYER COLOURS
@@ -389,31 +389,19 @@ async function boot() {
   applyTheme(theme);
   renderLogos();
 
-  // DEBUG: confirm boot is running
-  document.title = 'LB - booting';
-
   const params      = new URLSearchParams(window.location.search);
   const joinToken   = params.get('join');
   const tournViewId = params.get('tournament');
   const troundParam = params.get('tround');
   const groupParam  = params.get('group');
 
-  if (tournViewId) {
-    await handleTournamentViewLink(tournViewId);
-    return;
-  }
-
-  if (joinToken) { await handleJoinFlow(joinToken, troundParam, groupParam); return; }
+  if (tournViewId) { await handleTournamentViewLink(tournViewId); return; }
+  if (joinToken)   { await handleJoinFlow(joinToken, troundParam, groupParam); return; }
 
   authOnStateChange(async (event, user) => {
-    // DEBUG: show auth state in title
-    document.title = `LB - auth:${event} user:${user ? 'yes' : 'no'}`;
-    if (event === 'PASSWORD_RECOVERY') {
-      showResetPasswordScreen();
-      return;
-    }
+    if (event === 'PASSWORD_RECOVERY') { showResetPasswordScreen(); return; }
     if (user) await onSignedIn(user);
-    else       onSignedOut();
+    else      onSignedOut();
   });
 }
 
@@ -443,14 +431,11 @@ document.getElementById('btn-reset-password-submit')?.addEventListener('click', 
   const pw2   = document.getElementById('reset-confirm-password').value;
   const errEl = document.getElementById('reset-password-error');
   const showErr = msg => { if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; } };
-
   if (!pw1 || pw1.length < 8) { showErr('Password must be at least 8 characters.'); return; }
   if (pw1 !== pw2)             { showErr('Passwords do not match.'); return; }
-
   const btn = document.getElementById('btn-reset-password-submit');
   btn.disabled = true; btn.textContent = 'Saving…';
   if (errEl) errEl.style.display = 'none';
-
   try {
     await authUpdatePassword(pw1);
     const user = await authGetUser();
@@ -468,24 +453,12 @@ async function onSignedIn(user) {
   currentUser = user;
   try {
     await coursesEnsureDefaults(user.id);
-  } catch(e) { console.error('onSignedIn: coursesEnsureDefaults failed', e); }
-  try {
     currentProfile = await profileLoad(user.id);
     allCourses     = await coursesLoadAll();
     allFriends     = await friendsLoad(user.id);
-  } catch(e) {
-    console.error('onSignedIn: profile/courses/friends failed', e);
-    alert('Sign in error (profile load): ' + e.message);
-    await showHome();
-    return;
-  }
-  try {
     subscribeToFriendRequests();
     subscribeToGameInvites();
-  } catch(e) { console.error('onSignedIn: subscriptions failed', e); }
 
-  try {
-    // Check for a pending tournament round join (from auth redirect)
     const joinToken  = sessionStorage.getItem('lb-join-token');
     const joinTround = sessionStorage.getItem('lb-join-tround');
     const joinGroup  = sessionStorage.getItem('lb-join-group');
@@ -499,13 +472,9 @@ async function onSignedIn(user) {
       }
     }
 
-    // Skip auto-resume if we're in the middle of joining via in-app invite
     if (_joiningViaInvite) return;
 
-    // Auto-resume if there's an active round in progress
     const actives = await roundsLoadActive(user.id);
-
-    // Also check localStorage for a round joined as group scorer/watcher
     let storedRoundId = null;
     try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
     if (storedRoundId && !actives.some(r => r.id === storedRoundId)) {
@@ -515,21 +484,13 @@ async function onSignedIn(user) {
     }
 
     if (actives.length > 0) {
-      try {
-        await resumeRound(actives[0].id);
-      } catch(e) {
-        console.error('onSignedIn: resumeRound failed', e);
-        alert('Could not resume round: ' + e.message + ' — going to home screen');
-        await showHome();
-      }
+      await resumeRound(actives[0].id);
     } else {
-      // Check for an in-progress setup flow to restore
       const restored = await tryRestoreSetupState();
       if (!restored && !tryRestoreTournamentSetupScreen()) await showHome();
     }
   } catch (err) {
     console.error('onSignedIn error', err);
-    alert('Sign in error: ' + err.message);
     await showHome();
   }
 }
