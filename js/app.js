@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626c';
+} from '../data.js?v=20260626d';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626c';
+} from '../game.js?v=20260626d';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626c';
+} from '../tournament.js?v=20260626d';
 
 // ================================================================
 // PLAYER COLOURS
@@ -463,12 +463,23 @@ async function onSignedIn(user) {
   currentUser = user;
   try {
     await coursesEnsureDefaults(user.id);
+  } catch(e) { console.error('onSignedIn: coursesEnsureDefaults failed', e); }
+  try {
     currentProfile = await profileLoad(user.id);
     allCourses     = await coursesLoadAll();
     allFriends     = await friendsLoad(user.id);
+  } catch(e) {
+    console.error('onSignedIn: profile/courses/friends failed', e);
+    alert('Sign in error (profile load): ' + e.message);
+    await showHome();
+    return;
+  }
+  try {
     subscribeToFriendRequests();
     subscribeToGameInvites();
+  } catch(e) { console.error('onSignedIn: subscriptions failed', e); }
 
+  try {
     // Check for a pending tournament round join (from auth redirect)
     const joinToken  = sessionStorage.getItem('lb-join-token');
     const joinTround = sessionStorage.getItem('lb-join-tround');
@@ -499,7 +510,13 @@ async function onSignedIn(user) {
     }
 
     if (actives.length > 0) {
-      await resumeRound(actives[0].id);
+      try {
+        await resumeRound(actives[0].id);
+      } catch(e) {
+        console.error('onSignedIn: resumeRound failed', e);
+        alert('Could not resume round: ' + e.message + ' — going to home screen');
+        await showHome();
+      }
     } else {
       // Check for an in-progress setup flow to restore
       const restored = await tryRestoreSetupState();
@@ -507,7 +524,8 @@ async function onSignedIn(user) {
     }
   } catch (err) {
     console.error('onSignedIn error', err);
-    await showHome(); // use showHome() not showScreen() so content is populated
+    alert('Sign in error: ' + err.message);
+    await showHome();
   }
 }
 
