@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626s';
+} from '../data.js?v=20260626u';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626s';
+} from '../game.js?v=20260626u';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626s';
+} from '../tournament.js?v=20260626u';
 
 // ================================================================
 // PLAYER COLOURS
@@ -2850,6 +2850,25 @@ async function teeOff() {
   // Remember last used tee for this course
   try { localStorage.setItem(`lb-last-tee-${setup.courseId}`, tee.name); } catch {}
 
+  // Validate SI array — warn if it looks like hole numbers (1,2,3...) rather than stroke indexes
+  // This catches the common mistake of entering SI 1-18 sequentially instead of by difficulty
+  const siCheck = siSlice.slice().sort((a,b) => a-b);
+  const siIsSequential = siCheck.every((v, i) => v === i + 1);
+  const siHasDuplicates = new Set(siSlice).size < siSlice.length;
+  if (siIsSequential || siHasDuplicates) {
+    const warn = siIsSequential
+      ? 'The stroke indexes for this course appear to be entered sequentially (1, 2, 3...) rather than by hole difficulty. Handicap strokes may be awarded on wrong holes. Check the course setup.'
+      : 'The stroke indexes for this course contain duplicate values. Handicap strokes may be calculated incorrectly. Check the course setup.';
+    if (!confirm(`⚠️ Course data warning:
+
+${warn}
+
+Tap OK to continue anyway, or Cancel to go back and fix the course.`)) {
+      showHome();
+      return;
+    }
+  }
+
   // Use gameHandicap (set by HCP picker) if available, then Course HCP, then Index
   const hcpArr = setup.players.map(p =>
     p.gameHandicap != null ? p.gameHandicap
@@ -3079,6 +3098,15 @@ async function resumeRound(id) {
       }
     }
     gameState = gs;
+
+    // Recompute matchScore from log entries to correct any stored corruption
+    if (['betterball','csm','foursomes','greensomes','match'].includes(gs?.format) && gs?.log?.length > 0) {
+      const recomputed = gs.log.reduce((acc, entry) => acc + (entry.result ?? 0), 0);
+      if (recomputed !== gs.matchScore) {
+        console.warn(`resumeRound: correcting matchScore from ${gs.matchScore} to ${recomputed}`);
+        gameState.matchScore = recomputed;
+      }
+    }
 
     // If this round was paused (saved via Abandon & Save Progress), mark it
     // active again now that someone's actually resumed play.
@@ -4797,22 +4825,39 @@ function flashHoleResult(holeIdx) {
       `<span style="color:${pHex(i)};font-weight:600;">${gameState.names[i].split(' ')[0]}: ${n}</span>`
     ).join('  ·  ');
   } else if (['match','betterball','csm','foursomes','greensomes'].includes(fmt)) {
-    const ms = gameState.matchScore ?? 0;
-    if (ms === 0) { msg = `<span style="color:var(--green);font-weight:600;">Hole halved -- All Square</span>`; }
-    else {
-      const up    = Math.abs(ms);
-      const ldrName = ms > 0
-        ? (['betterball','csm','foursomes','greensomes'].includes(fmt)
-            ? `${gameState.names[0].split(' ')[0]} & ${gameState.names[1].split(' ')[0]}`
-            : gameState.names[0].split(' ')[0])
-        : (['betterball','csm','foursomes','greensomes'].includes(fmt)
-            ? `${(gameState.names[2]??'').split(' ')[0]} & ${(gameState.names[3]??'').split(' ')[0]}`
-            : (gameState.names[1]??'').split(' ')[0]);
-      const col = ms > 0 ? pHex(0) : pHex(1);
-      msg = `<span style="color:${col};font-weight:600;">${ldrName} wins</span><span style="font-size:0.68rem;color:var(--muted);display:block;margin-top:2px;">${up} UP · ${(gameState.numHoles ?? 18) - gameState.log.length} to play</span>`;
-      bg = ms > 0 ? 'rgba(212,168,67,0.07)' : 'rgba(91,163,217,0.07)';
-      border = ms > 0 ? 'rgba(212,168,67,0.25)' : 'rgba(91,163,217,0.25)';
+    const ms         = gameState.matchScore ?? 0;
+    const holeResult = entry.result ?? 0;        // THIS hole: +1 A wins, -1 B wins, 0 halved
+    const isPairsF   = ['betterball','csm','foursomes','greensomes'].includes(fmt);
+    const nameA = isPairsF
+      ? `${gameState.names[0].split(' ')[0]} & ${gameState.names[1].split(' ')[0]}`
+      : gameState.names[0].split(' ')[0];
+    const nameB = isPairsF
+      ? `${(gameState.names[2]??'').split(' ')[0]} & ${(gameState.names[3]??'').split(' ')[0]}`
+      : (gameState.names[1]??'').split(' ')[0];
+
+    // Line 1: what happened on THIS hole
+    let holeLine = '';
+    if (holeResult === 0) {
+      holeLine = `<span style="color:var(--green);font-weight:700;">Hole halved</span>`;
+    } else {
+      const holeWinner = holeResult > 0 ? nameA : nameB;
+      const holeCol    = holeResult > 0 ? pHex(0) : pHex(2);
+      holeLine = `<span style="color:${holeCol};font-weight:700;">${holeWinner} wins the hole</span>`;
+      bg     = holeResult > 0 ? 'rgba(212,168,67,0.07)' : 'rgba(91,163,217,0.07)';
+      border = holeResult > 0 ? 'rgba(212,168,67,0.25)' : 'rgba(91,163,217,0.25)';
     }
+
+    // Line 2: overall match standing
+    const up = Math.abs(ms);
+    const standingLine = ms === 0
+      ? `<span style="font-size:0.68rem;color:var(--muted);display:block;margin-top:2px;">Match All Square · ${(gameState.numHoles ?? 18) - gameState.log.length} to play</span>`
+      : (() => {
+          const leader = ms > 0 ? nameA : nameB;
+          const col    = ms > 0 ? pHex(0) : pHex(2);
+          return `<span style="font-size:0.68rem;color:${col};display:block;margin-top:2px;">${leader} ${up} UP · ${(gameState.numHoles ?? 18) - gameState.log.length} to play</span>`;
+        })();
+
+    msg = holeLine + standingLine;
   } else if (fmt === 'skins') {
     if (entry.winner === -1) {
       msg = `<span style="color:var(--green);font-weight:600;">Halved -- skins carry</span><span style="font-size:0.68rem;color:var(--muted);display:block;margin-top:2px;">Next hole worth <b style="color:var(--gold)">${gameState.pot}</b> skins</span>`;
