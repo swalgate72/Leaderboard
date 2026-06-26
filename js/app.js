@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626h';
+} from '../data.js?v=20260626i';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,13 +35,13 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626h';
+} from '../game.js?v=20260626i';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626h';
+} from '../tournament.js?v=20260626i';
 
 // ================================================================
 // PLAYER COLOURS
@@ -321,12 +321,20 @@ function applyTheme(t) {
   theme = t;
   if (t === 'light') document.documentElement.classList.add('light');
   else               document.documentElement.classList.remove('light');
-  // Store under both keys for compatibility
   try { localStorage.setItem('lb-theme', t); localStorage.setItem('lb_theme', t); } catch {}
-  ['btn-theme-dark','btn-theme-light'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('active', id === `btn-theme-${t}`);
-  });
+  // Highlight the active theme button
+  const lightBtn = document.getElementById('btn-theme-light');
+  const darkBtn  = document.getElementById('btn-theme-dark');
+  if (lightBtn) {
+    lightBtn.style.background   = t === 'light' ? 'var(--gold)' : '';
+    lightBtn.style.color        = t === 'light' ? '#000'        : '';
+    lightBtn.style.borderColor  = t === 'light' ? 'var(--gold)' : '';
+  }
+  if (darkBtn) {
+    darkBtn.style.background   = t === 'dark' ? 'var(--gold)' : '';
+    darkBtn.style.color        = t === 'dark' ? '#000'        : '';
+    darkBtn.style.borderColor  = t === 'dark' ? 'var(--gold)' : '';
+  }
 }
 
 // ================================================================
@@ -6607,6 +6615,7 @@ function showProfile() {
   populateProfileCourseSelect();
   renderCourseHandicapSection();
   renderLogos();
+  applyTheme(theme); // refresh button highlight state
   showScreen('screen-profile');
 }
 
@@ -7529,15 +7538,6 @@ async function joinTournamentRoundAsScorer(user, troundId, groupNumber) {
 // KICK OFF
 // ================================================================
 document.addEventListener('DOMContentLoaded', boot);
-
-// IMMEDIATE TEST: runs when module loads — if you see a red border on Sign In, JS is working
-setTimeout(() => {
-  const btn = document.getElementById('btn-signin');
-  if (btn) {
-    btn.style.outline = '4px solid red';
-    btn.textContent = 'SIGN IN (JS OK) →';
-  }
-}, 100);
 
 // ================================================================
 // TOURNAMENT MODE
