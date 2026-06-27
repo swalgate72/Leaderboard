@@ -36,7 +36,7 @@ import {
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
 } from '../game.js?v=20260626u';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626x';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626y';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
@@ -2940,25 +2940,6 @@ async function teeOff() {
 
   // Remember last used tee for this course
   try { localStorage.setItem(`lb-last-tee-${setup.courseId}`, tee.name); } catch {}
-
-  // Validate SI array — warn if it looks like hole numbers (1,2,3...) rather than stroke indexes
-  // This catches the common mistake of entering SI 1-18 sequentially instead of by difficulty
-  const siCheck = siSlice.slice().sort((a,b) => a-b);
-  const siIsSequential = siCheck.every((v, i) => v === i + 1);
-  const siHasDuplicates = new Set(siSlice).size < siSlice.length;
-  if (siIsSequential || siHasDuplicates) {
-    const warn = siIsSequential
-      ? 'The stroke indexes for this course appear to be entered sequentially (1, 2, 3...) rather than by hole difficulty. Handicap strokes may be awarded on wrong holes. Check the course setup.'
-      : 'The stroke indexes for this course contain duplicate values. Handicap strokes may be calculated incorrectly. Check the course setup.';
-    if (!confirm(`⚠️ Course data warning:
-
-${warn}
-
-Tap OK to continue anyway, or Cancel to go back and fix the course.`)) {
-      showHome();
-      return;
-    }
-  }
 
   // Use gameHandicap (set by HCP picker) if available, then Course HCP, then Index
   const hcpArr = setup.players.map(p =>
