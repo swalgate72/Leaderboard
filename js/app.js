@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626ae';
+} from '../data.js?v=20260626af';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626ae';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ae';
+} from '../game.js?v=20260626af';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626af';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626ae';
+} from '../tournament.js?v=20260626af';
 
 // ================================================================
 // PLAYER COLOURS
@@ -5132,7 +5132,9 @@ function flashHoleResult(holeIdx) {
 
 // Which score modes a format supports
 function scorecardModesFor(fmt) {
-  if (['stableford','split6','csm','best2','texas'].includes(fmt)) return ['points','strokes'];
+  // betterball, csm, best2: own-ball formats — add Players tab for individual scores
+  if (['betterball','csm','best2'].includes(fmt)) return ['points','strokes','players'];
+  if (['stableford','split6','texas'].includes(fmt)) return ['points','strokes'];
   return ['strokes'];
 }
 
@@ -5276,7 +5278,29 @@ function buildVerticalScorecard(state, mode) {
   const byHole = {};
   log.forEach(e => { byHole[e.hIdx] = e; });
 
-  const columns = scorecardColumns(state);
+  // Players mode: show every player's individual gross score regardless of format
+  const INDIV_FORMATS = ['betterball','csm','best2'];
+  const useIndivCols = mode === 'players' && INDIV_FORMATS.includes(state.format);
+
+  let columns;
+  if (useIndivCols) {
+    const names = state.names ?? [];
+    columns = names.map((_, pi) => ({
+      label:    names[pi] ?? `P${pi+1}`,
+      dotColor: pHex(pi),
+      getCell: (entry) => {
+        if (!entry) return { text: '' };
+        const gross = entry.grosses?.[pi];
+        if (gross == null) return { text: '' };
+        const extras = entry.extras?.[pi] ?? 0;
+        const net    = gross - extras;
+        // Show gross with net in sub if they differ
+        return { text: String(gross), sub: extras > 0 ? `Net ${net}` : null, relToPar: gross - entry.par };
+      },
+    }));
+  } else {
+    columns = scorecardColumns(state);
+  }
   const totalHoles = par.length || 18;
 
   const headCells = columns.map(c => `
@@ -5322,7 +5346,8 @@ function buildVerticalScorecard(state, mode) {
         else if (r === 2)  inner = double(blue);
       }
 
-      return `<td class="sc-score-cell">${inner}</td>`;
+      const sub = cell.sub ? `<div style="font-size:0.7em;color:var(--muted2);font-weight:500;margin-top:1px;">${cell.sub}</div>` : '';
+      return `<td class="sc-score-cell">${inner}${sub}</td>`;
     }).join('');
 
     const holeDisp1 = h + 1 + (state.holeOffset ?? 0);
