@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626ah';
+} from '../data.js?v=20260626ai';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626ah';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ah';
+} from '../game.js?v=20260626ai';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ai';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626ah';
+} from '../tournament.js?v=20260626ai';
 
 // ================================================================
 // PLAYER COLOURS
@@ -2680,7 +2680,9 @@ function openFriendPicker(playerIdx, customCallback = null, excludeAlreadyAdded 
     chip.className = 'friend-chip';
     chip.innerHTML = `<span class="fc-dot"></span><span>${f.name}</span><span class="fc-hcp">${fmtHandicap(f.hcp)}</span>`;
     chip.addEventListener('click', () => {
-      document.getElementById('fp-selected-name').textContent = `${f.name} · HCP ${fmtHandicap(f.hcp)}`;
+      const noSurname3 = f.name && !f.name.trim().includes(' ');
+      document.getElementById('fp-selected-name').textContent =
+        `${f.name}${noSurname3 ? ' ⚠️' : ''} · HCP ${fmtHandicap(f.hcp)}`;
       document.getElementById('fp-hcp').value = f.hcp ?? '';
       show('fp-confirm'); hide('fp-chips');
       document.getElementById('fp-confirm-btn').onclick = () => {
@@ -7233,6 +7235,22 @@ document.getElementById('btn-save-profile')?.addEventListener('click', async () 
       return result;
     })(),
   };
+  // Require both first and last name
+  if (!profile.first_name) {
+    document.getElementById('prof-fname').focus();
+    document.getElementById('prof-fname').style.borderColor = 'var(--red)';
+    alert('Please enter your first name.');
+    return;
+  }
+  if (!profile.last_name) {
+    document.getElementById('prof-lname').focus();
+    document.getElementById('prof-lname').style.borderColor = 'var(--red)';
+    alert('Please enter your surname — this helps friends with the same first name be identified correctly in games.');
+    return;
+  }
+  document.getElementById('prof-fname').style.borderColor = '';
+  document.getElementById('prof-lname').style.borderColor = '';
+
   const btn = document.getElementById('btn-save-profile');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
@@ -7306,12 +7324,13 @@ async function renderFriendsList() {
   listEl.innerHTML = allFriends.map(f => {
     const displayName = f.name || f.username || 'Unknown';
     const init = displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-    // Show only fields the friend has chosen to share with friends
+    const noSurname = !f.name.trim().includes(' ') && !f.name.toLowerCase().includes('friend');
     const details = [];
     if (f.hcp != null && f.friends_see_hcp !== false) details.push(`HCP ${fmtHandicap(f.hcp)}`);
     if (f.mobile && f.friends_see_mobile)  details.push(f.mobile);
     if (f.email && f.friends_see_email)    details.push(f.email);
     if (f.username) details.unshift(`@${f.username}`);
+    if (noSurname) details.unshift('<span style="color:var(--gold);font-weight:800;">⚠️ No surname — ask them to update their profile</span>');
     return `
       <div class="friend-item">
         <div class="friend-avatar">${init}</div>
