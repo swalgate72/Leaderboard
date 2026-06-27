@@ -4635,7 +4635,14 @@ function renderLeaderboard() {
     : isItc     ? 'Pts'
     : 'Pts'; // stableford, split6, best2
 
-  metaEl.textContent = `${gameState.courseName} · ${gameState.teeName} · ${fmtLabel(fmt)}`.toUpperCase();
+  // Update hero title and meta
+  const titleEl = document.getElementById('leaderboard-title');
+  if (titleEl) titleEl.textContent = fmtLabel(fmt);
+  metaEl.textContent = `${gameState.courseName} · ${gameState.teeName}`.toUpperCase();
+
+  // Hide names row by default — shown inside buildMatchLeaderboard for match formats
+  const namesRow = document.getElementById('leaderboard-names-row');
+  if (namesRow && !isMatch) namesRow.style.display = 'none';
 
   renderLdNtpLeaderboardCard();
 
@@ -4662,7 +4669,14 @@ function renderLeaderboard() {
       return { teamName, members, score, holesPlayed };
     });
 
-    // Sort: numeric scores descending (or ascending for gross), match results by ms desc
+    // Match formats: use hole-by-hole leaderboard for single group
+    if (isMatch) {
+      const gs = states[0] ?? gameState;
+      tableEl.innerHTML = buildMatchLeaderboard(gs);
+      return;
+    }
+
+    // Non-match pairs (best2, texas): standard table
     const numericRows = rows.filter(r => typeof r.score === 'number');
     const nonNumericRows = rows.filter(r => typeof r.score !== 'number');
     numericRows.sort((a, b) => (isTexas && !texasSbFmt) ? a.score - b.score : b.score - a.score);
@@ -4677,7 +4691,7 @@ function renderLeaderboard() {
         thru:   r.holesPlayed,
         isLead: rank === 0,
       })),
-      isMatch ? 'Result' : scoreLabel
+      scoreLabel
     );
 
     // In tournament team mode, also show a hint that the full tournament
@@ -4695,14 +4709,18 @@ function renderLeaderboard() {
       return;
     }
 
+    // Match (1v1): use hole-by-hole leaderboard
+    if (isMatch) {
+      const gs = (gameState.allGroupStates ?? [gameState])[0] ?? gameState;
+      tableEl.innerHTML = buildMatchLeaderboard(gs);
+      return;
+    }
+
     tableEl.innerHTML = buildLeaderboardTable(
       rows.map((r, rank) => {
         let score;
-        if (isStroke)     score = r.net ?? '--';
-        else if (isMatch) score = r.pts != null
-          ? (r.pts > 0 ? `${r.pts} Up` : r.pts < 0 ? `${Math.abs(r.pts)} Down` : 'All Sq')
-          : 'All Sq';
-        else              score = r.pts ?? '--';
+        if (isStroke) score = r.net ?? '--';
+        else          score = r.pts ?? '--';
         return {
           rank:   rank + 1,
           label:  r.name,
@@ -4753,6 +4771,115 @@ function renderLeaderboard() {
     };
   });
   tableEl.innerHTML = buildLeaderboardTable(rows, scoreLabel);
+}
+
+
+// ================================================================
+// MATCH LEADERBOARD — hole-by-hole view for match/betterball/pairs formats
+// ================================================================
+function buildMatchLeaderboard(state) {
+  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(state.format);
+  const log     = state.log ?? [];
+  const si      = state.si  ?? [];
+  const par     = state.par ?? [];
+  const offset  = state.holeOffset ?? 0;
+  const total   = state.numHoles ?? 18;
+
+  const nameA = isPairs
+    ? `${state.names[0]?.split(' ')[0] ?? ''} & ${state.names[1]?.split(' ')[0] ?? ''}`
+    : (state.names[0] ?? 'Player 1');
+  const nameB = isPairs
+    ? `${state.names[2]?.split(' ')[0] ?? ''} & ${state.names[3]?.split(' ')[0] ?? ''}`
+    : (state.names[1] ?? 'Player 2');
+
+  // Show/hide names row in the HTML shell
+  const namesRow = document.getElementById('leaderboard-names-row');
+  const nameAEl  = document.getElementById('lb-name-a');
+  const nameBEl  = document.getElementById('lb-name-b');
+  if (namesRow) namesRow.style.display = '';
+  if (nameAEl)  nameAEl.textContent    = nameA;
+  if (nameBEl)  nameBEl.textContent    = nameB;
+
+  // Column header
+  let html = `
+    <div style="display:grid;grid-template-columns:2.5rem 1fr 3.5rem 3.5rem 1fr 2.5rem;
+                align-items:center;padding:0.5rem 0 0.35rem;
+                border-bottom:1.5px solid var(--border2);font-family:'Barlow Condensed',sans-serif;">
+      <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);">Net</div>
+      <div></div>
+      <div style="grid-column:span 2;text-align:center;font-size:0.6rem;font-weight:700;
+                  letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);">Hole</div>
+      <div></div>
+      <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
+                  color:var(--muted);text-align:right;">Net</div>
+    </div>`;
+
+  // Build one row per hole (played + unplayed)
+  for (let h = 0; h < total; h++) {
+    const entry   = log[h] ?? null;
+    const holeNum = offset + h + 1;
+    const parH    = par[h]  ?? '–';
+    const siH     = si[h]   ?? '–';
+    const played  = !!entry;
+
+    let netA = '', netB = '', moveA = '', moveB = '';
+    if (played) {
+      netA = isPairs ? (entry.bbA?.net ?? '') : (entry.nets?.[0] ?? '');
+      netB = isPairs ? (entry.bbB?.net ?? '') : (entry.nets?.[1] ?? '');
+
+      // Show move only when match status changed on THIS hole
+      const result = entry.result ?? 0;
+      if (result !== 0) {
+        const ms = entry.matchAfter ?? 0;
+        const up = Math.abs(ms);
+        const status = ms === 0 ? 'AS' : `${up} UP`;
+        if (result > 0) moveA = `${status} ↑`;
+        else            moveB = `${status} ↑`;
+      }
+    }
+
+    const opacity = played ? '' : 'opacity:0.28;';
+    html += `
+      <div style="display:grid;grid-template-columns:2.5rem 1fr 3.5rem 3.5rem 1fr 2.5rem;
+                  align-items:center;padding:0.45rem 0;
+                  border-bottom:0.5px solid var(--border);${opacity}
+                  font-family:'Barlow Condensed',sans-serif;">
+        <div style="font-size:1rem;color:var(--white);">${netA}</div>
+        <div style="font-size:0.72rem;font-weight:800;color:var(--gold);
+                    letter-spacing:0.03em;white-space:nowrap;">${moveA}</div>
+        <div style="grid-column:span 2;text-align:center;">
+          <span style="font-size:1.1rem;font-weight:800;color:var(--white);
+                       display:block;line-height:1.1;">${holeNum}</span>
+          <span style="font-size:0.6rem;color:var(--muted);font-weight:600;
+                       letter-spacing:0.04em;display:block;">Par ${parH} · SI ${siH}</span>
+        </div>
+        <div style="font-size:0.72rem;font-weight:800;color:#5ba8d8;
+                    letter-spacing:0.03em;white-space:nowrap;text-align:right;">${moveB}</div>
+        <div style="font-size:1rem;color:var(--white);text-align:right;">${netB}</div>
+      </div>`;
+  }
+
+  // Footer: final match status
+  const ms      = state.matchScore ?? 0;
+  const up      = Math.abs(ms);
+  const left    = total - log.length;
+  const statusA = ms > 0 ? `${up} UP` : ms < 0 ? `${Math.abs(ms)} DOWN` : 'ALL SQ';
+  const statusB = ms < 0 ? `${up} UP` : ms > 0 ? `${Math.abs(ms)} DOWN` : 'ALL SQ';
+  const colA    = ms > 0 ? 'var(--gold)' : ms < 0 ? 'var(--muted)' : 'var(--muted)';
+  const colB    = ms < 0 ? '#5ba8d8'     : ms > 0 ? 'var(--muted)' : 'var(--muted)';
+
+  html += `
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+                padding:0.75rem 0 0.25rem;border-top:2px solid var(--border2);
+                margin-top:0.15rem;font-family:'Barlow Condensed',sans-serif;">
+      <div style="font-size:1rem;font-weight:800;color:${colA};letter-spacing:0.04em;">${statusA}</div>
+      <div style="font-size:0.65rem;font-weight:700;color:var(--muted);
+                  letter-spacing:0.1em;text-align:center;text-transform:uppercase;">${left} to play</div>
+      <div style="font-size:1.25rem;font-weight:800;color:${colB};
+                  text-align:right;letter-spacing:0.02em;">${statusB}</div>
+    </div>`;
+
+  return html;
 }
 
 function buildLeaderboardTable(rows, scoreLabel) {
