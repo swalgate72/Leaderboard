@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626ai';
+} from '../data.js?v=20260626aj';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626ai';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ai';
+} from '../game.js?v=20260626aj';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626aj';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626ai';
+} from '../tournament.js?v=20260626aj';
 
 // ================================================================
 // PLAYER COLOURS
@@ -2717,6 +2717,32 @@ function buildSetupReview() {
   const hcpArr   = named.map(p => p.hcpIndex || 0);
   const hcpObj   = calcHandicaps(hcpArr, setup.hcpPct);
 
+  // Formats where match handicap (scratch reduction) is meaningful
+  const showScratch = ['match','betterball','csm','foursomes','greensomes','split6','skins','itc'].includes(setup.scoring);
+
+  // Build per-player HCP summary: index, playing, match (scratch points)
+  const hcpSummary = (p, hi) => {
+    const hcp = hcpObj[hi] ?? { playingHandicap: 0, matchHandicap: 0 };
+    const index   = fmtHandicap(p.hcpIndex ?? 0);
+    const playing = hcp.playingHandicap ?? 0;
+    const match   = hcp.matchHandicap   ?? 0;
+    const scratchLabel = match === 0 ? 'Scratch' : `SI 1–${match}`;
+    return { index, playing, match, scratchLabel };
+  };
+
+  // Renders the HCP detail line for a player row
+  const hcpDetailHtml = (p, hi) => {
+    const h = hcpSummary(p, hi);
+    return `
+      <div style="display:grid;grid-template-columns:${showScratch ? '1fr 1fr 1fr' : '1fr 1fr'};
+                  gap:0.15rem 0.6rem;text-align:right;font-size:0.8rem;font-weight:600;
+                  color:var(--muted2);margin-top:0.15rem;">
+        <span>Index <strong style="color:var(--white)">${h.index}</strong></span>
+        <span>Playing <strong style="color:var(--white)">${h.playing}</strong></span>
+        ${showScratch ? `<span>Shots <strong style="color:var(--gold)">${h.scratchLabel}</strong></span>` : ''}
+      </div>`;
+  };
+
   // Texas: compute team HCP per group for display
   const texasGroupHcps = isTexas ? (() => {
     const numGroups = Math.max(1, ...named.map(p => p.groupNumber ?? 1));
@@ -2758,11 +2784,14 @@ function buildSetupReview() {
         </div>
         ${gPlayers.map((p, si) => {
           const pi = named.indexOf(p);
-          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.25rem 0;font-size:0.95rem;font-weight:700;">
-            <span style="display:flex;align-items:center;gap:6px;">
-              <span class="dot" style="background:${pHex(named.indexOf(p) % 8)};"></span>${p.name}
-            </span>
-            <span style="color:var(--muted2);">HCP ${fmtHandicap(p.hcpIndex)}</span>
+          const hi_tx = named.indexOf(p);
+          return `<div style="padding:0.25rem 0;border-bottom:0.5px solid rgba(255,255,255,0.04);">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.95rem;font-weight:700;">
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span class="dot" style="background:${pHex(hi_tx % 8)};"></span>${p.name}
+              </span>
+            </div>
+            ${hcpDetailHtml(p, hi_tx)}
           </div>`;
         }).join('')}
       </div>`;
@@ -2792,13 +2821,11 @@ function buildSetupReview() {
             ${[p0, p1].map((p, si) => {
               const pi  = si === 0 ? pi0 : pi1;
               const hi  = si === 0 ? h0  : h1;
-              const hcp = hcpObj[hi];
-              return `<div style="display:flex;justify-content:space-between;align-items:center;
-                          padding:0.25rem 0;font-size:0.95rem;font-weight:700;">
-                <span style="display:flex;align-items:center;gap:6px;">
+              return `<div style="padding:0.25rem 0;border-bottom:0.5px solid rgba(255,255,255,0.04);">
+                <div style="display:flex;align-items:center;gap:6px;font-size:0.95rem;font-weight:700;">
                   <span class="dot" style="background:${pHex(pi % 8)};"></span>${p?.name ?? '?'}
-                </span>
-                <span style="color:var(--muted2);">Playing ${hcp?.playingHandicap ?? 0}</span>
+                </div>
+                ${hcpDetailHtml(p, hi)}
               </div>`;
             }).join('')}
           </div>`;
@@ -2823,14 +2850,11 @@ function buildSetupReview() {
         const pi  = setup.players.indexOf(p);
         const hcp = hcpObj[hi];
         html += `
-          <div style="display:flex;justify-content:space-between;align-items:center;
-                      padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-            <span style="display:flex;align-items:center;gap:8px;font-size:1.15rem;font-weight:800;">
+          <div style="padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+            <div style="display:flex;align-items:center;gap:8px;font-size:1.15rem;font-weight:800;">
               <span class="dot" style="background:${pHex(pi % 8)};"></span>${p.name}
-            </span>
-            <span style="color:var(--muted2);font-size:0.9rem;font-weight:700;text-align:right;">
-              HCP ${fmtHandicap(p.hcpIndex)} · Playing ${hcp?.playingHandicap ?? 0}
-            </span>
+            </div>
+            ${hcpDetailHtml(p, hi)}
           </div>`;
       });
       if (isTeamFmt && isTournTeamMode) html += `<div style="margin-bottom:1rem;"></div>`;
