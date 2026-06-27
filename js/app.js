@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626u';
+} from '../data.js?v=20260626ad';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626u';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626y';
+} from '../game.js?v=20260626ad';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ad';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626u';
+} from '../tournament.js?v=20260626ad';
 
 // ================================================================
 // PLAYER COLOURS
@@ -4888,15 +4888,15 @@ function buildMatchLeaderboard(state) {
 
   // Column header
   let html = `
-    <div style="display:grid;grid-template-columns:2.5rem 1fr 3.5rem 3.5rem 1fr 2.5rem;
-                align-items:center;padding:0.5rem 0 0.35rem;
+    <div style="display:grid;grid-template-columns:3.5rem 1fr 4.5rem 4.5rem 1fr 3.5rem;
+                align-items:center;padding:0.6rem 0 0.45rem;
                 border-bottom:1.5px solid var(--border2);font-family:'Barlow Condensed',sans-serif;">
-      <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);">Net</div>
+      <div style="font-size:1.2rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);">Net</div>
       <div></div>
-      <div style="grid-column:span 2;text-align:center;font-size:0.6rem;font-weight:700;
+      <div style="grid-column:span 2;text-align:center;font-size:1.2rem;font-weight:700;
                   letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);">Hole</div>
       <div></div>
-      <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
+      <div style="font-size:1.2rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
                   color:var(--muted);text-align:right;">Net</div>
     </div>`;
 
@@ -4914,34 +4914,43 @@ function buildMatchLeaderboard(state) {
       netB = isPairs ? (entry.bbB?.net ?? '') : (entry.nets?.[1] ?? '');
 
       // Show move only when match status changed on THIS hole
+      // ms is from Pair A's perspective: +ve = A winning, -ve = B winning
       const result = entry.result ?? 0;
       if (result !== 0) {
         const ms = entry.matchAfter ?? 0;
         const up = Math.abs(ms);
-        const status = ms === 0 ? 'AS' : `${up} UP`;
-        if (result > 0) moveA = `${status} ↑`;
-        else            moveB = `${status} ↑`;
+        if (ms === 0) {
+          // Hole won but now all square — show AS on the winner's side
+          if (result > 0) moveA = 'AS ↑';
+          else            moveB = 'AS ↑';
+        } else if (ms > 0) {
+          // A leading — A won or extended lead
+          moveA = `${up} UP ↑`;
+        } else {
+          // B leading — B won or extended lead
+          moveB = `${up} UP ↑`;
+        }
       }
     }
 
     const opacity = played ? '' : 'opacity:0.28;';
     html += `
-      <div style="display:grid;grid-template-columns:2.5rem 1fr 3.5rem 3.5rem 1fr 2.5rem;
-                  align-items:center;padding:0.45rem 0;
+      <div style="display:grid;grid-template-columns:3.5rem 1fr 4.5rem 4.5rem 1fr 3.5rem;
+                  align-items:center;padding:0.7rem 0;
                   border-bottom:0.5px solid var(--border);${opacity}
                   font-family:'Barlow Condensed',sans-serif;">
-        <div style="font-size:1rem;color:var(--white);">${netA}</div>
-        <div style="font-size:0.72rem;font-weight:800;color:var(--gold);
+        <div style="font-size:2rem;font-weight:700;color:var(--white);">${netA}</div>
+        <div style="font-size:1.4rem;font-weight:800;color:var(--gold);
                     letter-spacing:0.03em;white-space:nowrap;">${moveA}</div>
         <div style="grid-column:span 2;text-align:center;">
-          <span style="font-size:1.1rem;font-weight:800;color:var(--white);
+          <span style="font-size:2.2rem;font-weight:800;color:var(--white);
                        display:block;line-height:1.1;">${holeNum}</span>
-          <span style="font-size:0.6rem;color:var(--muted);font-weight:600;
+          <span style="font-size:1.2rem;color:var(--muted);font-weight:600;
                        letter-spacing:0.04em;display:block;">Par ${parH} · SI ${siH}</span>
         </div>
-        <div style="font-size:0.72rem;font-weight:800;color:#5ba8d8;
+        <div style="font-size:1.4rem;font-weight:800;color:#5ba8d8;
                     letter-spacing:0.03em;white-space:nowrap;text-align:right;">${moveB}</div>
-        <div style="font-size:1rem;color:var(--white);text-align:right;">${netB}</div>
+        <div style="font-size:2rem;font-weight:700;color:var(--white);text-align:right;">${netB}</div>
       </div>`;
   }
 
@@ -4956,12 +4965,12 @@ function buildMatchLeaderboard(state) {
 
   html += `
     <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
-                padding:0.75rem 0 0.25rem;border-top:2px solid var(--border2);
+                padding:1rem 0 0.5rem;border-top:2px solid var(--border2);
                 margin-top:0.15rem;font-family:'Barlow Condensed',sans-serif;">
-      <div style="font-size:1rem;font-weight:800;color:${colA};letter-spacing:0.04em;">${statusA}</div>
-      <div style="font-size:0.65rem;font-weight:700;color:var(--muted);
+      <div style="font-size:2rem;font-weight:800;color:${colA};letter-spacing:0.04em;">${statusA}</div>
+      <div style="font-size:1.2rem;font-weight:700;color:var(--muted);
                   letter-spacing:0.1em;text-align:center;text-transform:uppercase;">${left} to play</div>
-      <div style="font-size:1.25rem;font-weight:800;color:${colB};
+      <div style="font-size:2rem;font-weight:800;color:${colB};
                   text-align:right;letter-spacing:0.02em;">${statusB}</div>
     </div>`;
 
