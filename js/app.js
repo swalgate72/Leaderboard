@@ -36,6 +36,7 @@ import {
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
 } from '../game.js?v=20260626u';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626x';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
@@ -82,6 +83,96 @@ const setup = {
 };
 
 let roundId    = null;
+
+// ================================================================
+// LOCAL-FIRST SYNC — IndexedDB primary, Supabase every 30s
+// ================================================================
+let _syncTimer     = null;   // setInterval handle
+let _syncInFlight  = false;  // prevent overlapping pushes
+const SYNC_INTERVAL = 30_000; // 30 seconds
+
+// Build the stateToSave object (same logic as saveRoundState)
+function _buildStateToSave() {
+  if (!roundId || !gameState) return null;
+  const { allGroupStates, ...myGroupState } = gameState;
+  if (!allGroupStates || allGroupStates.length <= 1) return myGroupState;
+
+  const myGroupNumber = gameState.groupNumber ?? 1;
+  const mergedGroupStates = allGroupStates.map(gs => {
+    const { allGroupStates: _, ...stripped } = gs;
+    return (gs.groupNumber ?? 1) === myGroupNumber
+      ? { ...myGroupState }
+      : stripped;
+  });
+  const topGroup = mergedGroupStates.find(gs => (gs.groupNumber ?? 1) === 1) ?? mergedGroupStates[0];
+  return { ...topGroup, allGroupStates: mergedGroupStates };
+}
+
+// Push one dirty record to Supabase. Called by sync loop and force-flush.
+async function _pushToSupabase(rec) {
+  try {
+    await roundSaveState(rec.roundId, rec.state, rec.state.names);
+    await idbMarkClean(rec.roundId);
+    console.log('[sync] pushed to Supabase:', rec.roundId);
+    document.getElementById('offline-banner')?.remove();
+    return true;
+  } catch (err) {
+    console.warn('[sync] Supabase push failed:', err.message);
+    return false;
+  }
+}
+
+// The 30-second sync tick
+async function _syncTick() {
+  if (_syncInFlight) return;
+  _syncInFlight = true;
+  try {
+    const dirty = await idbGetDirty();
+    for (const rec of dirty) {
+      await _pushToSupabase(rec);
+    }
+  } catch (err) {
+    console.warn('[sync] tick error:', err);
+  } finally {
+    _syncInFlight = false;
+  }
+}
+
+// Force-flush current round to Supabase immediately (used at end/abandon)
+async function flushToSupabase() {
+  if (!roundId || !gameState) return;
+  const state = _buildStateToSave();
+  if (!state) return;
+  const rec = { roundId, state };
+  await _pushToSupabase(rec);
+}
+
+// Start the sync loop (called when entering game screen)
+function startSyncLoop() {
+  stopSyncLoop();
+  _syncTimer = setInterval(_syncTick, SYNC_INTERVAL);
+  // Also sync immediately when network comes back
+  window.addEventListener('online', _onOnline);
+}
+
+// Stop the sync loop (called when leaving game)
+function stopSyncLoop() {
+  if (_syncTimer) { clearInterval(_syncTimer); _syncTimer = null; }
+  window.removeEventListener('online', _onOnline);
+}
+
+async function _onOnline() {
+  console.log('[sync] network restored — syncing now');
+  // Show brief "syncing" toast
+  const t = document.createElement('div');
+  t.textContent = '📶 Back online — syncing scores…';
+  t.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+    background:var(--green);color:#fff;padding:0.6rem 1.2rem;border-radius:20px;
+    font-weight:800;font-size:0.85rem;z-index:9999;pointer-events:none;`;
+  document.body.appendChild(t);
+  await _syncTick();
+  setTimeout(() => t.remove(), 2500);
+}
 let gameState  = null;
 const _sessionId = Math.random().toString(36).slice(2);
 let realtimeCh = null;
@@ -3057,31 +3148,59 @@ Tap OK to continue anyway, or Cancel to go back and fix the course.`)) {
 // ================================================================
 async function resumeRound(id) {
   try {
-    let round = null;
+    let round    = null;
+    let fromIdb  = false;
+
+    // 1. Check IndexedDB first — instant, works offline
     try {
-      round = await roundLoadById(id);
-    } catch (netErr) {
-      console.warn('resumeRound: network error loading round, trying local cache', netErr);
+      const local = await idbLoad(id);
+      if (local?.state) {
+        round   = { id, status: 'active', game_state: local.state };
+        fromIdb = true;
+        console.log('[idb] loaded round from IndexedDB', id);
+      }
+    } catch (idbErr) {
+      console.warn('[idb] load failed, falling back to Supabase', idbErr);
     }
+
+    // 2. Try Supabase (gets fresher state if other scorers have written)
+    try {
+      const remote = await roundLoadById(id);
+      if (remote?.game_state) {
+        // Use Supabase if it has more holes played (i.e. more up to date)
+        const remoteHoles = remote.game_state?.log?.length ?? 0;
+        const localHoles  = round?.game_state?.log?.length ?? 0;
+        if (!fromIdb || remoteHoles >= localHoles) {
+          round   = remote;
+          fromIdb = false;
+        }
+      }
+    } catch (netErr) {
+      console.warn('resumeRound: Supabase unavailable, using local state', netErr);
+    }
+
+    // 3. Fall back to old localStorage cache if IDB and Supabase both failed
     if (!round) {
-      // Try local cache
       try {
         const cached = JSON.parse(localStorage.getItem('lb-game-state-cache') ?? 'null');
         if (cached?.roundId === id && cached?.state) {
-          console.warn('resumeRound: using cached state — operating offline');
           round = { id, status: 'active', game_state: cached.state };
-          // Show offline banner
-          const banner = document.createElement('div');
-          banner.textContent = '📶 Offline — scores will sync when connected';
-          banner.style.cssText = `position:fixed;top:0;left:0;right:0;background:#b45309;
-            color:#fff;text-align:center;padding:0.4rem;font-weight:800;font-size:0.8rem;z-index:9999;`;
-          banner.id = 'offline-banner';
-          document.getElementById('offline-banner')?.remove();
-          document.body.prepend(banner);
         }
       } catch {}
     }
+
     if (!round) return;
+
+    // Show offline banner if we couldn't reach Supabase
+    if (fromIdb) {
+      const banner = document.createElement('div');
+      banner.textContent = '📶 Offline — scores will sync when connected';
+      banner.style.cssText = `position:fixed;top:0;left:0;right:0;background:#b45309;
+        color:#fff;text-align:center;padding:0.4rem;font-weight:800;font-size:0.8rem;z-index:9999;`;
+      banner.id = 'offline-banner';
+      document.getElementById('offline-banner')?.remove();
+      document.body.prepend(banner);
+    }
     roundId = id;
     let gs = round.game_state;
     if (gs?.allGroupStates) {
@@ -3137,7 +3256,6 @@ async function resumeRound(id) {
 function enterGameScreen() {
   clearSetupState();
   clearSetupDraft();
-  // Clear game state cache on entering a new game
   try { localStorage.removeItem('lb-game-state-cache'); } catch {}
   showScreen('screen-game');
   renderGameTopBar();
@@ -3145,6 +3263,7 @@ function enterGameScreen() {
   renderHolePanel();
   document.getElementById('scorecard-overlay')?.classList.remove('open');
   subscribeChallenges();
+  startSyncLoop(); // begin 30-second Supabase sync
 }
 
 function renderGameTopBar() {
@@ -4424,38 +4543,13 @@ function setScoreValue(pi, h, par, value, isPickup) {
 // ----------------------------------------------------------------
 document.getElementById('btn-record-hole')?.addEventListener('click', async () => {
   const btn = document.getElementById('btn-record-hole');
-  if (btn?.disabled) return; // already saving — ignore extra taps
-  const origText = btn?.textContent ?? 'RECORD HOLE →';
-  if (btn) { btn.disabled = true; }
-
-  // If save takes >1s, show a "Saving…" message so the user knows it's working
-  let slowTimer = null;
-  let toastEl = null;
-  if (btn) {
-    slowTimer = setTimeout(() => {
-      if (btn.disabled) {
-        btn.textContent = '⏳ Saving…';
-        // Also show a persistent toast so it's visible after the hole panel updates
-        toastEl = document.createElement('div');
-        toastEl.id = 'saving-toast';
-        toastEl.textContent = '📶 Poor signal — score saving, please wait…';
-        toastEl.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
-          background:#b45309;color:#fff;padding:0.65rem 1.25rem;border-radius:20px;
-          font-weight:800;font-size:0.85rem;z-index:9999;pointer-events:none;white-space:nowrap;`;
-        document.body.appendChild(toastEl);
-      }
-    }, 1000);
-  }
-
+  if (btn?.disabled) return; // prevent double-tap
+  if (btn) btn.disabled = true;
   try {
+    // Instant — writes to IndexedDB first, Supabase syncs in background every 30s
     await recordHole();
   } finally {
-    clearTimeout(slowTimer);
-    toastEl?.remove();
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = origText;
-    }
+    if (btn) btn.disabled = false;
   }
 });
 
@@ -4506,6 +4600,12 @@ async function recordHole() {
   }
   flashHoleResult(h);
 
+  // ── LOCAL-FIRST: write to IndexedDB immediately, never block the UI ──
+  const stateSnap = _buildStateToSave();
+  if (stateSnap) {
+    idbSave(roundId, stateSnap, true).catch(e => console.warn('[idb] save failed', e));
+  }
+
   const matchFmts = ['match','betterball','csm','foursomes','greensomes'];
   if (matchFmts.includes(fmt)) {
     const played = gameState.log.length;
@@ -4513,13 +4613,18 @@ async function recordHole() {
     if (matchPlayIsOver(gameState.matchScore, played, total) && !gameState.matchDecided) {
       gameState.matchDecided = true;
       showMatchWonModal();
-      await saveRoundState();
+      // Force-flush to Supabase at match end
+      flushToSupabase().catch(e => console.warn('[sync] flush at match end failed', e));
       return;
     }
   }
 
-  await saveRoundState();
-  if (gameState.hole >= (gameState.numHoles ?? 18)) { showEndRound(); return; }
+  // Advance UI immediately — no waiting for network
+  if (gameState.hole >= (gameState.numHoles ?? 18)) {
+    await flushToSupabase(); // ensure Supabase is up to date before end screen
+    showEndRound();
+    return;
+  }
   renderScoreHeader();
   renderHolePanel();
 }
@@ -5471,7 +5576,8 @@ async function saveRoundState() {
     try {
       await roundSaveState(roundId, stateToSave, stateToSave.names);
       await realtimeBroadcastRound(realtimeCh, { ...myGroupState, groupNumber: gameState.groupNumber }, _sessionId).catch(() => {});
-      // Cache state locally so resumeRound can recover from network failure
+      // Keep IDB in sync for admin actions (scorer transfer, LD/NTP, edit hole)
+      idbSave(roundId, stateToSave, false).catch(() => {}); // dirty=false — already synced
       try { localStorage.setItem('lb-game-state-cache', JSON.stringify({ roundId, state: stateToSave })); } catch {}
       badge?.classList.add('hidden');
       return;
@@ -6298,6 +6404,15 @@ async function doAbandon(shouldDelete) {
     }
   }
 
+  stopSyncLoop();
+  // Flush any unsynced local scores to Supabase before leaving
+  if (targetRoundId) {
+    try {
+      const local = await idbLoad(targetRoundId);
+      if (local?.dirty) await flushToSupabase();
+    } catch {}
+    idbClear(targetRoundId).catch(() => {});
+  }
   realtimeUnsubscribe(realtimeCh); realtimeCh = null;
   roundId = null; gameState = null;
   try { localStorage.removeItem('lb-active-round'); } catch {}
@@ -6405,6 +6520,8 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     if (gameState.tournamentId) {
       await saveTournamentScores();
     }
+    stopSyncLoop();
+    idbClear(roundId).catch(() => {});
     realtimeUnsubscribe(realtimeCh); realtimeCh = null;
     roundId = null;
     const wasTournament = !!gameState.tournamentId;
