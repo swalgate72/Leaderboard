@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626ad';
+} from '../data.js?v=20260626ae';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626ad';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ad';
+} from '../game.js?v=20260626ae';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ae';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626ad';
+} from '../tournament.js?v=20260626ae';
 
 // ================================================================
 // PLAYER COLOURS
@@ -4908,48 +4908,59 @@ function buildMatchLeaderboard(state) {
     const siH     = si[h]   ?? '–';
     const played  = !!entry;
 
-    let netA = '', netB = '', moveA = '', moveB = '';
+    let netA = '', netB = '';
+    let statusA = '', statusB = '';       // shown on every played hole
+    let boldA = false, boldB = false;     // bold + arrow only on the hole where status changed
+    let arrowA = '', arrowB = '';
+
     if (played) {
       netA = isPairs ? (entry.bbA?.net ?? '') : (entry.nets?.[0] ?? '');
       netB = isPairs ? (entry.bbB?.net ?? '') : (entry.nets?.[1] ?? '');
 
-      // Show move only when match status changed on THIS hole
-      // ms is from Pair A's perspective: +ve = A winning, -ve = B winning
+      // ms from Pair A perspective: +ve = A winning, -ve = B winning
+      const ms     = entry.matchAfter ?? 0;
       const result = entry.result ?? 0;
+      const up     = Math.abs(ms);
+
+      // Status text for both sides every played hole
+      statusA = ms === 0 ? 'A/S' : ms > 0 ? `${up} UP` : `${up} DOWN`;
+      statusB = ms === 0 ? 'A/S' : ms < 0 ? `${up} UP` : `${up} DOWN`;
+
+      // Bold + arrow only when this hole changed the status
       if (result !== 0) {
-        const ms = entry.matchAfter ?? 0;
-        const up = Math.abs(ms);
-        if (ms === 0) {
-          // Hole won but now all square — show AS on the winner's side
-          if (result > 0) moveA = 'AS ↑';
-          else            moveB = 'AS ↑';
-        } else if (ms > 0) {
-          // A leading — A won or extended lead
-          moveA = `${up} UP ↑`;
+        boldA = true; boldB = true;
+        if (result > 0) {
+          // A won the hole
+          arrowA = ' ↑'; arrowB = ' ↓';
         } else {
-          // B leading — B won or extended lead
-          moveB = `${up} UP ↑`;
+          // B won the hole
+          arrowA = ' ↓'; arrowB = ' ↑';
         }
       }
     }
 
     const opacity = played ? '' : 'opacity:0.28;';
+    const fwA = boldA ? '800' : '400';
+    const fwB = boldB ? '800' : '400';
+    const colStatusA = played ? (boldA ? 'var(--gold)' : 'var(--muted2)') : '';
+    const colStatusB = played ? (boldB ? '#5ba8d8'     : 'var(--muted2)') : '';
+
     html += `
       <div style="display:grid;grid-template-columns:3.5rem 1fr 4.5rem 4.5rem 1fr 3.5rem;
                   align-items:center;padding:0.7rem 0;
                   border-bottom:0.5px solid var(--border);${opacity}
                   font-family:'Barlow Condensed',sans-serif;">
         <div style="font-size:2rem;font-weight:700;color:var(--white);">${netA}</div>
-        <div style="font-size:1.4rem;font-weight:800;color:var(--gold);
-                    letter-spacing:0.03em;white-space:nowrap;">${moveA}</div>
+        <div style="font-size:1.3rem;font-weight:${fwA};color:${colStatusA};
+                    letter-spacing:0.02em;white-space:nowrap;">${statusA}${arrowA}</div>
         <div style="grid-column:span 2;text-align:center;">
           <span style="font-size:2.2rem;font-weight:800;color:var(--white);
                        display:block;line-height:1.1;">${holeNum}</span>
           <span style="font-size:1.2rem;color:var(--muted);font-weight:600;
                        letter-spacing:0.04em;display:block;">Par ${parH} · SI ${siH}</span>
         </div>
-        <div style="font-size:1.4rem;font-weight:800;color:#5ba8d8;
-                    letter-spacing:0.03em;white-space:nowrap;text-align:right;">${moveB}</div>
+        <div style="font-size:1.3rem;font-weight:${fwB};color:${colStatusB};
+                    letter-spacing:0.02em;white-space:nowrap;text-align:right;">${arrowB}${statusB}</div>
         <div style="font-size:2rem;font-weight:700;color:var(--white);text-align:right;">${netB}</div>
       </div>`;
   }
