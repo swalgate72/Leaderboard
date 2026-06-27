@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260626z">
+  <link rel="stylesheet" href="styles.css?v=20260626aa">
 </head>
 <body>
 
@@ -670,22 +670,21 @@
     style="flex:1;overflow-y:auto;padding-bottom:0.5rem;">
 
     <div class="hole-hdr">
-      <div class="hole-hdr-left">
-        <div class="hole-lbl">Hole</div>
-        <div class="hole-num-row">
-          <span class="hole-num" id="game-hole-num">1</span>
-          <span class="hole-si-inline" id="game-hole-si"></span>
-        </div>
-        <div id="game-hole-badges"></div>
+      <div>
+        <div class="hole-lbl">Current Hole</div>
+        <div class="hole-num" id="game-hole-num">1</div>
       </div>
-      <div class="hole-hdr-actions">
-        <button class="btn-back-hole" id="btn-back-hole" disabled>← Back</button>
-        <button class="btn-record" id="btn-record-hole">RECORD →</button>
-      </div>
+      <div class="hole-si-info" id="game-hole-si"></div>
     </div>
 
     <!-- Player input rows -->
     <div id="game-inputs"></div>
+
+    <!-- Back / Record directly under inputs -->
+    <div class="hole-actions" style="margin-top:0.75rem;">
+      <button class="btn-back-hole" id="btn-back-hole" disabled>← Back</button>
+      <button class="btn-record" id="btn-record-hole">RECORD HOLE →</button>
+    </div>
 
     <!-- Finish early -->
     <button class="btn btn-outline hidden" id="btn-finish-early"
@@ -1506,7 +1505,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260626z"></script>
+<script type="module" src="js/app.js?v=20260626aa"></script>
 
 
 <!-- ══════════════════════════════════════════
