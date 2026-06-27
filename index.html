@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260626s">
+  <link rel="stylesheet" href="styles.css?v=20260626w">
 </head>
 <body>
 
@@ -763,13 +763,19 @@
   <div style="padding:0 0 2rem;max-width:520px;margin:0 auto;">
 
     <!-- Hero header -->
-    <div class="home-hero">
+    <div class="lb-hero">
       <div class="home-hero-top">
         <button class="btn btn-ghost" id="leaderboard-back"
           style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
       </div>
-      <div class="home-hero-title">Leaderboard</div>
+      <div class="home-hero-title" id="leaderboard-title">Leaderboard</div>
       <div class="home-hero-club" id="leaderboard-meta" style="margin-top:0.25rem;"></div>
+    </div>
+    <!-- Pair names row — shown for match formats only, hidden otherwise -->
+    <div class="lb-hero-names" id="leaderboard-names-row" style="display:none;">
+      <div class="lb-hero-name-a" id="lb-name-a"></div>
+      <div class="lb-hero-vs">VS</div>
+      <div class="lb-hero-name-b" id="lb-name-b"></div>
     </div>
 
     <div style="padding:0 1rem;">
@@ -1514,7 +1520,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260626s"></script>
+<script type="module" src="js/app.js?v=20260626w"></script>
 
 
 <!-- ══════════════════════════════════════════
