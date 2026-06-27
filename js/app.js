@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626af';
+} from '../data.js?v=20260626ag';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626af';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626af';
+} from '../game.js?v=20260626ag';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ag';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626af';
+} from '../tournament.js?v=20260626ag';
 
 // ================================================================
 // PLAYER COLOURS
@@ -151,14 +151,33 @@ async function flushToSupabase() {
 function startSyncLoop() {
   stopSyncLoop();
   _syncTimer = setInterval(_syncTick, SYNC_INTERVAL);
-  // Also sync immediately when network comes back
-  window.addEventListener('online', _onOnline);
+  window.addEventListener('online',            _onOnline);
+  document.addEventListener('visibilitychange', _onVisible);
+  window.addEventListener('pageshow',           _onPageShow);
 }
 
 // Stop the sync loop (called when leaving game)
 function stopSyncLoop() {
   if (_syncTimer) { clearInterval(_syncTimer); _syncTimer = null; }
-  window.removeEventListener('online', _onOnline);
+  window.removeEventListener('online',            _onOnline);
+  document.removeEventListener('visibilitychange', _onVisible);
+  window.removeEventListener('pageshow',           _onPageShow);
+}
+
+function _onVisible() {
+  // App returned from background / screen unlock
+  if (document.visibilityState === 'visible') {
+    console.log('[sync] app foregrounded — syncing');
+    _syncTick();
+  }
+}
+
+function _onPageShow(e) {
+  // iOS Safari fires pageshow when returning from bfcache (back/forward nav)
+  if (e.persisted) {
+    console.log('[sync] pageshow (bfcache restore) — syncing');
+    _syncTick();
+  }
 }
 
 async function _onOnline() {
@@ -4584,7 +4603,9 @@ async function recordHole() {
   // ── LOCAL-FIRST: write to IndexedDB immediately, never block the UI ──
   const stateSnap = _buildStateToSave();
   if (stateSnap) {
-    idbSave(roundId, stateSnap, true).catch(e => console.warn('[idb] save failed', e));
+    idbSave(roundId, stateSnap, true)
+      .then(() => _syncTick())          // push to Supabase immediately after each hole
+      .catch(e => console.warn('[idb] save failed', e));
   }
 
   const matchFmts = ['match','betterball','csm','foursomes','greensomes'];
@@ -4630,6 +4651,7 @@ let leaderboardChannel = null;
 function showLeaderboard() {
   showScreen('screen-leaderboard');
   renderLeaderboard();
+  _syncTick(); // sync on leaderboard open — low cost, ensures freshest data
   // Subscribe to all group states for live updates
   if (leaderboardChannel) realtimeUnsubscribe(leaderboardChannel);
   leaderboardChannel = realtimeSubscribeRound(roundId, remote => {
@@ -5032,6 +5054,7 @@ function buildLeaderboardTable(rows, scoreLabel) {
 document.getElementById('btn-game-scorecard')?.addEventListener('click', () => {
   renderScorecardOverlay();
   document.getElementById('scorecard-overlay')?.classList.add('open');
+  _syncTick(); // sync on scorecard open
 });
 document.getElementById('btn-close-scorecard')?.addEventListener('click', () => {
   document.getElementById('scorecard-overlay')?.classList.remove('open');
