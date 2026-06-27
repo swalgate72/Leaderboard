@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626ag';
+} from '../data.js?v=20260626ah';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626ag';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ag';
+} from '../game.js?v=20260626ah';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ah';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626ag';
+} from '../tournament.js?v=20260626ah';
 
 // ================================================================
 // PLAYER COLOURS
@@ -151,33 +151,14 @@ async function flushToSupabase() {
 function startSyncLoop() {
   stopSyncLoop();
   _syncTimer = setInterval(_syncTick, SYNC_INTERVAL);
-  window.addEventListener('online',            _onOnline);
-  document.addEventListener('visibilitychange', _onVisible);
-  window.addEventListener('pageshow',           _onPageShow);
+  // Also sync immediately when network comes back
+  window.addEventListener('online', _onOnline);
 }
 
 // Stop the sync loop (called when leaving game)
 function stopSyncLoop() {
   if (_syncTimer) { clearInterval(_syncTimer); _syncTimer = null; }
-  window.removeEventListener('online',            _onOnline);
-  document.removeEventListener('visibilitychange', _onVisible);
-  window.removeEventListener('pageshow',           _onPageShow);
-}
-
-function _onVisible() {
-  // App returned from background / screen unlock
-  if (document.visibilityState === 'visible') {
-    console.log('[sync] app foregrounded — syncing');
-    _syncTick();
-  }
-}
-
-function _onPageShow(e) {
-  // iOS Safari fires pageshow when returning from bfcache (back/forward nav)
-  if (e.persisted) {
-    console.log('[sync] pageshow (bfcache restore) — syncing');
-    _syncTick();
-  }
+  window.removeEventListener('online', _onOnline);
 }
 
 async function _onOnline() {
@@ -889,13 +870,29 @@ function setActiveBottomNav(activeId) {
 
 // Home screen three-button handlers
 // Single Game button → show format picker (both solo and team)
-document.getElementById('btn-single-game')?.addEventListener('click', () => {
-  setup.category = null; // category chosen in format picker
-  showFormatPicker('all');
+// Home screen format buttons — direct format selection, no intermediate screen
+document.querySelectorAll('.fmt-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const fmt = btn.dataset.fmt;
+    if (!fmt) return;
+    setup.tournamentId     = null;
+    setup.tournRoundNumber = null;
+    setup.scoring  = fmt;
+    setup.courseId = null; setup.teeIdx = 0; setup.holes = 18;
+    setup.hcpPct   = 100; setup.pairs  = []; setup.players = [];
+    setup.texasMode        = 'average';
+    setup.texasScoringFmt  = 'stableford';
+    setup.texasDrivesTotal = null;
+    setup.texasDrivesPar3  = null;
+    if (fmt === 'split6')                                                { setup.numPlayers = 3; setup.numGroups = 1; setup.playersPerGroup = null; }
+    else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ setup.numPlayers = 4; setup.numGroups = 1; setup.playersPerGroup = null; }
+    else if (fmt === 'best2')                                            { setup.numPlayers = 8; setup.numGroups = 2; setup.playersPerGroup = 4;   }
+    else if (fmt === 'match')                                            { setup.numPlayers = 2; setup.numGroups = 1; setup.playersPerGroup = null; }
+    else if (fmt === 'texas')                                            { setup.numPlayers = 2; setup.numGroups = 1; setup.playersPerGroup = null; }
+    else                                                                 { setup.numPlayers = 1; setup.numGroups = 1; setup.playersPerGroup = null; }
+    startSetup();
+  });
 });
-
-// Tournament button → show tournament list or setup
-document.getElementById('btn-tournament-mode')?.addEventListener('click', () => showTournaments());
 
 document.getElementById('nav-profile')?.addEventListener('click', () => { setActiveBottomNav('nav-profile'); showProfile(); });
 document.getElementById('nav-friends')?.addEventListener('click', () => { setActiveBottomNav('nav-friends'); showFriends(); });
@@ -998,14 +995,7 @@ function showFormatPicker(category) {
 }
 
 document.getElementById('setup-format-back')?.addEventListener('click', () => {
-  if (setup.tournamentId && activeTournament) {
-    // In tournament round setup — go back to tournament detail
-    setup.tournamentId     = null;
-    setup.tournRoundNumber = null;
-    showTournamentDetail(activeTournament.id);
-  } else {
-    clearSetupState(); clearSetupDraft(); showHome();
-  }
+  clearSetupState(); clearSetupDraft(); showHome();
 });
 
 // ================================================================
@@ -4603,9 +4593,7 @@ async function recordHole() {
   // ── LOCAL-FIRST: write to IndexedDB immediately, never block the UI ──
   const stateSnap = _buildStateToSave();
   if (stateSnap) {
-    idbSave(roundId, stateSnap, true)
-      .then(() => _syncTick())          // push to Supabase immediately after each hole
-      .catch(e => console.warn('[idb] save failed', e));
+    idbSave(roundId, stateSnap, true).catch(e => console.warn('[idb] save failed', e));
   }
 
   const matchFmts = ['match','betterball','csm','foursomes','greensomes'];
@@ -4651,7 +4639,6 @@ let leaderboardChannel = null;
 function showLeaderboard() {
   showScreen('screen-leaderboard');
   renderLeaderboard();
-  _syncTick(); // sync on leaderboard open — low cost, ensures freshest data
   // Subscribe to all group states for live updates
   if (leaderboardChannel) realtimeUnsubscribe(leaderboardChannel);
   leaderboardChannel = realtimeSubscribeRound(roundId, remote => {
@@ -5054,7 +5041,6 @@ function buildLeaderboardTable(rows, scoreLabel) {
 document.getElementById('btn-game-scorecard')?.addEventListener('click', () => {
   renderScorecardOverlay();
   document.getElementById('scorecard-overlay')?.classList.add('open');
-  _syncTick(); // sync on scorecard open
 });
 document.getElementById('btn-close-scorecard')?.addEventListener('click', () => {
   document.getElementById('scorecard-overlay')?.classList.remove('open');
@@ -8102,7 +8088,6 @@ let tournGroups         = [];   // [{groupNumber, players: [playerIds]}]
 // ----------------------------------------------------------------
 // HOME → TOURNAMENT LIST
 // ----------------------------------------------------------------
-document.getElementById('btn-tournament-mode')?.addEventListener('click', () => showTournaments());
 document.getElementById('tournaments-back')  ?.addEventListener('click', () => showHome());
 document.getElementById('btn-new-tournament')?.addEventListener('click', () => showTournamentSetup());
 

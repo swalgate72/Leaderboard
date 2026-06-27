@@ -1943,6 +1943,32 @@ html.light .home-hero {
   color: #fff;
 }
 
+/* Compact format buttons on home screen */
+.fmt-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.7rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--white);
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  transition: border-color 0.15s, background 0.1s, transform 0.1s;
+}
+.fmt-btn:active {
+  transform: scale(0.98);
+  background: var(--surface2);
+}
+html.light .fmt-btn { background: var(--surface); color: var(--white); }
+
 .home-section-label {
   font-size: 0.7rem;
   letter-spacing: 0.16em;

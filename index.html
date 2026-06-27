@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260626ag">
+  <link rel="stylesheet" href="styles.css?v=20260626ah">
 </head>
 <body>
 
@@ -196,36 +196,38 @@
       </div>
     </div>
 
-    <div style="padding: 0 1rem;">
+    <div style="padding:0.75rem 0.75rem 0;">
 
-    <div class="home-section-label">What would you like to do?</div>
+      <!-- Section labels -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.4rem;">
+        <div class="home-section-label" style="margin:0;">Solo</div>
+        <div class="home-section-label" style="margin:0;">Pairs &amp; Teams</div>
+      </div>
 
-    <!-- Two top-level mode cards -->
-    <div style="display:grid;gap:0.85rem;margin-bottom:1.5rem;">
+      <!-- Format grid: solo left, teams right -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
 
-      <button id="btn-single-game" class="mode-card">
-        <div class="mode-card-icon">⛳</div>
-        <div class="mode-card-body">
-          <div class="mode-card-title">Single Game</div>
-          <div class="mode-card-sub">One round · all formats</div>
-          <div class="mode-card-sub2">Solo · Pairs · Teams · Scramble</div>
+        <!-- SOLO column -->
+        <div style="display:grid;gap:0.5rem;">
+          <button class="fmt-btn" data-fmt="stableford">⭐ Stableford</button>
+          <button class="fmt-btn" data-fmt="stroke">📋 Stroke Play</button>
+          <button class="fmt-btn" data-fmt="match">⚔️ Match Play</button>
+          <button class="fmt-btn" data-fmt="skins">🏆 Skins</button>
+          <button class="fmt-btn" data-fmt="itc">🪑 In the Chair</button>
+          <button class="fmt-btn" data-fmt="split6">🎯 Split 6</button>
         </div>
-        <div class="mode-card-chevron">›</div>
-      </button>
 
-      <button id="btn-tournament-mode" class="mode-card">
-        <div class="mode-card-icon">🏆</div>
-        <div class="mode-card-body">
-          <div class="mode-card-title">Tournament</div>
-          <div class="mode-card-sub">Multi-round · cumulative standings</div>
-          <div class="mode-card-sub2">Same formats · tracks scores across rounds</div>
+        <!-- TEAMS column -->
+        <div style="display:grid;gap:0.5rem;">
+          <button class="fmt-btn" data-fmt="betterball">⛳ Better Ball</button>
+          <button class="fmt-btn" data-fmt="csm">📊 Combined Score</button>
+          <button class="fmt-btn" data-fmt="foursomes">🤝 Foursomes</button>
+          <button class="fmt-btn" data-fmt="greensomes">🤝 Greensomes</button>
+          <button class="fmt-btn" data-fmt="best2">🥇 Best 2</button>
+          <button class="fmt-btn" data-fmt="texas">🤠 Texas Scramble</button>
         </div>
-        <div class="mode-card-chevron">›</div>
-      </button>
 
-      
-    </div>
-
+      </div>
     </div>
   </div>
   
@@ -1506,7 +1508,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260626ag"></script>
+<script type="module" src="js/app.js?v=20260626ah"></script>
 
 
 <!-- ══════════════════════════════════════════
