@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260626y">
+  <link rel="stylesheet" href="styles.css?v=20260626z">
 </head>
 <body>
 
@@ -223,17 +223,7 @@
         <div class="mode-card-chevron">›</div>
       </button>
 
-      <!-- Ryder Cup — only visible to authorised user (gated in app.js) -->
-      <a id="btn-ryder-cup" href="/rc/rc.html" class="mode-card" style="display:none;text-decoration:none;">
-        <div class="mode-card-icon">🏅</div>
-        <div class="mode-card-body">
-          <div class="mode-card-title">Ryder Cup</div>
-          <div class="mode-card-sub">Team competition · Red vs Blue</div>
-          <div class="mode-card-sub2">Match play · sealed lineups · live scoring</div>
-        </div>
-        <div class="mode-card-chevron">›</div>
-      </a>
-
+      
     </div>
 
     </div>
@@ -680,21 +670,22 @@
     style="flex:1;overflow-y:auto;padding-bottom:0.5rem;">
 
     <div class="hole-hdr">
-      <div>
-        <div class="hole-lbl">Current Hole</div>
-        <div class="hole-num" id="game-hole-num">1</div>
+      <div class="hole-hdr-left">
+        <div class="hole-lbl">Hole</div>
+        <div class="hole-num-row">
+          <span class="hole-num" id="game-hole-num">1</span>
+          <span class="hole-si-inline" id="game-hole-si"></span>
+        </div>
+        <div id="game-hole-badges"></div>
       </div>
-      <div class="hole-si-info" id="game-hole-si"></div>
+      <div class="hole-hdr-actions">
+        <button class="btn-back-hole" id="btn-back-hole" disabled>← Back</button>
+        <button class="btn-record" id="btn-record-hole">RECORD →</button>
+      </div>
     </div>
 
     <!-- Player input rows -->
     <div id="game-inputs"></div>
-
-    <!-- Back / Record directly under inputs -->
-    <div class="hole-actions" style="margin-top:0.75rem;">
-      <button class="btn-back-hole" id="btn-back-hole" disabled>← Back</button>
-      <button class="btn-record" id="btn-record-hole">RECORD HOLE →</button>
-    </div>
 
     <!-- Finish early -->
     <button class="btn btn-outline hidden" id="btn-finish-early"
@@ -709,48 +700,43 @@
     flex-shrink:0;
     border-top:1px solid var(--border);
     background:var(--bg);
-    padding:0.5rem 0.75rem 0.35rem;">
+    padding:0.35rem 0.5rem 0.3rem;">
 
-    <!-- Row 1: Scorecard + Leaderboard (wide) -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.4rem;">
+    <!-- Single row: 4 compact icon+label buttons -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.3rem;">
       <button class="btn btn-outline" id="btn-game-scorecard"
-        style="padding:0.75rem;font-size:1.05rem;font-weight:800;
-               font-family:'Barlow Condensed',sans-serif;letter-spacing:0.04em;">
-        📋 Scorecard
+        style="padding:0.45rem 0.2rem;font-size:0.72rem;font-weight:800;
+               font-family:'Barlow Condensed',sans-serif;letter-spacing:0.02em;
+               display:flex;flex-direction:column;align-items:center;gap:0.1rem;line-height:1.1;">
+        <span style="font-size:1.1rem;">📋</span>Scorecard
       </button>
       <button class="btn btn-outline" id="btn-game-leaderboard"
-        style="padding:0.75rem;font-size:1.05rem;font-weight:800;
-               font-family:'Barlow Condensed',sans-serif;letter-spacing:0.04em;">
-        🏆 Leaderboard
+        style="padding:0.45rem 0.2rem;font-size:0.72rem;font-weight:800;
+               font-family:'Barlow Condensed',sans-serif;letter-spacing:0.02em;
+               display:flex;flex-direction:column;align-items:center;gap:0.1rem;line-height:1.1;">
+        <span style="font-size:1.1rem;">🏆</span>Leaderboard
       </button>
-    </div>
-
-    <!-- Row 2: Change Scorer (left) + Abandon (right) -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.4rem;">
       <button class="btn btn-outline" id="btn-pass-scorer"
-        style="padding:0.6rem;font-size:0.95rem;font-weight:800;
-               font-family:'Barlow Condensed',sans-serif;">
-        ↩ Change Scorer
+        style="padding:0.45rem 0.2rem;font-size:0.72rem;font-weight:800;
+               font-family:'Barlow Condensed',sans-serif;letter-spacing:0.02em;
+               display:flex;flex-direction:column;align-items:center;gap:0.1rem;line-height:1.1;">
+        <span style="font-size:1.1rem;">↩</span>Scorer
       </button>
       <button class="btn btn-outline" id="btn-game-abandon"
-        style="padding:0.6rem;font-size:0.95rem;font-weight:800;
-               font-family:'Barlow Condensed',sans-serif;">
-        🏠 Home
+        style="padding:0.45rem 0.2rem;font-size:0.72rem;font-weight:800;
+               font-family:'Barlow Condensed',sans-serif;letter-spacing:0.02em;
+               display:flex;flex-direction:column;align-items:center;gap:0.1rem;line-height:1.1;">
+        <span style="font-size:1.1rem;">🏠</span>Home
       </button>
     </div>
 
-    <!-- Row 2b: Resend Invites — organiser only, shown via JS -->
+    <!-- Resend Invites — organiser only, shown via JS -->
     <button class="btn btn-outline hidden" id="btn-resend-invites"
-      style="width:100%;padding:0.55rem;font-size:0.9rem;font-weight:800;
-             font-family:'Barlow Condensed',sans-serif;margin-bottom:0.4rem;
+      style="width:100%;padding:0.4rem;font-size:0.85rem;font-weight:800;
+             font-family:'Barlow Condensed',sans-serif;margin-top:0.3rem;
              border-color:var(--gold-border);color:var(--gold);">
       📩 Resend Invites
     </button>
-
-    <!-- Row 3: Full-width pencil logo -->
-    <div id="game-logo-mini"
-      style="width:100%;display:flex;align-items:center;justify-content:center;
-             padding:0.3rem 0;"></div>
 
   </div><!-- /game-bottom-bar -->
 
@@ -1520,7 +1506,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260626y"></script>
+<script type="module" src="js/app.js?v=20260626z"></script>
 
 
 <!-- ══════════════════════════════════════════
