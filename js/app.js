@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626aq';
+} from '../data.js?v=20260626ar';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626aq';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626aq';
+} from '../game.js?v=20260626ar';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ar';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626aq';
+} from '../tournament.js?v=20260626ar';
 
 // ================================================================
 // PLAYER COLOURS
@@ -4646,34 +4646,35 @@ function openAmendOverlay() {
     let scoresHtml = '';
     if (isPairs) {
       scoresHtml = `
-        <div style="display:flex;gap:1rem;margin-top:0.2rem;">
-          <span style="font-size:0.8rem;color:var(--muted);">
-            <span style="color:var(--gold);font-weight:700;">${names[0]?.split(' ')[0]??'A'}</span>
-            Net ${entry.bbA?.net ?? '–'}
+        <div style="display:flex;gap:1.5rem;margin-top:0.4rem;flex-wrap:wrap;">
+          <span style="font-size:1.4rem;color:var(--muted);font-weight:600;">
+            <span style="color:var(--gold);font-weight:800;">${names[0]?.split(' ')[0]??'A'}</span>
+            &nbsp;Net ${entry.bbA?.net ?? '–'}
           </span>
-          <span style="font-size:0.8rem;color:var(--muted);">
-            <span style="color:#5ba8d8;font-weight:700;">${names[2]?.split(' ')[0]??'B'}</span>
-            Net ${entry.bbB?.net ?? '–'}
+          <span style="font-size:1.4rem;color:var(--muted);font-weight:600;">
+            <span style="color:#5ba8d8;font-weight:800;">${names[2]?.split(' ')[0]??'B'}</span>
+            &nbsp;Net ${entry.bbB?.net ?? '–'}
           </span>
         </div>`;
     } else {
-      scoresHtml = `<div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.2rem;">
+      scoresHtml = `<div style="display:flex;gap:1.25rem;flex-wrap:wrap;margin-top:0.4rem;">
         ${names.map((n, pi) => `
-          <span style="font-size:0.8rem;color:var(--muted);">
-            <span style="font-weight:700;color:var(--white);">${n.split(' ')[0]}</span>
-            ${entry.grosses?.[pi] ?? '–'}
+          <span style="font-size:1.4rem;color:var(--muted);font-weight:600;">
+            <span style="font-weight:800;color:var(--white);">${n.split(' ')[0]}</span>
+            &nbsp;${entry.grosses?.[pi] ?? '–'}
           </span>`).join('')}
       </div>`;
     }
 
     return `
-      <div style="border:1px solid var(--border);border-radius:10px;padding:0.75rem;
-                  margin-bottom:0.5rem;cursor:pointer;background:var(--surface);"
+      <div style="border:1px solid var(--border);border-radius:12px;padding:1rem;
+                  margin-bottom:0.65rem;cursor:pointer;background:var(--surface);
+                  -webkit-tap-highlight-color:rgba(0,0,0,0);"
            onclick="startAmendFromHole(${hi})">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:2rem;
                        font-weight:800;color:var(--white);">Hole ${holeNum}</span>
-          <span style="font-size:0.75rem;color:var(--muted);font-weight:600;">
+          <span style="font-size:1.2rem;color:var(--muted);font-weight:700;letter-spacing:0.04em;">
             Par ${parH} · SI ${siH}
           </span>
         </div>
@@ -4689,6 +4690,7 @@ function closeAmendOverlay() {
   if (overlay) overlay.style.display = 'none';
 }
 
+window.startAmendFromHole = startAmendFromHole; // expose for inline onclick in dynamic HTML
 function startAmendFromHole(holeIdx) {
   closeAmendOverlay();
   _amendOriginalHole = gameState.log.length;
