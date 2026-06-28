@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626ax';
+} from '../data.js?v=20260626ay';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626ax';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ax';
+} from '../game.js?v=20260626ay';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ay';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626ax';
+} from '../tournament.js?v=20260626ay';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3463,8 +3463,8 @@ function renderMatchBar() {
   };
 
   if (ms === 0) {
-    setA('A/S', 'var(--green)');
-    setB('A/S', 'var(--green)');
+    setA('A/S', 'var(--gold)');
+    setB('A/S', 'var(--gold)');
   } else if (ms > 0) {
     setA(up, 'var(--gold)');
     setLabel(labelElA, dormie ? `&${holesLeft}` : 'UP', 'var(--gold)');
