@@ -954,6 +954,25 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
   background: var(--surface);
 }
 
+/* Match bar always dark — readable in both light and dark mode */
+#game-match-bar {
+  background: #1f4028;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+#game-match-bar .total-cell {
+  background: transparent;
+  border-right-color: rgba(255,255,255,0.12);
+}
+#game-match-bar .tc-name {
+  color: rgba(255,255,255,0.75);
+}
+#game-match-bar .tc-pts,
+#game-match-bar #mb-label-a,
+#game-match-bar #mb-label-b {
+  color: #fff;
+}
+
 .totals-bar {
   display: grid;
   border-radius: var(--radius-sm);
