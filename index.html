@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260626ao">
+  <link rel="stylesheet" href="styles.css?v=20260626aq">
 </head>
 <body>
 
@@ -682,9 +682,9 @@
     <!-- Player input rows -->
     <div id="game-inputs"></div>
 
-    <!-- Back / Record directly under inputs -->
+    <!-- Amend / Record -->
     <div class="hole-actions" style="margin-top:0.75rem;">
-      <button class="btn-back-hole" id="btn-back-hole" disabled>← Back</button>
+      <button class="btn-back-hole" id="btn-amend-scores" disabled>✏️ Amend</button>
       <button class="btn-record" id="btn-record-hole">RECORD HOLE →</button>
     </div>
 
@@ -740,6 +740,25 @@
     </button>
 
   </div><!-- /game-bottom-bar -->
+
+  <!-- ══ AMEND SCORECARD OVERLAY ══ -->
+  <div id="amend-overlay" style="display:none;position:fixed;inset:0;z-index:800;
+       background:var(--bg);overflow-y:auto;padding:0 0 2rem;">
+    <div style="background:var(--surface);padding:1rem 1.25rem 0.75rem;
+                border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.25rem;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;
+                    font-weight:800;color:var(--white);">✏️ Amend Scorecard</div>
+        <button id="btn-amend-cancel" style="background:none;border:1px solid var(--border);
+                border-radius:8px;color:var(--muted);font-size:0.85rem;font-weight:700;
+                padding:0.35rem 0.75rem;cursor:pointer;">Cancel</button>
+      </div>
+      <div style="font-size:0.8rem;color:var(--muted);font-weight:600;">
+        Tap the hole you want to correct
+      </div>
+    </div>
+    <div id="amend-hole-list" style="padding:0.5rem 1rem;"></div>
+  </div>
 
 </div><!-- /screen-game -->
 
@@ -1508,7 +1527,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260626ao"></script>
+<script type="module" src="js/app.js?v=20260626aq"></script>
 
 
 <!-- ══════════════════════════════════════════

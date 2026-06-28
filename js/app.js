@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626ao';
+} from '../data.js?v=20260626aq';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626ao';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ao';
+} from '../game.js?v=20260626aq';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626aq';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626ao';
+} from '../tournament.js?v=20260626aq';
 
 // ================================================================
 // PLAYER COLOURS
@@ -123,8 +123,32 @@ async function _pushToSupabase(rec) {
 }
 
 // The 30-second sync tick
+// Ping Supabase with a strict 2-second timeout.
+// Only returns true if the server responds fast enough to trust a full sync.
+async function _pingSupabase() {
+  if (!navigator.onLine) return false;
+  try {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 2000); // 2s hard cutoff
+    const t0    = Date.now();
+    await fetch('https://fzknjqjnwnfuyfjrgacf.supabase.co/rest/v1/', {
+      method: 'HEAD',
+      signal: ctrl.signal,
+      cache:  'no-store',
+    });
+    clearTimeout(timer);
+    console.log(`[sync] ping OK in ${Date.now() - t0}ms`);
+    return true;
+  } catch {
+    console.log('[sync] ping failed or timed out — skipping sync');
+    return false;
+  }
+}
+
 async function _syncTick() {
   if (_syncInFlight) return;
+  const reachable = await _pingSupabase();
+  if (!reachable) return; // silent skip — try again next tick
   _syncInFlight = true;
   try {
     const dirty = await idbGetDirty();
@@ -3279,7 +3303,8 @@ function enterGameScreen() {
   renderHolePanel();
   document.getElementById('scorecard-overlay')?.classList.remove('open');
   subscribeChallenges();
-  startSyncLoop(); // begin 30-second Supabase sync
+  startSyncLoop();
+  updateAmendBtn();
 }
 
 function renderGameTopBar() {
@@ -3528,7 +3553,7 @@ function renderHolePanel() {
   document.getElementById('game-hole-si').innerHTML =
     `<span class="si-big">SI ${si} · Par ${par}</span>${badgeHtml ? `<div style="margin-top:0.4rem;">${badgeHtml}</div>` : ''}`;
 
-  const backBtn = document.getElementById('btn-back-hole');
+  const backBtn = document.getElementById('btn-amend-scores');
   if (backBtn) backBtn.disabled = h === 0;
 
   // scorerProfileId === undefined  → legacy round, fall back to organiser check
@@ -3550,7 +3575,7 @@ function renderHolePanel() {
   inputsEl.innerHTML = '';
 
   const recordBtn  = document.getElementById('btn-record-hole');
-  const backHoleBtn = document.getElementById('btn-back-hole');
+  const backHoleBtn = document.getElementById('btn-amend-scores');
 
   if (recordBtn) {
     const isPast = h < (gameState.log?.length ?? 0);
@@ -4593,6 +4618,113 @@ function setScoreValue(pi, h, par, value, isPickup) {
 // ----------------------------------------------------------------
 // RECORD HOLE
 // ----------------------------------------------------------------
+// ================================================================
+// AMEND SCORECARD
+// ================================================================
+let _amendMode         = false;
+let _amendFromHole     = null;
+let _amendOriginalHole = null;
+
+function openAmendOverlay() {
+  if (!gameState?.log?.length) return;
+  const overlay = document.getElementById('amend-overlay');
+  const listEl  = document.getElementById('amend-hole-list');
+  if (!overlay || !listEl) return;
+
+  const log    = gameState.log;
+  const par    = gameState.par  ?? [];
+  const si     = gameState.si   ?? [];
+  const names  = gameState.names ?? [];
+  const offset = gameState.holeOffset ?? 0;
+  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(gameState.format);
+
+  listEl.innerHTML = log.map((entry, hi) => {
+    const holeNum = offset + hi + 1;
+    const parH = par[hi] ?? '–';
+    const siH  = si[hi]  ?? '–';
+
+    let scoresHtml = '';
+    if (isPairs) {
+      scoresHtml = `
+        <div style="display:flex;gap:1rem;margin-top:0.2rem;">
+          <span style="font-size:0.8rem;color:var(--muted);">
+            <span style="color:var(--gold);font-weight:700;">${names[0]?.split(' ')[0]??'A'}</span>
+            Net ${entry.bbA?.net ?? '–'}
+          </span>
+          <span style="font-size:0.8rem;color:var(--muted);">
+            <span style="color:#5ba8d8;font-weight:700;">${names[2]?.split(' ')[0]??'B'}</span>
+            Net ${entry.bbB?.net ?? '–'}
+          </span>
+        </div>`;
+    } else {
+      scoresHtml = `<div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.2rem;">
+        ${names.map((n, pi) => `
+          <span style="font-size:0.8rem;color:var(--muted);">
+            <span style="font-weight:700;color:var(--white);">${n.split(' ')[0]}</span>
+            ${entry.grosses?.[pi] ?? '–'}
+          </span>`).join('')}
+      </div>`;
+    }
+
+    return `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:0.75rem;
+                  margin-bottom:0.5rem;cursor:pointer;background:var(--surface);"
+           onclick="startAmendFromHole(${hi})">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;
+                       font-weight:800;color:var(--white);">Hole ${holeNum}</span>
+          <span style="font-size:0.75rem;color:var(--muted);font-weight:600;">
+            Par ${parH} · SI ${siH}
+          </span>
+        </div>
+        ${scoresHtml}
+      </div>`;
+  }).join('');
+
+  overlay.style.display = 'block';
+}
+
+function closeAmendOverlay() {
+  const overlay = document.getElementById('amend-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function startAmendFromHole(holeIdx) {
+  closeAmendOverlay();
+  _amendOriginalHole = gameState.log.length;
+  _amendFromHole     = holeIdx;
+  _amendMode         = true;
+  gameState.hole     = holeIdx;
+
+  // Amber record button
+  const recBtn = document.getElementById('btn-record-hole');
+  if (recBtn) { recBtn.textContent = 'CONFIRM HOLE →'; recBtn.style.background = '#b45309'; }
+
+  // Banner
+  document.getElementById('amend-banner')?.remove();
+  const banner = document.createElement('div');
+  banner.id = 'amend-banner';
+  Object.assign(banner.style, {background:'#b45309',color:'#fff',padding:'0.5rem 1rem',fontFamily:'Barlow Condensed,sans-serif',fontSize:'0.9rem',fontWeight:'800',letterSpacing:'0.04em',textAlign:'center'});
+  banner.textContent = `✏️ AMEND MODE — Hole ${(gameState.holeOffset??0)+holeIdx+1} of ${gameState.log.length} · Confirm each hole to recalculate`;
+  document.getElementById('screen-game')?.prepend(banner);
+
+  renderScoreHeader();
+  renderHolePanel();
+}
+
+function exitAmendMode() {
+  _amendMode = false; _amendFromHole = null; _amendOriginalHole = null;
+  const recBtn = document.getElementById('btn-record-hole');
+  if (recBtn) { recBtn.textContent = 'RECORD HOLE →'; recBtn.style.background = ''; }
+  document.getElementById('amend-banner')?.remove();
+  updateAmendBtn();
+  renderScoreHeader();
+  renderHolePanel();
+}
+
+document.getElementById('btn-amend-scores')?.addEventListener('click', openAmendOverlay);
+document.getElementById('btn-amend-cancel')?.addEventListener('click', closeAmendOverlay);
+
 document.getElementById('btn-record-hole')?.addEventListener('click', async () => {
   const btn = document.getElementById('btn-record-hole');
   if (btn?.disabled) return; // prevent double-tap
@@ -4635,13 +4767,13 @@ async function recordHole() {
     }
   }
 
-  const prevGroupStates = gameState.allGroupStates;
-  const isEditingPast = h < (gameState.log?.length ?? 0);
+  const prevGroupStates  = gameState.allGroupStates;
+  const totalPlayedHoles = gameState.log?.length ?? 0;
+  const isEditingPast    = h < totalPlayedHoles;
 
   if (isEditingPast) {
-    // Re-recording a hole we'd gone back to — edit in place and recalc
     gameState = editHole(gameState, h, grosses);
-    gameState.hole = h + 1; // move forward to the next hole
+    gameState.hole = h + 1;
   } else {
     gameState = processHole(gameState, grosses);
   }
@@ -4651,6 +4783,27 @@ async function recordHole() {
     gameState.allGroupStates[0] = gameState;
   }
   flashHoleResult(h);
+
+  // ── AMEND MODE: advance through remaining played holes or exit ──
+  if (_amendMode) {
+    const nextHole   = h + 1;
+    const lastPlayed = (gameState.log?.length ?? 0) - 1;
+    if (nextHole <= lastPlayed) {
+      gameState.hole = nextHole;
+      const offset = gameState.holeOffset ?? 0;
+      const banner = document.getElementById('amend-banner');
+      if (banner) banner.textContent =
+        `✏️ AMEND MODE — Hole ${offset+nextHole+1} of ${gameState.log.length} · Confirm each hole to recalculate`;
+      const snap = _buildStateToSave();
+      if (snap) idbSave(roundId, snap, true).then(() => _syncTick()).catch(() => {});
+      renderScoreHeader(); renderHolePanel();
+      return;
+    } else {
+      gameState.hole = _amendOriginalHole ?? gameState.log.length;
+      exitAmendMode();
+      updateAmendBtn();
+    }
+  }
 
   // ── LOCAL-FIRST: write to IndexedDB immediately, never block the UI ──
   const stateSnap = _buildStateToSave();
@@ -4681,11 +4834,12 @@ async function recordHole() {
   renderHolePanel();
 }
 
-document.getElementById('btn-back-hole')?.addEventListener('click', () => {
-  if (gameState.hole <= 0) return;
-  gameState.hole -= 1;
-  renderScoreHeader(); renderHolePanel();
-});
+// Amend button — enabled once at least one hole is played
+function updateAmendBtn() {
+  const btn = document.getElementById('btn-amend-scores');
+  if (!btn) return;
+  btn.disabled = !(gameState?.log?.length > 0);
+}
 
 document.getElementById('btn-finish-early')?.addEventListener('click', () => showEndRound());
 document.getElementById('btn-game-abandon')?.addEventListener('click', async () => {
