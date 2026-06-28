@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626au';
+} from '../data.js?v=20260626av';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626au';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626au';
+} from '../game.js?v=20260626av';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626av';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626au';
+} from '../tournament.js?v=20260626av';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3419,12 +3419,14 @@ function renderTotalsBar() {
 }
 
 function renderMatchBar() {
-  const bar = document.getElementById('game-match-bar');
-  const fmt = gameState.format;
-  const ms  = gameState.matchScore ?? 0;
-  const played   = gameState.log?.length ?? 0;
-  const total    = gameState.numHoles ?? 18;
+  const bar       = document.getElementById('game-match-bar');
+  const fmt       = gameState.format;
+  const ms        = gameState.matchScore ?? 0;
+  const played    = gameState.log?.length ?? 0;
+  const total     = gameState.numHoles ?? 18;
   const holesLeft = total - played;
+  const up        = Math.abs(ms);
+  const dormie    = up > holesLeft;
 
   const isPairs = ['betterball','csm','foursomes','greensomes'].includes(fmt);
   const nameA = isPairs
@@ -3434,23 +3436,41 @@ function renderMatchBar() {
     ? `${(gameState.names[2]??'').split(' ')[0]} & ${(gameState.names[3]??'').split(' ')[0]}`
     : (gameState.names[1]??'').split(' ')[0];
 
-  document.getElementById('mb-names-a').textContent = nameA;
-  document.getElementById('mb-names-b').textContent = nameB;
+  // Names with coloured dots
+  const dotA = `<span class="dot" style="background:${pHex(0)};flex-shrink:0;"></span>`;
+  const dotB = `<span class="dot" style="background:${pHex(isPairs?2:1)};flex-shrink:0;"></span>`;
+  document.getElementById('mb-names-a').innerHTML = dotA + nameA;
+  document.getElementById('mb-names-b').innerHTML = nameB + dotB;
 
-  const up = Math.abs(ms);
-  document.getElementById('mb-score-a').textContent = ms > 0 ? up : '';
-  document.getElementById('mb-score-b').textContent = ms < 0 ? up : '';
+  const scoreElA = document.getElementById('mb-score-a');
+  const labelElA = document.getElementById('mb-label-a');
+  const scoreElB = document.getElementById('mb-score-b');
+  const labelElB = document.getElementById('mb-label-b');
 
-  const statusEl = document.getElementById('mb-status');
   if (ms === 0) {
-    statusEl.textContent = 'ALL SQ';
-    statusEl.className   = 'mb-status all-sq';
+    // All square — both sides show A/S
+    scoreElA.textContent = 'A/S';  scoreElA.style.color = 'var(--green)';
+    labelElA.textContent = '';
+    scoreElB.textContent = 'A/S';  scoreElB.style.color = 'var(--green)';
+    labelElB.textContent = '';
+  } else if (ms > 0) {
+    // A leading
+    scoreElA.textContent = up;     scoreElA.style.color = 'var(--gold)';
+    labelElA.textContent = dormie ? `&${holesLeft}` : 'UP';
+    labelElA.style.color = 'var(--gold)';
+    scoreElB.textContent = up;     scoreElB.style.color = 'var(--muted2)';
+    labelElB.textContent = dormie ? `&${holesLeft}` : 'DOWN';
+    labelElB.style.color = 'var(--muted2)';
   } else {
-    const ldr = ms > 0 ? nameA : nameB;
-    statusEl.textContent = up > holesLeft ? `${up}&${holesLeft}` : `${up} UP`;
-    statusEl.className   = `mb-status ${ms > 0 ? 'lead-a' : 'lead-b'}`;
+    // B leading
+    scoreElA.textContent = up;     scoreElA.style.color = 'var(--muted2)';
+    labelElA.textContent = dormie ? `&${holesLeft}` : 'DOWN';
+    labelElA.style.color = 'var(--muted2)';
+    scoreElB.textContent = up;     scoreElB.style.color = 'var(--p1)';
+    labelElB.textContent = dormie ? `&${holesLeft}` : 'UP';
+    labelElB.style.color = 'var(--p1)';
   }
-  document.getElementById('mb-holes-left').textContent = `${holesLeft} to play`;
+
   bar.classList.remove('hidden');
 }
 
