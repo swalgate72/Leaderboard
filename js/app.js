@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626ay';
+} from '../data.js?v=20260626ba';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626ay';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ay';
+} from '../game.js?v=20260626ba';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ba';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626ay';
+} from '../tournament.js?v=20260626ba';
 
 // ================================================================
 // PLAYER COLOURS
@@ -352,6 +352,13 @@ async function tryRestoreSetupState() {
       }
       showScreen('screen-setup-course');
     } else if (saved.screen === 'screen-setup-players') {
+      // Ensure setup.players is a proper array with correct length before rendering
+      if (!Array.isArray(setup.players) || setup.players.length < (setup.numPlayers ?? 1)) {
+        const needed = setup.numPlayers ?? 1;
+        setup.players = Array.from({ length: needed }, (_, i) =>
+          setup.players?.[i] ?? { name: '', hcpIndex: 0, courseHandicap: null, groupNumber: 1, profileId: null, isScorer: false }
+        );
+      }
       renderSetupPlayerList();
       showScreen('screen-setup-players');
     } else if (saved.screen === 'screen-setup-groups') {
@@ -871,10 +878,8 @@ async function loadHomeStatsAndActive(myName) {
       });
       draftEl.querySelector('.home-active-row')?.addEventListener('click', (e) => {
         if (e.target.id === 'btn-dismiss-draft') return;
-        tryRestoreSetupState().then(ok => {
-          // On failure, leave draft intact so Active Games can still show it
-          if (!ok) showHome();
-        });
+        // Open Active Games modal — it has robust restore logic for all formats
+        document.getElementById('btn-home-active-games')?.click();
       });
     } else {
       draftEl.style.display = 'none';
@@ -6309,9 +6314,9 @@ async function renderActiveGamesList() {
         const su         = savedDraft.setup ?? {};
         const course     = su.courseId ? allCourses.find(c => c.id === su.courseId) : null;
         const courseName = course?.name ?? savedDraft.courseName ?? 'Course not set';
-        const fmt        = su.scoring ?? savedDraft.scoring ?? null;
+        const fmt        = su.scoring ?? savedDraft.scoring ?? setup.scoring ?? null;
         const players    = savedDraft.players
-          ?? (su.players ?? []).filter(p => p?.name).map(p => p.name);
+          ?? (Array.isArray(su.players) ? su.players : []).filter(p => p?.name).map(p => p.name);
         const screenLabels = {
           'screen-setup-course':  'Step 1 — Choose course',
           'screen-setup-players': 'Step 2 — Add players',
