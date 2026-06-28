@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626bb';
+} from '../data.js?v=20260626bc';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626bb';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bb';
+} from '../game.js?v=20260626bc';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bc';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626bb';
+} from '../tournament.js?v=20260626bc';
 
 // ================================================================
 // PLAYER COLOURS
@@ -492,9 +492,9 @@ function holeRange(holes) {
 function fmtLabel(fmt) { return FORMAT_LABELS[fmt] ?? fmt; }
 function shortName(fullName) {
   if (!fullName) return '';
-  const parts = fullName.trim().split(/\s+/);
+  const parts = fullName.trim().split(' ').filter(Boolean);
   if (parts.length === 1) return parts[0];
-  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}`;
+  return parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase();
 }
 
 function applyTheme(t) {
@@ -3394,8 +3394,8 @@ function renderTotalsBar() {
     const label = fmt === 'stroke' ? 'shots' : 'pts';
     // Full first name for 1-2 players, first name only (truncated) for 3-4
     const displayName = n <= 2
-      ? nm.split(' ')[0]
-      : nm.split(' ')[0].slice(0, 8);
+      ? shortName(nm)
+      : shortName(nm).slice(0, 10);
 
     let rawLabel = '';
     if (fmt === 'split6' && gameState.log?.length > 0) {
@@ -3436,10 +3436,10 @@ function renderMatchBar() {
 
   const isPairs = ['betterball','csm','foursomes','greensomes'].includes(fmt);
   const nameA = isPairs
-    ? `${gameState.names[0].split(' ')[0]} & ${gameState.names[1].split(' ')[0]}`
+    ? `${shortName(gameState.names[0])} & ${shortName(gameState.names[1])}`
     : gameState.names[0].split(' ')[0];
   const nameB = isPairs
-    ? `${(gameState.names[2]??'').split(' ')[0]} & ${(gameState.names[3]??'').split(' ')[0]}`
+    ? `${shortName(gameState.names[2]??'')} & ${shortName(gameState.names[3]??'')}`
     : (gameState.names[1]??'').split(' ')[0];
 
   // Names with coloured dots
@@ -3496,7 +3496,7 @@ function renderSkinsBar() {
     return `
     <div class="total-cell">
       <div class="tc-name" style="font-size:${nameFontSize};">
-        <span class="dot" style="background:${pHex(i)};"></span>${nm.split(' ')[0].toUpperCase()}
+        <span class="dot" style="background:${pHex(i)};"></span>${shortName(nm).toUpperCase()}
       </div>
       <div style="display:flex;align-items:baseline;justify-content:center;gap:3px;">
         <div class="tc-pts" style="color:#fff;">${sk}</div>
@@ -3531,7 +3531,7 @@ function renderITCBar() {
       return `
         <div class="total-cell${inChair ? ' itc-in-chair' : ''}">
           <div class="tc-name">
-            <span class="dot" style="background:${pHex(i)};"></span>${nm.split(' ')[0].toUpperCase()}
+            <span class="dot" style="background:${pHex(i)};"></span>${shortName(nm).toUpperCase()}
           </div>
           <div class="tc-pts" style="color:${col};">${standing}</div>
           ${inChair ? `<div style="font-size:0.75rem;color:var(--gold);font-weight:700;margin-top:2px;">🪑 Chair</div>` : ''}
@@ -3550,7 +3550,7 @@ function renderITCBar() {
       return `
         <div class="total-cell${inChair ? ' itc-in-chair' : ''}">
           <div class="tc-name" style="font-size:${nameFontSize2};">
-            <span class="dot" style="background:${pHex(i)};"></span>${nm.split(' ')[0].toUpperCase()}
+            <span class="dot" style="background:${pHex(i)};"></span>${shortName(nm).toUpperCase()}
           </div>
           <div class="tc-pts" style="color:${col};">${gapStr}</div>
           ${inChair ? `<div style="font-size:0.75rem;color:var(--gold);font-weight:700;margin-top:2px;">🪑 Chair</div>` : ''}
@@ -3842,8 +3842,8 @@ function renderHolePanel() {
     const played    = gameState.log?.length ?? 0;
     const holesLeft = (gameState.numHoles ?? 18) - played;
     const up        = Math.abs(ms);
-    const nameA     = `${gameState.names[0]?.split(' ')[0] ?? ''} & ${gameState.names[1]?.split(' ')[0] ?? ''}`;
-    const nameB     = `${gameState.names[2]?.split(' ')[0] ?? ''} & ${gameState.names[3]?.split(' ')[0] ?? ''}`;
+    const nameA     = `${shortName(gameState.names[0]??'')} & ${shortName(gameState.names[1]??'')}`;
+    const nameB     = `${shortName(gameState.names[2]??'')} & ${shortName(gameState.names[3]??'')}`;
 
     [[[0,1], nameA, ms], [[2,3], nameB, -ms]].forEach(([pis, teamName, teamMs]) => {
       // Bold team name + status above each pair's players
@@ -4521,7 +4521,7 @@ function openPairScorePicker(label, h, par, anchorPi) {
   const current = cvEl?.dataset.value;
 
   const p0 = label === 'A' ? 0 : 2, p1 = label === 'A' ? 1 : 3;
-  const pairNames = `${gameState.names[p0]?.split(' ')[0] ?? ''} & ${gameState.names[p1]?.split(' ')[0] ?? ''}`;
+  const pairNames = `${shortName(gameState.names[p0]??'')} & ${shortName(gameState.names[p1]??'')}`;
 
   document.getElementById('sp-player-name').textContent = `Pair ${label} — ${pairNames}`;
   document.getElementById('sp-context').textContent = `Hole ${h + 1} · Par ${par}`;
@@ -4689,11 +4689,11 @@ function openAmendOverlay() {
       scoresHtml = `
         <div style="display:flex;gap:1.5rem;margin-top:0.4rem;flex-wrap:wrap;">
           <span style="font-size:1.4rem;color:var(--muted);font-weight:600;">
-            <span style="color:var(--gold);font-weight:800;">${names[0]?.split(' ')[0]??'A'}</span>
+            <span style="color:var(--gold);font-weight:800;">${shortName(names[0]??'A')}</span>
             &nbsp;Net ${entry.bbA?.net ?? '–'}
           </span>
           <span style="font-size:1.4rem;color:var(--muted);font-weight:600;">
-            <span style="color:#5ba8d8;font-weight:800;">${names[2]?.split(' ')[0]??'B'}</span>
+            <span style="color:#5ba8d8;font-weight:800;">${shortName(names[2]??'B')}</span>
             &nbsp;Net ${entry.bbB?.net ?? '–'}
           </span>
         </div>`;
@@ -4727,8 +4727,8 @@ function openAmendOverlay() {
       const li    = pts2.indexOf(maxP);
       const txt   = maxP === 0 ? 'All Square'
         : names.length === 2
-          ? (() => { const d=pts2[0]-pts2[1]; return d===0?'All Square':d>0?`${names[0].split(' ')[0]} ${Math.abs(d)} UP`:`${names[1].split(' ')[0]} ${Math.abs(d)} UP`; })()
-          : `${names[li]?.split(' ')[0]} leads`;
+          ? (() => { const d=pts2[0]-pts2[1]; return d===0?'All Square':d>0?`${shortName(names[0])} ${Math.abs(d)} UP`:`${shortName(names[1])} ${Math.abs(d)} UP`; })()
+          : `${shortName(names[li]??'')} leads`;
       standingHtml = `<div style="font-size:1.1rem;font-weight:800;color:var(--gold);margin-top:0.35rem;">${txt}</div>`;
     } else if (entry.totalsAfter) {
       // Points / stroke formats — show each player's running total
@@ -5172,10 +5172,10 @@ function buildMatchLeaderboard(state) {
   const total   = state.numHoles ?? 18;
 
   const nameA = isPairs
-    ? `${state.names[0]?.split(' ')[0] ?? ''} & ${state.names[1]?.split(' ')[0] ?? ''}`
+    ? `${shortName(state.names[0]??'')} & ${shortName(state.names[1]??'')}`
     : (state.names[0] ?? 'Player 1');
   const nameB = isPairs
-    ? `${state.names[2]?.split(' ')[0] ?? ''} & ${state.names[3]?.split(' ')[0] ?? ''}`
+    ? `${shortName(state.names[2]??'')} & ${shortName(state.names[3]??'')}`
     : (state.names[1] ?? 'Player 2');
 
   // Show/hide names row in the HTML shell
@@ -5362,10 +5362,10 @@ function flashHoleResult(holeIdx) {
     const holeResult = entry.result ?? 0;        // THIS hole: +1 A wins, -1 B wins, 0 halved
     const isPairsF   = ['betterball','csm','foursomes','greensomes'].includes(fmt);
     const nameA = isPairsF
-      ? `${gameState.names[0].split(' ')[0]} & ${gameState.names[1].split(' ')[0]}`
+      ? `${shortName(gameState.names[0])} & ${shortName(gameState.names[1])}`
       : gameState.names[0].split(' ')[0];
     const nameB = isPairsF
-      ? `${(gameState.names[2]??'').split(' ')[0]} & ${(gameState.names[3]??'').split(' ')[0]}`
+      ? `${shortName(gameState.names[2]??'')} & ${shortName(gameState.names[3]??'')}`
       : (gameState.names[1]??'').split(' ')[0];
 
     // Line 1: what happened on THIS hole
@@ -5406,10 +5406,10 @@ function flashHoleResult(holeIdx) {
 
     // Hole result
     if (entry.pointScoredBy !== null && entry.pointScoredBy !== undefined) {
-      msg = `<span style="color:${pHex(entry.pointScoredBy)};font-weight:700;">${gameState.names[entry.pointScoredBy]} scores! 🪑 +1</span>`;
+      msg = `<span style="color:${pHex(entry.pointScoredBy)};font-weight:700;">${shortName(gameState.names[entry.pointScoredBy])} scores! 🪑 +1</span>`;
       bg = 'rgba(212,168,67,0.07)'; border = 'rgba(212,168,67,0.25)';
     } else if (entry.newChair !== null && entry.newChair !== undefined) {
-      msg = `<span style="color:${pHex(entry.newChair)};font-weight:700;">${gameState.names[entry.newChair]} takes the chair 🪑</span>`;
+      msg = `<span style="color:${pHex(entry.newChair)};font-weight:700;">${shortName(gameState.names[entry.newChair])} takes the chair 🪑</span>`;
     } else {
       msg = `<span style="color:var(--green);font-weight:700;">Halved — chair empty</span>`;
     }
