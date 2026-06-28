@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626aj';
+} from '../data.js?v=20260626ao';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626aj';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626aj';
+} from '../game.js?v=20260626ao';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ao';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626aj';
+} from '../tournament.js?v=20260626ao';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3443,18 +3443,54 @@ function renderSkinsBar() {
 }
 
 function renderITCBar() {
-  const bar = document.getElementById('game-itc-bar');
-  bar.innerHTML = gameState.names.map((nm, i) => {
-    const inChair = gameState.chair === i;
-    return `
-      <div class="itc-cell${inChair ? ' in-chair' : ''}">
-        <div class="itc-pname" style="color:#fff;">
-          <span class="dot" style="background:${pHex(i)};display:inline-block;margin-right:3px;"></span>${nm.split(' ')[0].toUpperCase()}
-        </div>
-        <div class="itc-pts" style="color:#fff;">${gameState.pts?.[i] ?? 0}</div>
-        ${inChair ? `<div class="itc-chair-badge">🪑 Chair</div>` : ''}
-      </div>`;
-  }).join('');
+  const bar     = document.getElementById('game-itc-bar');
+  const pts     = gameState.pts ?? [];
+  const names   = gameState.names ?? [];
+  const nPlayers = names.length;
+  const maxPts  = Math.max(...pts);
+  const holesLeft = (gameState.numHoles ?? 18) - (gameState.log?.length ?? 0);
+
+  if (nPlayers === 2) {
+    // 2-player ITC — show exactly like matchplay: 1 UP / 1 DOWN / A/S
+    const diff = pts[0] - pts[1]; // +ve = player 0 leading
+    const up   = Math.abs(diff);
+    bar.innerHTML = names.map((nm, i) => {
+      const inChair = gameState.chair === i;
+      let standing;
+      if (diff === 0)      standing = 'A/S';
+      else if (i === 0)    standing = diff > 0 ? `${up} UP`   : `${up} DOWN`;
+      else                 standing = diff < 0 ? `${up} UP`   : `${up} DOWN`;
+      const isLeading = (i === 0 && diff > 0) || (i === 1 && diff < 0);
+      const col = diff === 0 ? 'var(--muted2)' : isLeading ? 'var(--gold)' : 'var(--muted2)';
+      return `
+        <div class="itc-cell${inChair ? ' in-chair' : ''}">
+          <div class="itc-pname" style="color:#fff;">
+            <span class="dot" style="background:${pHex(i)};display:inline-block;margin-right:3px;"></span>${nm.split(' ')[0].toUpperCase()}
+          </div>
+          <div class="itc-pts" style="color:${col};font-size:1.4rem;font-weight:800;">${standing}</div>
+          ${inChair ? `<div class="itc-chair-badge">🪑 Chair</div>` : ''}
+        </div>`;
+    }).join('');
+  } else {
+    // 3-4 player ITC — show relative to leader (+0, -1, -2 etc)
+    bar.innerHTML = names.map((nm, i) => {
+      const inChair = gameState.chair === i;
+      const gap     = pts[i] - maxPts; // 0 for leader, negative for others
+      const isLead  = gap === 0 && maxPts > 0;
+      const gapStr  = gap === 0
+        ? (maxPts === 0 ? 'A/S' : 'LEADS')
+        : `${gap}`; // shows as -1, -2 etc
+      const col = isLead ? 'var(--gold)' : gap === 0 ? 'var(--muted2)' : 'var(--muted2)';
+      return `
+        <div class="itc-cell${inChair ? ' in-chair' : ''}">
+          <div class="itc-pname" style="color:#fff;">
+            <span class="dot" style="background:${pHex(i)};display:inline-block;margin-right:3px;"></span>${nm.split(' ')[0].toUpperCase()}
+          </div>
+          <div class="itc-pts" style="color:${col};font-size:1.3rem;font-weight:800;">${gapStr}</div>
+          ${inChair ? `<div class="itc-chair-badge">🪑 Chair</div>` : ''}
+        </div>`;
+    }).join('');
+  }
   bar.classList.remove('hidden');
 }
 
@@ -5135,14 +5171,32 @@ function flashHoleResult(holeIdx) {
       bg = 'rgba(212,168,67,0.07)'; border = 'rgba(212,168,67,0.25)';
     }
   } else if (fmt === 'itc') {
-    if (entry.pointScoredBy !== null) {
-      msg = `<span style="color:${pHex(entry.pointScoredBy)};font-weight:600;">${gameState.names[entry.pointScoredBy]} scores! 🪑 +1</span><span style="font-size:0.68rem;color:var(--muted);display:block;margin-top:2px;">Defended the chair</span>`;
+    const itcPts   = gameState.pts ?? [];
+    const itcN     = gameState.names.length;
+    const itcMax   = Math.max(...itcPts);
+
+    // Hole result
+    if (entry.pointScoredBy !== null && entry.pointScoredBy !== undefined) {
+      msg = `<span style="color:${pHex(entry.pointScoredBy)};font-weight:700;">${gameState.names[entry.pointScoredBy]} scores! 🪑 +1</span>`;
       bg = 'rgba(212,168,67,0.07)'; border = 'rgba(212,168,67,0.25)';
-    } else if (entry.newChair !== null) {
-      msg = `<span style="color:${pHex(entry.newChair)};font-weight:600;">${gameState.names[entry.newChair]} takes the chair 🪑</span><span style="font-size:0.68rem;color:var(--muted);display:block;margin-top:2px;">Win again to score</span>`;
-      bg = 'rgba(91,163,217,0.07)'; border = 'rgba(91,163,217,0.25)';
+    } else if (entry.newChair !== null && entry.newChair !== undefined) {
+      msg = `<span style="color:${pHex(entry.newChair)};font-weight:700;">${gameState.names[entry.newChair]} takes the chair 🪑</span>`;
     } else {
-      msg = `<span style="color:var(--green);font-weight:600;">Halved -- chair empty</span>`;
+      msg = `<span style="color:var(--green);font-weight:700;">Halved — chair empty</span>`;
+    }
+
+    // Standing line
+    const itcLeft = (gameState.numHoles??18) - (gameState.log?.length??0);
+    if (itcN === 2) {
+      const d = itcPts[0] - itcPts[1];
+      const standLine = d === 0 ? 'All Square'
+        : `${gameState.names[d > 0 ? 0 : 1].split(' ')[0]} ${Math.abs(d)} UP`;
+      msg += `<span style="font-size:0.75rem;color:var(--muted);display:block;margin-top:3px;">${standLine} · ${itcLeft} to play</span>`;
+    } else {
+      const leaderIdx = itcPts.indexOf(itcMax);
+      const standLine = itcMax === 0 ? 'All square'
+        : `${gameState.names[leaderIdx].split(' ')[0]} leads`;
+      msg += `<span style="font-size:0.75rem;color:var(--muted);display:block;margin-top:3px;">${standLine} · ${itcLeft} to play</span>`;
     }
   } else if (fmt === 'split6') {
     const pts = entry.holePts;
