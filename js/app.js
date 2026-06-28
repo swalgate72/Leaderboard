@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626as';
+} from '../data.js?v=20260626au';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626as';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626as';
+} from '../game.js?v=20260626au';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626au';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626as';
+} from '../tournament.js?v=20260626au';
 
 // ================================================================
 // PLAYER COLOURS
@@ -207,7 +207,7 @@ const cwiz = {
 
 let fpCallback    = null;
 let historyFilter = 'all';
-let theme = localStorage.getItem('lb-theme') || localStorage.getItem('lb_theme') || 'dark';
+let theme = localStorage.getItem('lb-theme') || localStorage.getItem('lb_theme') || 'light';
 
 // ================================================================
 // UTILITIES
@@ -3456,14 +3456,22 @@ function renderMatchBar() {
 
 function renderSkinsBar() {
   const bar = document.getElementById('game-skins-bar');
-  bar.innerHTML = gameState.names.map((nm, i) => `
-    <div class="skins-cell">
-      <div class="sk-name" style="color:#fff;">
-        <span class="dot" style="background:${pHex(i)};display:inline-block;margin-right:3px;"></span>${nm.split(' ')[0].toUpperCase()}
+  const n   = gameState.names.length;
+  const nameFontSize = n <= 2 ? '1.5rem' : n === 3 ? '1.2rem' : '1rem';
+  bar.style.gridTemplateColumns = `repeat(${gameState.names.length}, 1fr)`;
+  bar.innerHTML = gameState.names.map((nm, i) => {
+    const sk = gameState.skins?.[i] ?? 0;
+    return `
+    <div class="total-cell">
+      <div class="tc-name" style="font-size:${nameFontSize};">
+        <span class="dot" style="background:${pHex(i)};"></span>${nm.split(' ')[0].toUpperCase()}
       </div>
-      <div class="sk-pts" style="color:#fff;">${gameState.skins?.[i] ?? 0}</div>
-      <div class="sk-label">skin${(gameState.skins?.[i] ?? 0) !== 1 ? 's' : ''}</div>
-    </div>`).join('');
+      <div style="display:flex;align-items:baseline;justify-content:center;gap:3px;">
+        <div class="tc-pts" style="color:#fff;">${sk}</div>
+        <span style="font-size:0.9rem;font-weight:600;color:rgba(255,255,255,0.7);">skin${sk !== 1 ? 's' : ''}</span>
+      </div>
+    </div>`;
+  }).join('');
   bar.classList.remove('hidden');
 }
 
@@ -3476,6 +3484,7 @@ function renderITCBar() {
   const holesLeft = (gameState.numHoles ?? 18) - (gameState.log?.length ?? 0);
 
   if (nPlayers === 2) {
+    bar.style.gridTemplateColumns = '1fr 1fr';
     // 2-player ITC — show exactly like matchplay: 1 UP / 1 DOWN / A/S
     const diff = pts[0] - pts[1]; // +ve = player 0 leading
     const up   = Math.abs(diff);
@@ -3488,31 +3497,31 @@ function renderITCBar() {
       const isLeading = (i === 0 && diff > 0) || (i === 1 && diff < 0);
       const col = diff === 0 ? 'var(--muted2)' : isLeading ? 'var(--gold)' : 'var(--muted2)';
       return `
-        <div class="itc-cell${inChair ? ' in-chair' : ''}">
-          <div class="itc-pname" style="color:#fff;">
-            <span class="dot" style="background:${pHex(i)};display:inline-block;margin-right:3px;"></span>${nm.split(' ')[0].toUpperCase()}
+        <div class="total-cell${inChair ? ' itc-in-chair' : ''}">
+          <div class="tc-name">
+            <span class="dot" style="background:${pHex(i)};"></span>${nm.split(' ')[0].toUpperCase()}
           </div>
-          <div class="itc-pts" style="color:${col};font-size:1.4rem;font-weight:800;">${standing}</div>
-          ${inChair ? `<div class="itc-chair-badge">🪑 Chair</div>` : ''}
+          <div class="tc-pts" style="color:${col};">${standing}</div>
+          ${inChair ? `<div style="font-size:0.75rem;color:var(--gold);font-weight:700;margin-top:2px;">🪑 Chair</div>` : ''}
         </div>`;
     }).join('');
   } else {
-    // 3-4 player ITC — show relative to leader (+0, -1, -2 etc)
+    // 3-4 player ITC — show relative to leader
+    const nameFontSize2 = nPlayers <= 2 ? '1.5rem' : nPlayers === 3 ? '1.2rem' : '1rem';
+    bar.style.gridTemplateColumns = `repeat(${nPlayers}, 1fr)`;
     bar.innerHTML = names.map((nm, i) => {
       const inChair = gameState.chair === i;
-      const gap     = pts[i] - maxPts; // 0 for leader, negative for others
+      const gap     = pts[i] - maxPts;
       const isLead  = gap === 0 && maxPts > 0;
-      const gapStr  = gap === 0
-        ? (maxPts === 0 ? 'A/S' : 'LEADS')
-        : `${gap}`; // shows as -1, -2 etc
-      const col = isLead ? 'var(--gold)' : gap === 0 ? 'var(--muted2)' : 'var(--muted2)';
+      const gapStr  = gap === 0 ? (maxPts === 0 ? 'A/S' : 'LEADS') : `${gap}`;
+      const col = isLead ? 'var(--gold)' : 'var(--muted2)';
       return `
-        <div class="itc-cell${inChair ? ' in-chair' : ''}">
-          <div class="itc-pname" style="color:#fff;">
-            <span class="dot" style="background:${pHex(i)};display:inline-block;margin-right:3px;"></span>${nm.split(' ')[0].toUpperCase()}
+        <div class="total-cell${inChair ? ' itc-in-chair' : ''}">
+          <div class="tc-name" style="font-size:${nameFontSize2};">
+            <span class="dot" style="background:${pHex(i)};"></span>${nm.split(' ')[0].toUpperCase()}
           </div>
-          <div class="itc-pts" style="color:${col};font-size:1.3rem;font-weight:800;">${gapStr}</div>
-          ${inChair ? `<div class="itc-chair-badge">🪑 Chair</div>` : ''}
+          <div class="tc-pts" style="color:${col};">${gapStr}</div>
+          ${inChair ? `<div style="font-size:0.75rem;color:var(--gold);font-weight:700;margin-top:2px;">🪑 Chair</div>` : ''}
         </div>`;
     }).join('');
   }

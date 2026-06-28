@@ -1049,21 +1049,15 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 
 /* Skins bar */
 .skins-bar {
-  display: flex;
+  display: grid;
   border-bottom: 1px solid var(--border);
 }
 
-.skins-cell {
-  flex: 1;
-  padding: 0.55rem 0.3rem;
-  text-align: center;
-  border-right: 1px solid var(--border);
-}
-
-.skins-cell:last-child { border-right: none; }
-.sk-name  { font-size: 0.5rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.sk-pts   { font-family: 'Barlow Condensed', sans-serif; font-size: 1.8rem; font-weight: 700; line-height: 1; }
-.sk-label { font-size: 0.48rem; color: var(--muted); }
+/* Skins bar — cells now use .total-cell style */
+.skins-cell { flex:1; } /* kept for compat */
+.sk-name  { font-size: 0.5rem; }
+.sk-pts   { font-family: 'Barlow Condensed', sans-serif; font-size: 1.8rem; font-weight: 700; }
+.sk-label { font-size: 0.48rem; }
 
 /* Pot banner */
 .pot-banner {
@@ -1086,23 +1080,17 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 
 /* ITC bar */
 .itc-bar {
-  display: flex;
+  display: grid;
   border-bottom: 1px solid var(--border);
 }
 
-.itc-cell {
-  flex: 1;
-  padding: 0.55rem 0.3rem;
-  text-align: center;
-  border-right: 1px solid var(--border);
-  transition: background 0.2s;
-}
-
-.itc-cell:last-child { border-right: none; }
-.itc-cell.in-chair   { background: rgba(212,168,67,0.1); }
-.itc-pname     { font-size: 0.5rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.itc-pts       { font-family: 'Barlow Condensed', sans-serif; font-size: 1.8rem; font-weight: 700; line-height: 1; }
-.itc-chair-tag { font-size: 0.48rem; color: var(--gold); }
+/* ITC bar — cells now use .total-cell style */
+.itc-in-chair { background: rgba(212,168,67,0.12) !important; }
+/* kept for compat */
+.itc-cell { flex:1; }
+.itc-cell.in-chair { background: rgba(212,168,67,0.1); }
+.itc-pname { font-size: 0.5rem; }
+.itc-pts   { font-family: 'Barlow Condensed', sans-serif; font-size: 1.8rem; font-weight: 700; }
 
 /* Result flash */
 .result-flash {
