@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626ar';
+} from '../data.js?v=20260626as';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626ar';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626ar';
+} from '../game.js?v=20260626as';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626as';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626ar';
+} from '../tournament.js?v=20260626as';
 
 // ================================================================
 // PLAYER COLOURS
@@ -4666,6 +4666,37 @@ function openAmendOverlay() {
       </div>`;
     }
 
+    // Running score after this hole
+    const fmt2 = gameState.format;
+    const isMatch2 = ['match','betterball','csm','foursomes','greensomes'].includes(fmt2);
+    const isItc2   = fmt2 === 'itc';
+    let standingHtml = '';
+    if (isMatch2) {
+      const ms  = entry.matchAfter ?? 0;
+      const up  = Math.abs(ms);
+      const n0  = names[0]?.split(' ')[0] ?? 'A';
+      const n1  = isPairs ? (names[2]?.split(' ')[0] ?? 'B') : (names[1]?.split(' ')[0] ?? 'B');
+      const txt = ms === 0 ? 'All Square'
+        : ms > 0 ? `${n0} ${up} UP` : `${n1} ${up} UP`;
+      const col = ms === 0 ? 'var(--muted)' : ms > 0 ? 'var(--gold)' : '#5ba8d8';
+      standingHtml = `<div style="font-size:1.1rem;font-weight:800;color:${col};margin-top:0.35rem;">${txt}</div>`;
+    } else if (isItc2) {
+      const pts2  = entry.ptsAfter ?? [];
+      const maxP  = Math.max(...pts2);
+      const li    = pts2.indexOf(maxP);
+      const txt   = maxP === 0 ? 'All Square'
+        : names.length === 2
+          ? (() => { const d=pts2[0]-pts2[1]; return d===0?'All Square':d>0?`${names[0].split(' ')[0]} ${Math.abs(d)} UP`:`${names[1].split(' ')[0]} ${Math.abs(d)} UP`; })()
+          : `${names[li]?.split(' ')[0]} leads`;
+      standingHtml = `<div style="font-size:1.1rem;font-weight:800;color:var(--gold);margin-top:0.35rem;">${txt}</div>`;
+    } else if (entry.totalsAfter) {
+      // Points / stroke formats — show each player's running total
+      const totLine = names.map((n, pi) =>
+        `<span style="color:var(--white);font-weight:700;">${n.split(' ')[0]}</span> ${entry.totalsAfter[pi] ?? 0}`
+      ).join('  ·  ');
+      standingHtml = `<div style="font-size:1rem;color:var(--muted);margin-top:0.35rem;">${totLine}</div>`;
+    }
+
     return `
       <div style="border:1px solid var(--border);border-radius:12px;padding:1rem;
                   margin-bottom:0.65rem;cursor:pointer;background:var(--surface);
@@ -4679,6 +4710,7 @@ function openAmendOverlay() {
           </span>
         </div>
         ${scoresHtml}
+        ${standingHtml}
       </div>`;
   }).join('');
 

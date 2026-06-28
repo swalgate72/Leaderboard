@@ -684,9 +684,16 @@ export function undoHole(state) {
 // Recalculate all cumulative state from the log
 // Called after undo or after editing a hole
 function recalcState(state) {
-  const next = {
+  // Reprocess every hole from scratch using the stored grosses.
+  // This ensures that when any hole is edited, all subsequent holes
+  // are correctly recalculated rather than using stale cached totals.
+  const savedLog = state.log;
+
+  // Start from a clean slate (no log, reset cumulative fields)
+  let rebuilt = {
     ...state,
-    // Reset cumulative fields
+    log:        [],
+    hole:       0,
     totals:     state.totals     ? new Array(state.names.length).fill(0) : undefined,
     matchScore: state.matchScore !== undefined ? 0 : undefined,
     skins:      state.skins      ? new Array(state.skins.length).fill(0) : undefined,
@@ -695,53 +702,21 @@ function recalcState(state) {
     chair:      state.chair      !== undefined ? null : undefined,
     groupTotal: state.groupTotal !== undefined ? 0 : undefined,
     runningPts: state.runningPts ? new Array(3).fill(0) : undefined,
+    matchDecided: false,
   };
 
-  // Replay log entries without re-processing grosses (entries already have computed values)
-  for (const entry of next.log) {
-    switch (state.format) {
-      case 'stableford':
-      case 'best2':
-        next.totals = entry.totalsAfter ? [...entry.totalsAfter] : next.totals;
-        if (state.format === 'best2') next.groupTotal = entry.groupTotalAfter ?? next.groupTotal;
-        break;
-      case 'stroke':
-        next.totals = entry.totalsAfter ? [...entry.totalsAfter] : next.totals;
-        break;
-      case 'match':
-      case 'betterball':
-      case 'csm':
-      case 'foursomes':
-      case 'greensomes':
-        next.matchScore = entry.matchAfter ?? next.matchScore;
-        break;
-      case 'skins':
-        next.skins = entry.skinsAfter ? [...entry.skinsAfter] : next.skins;
-        next.pot   = entry.pot ?? next.pot;
-        break;
-      case 'itc':
-        next.pts   = entry.ptsAfter ? [...entry.ptsAfter] : next.pts;
-        next.chair = entry.newChair ?? next.chair;
-        break;
-      case 'split6':
-        next.runningPts = split6RunningTotals(next.log);
-        break;
-      case 'texas':
-        next.grossTotal  = entry.grossTotalAfter ?? next.grossTotal;
-        next.texasPts    = entry.texaPtsAfter    ?? next.texasPts;
-        // Rebuild driver usage from scratch
-        next.driverUsage = { par3: [], par4: [], par5: [] };
-        for (const e of next.log) {
-          if (e.driverIdx != null) {
-            const pk = e.par === 3 ? 'par3' : e.par === 4 ? 'par4' : 'par5';
-            next.driverUsage[pk].push(e.driverIdx);
-          }
-        }
-        break;
-    }
+  // Replay each hole by reprocessing its grosses through the full scoring engine
+  for (const entry of savedLog) {
+    if (!entry?.grosses) continue;
+    rebuilt = processHole(rebuilt, entry.grosses);
+    // Preserve any metadata from the original entry that processHole doesn't set
+    const newEntry = rebuilt.log[rebuilt.log.length - 1];
+    if (entry.ldResult)  newEntry.ldResult  = entry.ldResult;
+    if (entry.ntpResult) newEntry.ntpResult = entry.ntpResult;
+    if (entry.pickups)   newEntry.pickups   = entry.pickups;
   }
 
-  return next;
+  return rebuilt;
 }
 
 // ================================================================
