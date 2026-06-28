@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626av';
+} from '../data.js?v=20260626aw';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626av';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626av';
+} from '../game.js?v=20260626aw';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626aw';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626av';
+} from '../tournament.js?v=20260626aw';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3447,28 +3447,34 @@ function renderMatchBar() {
   const scoreElB = document.getElementById('mb-score-b');
   const labelElB = document.getElementById('mb-label-b');
 
+  // Helpers — safe setters in case HTML hasn't updated yet
+  const setA = (txt, col) => {
+    if (scoreElA) { scoreElA.textContent = txt; scoreElA.style.color = col; }
+    if (labelElA) { labelElA.textContent = ''; }
+  };
+  const setB = (txt, col) => {
+    if (scoreElB) { scoreElB.textContent = txt; scoreElB.style.color = col; }
+    if (labelElB) { labelElB.textContent = ''; }
+  };
+  const setLabel = (el, txt, col) => {
+    if (!el) return;
+    el.textContent = txt;
+    el.style.color = col;
+  };
+
   if (ms === 0) {
-    // All square — both sides show A/S
-    scoreElA.textContent = 'A/S';  scoreElA.style.color = 'var(--green)';
-    labelElA.textContent = '';
-    scoreElB.textContent = 'A/S';  scoreElB.style.color = 'var(--green)';
-    labelElB.textContent = '';
+    setA('A/S', 'var(--green)');
+    setB('A/S', 'var(--green)');
   } else if (ms > 0) {
-    // A leading
-    scoreElA.textContent = up;     scoreElA.style.color = 'var(--gold)';
-    labelElA.textContent = dormie ? `&${holesLeft}` : 'UP';
-    labelElA.style.color = 'var(--gold)';
-    scoreElB.textContent = up;     scoreElB.style.color = 'var(--muted2)';
-    labelElB.textContent = dormie ? `&${holesLeft}` : 'DOWN';
-    labelElB.style.color = 'var(--muted2)';
+    setA(up, 'var(--gold)');
+    setLabel(labelElA, dormie ? `&${holesLeft}` : 'UP', 'var(--gold)');
+    setB(up, 'var(--muted2)');
+    setLabel(labelElB, dormie ? `&${holesLeft}` : 'DOWN', 'var(--muted2)');
   } else {
-    // B leading
-    scoreElA.textContent = up;     scoreElA.style.color = 'var(--muted2)';
-    labelElA.textContent = dormie ? `&${holesLeft}` : 'DOWN';
-    labelElA.style.color = 'var(--muted2)';
-    scoreElB.textContent = up;     scoreElB.style.color = 'var(--p1)';
-    labelElB.textContent = dormie ? `&${holesLeft}` : 'UP';
-    labelElB.style.color = 'var(--p1)';
+    setA(up, 'var(--muted2)');
+    setLabel(labelElA, dormie ? `&${holesLeft}` : 'DOWN', 'var(--muted2)');
+    setB(up, 'var(--p1)');
+    setLabel(labelElB, dormie ? `&${holesLeft}` : 'UP', 'var(--p1)');
   }
 
   bar.classList.remove('hidden');

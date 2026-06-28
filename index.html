@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260626au">
+  <link rel="stylesheet" href="styles.css?v=20260626aw">
 </head>
 <body>
 
@@ -639,18 +639,21 @@
 
     <!-- Score boxes — rendered by JS into this container -->
     <div id="game-totals-bar"  class="totals-bar score-bar hidden" style="background:rgba(255,255,255,0.08);border-radius:var(--radius-sm);"></div>
-    <div id="game-match-bar"   class="match-bar score-bar hidden">
-      <div class="mb-pair">
-        <div class="mb-names" id="mb-names-a"></div>
-        <div class="mb-score" style="color:var(--p0);" id="mb-score-a">0</div>
+    <div id="game-match-bar" class="score-bar hidden"
+         style="display:grid;grid-template-columns:1fr 1fr;">
+      <div class="total-cell" id="mb-cell-a">
+        <div class="tc-name" id="mb-names-a" style="justify-content:flex-start;padding-left:0.25rem;"></div>
+        <div style="display:flex;align-items:baseline;gap:4px;justify-content:flex-start;padding-left:0.25rem;">
+          <div class="tc-pts" id="mb-score-a"></div>
+          <span id="mb-label-a" style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;"></span>
+        </div>
       </div>
-      <div class="mb-status-wrap">
-        <div class="mb-status all-sq" id="mb-status">ALL SQ</div>
-        <div class="mb-holes-left" id="mb-holes-left"></div>
-      </div>
-      <div class="mb-pair mb-pair-b">
-        <div class="mb-names" id="mb-names-b"></div>
-        <div class="mb-score" style="color:var(--p1);text-align:right;" id="mb-score-b">0</div>
+      <div class="total-cell" id="mb-cell-b" style="text-align:right;">
+        <div class="tc-name" id="mb-names-b" style="justify-content:flex-end;padding-right:0.25rem;"></div>
+        <div style="display:flex;align-items:baseline;gap:4px;justify-content:flex-end;padding-right:0.25rem;">
+          <span id="mb-label-b" style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;"></span>
+          <div class="tc-pts" id="mb-score-b"></div>
+        </div>
       </div>
     </div>
     <div id="game-skins-bar"   class="skins-bar hidden"></div>
@@ -1527,7 +1530,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260626au"></script>
+<script type="module" src="js/app.js?v=20260626aw"></script>
 
 
 <!-- ══════════════════════════════════════════
