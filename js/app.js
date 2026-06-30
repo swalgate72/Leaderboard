@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626bc';
+} from '../data.js?v=20260626bd';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626bc';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bc';
+} from '../game.js?v=20260626bd';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bd';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626bc';
+} from '../tournament.js?v=20260626bd';
 
 // ================================================================
 // PLAYER COLOURS
@@ -2744,7 +2744,8 @@ function buildSetupReview() {
   const isBest2  = setup.scoring === 'best2';
   const isTexas  = setup.scoring === 'texas';
   const named    = setup.players.filter(p => p.name);
-  const hcpArr   = named.map(p => p.hcpIndex || 0);
+  // Use gameHandicap (picker-adjusted) if set, otherwise fall back to hcpIndex
+  const hcpArr   = named.map(p => p.gameHandicap ?? p.hcpIndex ?? 0);
   const hcpObj   = calcHandicaps(hcpArr, setup.hcpPct);
 
   // Formats where match handicap (scratch reduction) is meaningful
@@ -4468,16 +4469,24 @@ function openScorePicker(pi, h, par) {
       </button>`;
 
   gridEl.querySelectorAll('.sp-num-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation(); // prevent touch event bubbling to score-btn underneath
       const v = parseInt(btn.dataset.val, 10);
       setScoreValue(pi, h, par, v, false);
       closeScorePicker();
     });
+    // Also handle touchend directly to prevent ghost click
+    btn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const v = parseInt(btn.dataset.val, 10);
+      setScoreValue(pi, h, par, v, false);
+      closeScorePicker();
+    }, { passive: false });
   });
 
-  document.getElementById('sp-pickup').onclick = () => {
-    // Pickup = par + handicap strokes received on this hole + 1
-    // (one worse than the score that would earn a Stableford point)
+  document.getElementById('sp-pickup').onclick = (e) => {
+    e.stopPropagation();
     setScoreValue(pi, h, par, morePickupVal, true);
     closeScorePicker();
   };
@@ -4577,17 +4586,26 @@ function openPairScorePicker(label, h, par, anchorPi) {
       </button>`;
 
   gridEl.querySelectorAll('.sp-num-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
       const v = parseInt(btn.dataset.val, 10);
       setPairScoreValue(label, h, par, v, false);
       closeScorePicker();
     });
+    btn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const v = parseInt(btn.dataset.val, 10);
+      setPairScoreValue(label, h, par, v, false);
+      closeScorePicker();
+    }, { passive: false });
   });
 
   document.getElementById('sp-cancel').onclick = closeScorePicker;
   document.getElementById('modal-score-picker').classList.add('open');
 
-  document.getElementById('sp-pickup').onclick = () => {
+  document.getElementById('sp-pickup').onclick = (e) => {
+    e.stopPropagation();
     setPairScoreValue(label, h, par, pickupVal, true);
     closeScorePicker();
   };
