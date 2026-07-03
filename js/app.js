@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626bf';
+} from '../data.js?v=20260626bg';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626bf';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bf';
+} from '../game.js?v=20260626bg';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bg';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626bf';
+} from '../tournament.js?v=20260626bg';
 
 // ================================================================
 // PLAYER COLOURS
@@ -4460,7 +4460,7 @@ function openScorePicker(pi, h, par) {
   };
 
   const gridEl = document.getElementById('sp-grid');
-  const morePickupVal = (par - extra) + 2; // net par + 2
+  const morePickupVal = par + extra + 2; // gross that gives net double bogey = 0 pts
 
   gridEl.innerHTML =
     Array.from({ length: max - min + 1 }, (_, i) => buildBtn(min + i)).join('')
@@ -4577,7 +4577,7 @@ function openPairScorePicker(label, h, par, anchorPi) {
   };
 
   const gridEl = document.getElementById('sp-grid');
-  const pickupVal = (par - extra) + 2; // net par + 2
+  const pickupVal = par + extra + 2; // gross that gives net double bogey = 0 pts
 
   gridEl.innerHTML =
     Array.from({ length: max - min + 1 }, (_, i) => buildBtn(min + i)).join('')
@@ -4862,6 +4862,14 @@ async function recordHole() {
     }
   }
 
+  // Collect pickup flags from DOM before processHole overwrites the panel
+  const pickupFlags = [];
+  for (let i = 0; i < gameState.names.length; i++) {
+    const el = document.getElementById(`cv${i}`);
+    pickupFlags.push(el?.dataset?.pickup === '1');
+  }
+  const anyPickup = pickupFlags.some(Boolean);
+
   const prevGroupStates  = gameState.allGroupStates;
   const totalPlayedHoles = gameState.log?.length ?? 0;
   const isEditingPast    = h < totalPlayedHoles;
@@ -4871,6 +4879,14 @@ async function recordHole() {
     gameState.hole = h + 1;
   } else {
     gameState = processHole(gameState, grosses);
+  }
+
+  // Stamp pickup flags onto the log entry so scorecard can display P.Up correctly
+  if (anyPickup) {
+    const entryIdx = isEditingPast ? h : gameState.log.length - 1;
+    if (gameState.log[entryIdx]) {
+      gameState.log[entryIdx].pickups = pickupFlags;
+    }
   }
 
   if (prevGroupStates) {
