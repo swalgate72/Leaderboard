@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626bd';
+} from '../data.js?v=20260626be';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626bd';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bd';
+} from '../game.js?v=20260626be';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626be';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626bd';
+} from '../tournament.js?v=20260626be';
 
 // ================================================================
 // PLAYER COLOURS
@@ -4306,7 +4306,9 @@ function makePlayerInputRow(pi, h, par) {
 
   const hasExisting = existingGross != null;
   const isPickup    = existingEntry?.pickups?.[pi] ?? false;
-  const scoreBtnVal   = hasExisting ? String(existingGross) : 'Score';
+  const scoreBtnVal   = hasExisting
+    ? (isPickup ? `<span style="font-size:0.75rem;font-weight:800;display:block;line-height:1.1;">P.Up</span><span style="font-size:0.85rem;font-weight:700;">(${existingGross})</span>` : String(existingGross))
+    : 'Score';
   let scoreBtnStyle;
   if (!hasExisting) {
     scoreBtnStyle = 'border:2px solid var(--border);background:var(--surface2);color:var(--muted);';
@@ -4458,7 +4460,7 @@ function openScorePicker(pi, h, par) {
   };
 
   const gridEl = document.getElementById('sp-grid');
-  const morePickupVal = par + extra + 1; // one worse than the score that would earn a point
+  const morePickupVal = (par - extra) + 2; // net par + 2
 
   gridEl.innerHTML =
     Array.from({ length: max - min + 1 }, (_, i) => buildBtn(min + i)).join('')
@@ -4575,7 +4577,7 @@ function openPairScorePicker(label, h, par, anchorPi) {
   };
 
   const gridEl = document.getElementById('sp-grid');
-  const pickupVal = par + extra + 1;
+  const pickupVal = (par - extra) + 2; // net par + 2
 
   gridEl.innerHTML =
     Array.from({ length: max - min + 1 }, (_, i) => buildBtn(min + i)).join('')
@@ -4634,7 +4636,7 @@ function setPairScoreValue(label, h, par, value, isPickup) {
     cvEl.style.color       = '#fff';
     cvEl.style.background  = 'var(--gold)';
     cvEl.style.borderColor = 'var(--gold)';
-    cvEl.innerHTML = `${value}<span style="font-size:0.6rem;display:block;font-weight:600;">PICKUP</span>`;
+    cvEl.innerHTML = `<span style="font-size:0.75rem;font-weight:800;display:block;line-height:1.1;">P.Up</span><span style="font-size:0.85rem;font-weight:700;color:rgba(255,255,255,0.8);">(${value})</span>`;
   } else {
     const relToPar = value - par;
     const color = scoreColorForRelToPar(relToPar, value);
@@ -4664,7 +4666,7 @@ function setScoreValue(pi, h, par, value, isPickup) {
     cvEl.style.color       = '#fff';
     cvEl.style.background  = 'var(--gold)';
     cvEl.style.borderColor = 'var(--gold)';
-    cvEl.innerHTML = `${value}<span style="font-size:0.6rem;display:block;font-weight:600;">PICKUP</span>`;
+    cvEl.innerHTML = `<span style="font-size:0.75rem;font-weight:800;display:block;line-height:1.1;">P.Up</span><span style="font-size:0.85rem;font-weight:700;color:rgba(255,255,255,0.8);">(${value})</span>`;
   } else {
     const relToPar = value - par;
     const color = scoreColorForRelToPar(relToPar, value);
