@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626bi';
+} from '../data.js?v=20260626bj';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626bi';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bi';
+} from '../game.js?v=20260626bj';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bj';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626bi';
+} from '../tournament.js?v=20260626bj';
 
 // ================================================================
 // PLAYER COLOURS
@@ -3721,6 +3721,7 @@ function renderHolePanel() {
 
     // Wire score button
     row.querySelector('#cv-texas')?.addEventListener('click', () => {
+      if (Date.now() - _scorePickerClosedAt < 350) return;
       openTexasScorePicker(h, par);
     });
 
@@ -3835,6 +3836,7 @@ function renderHolePanel() {
       inputsEl.appendChild(row);
 
       row.querySelector(`#cv-pair-${label}`)?.addEventListener('click', () => {
+    if (Date.now() - _scorePickerClosedAt < 350) return;
         openPairScorePicker(label, h, par, p0);
       });
     });
@@ -4343,6 +4345,7 @@ function makePlayerInputRow(pi, h, par) {
     </div>`;
 
   row.querySelector('.score-btn')?.addEventListener('click', () => {
+    if (Date.now() - _scorePickerClosedAt < 350) return; // prevent ghost-click reopening
     openScorePicker(pi, h, par);
   });
   return row;
@@ -4543,8 +4546,10 @@ function openScorePicker(pi, h, par) {
   }
 }
 
+let _scorePickerClosedAt = 0;
 function closeScorePicker() {
   document.getElementById('modal-score-picker').classList.remove('open');
+  _scorePickerClosedAt = Date.now();
 }
 
 // Foursomes / Greensomes: one shared score per pair (alternate shot — single
