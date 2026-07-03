@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626be';
+} from '../data.js?v=20260626bf';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626be';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626be';
+} from '../game.js?v=20260626bf';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bf';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626be';
+} from '../tournament.js?v=20260626bf';
 
 // ================================================================
 // PLAYER COLOURS
@@ -5493,7 +5493,9 @@ function scorecardColumns(state) {
         const pts = entry.holePts?.[pi] ?? entry.sbPts?.[pi];
         return { text: pts != null ? String(pts) : '-' };
       }
-      // Strokes mode: show gross, with par-relative for colour coding
+      // Strokes mode: show P.Up (N) for pickups, gross otherwise
+      const isPickup = entry.pickups?.[pi] ?? false;
+      if (isPickup) return { text: `P.Up (${gross})`, relToPar: 99, pickup: true };
       const relToPar = gross - entry.par;
       return { text: String(gross), relToPar };
     },
@@ -5660,15 +5662,25 @@ function buildVerticalScorecard(state, mode) {
     const isCurrent = h === state.hole && !entry;
     const cells = columns.map((c, ci) => {
       const cell = c.getCell(entry, mode);
-      const num = cell.text !== '' && cell.text !== '-' ? parseFloat(cell.text) : null;
-      if (num != null) {
+      // Extract numeric value — pickup shows as "P.Up (N)" so parse the bracketed number
+      let numRaw = cell.text;
+      const pickupMatch = cell.pickup ? cell.text.match(/\((\d+)\)/) : null;
+      const num = pickupMatch
+        ? parseInt(pickupMatch[1], 10)
+        : (cell.text !== '' && cell.text !== '-' ? parseFloat(cell.text) : null);
+      if (num != null && !isNaN(num)) {
         if (h < 9) { frontTotals[ci] += num; frontHas[ci] = true; }
         else       { backTotals[ci]  += num; backHas[ci]  = true; }
       }
 
       // Colour-coded border for strokes mode based on gross vs par
+      // Pickup: show gold background, no par-relative border
       let inner = cell.text;
-      if (mode === 'strokes' && cell.relToPar != null && cell.text !== '') {
+      if (cell.pickup && mode === 'strokes') {
+        inner = `<span style="display:inline-block;background:var(--gold);color:#fff;
+                   border-radius:4px;padding:1px 4px;font-size:0.75em;font-weight:800;
+                   line-height:1.3;white-space:nowrap;">${cell.text}</span>`;
+      } else if (mode === 'strokes' && cell.relToPar != null && cell.text !== '') {
         const r = cell.relToPar;
         const red  = '#d64545';
         const blue = '#3a7bd5';
