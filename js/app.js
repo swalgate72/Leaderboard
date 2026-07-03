@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626bg';
+} from '../data.js?v=20260626bh';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626bg';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bg';
+} from '../game.js?v=20260626bh';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bh';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626bg';
+} from '../tournament.js?v=20260626bh';
 
 // ================================================================
 // PLAYER COLOURS
@@ -4461,6 +4461,7 @@ function openScorePicker(pi, h, par) {
 
   const gridEl = document.getElementById('sp-grid');
   const morePickupVal = par + extra + 2; // gross that gives net double bogey = 0 pts
+  console.log(`[pickup] par=${par} extra=${extra} morePickupVal=${morePickupVal} playingHcp=${gameState.playingHandicaps[pi]} si=${gameState.si[h]}`);
 
   gridEl.innerHTML =
     Array.from({ length: max - min + 1 }, (_, i) => buildBtn(min + i)).join('')
