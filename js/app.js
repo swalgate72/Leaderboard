@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626bh';
+} from '../data.js?v=20260626bi';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626bh';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bh';
+} from '../game.js?v=20260626bi';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bi';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626bh';
+} from '../tournament.js?v=20260626bi';
 
 // ================================================================
 // PLAYER COLOURS
@@ -4409,6 +4409,25 @@ function openTexasScorePicker(h, par) {
 }
 
 
+// ── Score picker scroll guard ──────────────────────────────────
+// Tracks whether a scroll happened during a touch sequence.
+// If yes, suppress the button action on touchend.
+let _spScrolling = false;
+let _spTouchStartY = 0;
+const SCROLL_THRESHOLD = 6; // px — less than this = tap, more = scroll
+
+function attachScrollGuard(gridEl) {
+  gridEl.addEventListener('touchstart', (e) => {
+    _spScrolling   = false;
+    _spTouchStartY = e.touches[0]?.clientY ?? 0;
+  }, { passive: true });
+
+  gridEl.addEventListener('touchmove', (e) => {
+    const dy = Math.abs((e.touches[0]?.clientY ?? 0) - _spTouchStartY);
+    if (dy > SCROLL_THRESHOLD) _spScrolling = true;
+  }, { passive: true });
+}
+
 function openScorePicker(pi, h, par) {
   const cvEl = document.getElementById(`cv${pi}`);
   const current = cvEl?.dataset.value;
@@ -4471,17 +4490,19 @@ function openScorePicker(pi, h, par) {
         🏌️ Pick Up / DNF
       </button>`;
 
+  attachScrollGuard(gridEl);
   gridEl.querySelectorAll('.sp-num-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      e.stopPropagation(); // prevent touch event bubbling to score-btn underneath
+      e.stopPropagation();
+      if (_spScrolling) { _spScrolling = false; return; }
       const v = parseInt(btn.dataset.val, 10);
       setScoreValue(pi, h, par, v, false);
       closeScorePicker();
     });
-    // Also handle touchend directly to prevent ghost click
     btn.addEventListener('touchend', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (_spScrolling) { _spScrolling = false; return; }
       const v = parseInt(btn.dataset.val, 10);
       setScoreValue(pi, h, par, v, false);
       closeScorePicker();
@@ -4490,6 +4511,7 @@ function openScorePicker(pi, h, par) {
 
   document.getElementById('sp-pickup').onclick = (e) => {
     e.stopPropagation();
+    if (_spScrolling) { _spScrolling = false; return; }
     setScoreValue(pi, h, par, morePickupVal, true);
     closeScorePicker();
   };
@@ -4588,9 +4610,11 @@ function openPairScorePicker(label, h, par, anchorPi) {
         🏌️ Pick Up / Concede Hole
       </button>`;
 
+  attachScrollGuard(gridEl);
   gridEl.querySelectorAll('.sp-num-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (_spScrolling) { _spScrolling = false; return; }
       const v = parseInt(btn.dataset.val, 10);
       setPairScoreValue(label, h, par, v, false);
       closeScorePicker();
@@ -4598,6 +4622,7 @@ function openPairScorePicker(label, h, par, anchorPi) {
     btn.addEventListener('touchend', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (_spScrolling) { _spScrolling = false; return; }
       const v = parseInt(btn.dataset.val, 10);
       setPairScoreValue(label, h, par, v, false);
       closeScorePicker();
@@ -4609,6 +4634,7 @@ function openPairScorePicker(label, h, par, anchorPi) {
 
   document.getElementById('sp-pickup').onclick = (e) => {
     e.stopPropagation();
+    if (_spScrolling) { _spScrolling = false; return; }
     setPairScoreValue(label, h, par, pickupVal, true);
     closeScorePicker();
   };
