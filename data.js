@@ -436,15 +436,39 @@ export async function roundLoadById(roundId) {
   return data;
 }
 
-export async function roundsLoadHistory(organiserId) {
-  const { data, error } = await sb
-    .from('rounds')
-    .select('id, course_name, tee_name, game_format, player_names, game_state, started_at, completed_at')
-    .eq('organiser_id', organiserId)
-    .eq('status', 'completed')
-    .order('completed_at', { ascending: false });
-  if (error) throw error;
-  return data ?? [];
+export async function roundsLoadHistory(userId) {
+  // Load rounds where user was organiser OR a named player (profile linked)
+  // Two queries merged — Supabase JS client doesn't support OR across joins directly
+  const [orgResult, playerResult] = await Promise.all([
+    sb.from('rounds')
+      .select('id, course_name, tee_name, game_format, player_names, game_state, started_at, completed_at, organiser_id')
+      .eq('organiser_id', userId)
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false }),
+    sb.from('round_players')
+      .select('round_id, rounds(id, course_name, tee_name, game_format, player_names, game_state, started_at, completed_at, organiser_id)')
+      .eq('profile_id', userId)
+      .eq('rounds.status', 'completed')
+      .not('rounds', 'is', null),
+  ]);
+
+  if (orgResult.error) throw orgResult.error;
+
+  // Merge and deduplicate by round id
+  const seen   = new Set();
+  const merged = [];
+
+  for (const r of (orgResult.data ?? [])) {
+    if (!seen.has(r.id)) { seen.add(r.id); merged.push(r); }
+  }
+  for (const rp of (playerResult.data ?? [])) {
+    const r = rp.rounds;
+    if (r && !seen.has(r.id)) { seen.add(r.id); merged.push(r); }
+  }
+
+  // Sort combined list by completed_at descending
+  merged.sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+  return merged;
 }
 
 // ================================================================
