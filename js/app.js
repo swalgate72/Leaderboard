@@ -4,7 +4,7 @@
 // ================================================================
 
 import {
-  authSignIn, authSignUp, authSignOut, authSignInWithGoogle,
+  authSignIn, authSignUp, authSignOut,
   authForgotPassword, authUpdatePassword, authOnStateChange, authGetUser,
   profileLoad, profileSave, profileFindByEmail, profileFindByUsername,
   coursesLoadAll, courseLoadById, courseSave, courseDelete, coursesEnsureDefaults,
@@ -23,7 +23,7 @@ import {
   tournamentScoresLoad, tournamentAllScoresLoad, tournamentScoresSave,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260626bj';
+} from '../data.js?v=20260704a';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -35,14 +35,14 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260626bj';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260626bj';
+} from '../game.js?v=20260704a';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704a';
 
 import {
   buildStandings, calcHandicapAdjustments, buildDefaultGroups,
   absentStrokeScore, roundSummary, buildTournamentViewUrl,
   buildTeamStandings, buildIndividualFromTeamStandings, buildRotatingStandings, defaultTeamName,
-} from '../tournament.js?v=20260626bj';
+} from '../tournament.js?v=20260704a';
 
 // ================================================================
 // PLAYER COLOURS
@@ -70,6 +70,7 @@ const setup = {
   numGroups:       1,
   playersPerGroup: null,
   hcpPct:          100,
+  weather:         '',
   players:         [],
   pairs:           [],
   tournamentId:       null, // set when starting a tournament round
@@ -279,7 +280,6 @@ function saveSetupDraft() {
 }
 
 function clearSetupDraft() {
-  console.warn('[clearSetupDraft] called from:', new Error().stack?.split('\n').slice(1,4).join(' | '));
   try { localStorage.removeItem('lb-setup-draft'); } catch {}
 }
 
@@ -768,10 +768,7 @@ document.getElementById('btn-forgot')?.addEventListener('click', async () => {
   catch (err) { setMsg('auth-error', err.message || 'Could not send reset email.'); }
 });
 
-document.getElementById('btn-google')?.addEventListener('click', async () => {
-  try { await authSignInWithGoogle(); }
-  catch (err) { setMsg('auth-error', err.message || 'Google sign-in failed.'); }
-});
+
 
 document.getElementById('btn-sign-out')?.addEventListener('click', async () => {
   realtimeUnsubscribe(realtimeCh); realtimeCh = null;
@@ -2629,6 +2626,8 @@ document.getElementById('setup-pairs-back')?.addEventListener('click', () => sho
 document.getElementById('btn-setup-groups-next')?.addEventListener('click', () => {
   buildSetupReview();
   showScreen('screen-setup-review');
+  const wEl = document.getElementById('review-weather');
+  if (wEl) wEl.value = setup.weather ?? '';
 });
 
 document.getElementById('btn-setup-pairs-next')?.addEventListener('click', () => {
@@ -2913,6 +2912,7 @@ function buildSetupReview() {
 document.getElementById('setup-review-back') ?.addEventListener('click', () => showScreen('screen-setup-groups'));
 document.getElementById('btn-review-back')   ?.addEventListener('click', () => showScreen('screen-setup-groups'));
 document.getElementById('btn-tee-off')       ?.addEventListener('click', async () => await teeOff());
+document.getElementById('review-weather')    ?.addEventListener('input', function() { setup.weather = this.value; });
 
 async function teeOff() {
   // Tournament mode: route through _teeOffRound
@@ -3132,6 +3132,7 @@ async function teeOff() {
       holeOffset:   offset,
       numGroups:    setup.numGroups,
       playerNames:  setup.players.map(p => p.name || 'Player'),
+      weather:      setup.weather ?? null,
       gameState:    stateToSave,
     });
     await roundPlayersSave(roundId, setup.players.map((p, i) => ({
@@ -6910,6 +6911,97 @@ async function showEndRound() {
     podiumEl.appendChild(card);
   }
 
+  // ── Rich highlights section ─────────────────────────────────
+  const highlightsEl = document.getElementById('er-highlights');
+  if (highlightsEl) {
+    const log  = merged.log ?? [];
+    const par  = merged.par ?? [];
+    const names = merged.names ?? [];
+    const offset = merged.holeOffset ?? 0;
+    const isPairs = ['betterball','csm','foursomes','greensomes'].includes(fmt);
+    const isMatch = ['match','betterball','csm','foursomes','greensomes'].includes(fmt);
+    const isStableford = ['stableford','split6','best2','skins','itc','csm'].includes(fmt);
+
+    const highlights = [];
+
+    // Best hole per player (stableford/stroke formats)
+    if (!isMatch && !isPairs) {
+      names.forEach((nm, pi) => {
+        let best = null;
+        log.forEach((entry, hi) => {
+          const pts = entry.holePts?.[pi] ?? entry.sbPts?.[pi];
+          const net = entry.nets?.[pi];
+          if (pts != null && (best === null || pts > best.pts)) {
+            best = { pts, hi, holeNum: offset + hi + 1 };
+          } else if (pts == null && net != null) {
+            const rel = net - par[hi];
+            if (best === null || rel < best.rel) {
+              best = { rel, hi, holeNum: offset + hi + 1 };
+            }
+          }
+        });
+        if (best) {
+          const label = best.pts != null ? `${best.pts} pts` : `Net ${par[best.hi] + (best.rel ?? 0)}`;
+          highlights.push({ icon: '⭐', text: `${shortName(nm)} — best hole ${best.holeNum} (${label})` });
+        }
+      });
+    }
+
+    // Eagles and birdies
+    const achievements = [];
+    log.forEach((entry, hi) => {
+      const parH = par[hi];
+      names.forEach((nm, pi) => {
+        const gross = entry.grosses?.[pi];
+        const extra = entry.extras?.[pi] ?? 0;
+        if (gross == null) return;
+        const net = gross - extra;
+        if (net <= parH - 2) achievements.push({ icon: '🦅', text: `${shortName(nm)} — eagle or better on hole ${offset+hi+1}` });
+        else if (net === parH - 1) achievements.push({ icon: '🐦', text: `${shortName(nm)} — birdie on hole ${offset+hi+1}` });
+      });
+    });
+    highlights.push(...achievements);
+
+    // Match play summary
+    if (isMatch) {
+      const ms  = merged.matchScore ?? 0;
+      const up  = Math.abs(ms);
+      const n0  = isPairs
+        ? `${shortName(names[0])} & ${shortName(names[1])}`
+        : shortName(names[0]);
+      const n1  = isPairs
+        ? `${shortName(names[2] ?? '')} & ${shortName(names[3] ?? '')}`
+        : shortName(names[1] ?? '');
+      if (ms !== 0) {
+        const winner = ms > 0 ? n0 : n1;
+        const loser  = ms > 0 ? n1 : n0;
+        const winsA  = log.filter(e => e.result > 0).length;
+        const winsB  = log.filter(e => e.result < 0).length;
+        const halved = log.filter(e => e.result === 0).length;
+        highlights.push({ icon: '🏆', text: `${winner} won ${up} up` });
+        highlights.push({ icon: '📊', text: `Holes won: ${n0} ${winsA} · ${n1} ${winsB} · Halved ${halved}` });
+      } else {
+        highlights.push({ icon: '🤝', text: 'Match all square' });
+      }
+    }
+
+    if (highlights.length) {
+      highlightsEl.innerHTML = `
+        <div style="margin-top:1.25rem;">
+          <div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;
+                      color:var(--muted);font-weight:700;margin-bottom:0.6rem;">Highlights</div>
+          ${highlights.map(h => `
+            <div style="display:flex;align-items:flex-start;gap:0.5rem;padding:0.4rem 0;
+                        border-bottom:0.5px solid var(--border);font-size:0.9rem;">
+              <span style="font-size:1.1rem;">${h.icon}</span>
+              <span style="color:var(--white);font-weight:600;">${h.text}</span>
+            </div>`).join('')}
+        </div>`;
+    } else {
+      highlightsEl.innerHTML = '';
+    }
+  }
+
   document.getElementById('er-scorecard').innerHTML = buildEndRoundScorecard(merged);
 }
 
@@ -7951,7 +8043,7 @@ function showHistoryDetail(rid, rounds) {
     document.getElementById('hd-result').innerHTML = `
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;">
         <div style="font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:0.3rem;">
-          ${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees · ${merged.log?.length ?? 0} holes
+          ${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees · ${merged.log?.length ?? 0} holes${r.weather ? ` · ${r.weather}` : ''}
         </div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold);">
           ${summary.winner ?? 'Completed'}

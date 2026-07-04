@@ -287,7 +287,7 @@ export async function coursesEnsureDefaults(userId) {
 // ================================================================
 
 export async function roundCreate({ organiserId, courseName, teeName, gameFormat,
-  hcpAllowance, si, par, numHoles, holeOffset, playerNames, gameState }) {
+  hcpAllowance, si, par, numHoles, holeOffset, playerNames, gameState, weather }) {
   const { data, error } = await sb
     .from('rounds')
     .insert({
@@ -302,6 +302,7 @@ export async function roundCreate({ organiserId, courseName, teeName, gameFormat
       started_at:    new Date().toISOString(),
       player_names:  playerNames,
       game_state:    gameState,
+      weather:       weather ?? null,
       updated_at:    new Date().toISOString(),
     })
     .select('id')
@@ -441,7 +442,7 @@ export async function roundsLoadHistory(userId) {
   // Two queries merged — Supabase JS client doesn't support OR across joins directly
   const [orgResult, playerResult] = await Promise.all([
     sb.from('rounds')
-      .select('id, course_name, tee_name, game_format, player_names, game_state, started_at, completed_at, organiser_id')
+      .select('id, course_name, tee_name, game_format, player_names, game_state, started_at, completed_at, organiser_id, weather')
       .eq('organiser_id', userId)
       .eq('status', 'completed')
       .order('completed_at', { ascending: false }),

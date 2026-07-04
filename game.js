@@ -306,9 +306,10 @@ export function foursomedPairHandicap(hcpA, hcpB) {
 
 // Greensomes pair handicap: 0.6 × lower + 0.4 × higher (WHS official)
 export function greensomesPairHandicap(hcpA, hcpB) {
+  // WHS formula: lower handicap + 60% of the difference
   const lower  = Math.min(hcpA, hcpB);
   const higher = Math.max(hcpA, hcpB);
-  return Math.round(0.6 * lower + 0.4 * higher);
+  return Math.round(lower + 0.6 * (higher - lower));
 }
 
 // Better-ball style: each player uses their individual match handicap
