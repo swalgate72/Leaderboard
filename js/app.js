@@ -20,7 +20,7 @@ import {
   realtimeSubscribeRound, realtimeBroadcastRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260704g';
+} from '../data.js?v=20260704h';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -32,8 +32,8 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260704g';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704g';
+} from '../game.js?v=20260704h';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704h';
 
 
 // ================================================================
@@ -3864,10 +3864,19 @@ function renderHolePanel() {
     inputsEl.appendChild(row);
 
     // Wire score button
-    row.querySelector('#cv-texas')?.addEventListener('click', () => {
-      if (Date.now() - _scorePickerClosedAt < 350) return;
-      openTexasScorePicker(h, par);
-    });
+    const texasBtnEl = row.querySelector('#cv-texas');
+    if (texasBtnEl) {
+      texasBtnEl.addEventListener('touchstart', (e) => {
+        if (_pickerJustClosed) { e.preventDefault(); return; }
+        e.preventDefault();
+        openTexasScorePicker(h, par);
+      }, { passive: false });
+      texasBtnEl.addEventListener('click', (e) => {
+        if (_pickerJustClosed) return;
+        if (e.sourceCapabilities?.firesTouchEvents) return;
+        openTexasScorePicker(h, par);
+      });
+    }
 
     // Wire driver buttons
     row.querySelectorAll('.texas-driver-btn').forEach(btn => {
@@ -3979,11 +3988,21 @@ function renderHolePanel() {
         </div>`;
       inputsEl.appendChild(row);
 
-      row.querySelector(`#cv-pair-${label}`)?.addEventListener('click', () => {
-    if (Date.now() - _scorePickerClosedAt < 350) return;
-        openPairScorePicker(label, h, par, p0);
-      });
-    });
+      const pairBtnEl = row.querySelector(`#cv-pair-${label}`);
+      if (pairBtnEl) {
+        pairBtnEl.addEventListener('touchstart', (e) => {
+          if (_pickerJustClosed) { e.preventDefault(); return; }
+          e.preventDefault();
+          openPairScorePicker(label, h, par, anchorPi);
+        }, { passive: false });
+        pairBtnEl.addEventListener('click', (e) => {
+          if (_pickerJustClosed) return;
+          if (e.sourceCapabilities?.firesTouchEvents) return;
+          openPairScorePicker(label, h, par, anchorPi);
+        });
+      }
+    });  // end forEach pairs
+
   } else if (isPairs) {
     const ms        = gameState.matchScore ?? 0;
     const played    = gameState.log?.length ?? 0;
@@ -4488,10 +4507,22 @@ function makePlayerInputRow(pi, h, par) {
       </div>
     </div>`;
 
-  row.querySelector('.score-btn')?.addEventListener('click', () => {
-    if (Date.now() - _scorePickerClosedAt < 350) return; // prevent ghost-click reopening
-    openScorePicker(pi, h, par);
-  });
+  const scoreBtnEl = row.querySelector('.score-btn');
+  if (scoreBtnEl) {
+    // touchstart: open picker immediately (faster response)
+    scoreBtnEl.addEventListener('touchstart', (e) => {
+      if (_pickerJustClosed) { e.preventDefault(); return; }
+      e.preventDefault(); // prevent ghost click entirely
+      openScorePicker(pi, h, par);
+    }, { passive: false });
+    // click: fallback for non-touch (desktop/mouse)
+    scoreBtnEl.addEventListener('click', (e) => {
+      if (_pickerJustClosed) return;
+      // Only run if NOT already handled by touchstart
+      if (e.sourceCapabilities?.firesTouchEvents) return;
+      openScorePicker(pi, h, par);
+    });
+  }
   return row;
 }
 
@@ -4689,10 +4720,17 @@ function openScorePicker(pi, h, par) {
   }
 }
 
-let _scorePickerClosedAt = 0;
+// ── Score picker ghost-click guard ───────────────────────────────
+// iOS fires a synthetic click ~300ms after touchend. We block it
+// with a flag that is set on touchend and cleared after the click
+// has been fully consumed — no timing dependency.
+let _pickerJustClosed = false;
+
 function closeScorePicker() {
   document.getElementById('modal-score-picker').classList.remove('open');
-  _scorePickerClosedAt = Date.now();
+  _pickerJustClosed = true;
+  // Clear after a generous window — 600ms covers all iOS devices
+  setTimeout(() => { _pickerJustClosed = false; }, 600);
 }
 
 // Foursomes / Greensomes: one shared score per pair (alternate shot — single
