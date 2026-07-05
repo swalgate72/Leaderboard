@@ -604,6 +604,37 @@ export async function friendRemove(friendshipId) {
 // SMS INVITES
 // ================================================================
 
+// ================================================================
+// PUSH SUBSCRIPTIONS
+// ================================================================
+
+export async function pushSubscriptionSave(userId, subscription) {
+  // Upsert by endpoint so we don't duplicate
+  const { error } = await sb
+    .from('push_subscriptions')
+    .upsert({
+      profile_id: userId,
+      endpoint:   subscription.endpoint,
+      p256dh:     subscription.keys?.p256dh ?? null,
+      auth:       subscription.keys?.auth   ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'endpoint' });
+  if (error) throw error;
+}
+
+export async function pushSubscriptionsLoadForUser(recipientProfileId) {
+  const { data, error } = await sb
+    .from('push_subscriptions')
+    .select('endpoint, p256dh, auth')
+    .eq('profile_id', recipientProfileId);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function pushSubscriptionDelete(endpoint) {
+  await sb.from('push_subscriptions').delete().eq('endpoint', endpoint);
+}
+
 export async function smsInviteCreate({ roundId, roundPlayerId, inviterId, name, mobile, recipientProfileId, tournamentRoundId, groupNumber }) {
   const { data, error } = await sb
     .from('sms_invites')

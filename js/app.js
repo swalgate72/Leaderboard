@@ -11,6 +11,7 @@ import {
   roundCreate, roundSaveState, roundPlayerClaimScorer, roundComplete, roundAbandon, roundReactivate, roundDelete,
   roundsLoadActive, roundLoadById, roundsLoadHistory,
   roundPlayersSave, roundPlayersLoad,
+  pushSubscriptionSave, pushSubscriptionsLoadForUser, pushSubscriptionDelete,
   friendsLoad, friendRequestsLoadPending,
   friendRequestSend, friendRequestAccept, friendRequestDecline, friendRemove,
   smsInviteCreate, gameInviteLoad, gameInvitesPollPending, gameInvitesLoadHistory, smsInviteLookup, smsInviteAccept,
@@ -50,6 +51,97 @@ import {
 const P_HEX = ['#d4a843','#5ba3d9','#d96b4a','#e8c96a'];
 
 function pHex(i) { return P_HEX[i] ?? P_HEX[0]; }
+
+// ================================================================
+// PUSH NOTIFICATIONS
+// ================================================================
+
+const VAPID_PUBLIC_KEY = 'BEWv5mCYwxGTuobtK7RXYt8eCjDB-fEJQUAfaqRv-iFeL8K4x37Hh4VsD9UKBges4YmtUvGoHgQCB6WAc1Taih8';
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    console.log('[sw] registered', reg.scope);
+    return reg;
+  } catch (err) {
+    console.warn('[sw] registration failed', err);
+    return null;
+  }
+}
+
+async function subscribeToPush(userId) {
+  if (!('PushManager' in window)) return; // not supported
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    // Check existing subscription
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      // Request permission first
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        console.log('[push] permission denied');
+        return;
+      }
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly:      true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    // Save to Supabase
+    await pushSubscriptionSave(userId, {
+      endpoint: sub.endpoint,
+      keys: {
+        p256dh: arrayBufferToBase64(sub.getKey('p256dh')),
+        auth:   arrayBufferToBase64(sub.getKey('auth')),
+      },
+    });
+    console.log('[push] subscribed and saved');
+  } catch (err) {
+    console.warn('[push] subscribe failed', err);
+  }
+}
+
+async function sendPushToUser(recipientProfileId, payload) {
+  try {
+    const subs = await pushSubscriptionsLoadForUser(recipientProfileId);
+    if (!subs.length) return;
+
+    const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6a25qcWpud25mdXlmanJnYWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxODIxNjgsImV4cCI6MjA5NTc1ODE2OH0.Hy-eeXpw9yv_b3LpobYFrfEZ6OwW55dHIZc4G0pPA1k';
+
+    await Promise.allSettled(subs.map(async sub => {
+      const res = await fetch('/api/send-push', {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${ANON}`,
+        },
+        body: JSON.stringify({
+          subscription: { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload,
+        }),
+      });
+      if (res.status === 410) {
+        // Subscription expired — clean up
+        await pushSubscriptionDelete(sub.endpoint);
+      }
+    }));
+  } catch (err) {
+    console.warn('[push] sendPushToUser failed', err);
+  }
+}
+
+// Utility — convert VAPID key
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw     = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+function arrayBufferToBase64(buffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+}
 
 // ================================================================
 // APP STATE
@@ -586,6 +678,9 @@ async function boot() {
   if (tournViewId) { await handleTournamentViewLink(tournViewId); return; }
   if (joinToken)   { await handleJoinFlow(joinToken, troundParam, groupParam); return; }
 
+  // Register service worker for push notifications
+  registerServiceWorker();
+
   authOnStateChange(async (event, user) => {
     if (event === 'PASSWORD_RECOVERY') { showResetPasswordScreen(); return; }
     if (user) await onSignedIn(user);
@@ -639,6 +734,9 @@ let _joiningViaInvite = false;
 
 async function onSignedIn(user) {
   currentUser = user;
+
+  // Subscribe to push notifications (non-blocking — won't delay sign-in)
+  subscribeToPush(user.id).catch(() => {});
 
   // ── IndexedDB health check ─────────────────────────────────────
   // iOS Safari clears IDB under low-storage conditions — warn early
@@ -3202,6 +3300,13 @@ async function teeOff() {
             mobile: null, recipientProfileId: p.profileId,
             tournamentRoundId: null, groupNumber: p.groupNumber ?? 1,
           });
+          // Push notification — fire and forget
+          sendPushToUser(p.profileId, {
+            title: '⛳ Game Invite',
+            body:  `${myName} invited you to play`,
+            tag:   `invite-${roundId}`,
+            data:  { url: '/' },
+          }).catch(() => {});
         } catch (e) { console.error('[invite] multi-group invite failed for', p.name, e); }
       }
     } else {
@@ -3216,6 +3321,13 @@ async function teeOff() {
             mobile: null, recipientProfileId: p.profileId,
             tournamentRoundId: null, groupNumber: 1,
           });
+          // Push notification — fire and forget
+          sendPushToUser(p.profileId, {
+            title: '⛳ Game Invite',
+            body:  `${myName} invited you to play`,
+            tag:   `invite-${roundId}`,
+            data:  { url: '/' },
+          }).catch(() => {});
         } catch (e) { console.error('[invite] notify failed for', p.name, e); }
       }
     }
@@ -7006,28 +7118,6 @@ async function showEndRound() {
   }
 
   document.getElementById('er-scorecard').innerHTML = buildEndRoundScorecard(merged);
-
-  // Share button
-  const shareBtn = document.getElementById('er-share-btn');
-  if (shareBtn) {
-    const shareUrl = `${location.origin}/view?r=${roundId}`;
-    shareBtn.onclick = async () => {
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: `${merged.courseName ?? 'Golf'} Scorecard`,
-            text: `Check out our ${FORMAT_LABELS[merged.format] ?? ''} scorecard!`,
-            url: shareUrl,
-          });
-        } catch {}
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-        shareBtn.textContent = '✅ Link copied!';
-        setTimeout(() => { shareBtn.textContent = '🔗 Share Scorecard'; }, 2000);
-      }
-    };
-    shareBtn.style.display = 'block';
-  }
 }
 
 document.getElementById('btn-back-to-game')?.addEventListener('click', () => {
@@ -8277,27 +8367,6 @@ function showHistoryDetail(rid, rounds) {
         await loadHistory();
       } catch (err) {
         alert('Could not delete round: ' + err.message);
-      }
-    };
-  }
-
-  // Share button in history
-  const hShareBtn = document.getElementById('hd-share-btn');
-  if (hShareBtn) {
-    const shareUrl = `${location.origin}/view?r=${r.id}`;
-    hShareBtn.onclick = async () => {
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: `${r.course_name ?? 'Golf'} Scorecard`,
-            text: `Check out our scorecard!`,
-            url: shareUrl,
-          });
-        } catch {}
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-        hShareBtn.textContent = '✅ Copied!';
-        setTimeout(() => { hShareBtn.textContent = '🔗 Share'; }, 2000);
       }
     };
   }

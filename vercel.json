@@ -1,0 +1,17 @@
+{
+  "functions": {
+    "api/send-push.js": {
+      "memory": 128,
+      "maxDuration": 10
+    }
+  },
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Service-Worker-Allowed", "value": "/" },
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    }
+  ]
+}
