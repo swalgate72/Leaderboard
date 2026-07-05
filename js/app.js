@@ -20,7 +20,7 @@ import {
   realtimeSubscribeRound, realtimeBroadcastRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260704f';
+} from '../data.js?v=20260704g';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -32,8 +32,8 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260704f';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704f';
+} from '../game.js?v=20260704g';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704g';
 
 
 // ================================================================
@@ -51,12 +51,15 @@ const VAPID_PUBLIC_KEY = 'BEWv5mCYwxGTuobtK7RXYt8eCjDB-fEJQUAfaqRv-iFeL8K4x37Hh4
 
 async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return null;
+  // Non-blocking — if sw.js doesn't exist yet, silently skip
   try {
+    const res = await fetch('/sw.js', { method: 'HEAD' }).catch(() => null);
+    if (!res || !res.ok) { console.log('[sw] sw.js not found, skipping'); return null; }
     const reg = await navigator.serviceWorker.register('/sw.js');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
-    console.warn('[sw] registration failed', err);
+    console.warn('[sw] registration failed (non-fatal)', err);
     return null;
   }
 }
@@ -670,8 +673,8 @@ async function boot() {
   if (tournViewId) { await handleTournamentViewLink(tournViewId); return; }
   if (joinToken)   { await handleJoinFlow(joinToken, troundParam, groupParam); return; }
 
-  // Register service worker for push notifications
-  registerServiceWorker();
+  // Register service worker for push notifications (non-blocking)
+  registerServiceWorker().catch(() => {});
 
   authOnStateChange(async (event, user) => {
     if (event === 'PASSWORD_RECOVERY') { showResetPasswordScreen(); return; }
