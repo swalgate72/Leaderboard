@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leaderboard · Scorecard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #f4f1eb;
+      --surface:  #edeae2;
+      --surface2: #e4e0d7;
+      --white:    #1a1a1a;
+      --muted:    #6b6560;
+      --muted2:   #4a453f;
+      --green:    #2d5c3a;
+      --gold:     #b8942a;
+      --border:   #ccc8be;
+      --red:      #c0392b;
+      --blue:     #2980b9;
+      --radius:   12px;
+    }
+
+    body {
+      font-family: 'Lato', sans-serif;
+      background: var(--bg);
+      color: var(--white);
+      min-height: 100vh;
+    }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(160deg, #1a3a22 0%, #0e2415 100%);
+      color: #fff;
+      padding: 1.25rem 1.1rem 1.1rem;
+    }
+    .hero-eyebrow {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.65rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+      margin-bottom: 0.2rem;
+    }
+    .hero-course {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 800;
+      line-height: 1.1;
+      color: #fff;
+    }
+    .hero-meta {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.6);
+      margin-top: 0.3rem;
+    }
+    .hero-status {
+      display: inline-block;
+      margin-top: 0.5rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+    .hero-status.live     { background: rgba(255,80,80,0.25); color: #ff8080; }
+    .hero-status.complete { background: rgba(76,175,118,0.2); color: #7dd4a0; }
+
+    /* Result banner */
+    .result-banner {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gold);
+      text-align: center;
+      letter-spacing: 0.04em;
+    }
+
+    /* Scorecard */
+    .page-pad { padding: 1rem; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .card-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0.6rem 0.75rem 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Scorecard table */
+    .sc-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    th {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0.35rem 0.3rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    th.name-col { text-align: left; padding-left: 0.6rem; }
+    td {
+      padding: 0.35rem 0.3rem;
+      text-align: center;
+      border-bottom: 0.5px solid var(--border);
+      color: var(--muted2);
+      font-size: 0.8rem;
+    }
+    td.name-col {
+      text-align: left;
+      padding-left: 0.6rem;
+      font-weight: 700;
+      color: var(--white);
+      white-space: nowrap;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.9rem;
+    }
+    td.total-col { font-weight: 800; color: var(--white); }
+    tr:last-child td { border-bottom: none; }
+    tr.subtotal-row td { 
+      background: var(--surface2); 
+      font-weight: 700;
+      font-size: 0.72rem;
+      color: var(--muted2);
+    }
+
+    /* Score colours */
+    .sc-eagle  { display:inline-block;border:2px solid var(--gold);border-radius:50%;
+                  width:22px;height:22px;line-height:18px;text-align:center;color:var(--gold);font-weight:800; }
+    .sc-birdie { display:inline-block;border:2px solid #c0392b;border-radius:50%;
+                  width:22px;height:22px;line-height:18px;text-align:center;color:#c0392b;font-weight:800; }
+    .sc-bogey  { display:inline-block;border:2px solid #2980b9;border-radius:2px;
+                  width:22px;height:22px;line-height:18px;text-align:center;color:#2980b9;font-weight:800; }
+    .sc-double { display:inline-block;border:2px solid #2980b9;border-radius:2px;outline:2px solid #2980b9;outline-offset:2px;
+                  width:22px;height:22px;line-height:18px;text-align:center;color:#2980b9;font-weight:800; }
+    .sc-pickup { display:inline-block;background:var(--gold);border-radius:4px;
+                  padding:0 3px;font-size:0.62em;font-weight:800;color:#fff;white-space:nowrap; }
+
+    /* Players summary */
+    .player-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .player-row:last-child { border-bottom: none; }
+    .player-name {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--white);
+    }
+    .player-score {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--green);
+    }
+    .player-score-label {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    /* Loading / error */
+    .centre {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      gap: 0.75rem;
+      color: var(--muted);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1.1rem;
+      letter-spacing: 0.05em;
+      text-align: center;
+      padding: 2rem;
+    }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #ff8080;
+      font-family: 'Barlow Condensed', sans-serif;
+      letter-spacing: 0.06em;
+    }
+    .live-dot {
+      width: 6px; height: 6px;
+      background: #ff5050;
+      border-radius: 50%;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .footer {
+      text-align: center;
+      padding: 1.5rem 1rem;
+      font-size: 0.7rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: 1rem;
+    }
+    .footer a {
+      color: var(--green);
+      text-decoration: none;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <div class="centre">
+    <div class="spinner"></div>
+    <div>Loading scorecard…</div>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/+esm';
+import {
+  FORMAT_LABELS, buildScorecardRows, getResultSummary
+} from './game.js?v=20260704d';
+
+const SUPABASE_URL  = 'https://fzknjqjnwnfuyfjrgacf.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6a25qcWpud25mdXlmanJnYWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxODIxNjgsImV4cCI6MjA5NTc1ODE2OH0.Hy-eeXpw9yv_b3LpobYFrfEZ6OwW55dHIZc4G0pPA1k';
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── Helpers ──────────────────────────────────────────────────────
+function shortName(full) {
+  if (!full) return '';
+  const parts = full.trim().split(' ').filter(Boolean);
+  return parts.length === 1 ? parts[0] : parts[0] + ' ' + parts[parts.length-1][0].toUpperCase();
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+}
+
+function scoreCell(text, relToPar, isPickup) {
+  if (!text || text === '') return '<td></td>';
+  if (isPickup || text.startsWith('P.Up')) {
+    return `<td><span class="sc-pickup">${text}</span></td>`;
+  }
+  if (relToPar == null) return `<td>${text}</td>`;
+  if (relToPar <= -2) return `<td><span class="sc-eagle">${text}</span></td>`;
+  if (relToPar === -1) return `<td><span class="sc-birdie">${text}</span></td>`;
+  if (relToPar === 1)  return `<td><span class="sc-bogey">${text}</span></td>`;
+  if (relToPar >= 2)   return `<td><span class="sc-double">${text}</span></td>`;
+  return `<td>${text}</td>`;
+}
+
+// ── Build scorecard table from buildScorecardRows output ─────────
+function buildTable(state, mode = 'strokes') {
+  const rows = buildScorecardRows(state);
+  if (!rows?.columns?.length) return '<p style="padding:0.75rem;color:var(--muted);">No scores yet.</p>';
+
+  const cols   = rows.columns;
+  const offset = state.holeOffset ?? 0;
+  const total  = state.numHoles ?? 18;
+
+  let html = '<div class="sc-wrap"><table>';
+
+  // Header row — hole numbers
+  html += '<tr><th class="name-col">Player</th>';
+  for (let h = 0; h < total; h++) {
+    if (h === 9) html += '<th>Out</th>';
+    html += `<th>${offset + h + 1}</th>`;
+  }
+  if (total > 9) html += '<th>In</th>';
+  html += '<th>Tot</th></tr>';
+
+  // Par row
+  const par = state.par ?? [];
+  html += '<tr><th class="name-col" style="color:var(--muted);">Par</th>';
+  let frontPar = 0, backPar = 0;
+  for (let h = 0; h < total; h++) {
+    const p = par[h] ?? '';
+    if (h < 9) frontPar += par[h] ?? 0;
+    else backPar += par[h] ?? 0;
+    if (h === 9) html += `<th>${frontPar}</th>`;
+    html += `<th>${p}</th>`;
+  }
+  if (total > 9) html += `<th>${backPar}</th>`;
+  html += `<th>${frontPar + backPar}</th></tr>`;
+
+  // Data rows per column
+  cols.forEach(col => {
+    const cells = col.cells ?? [];
+    html += `<tr><td class="name-col">${shortName(col.label)}</td>`;
+    let front = 0, back = 0, frontHas = false, backHas = false;
+    cells.forEach((cell, h) => {
+      const num = cell.pickup ? parseInt((cell.text||'').match(/\d+/)?.[0]||'0') 
+                              : parseFloat(cell.text);
+      if (!isNaN(num)) {
+        if (h < 9) { front += num; frontHas = true; }
+        else        { back  += num; backHas  = true; }
+      }
+      if (h === 9) html += `<td class="total-col">${frontHas ? front : ''}</td>`;
+      html += scoreCell(cell.text, cell.relToPar, cell.pickup);
+    });
+    if (total > 9) html += `<td class="total-col">${backHas ? back : ''}</td>`;
+    const tot = (frontHas ? front : 0) + (backHas ? back : 0);
+    html += `<td class="total-col">${frontHas || backHas ? tot : ''}</td>`;
+    html += '</tr>';
+  });
+
+  html += '</table></div>';
+  return html;
+}
+
+// ── Summary cards ────────────────────────────────────────────────
+function buildSummary(state) {
+  const fmt   = state.format;
+  const names = state.names ?? [];
+  const log   = state.log   ?? [];
+  const isMatch = ['match','betterball','csm','foursomes','greensomes'].includes(fmt);
+  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(fmt);
+
+  if (isMatch) {
+    const ms  = state.matchScore ?? 0;
+    const up  = Math.abs(ms);
+    const holesLeft = (state.numHoles ?? 18) - log.length;
+    const n0 = isPairs
+      ? `${shortName(names[0])} & ${shortName(names[1])}` : shortName(names[0]);
+    const n1 = isPairs
+      ? `${shortName(names[2]??'')} & ${shortName(names[3]??'')}` : shortName(names[1]??'');
+
+    const status = ms === 0 ? 'All Square'
+      : `${ms > 0 ? n0 : n1} ${up} UP`;
+
+    return `
+      <div class="player-row">
+        <div class="player-name">${n0}</div>
+        <div style="text-align:right">
+          <div class="player-score" style="color:${ms>0?'var(--gold)':ms<0?'var(--muted)':'var(--green)'}">
+            ${ms===0?'A/S':ms>0?`${up} UP`:`${up} DN`}
+          </div>
+        </div>
+      </div>
+      <div class="player-row">
+        <div class="player-name">${n1}</div>
+        <div style="text-align:right">
+          <div class="player-score" style="color:${ms<0?'var(--gold)':ms>0?'var(--muted)':'var(--green)'}">
+            ${ms===0?'A/S':ms<0?`${up} UP`:`${up} DN`}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Stableford / stroke / split6 etc
+  const totals = state.totals ?? [];
+  return names.map((nm, i) => `
+    <div class="player-row">
+      <div class="player-name">${shortName(nm)}</div>
+      <div style="text-align:right">
+        <div class="player-score">${totals[i] ?? 0}</div>
+        <div class="player-score-label">${fmt==='stroke'?'strokes':'pts'}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Main ─────────────────────────────────────────────────────────
+async function main() {
+  const params  = new URLSearchParams(location.search);
+  const roundId = params.get('r');
+
+  if (!roundId) {
+    render(`<div class="centre">
+      <div style="font-size:2rem;">⛳</div>
+      <div>No round specified.</div>
+      <div style="font-size:0.85rem;color:var(--muted);">Share a round link from the Leaderboard app.</div>
+    </div>`);
+    return;
+  }
+
+  // Load round
+  let round;
+  try {
+    const { data, error } = await sb
+      .from('rounds')
+      .select('id, course_name, tee_name, game_format, player_names, game_state, started_at, completed_at, weather, status')
+      .eq('id', roundId)
+      .maybeSingle();
+    if (error) throw error;
+    round = data;
+  } catch (err) {
+    render(`<div class="centre">
+      <div style="font-size:2rem;">❌</div>
+      <div>Could not load scorecard.</div>
+      <div style="font-size:0.85rem;color:var(--muted);">${err.message ?? 'Network error'}</div>
+    </div>`);
+    return;
+  }
+
+  if (!round) {
+    render(`<div class="centre">
+      <div style="font-size:2rem;">🔍</div>
+      <div>Round not found.</div>
+      <div style="font-size:0.85rem;color:var(--muted);">The link may have expired or the round may be private.</div>
+    </div>`);
+    return;
+  }
+
+  // Parse game state
+  let state;
+  try {
+    state = typeof round.game_state === 'string'
+      ? JSON.parse(round.game_state) : round.game_state;
+  } catch {
+    state = null;
+  }
+
+  const isLive     = round.status === 'active';
+  const fmt        = state?.format ?? round.game_format ?? '';
+  const fmtLabel   = FORMAT_LABELS[fmt] ?? fmt;
+  const holesPlayed = state?.log?.length ?? 0;
+  const totalHoles  = state?.numHoles ?? 18;
+  const summary    = state ? getResultSummary(state) : null;
+  const weather    = round.weather;
+
+  const heroHtml = `
+    <div class="hero">
+      <div class="hero-eyebrow">Leaderboard · Scorecard</div>
+      <div class="hero-course">${round.course_name ?? 'Golf Round'}</div>
+      <div class="hero-meta">
+        ${round.tee_name ? round.tee_name + ' Tees · ' : ''}${fmtLabel}
+        ${weather ? ' · ' + weather : ''}
+        · ${fmtDate(round.started_at)}
+      </div>
+      ${isLive
+        ? `<div style="margin-top:0.5rem;">
+             <span class="live-badge"><span class="live-dot"></span> LIVE · ${holesPlayed}/${totalHoles} holes</span>
+           </div>`
+        : `<div class="hero-meta" style="margin-top:0.4rem;">${holesPlayed} holes completed</div>`
+      }
+    </div>`;
+
+  const resultHtml = summary?.headline
+    ? `<div class="result-banner">${summary.headline}</div>` : '';
+
+  const summaryHtml = state ? `
+    <div class="card">
+      <div class="card-title">Standings</div>
+      ${buildSummary(state)}
+    </div>` : '';
+
+  const scorecardHtml = state ? `
+    <div class="card">
+      <div class="card-title">Scorecard — ${fmt === 'stroke' ? 'Strokes' : 'Points'}</div>
+      ${buildTable(state, fmt === 'stroke' ? 'strokes' : 'points')}
+    </div>
+    ${fmt !== 'stroke' ? `
+    <div class="card">
+      <div class="card-title">Scorecard — Shots</div>
+      ${buildTable(state, 'strokes')}
+    </div>` : ''}` : '';
+
+  const footerHtml = `
+    <div class="footer">
+      Shared via <a href="https://leaderboard-ten-wheat.vercel.app">Leaderboard</a>
+    </div>`;
+
+  render(heroHtml + resultHtml + `<div class="page-pad">` + summaryHtml + scorecardHtml + `</div>` + footerHtml);
+
+  // Auto-refresh every 30s if live
+  if (isLive) {
+    setTimeout(() => location.reload(), 30000);
+  }
+}
+
+function render(html) {
+  document.getElementById('app').innerHTML = html;
+}
+
+main();
+</script>
+</body>
+</html>

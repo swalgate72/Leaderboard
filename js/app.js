@@ -7006,6 +7006,28 @@ async function showEndRound() {
   }
 
   document.getElementById('er-scorecard').innerHTML = buildEndRoundScorecard(merged);
+
+  // Share button
+  const shareBtn = document.getElementById('er-share-btn');
+  if (shareBtn) {
+    const shareUrl = `${location.origin}/view?r=${roundId}`;
+    shareBtn.onclick = async () => {
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: `${merged.courseName ?? 'Golf'} Scorecard`,
+            text: `Check out our ${FORMAT_LABELS[merged.format] ?? ''} scorecard!`,
+            url: shareUrl,
+          });
+        } catch {}
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        shareBtn.textContent = '✅ Link copied!';
+        setTimeout(() => { shareBtn.textContent = '🔗 Share Scorecard'; }, 2000);
+      }
+    };
+    shareBtn.style.display = 'block';
+  }
 }
 
 document.getElementById('btn-back-to-game')?.addEventListener('click', () => {
@@ -8255,6 +8277,27 @@ function showHistoryDetail(rid, rounds) {
         await loadHistory();
       } catch (err) {
         alert('Could not delete round: ' + err.message);
+      }
+    };
+  }
+
+  // Share button in history
+  const hShareBtn = document.getElementById('hd-share-btn');
+  if (hShareBtn) {
+    const shareUrl = `${location.origin}/view?r=${r.id}`;
+    hShareBtn.onclick = async () => {
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: `${r.course_name ?? 'Golf'} Scorecard`,
+            text: `Check out our scorecard!`,
+            url: shareUrl,
+          });
+        } catch {}
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        hShareBtn.textContent = '✅ Copied!';
+        setTimeout(() => { hShareBtn.textContent = '🔗 Share'; }, 2000);
       }
     };
   }
