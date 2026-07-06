@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260704o)
+// LEADERBOARD - app.js  (v3.2 · build 20260704p)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
