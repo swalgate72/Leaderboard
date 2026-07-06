@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260704n)
+// LEADERBOARD - app.js  (v3.2 · build 20260704o)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -5510,8 +5510,9 @@ function buildMatchLeaderboard(state) {
     const fwB       = boldB ? '800' : '500';
     const colA      = played ? (boldA ? 'var(--gold)' : 'var(--muted2)') : 'transparent';
     const colB      = played ? (boldB ? '#5ba8d8'     : 'var(--muted2)') : 'transparent';
-    const arrowColA = result > 0 ? 'var(--gold)' : '#5ba8d8';
-    const arrowColB = result > 0 ? '#5ba8d8'     : 'var(--gold)';
+    const _result   = played ? (entry?.result ?? 0) : 0;
+    const arrowColA = _result > 0 ? 'var(--gold)' : '#5ba8d8';
+    const arrowColB = _result > 0 ? '#5ba8d8'     : 'var(--gold)';
 
     // Hole chip — small rounded box, just the number
     const holeChip = `
