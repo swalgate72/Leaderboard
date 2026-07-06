@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260704m)
+// LEADERBOARD - app.js  (v3.2 · build 20260704n)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -8275,7 +8275,31 @@ async function loadHistory() {
         </div>`;
     }).join('');
     listEl.querySelectorAll('.history-card').forEach(item => {
-      item.addEventListener('click', () => showHistoryDetail(item.dataset.rid, filtered));
+      const openRound = () => {
+        try {
+          showHistoryDetail(item.dataset.rid, filtered);
+        } catch(err) {
+          console.error('[history] showHistoryDetail failed:', err);
+          alert('Could not open round: ' + (err.message ?? err));
+        }
+      };
+      // touchstart for instant response on iOS
+      item.addEventListener('touchstart', (e) => {
+        e.currentTarget._touchMoved = false;
+      }, { passive: true });
+      item.addEventListener('touchmove', (e) => {
+        e.currentTarget._touchMoved = true;
+      }, { passive: true });
+      item.addEventListener('touchend', (e) => {
+        if (!e.currentTarget._touchMoved) {
+          e.preventDefault();
+          openRound();
+        }
+      }, { passive: false });
+      item.addEventListener('click', (e) => {
+        if (e.sourceCapabilities?.firesTouchEvents) return;
+        openRound();
+      });
     });
   } catch (err) { listEl.innerHTML = `<div class="history-empty">${err.message}</div>`; }
 }
@@ -8287,12 +8311,15 @@ document.getElementById('history-format-select')?.addEventListener('change', e =
 document.getElementById('history-back')?.addEventListener('click', () => showHome());
 
 function showHistoryDetail(rid, rounds) {
-  const r = rounds.find(x => x.id === rid); if (!r) return;
-  // game_state may be a JSON string (direct query) or already parsed object (nested join)
+  const r = rounds.find(x => x.id === rid);
+  if (!r) { console.error('[history] round not found for id:', rid); return; }
+
   let state = r.game_state;
   if (typeof state === 'string') {
-    try { state = JSON.parse(state); } catch { state = null; }
+    try { state = JSON.parse(state); } catch(e) { console.error('[history] parse failed:', e); state = null; }
   }
+  console.log('[history] opening:', r.id, r.game_format, 'state:', typeof state, !!state?.log);
+
 
   document.getElementById('hd-title').textContent =
     `${r.course_name ?? '--'} · ${fmtLabel(r.game_format)}`;
