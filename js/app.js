@@ -20,7 +20,7 @@ import {
   realtimeSubscribeRound, realtimeBroadcastRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260704i';
+} from '../data.js?v=20260704j';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -32,8 +32,8 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260704i';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704i';
+} from '../game.js?v=20260704j';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704j';
 
 
 // ================================================================
@@ -5410,13 +5410,18 @@ function renderLeaderboard() {
 // MATCH LEADERBOARD — hole-by-hole view for match/betterball/pairs formats
 // ================================================================
 function buildMatchLeaderboard(state) {
-  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(state.format);
+  const fmt     = state.format;
+  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(fmt);
+  const isBB    = fmt === 'betterball';
+  const isCSM   = fmt === 'csm';
+  const isFG    = ['foursomes','greensomes'].includes(fmt);
   const log     = state.log ?? [];
   const si      = state.si  ?? [];
   const par     = state.par ?? [];
   const offset  = state.holeOffset ?? 0;
   const total   = state.numHoles ?? 18;
 
+  // Name labels — pairs show both names
   const nameA = isPairs
     ? `${shortName(state.names[0]??'')} & ${shortName(state.names[1]??'')}`
     : (state.names[0] ?? 'Player 1');
@@ -5424,7 +5429,10 @@ function buildMatchLeaderboard(state) {
     ? `${shortName(state.names[2]??'')} & ${shortName(state.names[3]??'')}`
     : (state.names[1] ?? 'Player 2');
 
-  // Show/hide names row in the HTML shell
+  // Score column label per format
+  const scoreLabel = isCSM ? 'Pts' : 'Net';
+
+  // Show names row in the HTML shell
   const namesRow = document.getElementById('leaderboard-names-row');
   const nameAEl  = document.getElementById('lb-name-a');
   const nameBEl  = document.getElementById('lb-name-b');
@@ -5437,13 +5445,13 @@ function buildMatchLeaderboard(state) {
     <div style="display:grid;grid-template-columns:3.5rem 1fr 4.5rem 4.5rem 1fr 3.5rem;
                 align-items:center;padding:0.6rem 0 0.45rem;
                 border-bottom:1.5px solid var(--border2);font-family:'Barlow Condensed',sans-serif;">
-      <div style="font-size:1.2rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);">Net</div>
+      <div style="font-size:1.2rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);">${scoreLabel}</div>
       <div></div>
       <div style="grid-column:span 2;text-align:center;font-size:1.2rem;font-weight:700;
                   letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);">Hole</div>
       <div></div>
       <div style="font-size:1.2rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
-                  color:var(--muted);text-align:right;">Net</div>
+                  color:var(--muted);text-align:right;">${scoreLabel}</div>
     </div>`;
 
   // Build one row per hole (played + unplayed)
@@ -5455,13 +5463,26 @@ function buildMatchLeaderboard(state) {
     const played  = !!entry;
 
     let netA = '', netB = '';
-    let statusA = '', statusB = '';       // shown on every played hole
-    let boldA = false, boldB = false;     // bold + arrow only on the hole where status changed
+    let statusA = '', statusB = '';
+    let boldA = false, boldB = false;
     let arrowA = '', arrowB = '';
 
     if (played) {
-      netA = isPairs ? (entry.bbA?.net ?? '') : (entry.nets?.[0] ?? '');
-      netB = isPairs ? (entry.bbB?.net ?? '') : (entry.nets?.[1] ?? '');
+      // Net score shown on left/right depends on format:
+      // betterball: best net of the pair (bbA.net / bbB.net)
+      // csm: combined stableford points for the pair (totalA / totalB)
+      // foursomes/greensomes: single net score for the pair (nets[0] / nets[1])
+      // match: individual net scores (nets[0] / nets[1])
+      if (isBB) {
+        netA = entry.bbA?.net ?? '';
+        netB = entry.bbB?.net ?? '';
+      } else if (isCSM) {
+        netA = entry.totalA ?? '';
+        netB = entry.totalB ?? '';
+      } else {
+        netA = entry.nets?.[0] ?? '';
+        netB = entry.nets?.[1] ?? '';
+      }
 
       // ms from Pair A perspective: +ve = A winning, -ve = B winning
       const ms     = entry.matchAfter ?? 0;
@@ -8350,27 +8371,27 @@ function showHistoryDetail(rid, rounds) {
 
     const TEAM_PAIR_FORMATS = ['betterball','csm','foursomes','greensomes','best2','texas'];
     if (TEAM_PAIR_FORMATS.includes(fmt)) {
-      // Team/pairs formats — one row per group
-      const rows = allStates.filter(s => s?.names).map((s, i) => {
-        const teamName  = s.teamName ?? `Team ${s.groupNumber ?? i + 1}`;
-        const members   = s.names.join(', ');
-        const holesPlayed = s.log?.length ?? 0;
-        let score;
-        if (isTexas)   score = texasSbFmt ? (s.texasPts ?? 0) : (s.grossTotal ?? 0);
-        else if (isBest2) score = s.groupTotal ?? 0;
-        else {
-          const ms = s.matchScore ?? 0;
-          const up = Math.abs(ms);
-          score = ms === 0 ? 'All Sq' : (ms > 0 ? `${up} Up` : `${up} Down`);
-        }
-        return { rank: i + 1, label: teamName, sub: members, score, thru: holesPlayed, isLead: i === 0 };
-      });
-      // Sort numeric scores
-      const numRows = rows.filter(r => typeof r.score === 'number');
-      const strRows = rows.filter(r => typeof r.score !== 'number');
-      numRows.sort((a, b) => (isTexas && !texasSbFmt) ? a.score - b.score : b.score - a.score);
-      const sorted = [...numRows, ...strRows].map((r, i) => ({ ...r, rank: i + 1, isLead: i === 0 }));
-      lbEl.innerHTML = buildLeaderboardTable(sorted, isMatch ? 'Result' : scoreLabel);
+      // Match-type pairs formats → hole-by-hole view (same as live leaderboard)
+      if (isMatch) {
+        const gs = allStates[0] ?? merged;
+        lbEl.innerHTML = buildMatchLeaderboard(gs);
+      } else {
+        // Non-match pairs (best2, texas) — summary table
+        const rows = allStates.filter(s => s?.names).map((s, i) => {
+          const teamName  = s.teamName ?? `Team ${s.groupNumber ?? i + 1}`;
+          const members   = s.names.join(', ');
+          const holesPlayed = s.log?.length ?? 0;
+          let score;
+          if (isTexas)      score = texasSbFmt ? (s.texasPts ?? 0) : (s.grossTotal ?? 0);
+          else if (isBest2) score = s.groupTotal ?? 0;
+          return { rank: i + 1, label: teamName, sub: members, score, thru: holesPlayed, isLead: i === 0 };
+        });
+        const numRows = rows.filter(r => typeof r.score === 'number');
+        const strRows = rows.filter(r => typeof r.score !== 'number');
+        numRows.sort((a, b) => (isTexas && !texasSbFmt) ? a.score - b.score : b.score - a.score);
+        const sorted = [...numRows, ...strRows].map((r, i) => ({ ...r, rank: i + 1, isLead: i === 0 }));
+        lbEl.innerHTML = buildLeaderboardTable(sorted, scoreLabel);
+      }
     } else {
       // Individual formats — per-player rows from merged state
       const rows = buildMultiGroupLeaderboard(allStates);
