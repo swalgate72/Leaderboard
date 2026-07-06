@@ -468,8 +468,21 @@ export async function roundsLoadHistory(userId) {
   }
 
   // Sort combined list by completed_at descending
-  merged.sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
-  return merged;
+  // Handle null completed_at (active rounds that slipped through)
+  merged.sort((a, b) => {
+    const ta = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+    const tb = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+    return tb - ta;
+  });
+
+  // Normalise game_state — nested join returns it as object, direct query as string
+  // Parse strings here so callers always get an object or null
+  return merged.map(r => ({
+    ...r,
+    game_state: typeof r.game_state === 'string'
+      ? (() => { try { return JSON.parse(r.game_state); } catch { return null; } })()
+      : (r.game_state ?? null),
+  }));
 }
 
 // ================================================================

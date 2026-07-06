@@ -20,7 +20,7 @@ import {
   realtimeSubscribeRound, realtimeBroadcastRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260704k';
+} from '../data.js?v=20260704l';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -32,8 +32,8 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260704k';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704k';
+} from '../game.js?v=20260704l';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704l';
 
 
 // ================================================================
@@ -1030,7 +1030,9 @@ function setActiveBottomNav(activeId) {
 // Single Game button → show format picker (both solo and team)
 // Home screen format buttons — direct format selection, no intermediate screen
 document.querySelectorAll('.fmt-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
+  // Use touchstart for instant response on iOS — prevents ghost-click issues
+  const handleFmtSelect = (e) => {
+    e.preventDefault(); // suppress subsequent click
     const fmt = btn.dataset.fmt;
     if (!fmt) return;
     setup.tournamentId     = null;
@@ -1049,6 +1051,12 @@ document.querySelectorAll('.fmt-btn').forEach(btn => {
     else if (fmt === 'texas')                                            { setup.numPlayers = 2; setup.numGroups = 1; setup.playersPerGroup = null; }
     else                                                                 { setup.numPlayers = 1; setup.numGroups = 1; setup.playersPerGroup = null; }
     startSetup();
+  };
+  btn.addEventListener('touchstart', handleFmtSelect, { passive: false });
+  btn.addEventListener('click', (e) => {
+    // Only handle click for non-touch devices
+    if (e.sourceCapabilities?.firesTouchEvents) return;
+    handleFmtSelect(e);
   });
 });
 
@@ -8252,7 +8260,8 @@ async function loadHistory() {
       const date = r.completed_at
         ? new Date(r.completed_at).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' })
         : '--';
-      const state   = r.game_state;
+      let state = r.game_state;
+      if (typeof state === 'string') { try { state = JSON.parse(state); } catch { state = null; } }
       const summary = state ? getResultSummary(state) : null;
       return `
         <div class="history-card" data-rid="${r.id}">
@@ -8279,7 +8288,11 @@ document.getElementById('history-back')?.addEventListener('click', () => showHom
 
 function showHistoryDetail(rid, rounds) {
   const r = rounds.find(x => x.id === rid); if (!r) return;
-  const state = r.game_state;
+  // game_state may be a JSON string (direct query) or already parsed object (nested join)
+  let state = r.game_state;
+  if (typeof state === 'string') {
+    try { state = JSON.parse(state); } catch { state = null; }
+  }
 
   document.getElementById('hd-title').textContent =
     `${r.course_name ?? '--'} · ${fmtLabel(r.game_format)}`;
