@@ -20,7 +20,7 @@ import {
   realtimeSubscribeRound, realtimeBroadcastRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260704j';
+} from '../data.js?v=20260704k';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -32,8 +32,8 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260704j';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704j';
+} from '../game.js?v=20260704k';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704k';
 
 
 // ================================================================
@@ -5440,26 +5440,30 @@ function buildMatchLeaderboard(state) {
   if (nameAEl)  nameAEl.textContent    = nameA;
   if (nameBEl)  nameBEl.textContent    = nameB;
 
-  // Column header
+  // Grid: [net-A 2.5rem] [status-A flex] [hole-chip 3rem] [status-B flex] [net-B 2.5rem]
+  // Fixed outer columns keep scores anchored; middle flex columns fill remaining space
+  const GRID = '2.5rem 1fr 3rem 1fr 2.5rem';
+
   let html = `
-    <div style="display:grid;grid-template-columns:3.5rem 1fr 4.5rem 4.5rem 1fr 3.5rem;
-                align-items:center;padding:0.6rem 0 0.45rem;
-                border-bottom:1.5px solid var(--border2);font-family:'Barlow Condensed',sans-serif;">
-      <div style="font-size:1.2rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);">${scoreLabel}</div>
+    <div style="display:grid;grid-template-columns:${GRID};
+                align-items:center;padding:0.5rem 0.25rem 0.4rem;
+                border-bottom:1.5px solid var(--border2);font-family:'Barlow Condensed',sans-serif;
+                gap:0 0.25rem;">
+      <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+                  color:var(--muted);text-align:center;">${scoreLabel}</div>
       <div></div>
-      <div style="grid-column:span 2;text-align:center;font-size:1.2rem;font-weight:700;
-                  letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);">Hole</div>
+      <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+                  color:var(--muted);text-align:center;">H</div>
       <div></div>
-      <div style="font-size:1.2rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
-                  color:var(--muted);text-align:right;">${scoreLabel}</div>
+      <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+                  color:var(--muted);text-align:center;">${scoreLabel}</div>
     </div>`;
 
-  // Build one row per hole (played + unplayed)
   for (let h = 0; h < total; h++) {
     const entry   = log[h] ?? null;
     const holeNum = offset + h + 1;
-    const parH    = par[h]  ?? '–';
-    const siH     = si[h]   ?? '–';
+    const parH    = par[h] ?? '–';
+    const siH     = si[h]  ?? '–';
     const played  = !!entry;
 
     let netA = '', netB = '';
@@ -5468,11 +5472,6 @@ function buildMatchLeaderboard(state) {
     let arrowA = '', arrowB = '';
 
     if (played) {
-      // Net score shown on left/right depends on format:
-      // betterball: best net of the pair (bbA.net / bbB.net)
-      // csm: combined stableford points for the pair (totalA / totalB)
-      // foursomes/greensomes: single net score for the pair (nets[0] / nets[1])
-      // match: individual net scores (nets[0] / nets[1])
       if (isBB) {
         netA = entry.bbA?.net ?? '';
         netB = entry.bbB?.net ?? '';
@@ -5484,51 +5483,58 @@ function buildMatchLeaderboard(state) {
         netB = entry.nets?.[1] ?? '';
       }
 
-      // ms from Pair A perspective: +ve = A winning, -ve = B winning
       const ms     = entry.matchAfter ?? 0;
       const result = entry.result ?? 0;
       const up     = Math.abs(ms);
 
-      // Status text for both sides every played hole
-      statusA = ms === 0 ? 'A/S' : ms > 0 ? `${up} UP` : `${up} DOWN`;
-      statusB = ms === 0 ? 'A/S' : ms < 0 ? `${up} UP` : `${up} DOWN`;
+      statusA = ms === 0 ? 'A/S' : ms > 0 ? `${up} UP` : `${up} DN`;
+      statusB = ms === 0 ? 'A/S' : ms < 0 ? `${up} UP` : `${up} DN`;
 
-      // Bold + arrow only when this hole changed the status
       if (result !== 0) {
         boldA = true; boldB = true;
-        if (result > 0) {
-          // A won the hole
-          arrowA = ' ↑'; arrowB = ' ↓';
-        } else {
-          // B won the hole
-          arrowA = ' ↓'; arrowB = ' ↑';
-        }
+        arrowA = result > 0 ? '↑' : '↓';
+        arrowB = result > 0 ? '↓' : '↑';
       }
     }
 
-    const opacity = played ? '' : 'opacity:0.28;';
-    const fwA = boldA ? '800' : '400';
-    const fwB = boldB ? '800' : '400';
-    const colStatusA = played ? (boldA ? 'var(--gold)' : 'var(--muted2)') : '';
-    const colStatusB = played ? (boldB ? '#5ba8d8'     : 'var(--muted2)') : '';
+    const opacity   = played ? '1' : '0.28';
+    const fwA       = boldA ? '800' : '500';
+    const fwB       = boldB ? '800' : '500';
+    const colA      = played ? (boldA ? 'var(--gold)' : 'var(--muted2)') : 'transparent';
+    const colB      = played ? (boldB ? '#5ba8d8'     : 'var(--muted2)') : 'transparent';
+    const arrowColA = result > 0 ? 'var(--gold)' : '#5ba8d8';
+    const arrowColB = result > 0 ? '#5ba8d8'     : 'var(--gold)';
+
+    // Hole chip — small rounded box, just the number
+    const holeChip = `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+                  text-align:center;padding:0.2rem 0;min-width:2.6rem;">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:800;
+                     color:var(--white);line-height:1;">${holeNum}</span>
+      </div>`;
 
     html += `
-      <div style="display:grid;grid-template-columns:3.5rem 1fr 4.5rem 4.5rem 1fr 3.5rem;
-                  align-items:center;padding:0.7rem 0;
-                  border-bottom:0.5px solid var(--border);${opacity}
-                  font-family:'Barlow Condensed',sans-serif;">
-        <div style="font-size:2rem;font-weight:700;color:var(--white);">${netA}</div>
-        <div style="font-size:1.3rem;font-weight:${fwA};color:${colStatusA};
-                    letter-spacing:0.02em;white-space:nowrap;">${statusA}${arrowA}</div>
-        <div style="grid-column:span 2;text-align:center;">
-          <span style="font-size:2.2rem;font-weight:800;color:var(--white);
-                       display:block;line-height:1.1;">${holeNum}</span>
-          <span style="font-size:1.2rem;color:var(--muted);font-weight:600;
-                       letter-spacing:0.04em;display:block;">Par ${parH} · SI ${siH}</span>
+      <div style="display:grid;grid-template-columns:${GRID};
+                  align-items:center;padding:0.55rem 0.25rem;
+                  border-bottom:0.5px solid var(--border);opacity:${opacity};
+                  font-family:'Barlow Condensed',sans-serif;gap:0 0.25rem;">
+        <div style="font-size:1.6rem;font-weight:700;color:var(--white);
+                    text-align:center;line-height:1;">${netA}</div>
+        <div style="display:flex;align-items:center;justify-content:flex-start;gap:3px;
+                    padding-left:0.3rem;">
+          ${boldA ? `<span style="font-size:0.9rem;color:${arrowColA};font-weight:800;">${arrowA}</span>` : ''}
+          <span style="font-size:1rem;font-weight:${fwA};color:${colA};
+                       letter-spacing:0.02em;white-space:nowrap;">${statusA}</span>
         </div>
-        <div style="font-size:1.3rem;font-weight:${fwB};color:${colStatusB};
-                    letter-spacing:0.02em;white-space:nowrap;text-align:right;">${arrowB}${statusB}</div>
-        <div style="font-size:2rem;font-weight:700;color:var(--white);text-align:right;">${netB}</div>
+        ${holeChip}
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;
+                    padding-right:0.3rem;">
+          <span style="font-size:1rem;font-weight:${fwB};color:${colB};
+                       letter-spacing:0.02em;white-space:nowrap;text-align:right;">${statusB}</span>
+          ${boldB ? `<span style="font-size:0.9rem;color:${arrowColB};font-weight:800;">${arrowB}</span>` : ''}
+        </div>
+        <div style="font-size:1.6rem;font-weight:700;color:var(--white);
+                    text-align:center;line-height:1;">${netB}</div>
       </div>`;
   }
 
@@ -5543,12 +5549,14 @@ function buildMatchLeaderboard(state) {
 
   html += `
     <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
-                padding:1rem 0 0.5rem;border-top:2px solid var(--border2);
+                padding:0.85rem 0.25rem 0.5rem;border-top:2px solid var(--border2);
                 margin-top:0.15rem;font-family:'Barlow Condensed',sans-serif;">
-      <div style="font-size:2rem;font-weight:800;color:${colA};letter-spacing:0.04em;">${statusA}</div>
-      <div style="font-size:1.2rem;font-weight:700;color:var(--muted);
-                  letter-spacing:0.1em;text-align:center;text-transform:uppercase;">${left} to play</div>
-      <div style="font-size:2rem;font-weight:800;color:${colB};
+      <div style="font-size:1.6rem;font-weight:800;color:${colA};
+                  letter-spacing:0.04em;text-align:left;">${statusA}</div>
+      <div style="font-size:0.8rem;font-weight:700;color:var(--muted);
+                  letter-spacing:0.08em;text-align:center;text-transform:uppercase;
+                  padding:0 0.5rem;">${left} to play</div>
+      <div style="font-size:1.6rem;font-weight:800;color:${colB};
                   text-align:right;letter-spacing:0.02em;">${statusB}</div>
     </div>`;
 
