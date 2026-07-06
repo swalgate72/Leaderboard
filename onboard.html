@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leaderboard · Complete Your Profile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f4f1eb; --surface: #edeae2; --surface2: #e4e0d7;
+      --white: #1a1a1a; --muted: #6b6560; --green: #2d5c3a;
+      --gold: #b8942a; --border: #ccc8be; --red: #c0392b;
+      --radius: 12px;
+    }
+    body { font-family: 'Lato', sans-serif; background: var(--bg); color: var(--white); min-height: 100vh; }
+
+    .hero {
+      background: linear-gradient(160deg, #1a3a22 0%, #0e2415 100%);
+      padding: 2rem 1.25rem 1.5rem;
+      text-align: center;
+    }
+    .hero-logo { font-family: 'Barlow Condensed', sans-serif; font-size: 2.2rem; font-weight: 800; color: #fff; }
+    .hero-sub  { font-family: 'Barlow Condensed', sans-serif; font-size: 0.75rem; letter-spacing: 0.14em;
+                 text-transform: uppercase; color: rgba(255,255,255,0.55); margin-top: 0.2rem; }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.25rem; margin: 1rem;
+    }
+    .card-title {
+      font-family: 'Barlow Condensed', sans-serif; font-size: 1.1rem;
+      font-weight: 800; color: var(--white); margin-bottom: 1rem;
+      letter-spacing: 0.03em;
+    }
+
+    .field { margin-bottom: 0.85rem; }
+    .field label {
+      display: block; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 0.35rem;
+    }
+    .field input {
+      width: 100%; padding: 0.75rem 0.9rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface2); color: var(--white);
+      font-size: 1rem; font-family: inherit;
+    }
+    .field input:focus { outline: 2px solid var(--green); border-color: var(--green); }
+
+    .btn {
+      width: 100%; padding: 0.9rem; border: none; border-radius: 10px;
+      font-family: 'Barlow Condensed', sans-serif; font-size: 1.1rem;
+      font-weight: 800; letter-spacing: 0.04em; cursor: pointer;
+      margin-top: 0.5rem;
+    }
+    .btn-primary { background: var(--gold); color: #000; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; line-height: 1.4; }
+    .error { color: var(--red); font-size: 0.85rem; margin-top: 0.5rem; }
+    .success { color: var(--green); font-size: 0.95rem; margin-top: 0.5rem; font-weight: 700; }
+
+    .centre { display: flex; flex-direction: column; align-items: center;
+              justify-content: center; min-height: 60vh; gap: 0.75rem;
+              color: var(--muted); padding: 2rem; text-align: center; }
+    .spinner { width: 36px; height: 36px; border: 3px solid var(--border);
+               border-top-color: var(--green); border-radius: 50%;
+               animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .invited-by {
+      background: rgba(45,92,58,0.1); border: 1px solid rgba(45,92,58,0.2);
+      border-radius: 8px; padding: 0.65rem 0.85rem; margin-bottom: 1rem;
+      font-size: 0.9rem; color: var(--green); font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-logo">Leaderboard</div>
+  <div class="hero-sub">Golf Scoring</div>
+</div>
+
+<div id="app">
+  <div class="centre"><div class="spinner"></div></div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/+esm';
+
+const SUPABASE_URL  = 'https://fzknjqjnwnfuyfjrgacf.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6a25qcWpud25mdXlmanJnYWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxODIxNjgsImV4cCI6MjA5NTc1ODE2OH0.Hy-eeXpw9yv_b3LpobYFrfEZ6OwW55dHIZc4G0pPA1k';
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const app = document.getElementById('app');
+
+function render(html) { app.innerHTML = html; }
+
+async function main() {
+  // Supabase magic link puts the session in the URL hash
+  // The client picks it up automatically on load
+  const { data: { session }, error: sessionErr } = await sb.auth.getSession();
+
+  if (sessionErr || !session) {
+    render(`<div class="centre">
+      <div style="font-size:2rem;">⛳</div>
+      <div style="font-size:1.1rem;font-weight:700;">Invalid or expired link</div>
+      <div style="font-size:0.85rem;color:var(--muted);">Ask your friend to send a new invite.</div>
+    </div>`);
+    return;
+  }
+
+  const user = session.user;
+
+  // Load existing profile (may have been created by invite)
+  const { data: profile } = await sb
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  // Get inviter name if available
+  let inviterName = null;
+  const invitedBy = profile?.invited_by ?? user.user_metadata?.invited_by;
+  if (invitedBy) {
+    const { data: inviter } = await sb
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('id', invitedBy)
+      .maybeSingle();
+    if (inviter) inviterName = `${inviter.first_name ?? ''} ${inviter.last_name ?? ''}`.trim();
+  }
+
+  render(`
+    <div class="card">
+      <div class="card-title">Complete Your Profile</div>
+      ${inviterName ? `<div class="invited-by">⛳ ${inviterName} invited you to join Leaderboard</div>` : ''}
+
+      <div class="field">
+        <label>First Name</label>
+        <input id="ob-first" type="text" placeholder="e.g. Steve" value="${profile?.first_name ?? ''}" autocomplete="given-name">
+      </div>
+      <div class="field">
+        <label>Last Name</label>
+        <input id="ob-last" type="text" placeholder="e.g. Walgate" value="${profile?.last_name ?? ''}" autocomplete="family-name">
+      </div>
+      <div class="field">
+        <label>Handicap Index</label>
+        <input id="ob-hcp" type="number" step="0.1" min="0" max="54" placeholder="e.g. 18.4" value="${profile?.hcp ?? ''}">
+      </div>
+      <div class="field">
+        <label>Set Password</label>
+        <input id="ob-pw" type="password" placeholder="At least 8 characters" autocomplete="new-password">
+      </div>
+
+      <div id="ob-error" class="error" style="display:none;"></div>
+
+      <button class="btn btn-primary" id="ob-save">⛳ Complete Setup</button>
+
+      <div class="hint" style="margin-top:0.75rem;">
+        Once set up, add the app to your home screen:<br>
+        <strong>iPhone:</strong> Safari → Share → Add to Home Screen<br>
+        <strong>Android:</strong> Chrome → ⋮ → Add to Home Screen
+      </div>
+    </div>
+  `);
+
+  document.getElementById('ob-save').addEventListener('click', async () => {
+    const firstName = document.getElementById('ob-first').value.trim();
+    const lastName  = document.getElementById('ob-last').value.trim();
+    const hcp       = parseFloat(document.getElementById('ob-hcp').value);
+    const password  = document.getElementById('ob-pw').value;
+    const errorEl   = document.getElementById('ob-error');
+    const saveBtn   = document.getElementById('ob-save');
+
+    errorEl.style.display = 'none';
+
+    if (!firstName || !lastName) { errorEl.textContent = 'Please enter your first and last name.'; errorEl.style.display='block'; return; }
+    if (isNaN(hcp) || hcp < 0 || hcp > 54) { errorEl.textContent = 'Please enter a valid handicap (0–54).'; errorEl.style.display='block'; return; }
+    if (password.length < 8) { errorEl.textContent = 'Password must be at least 8 characters.'; errorEl.style.display='block'; return; }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+
+    try {
+      // 1. Update password
+      const { error: pwErr } = await sb.auth.updateUser({ password });
+      if (pwErr) throw pwErr;
+
+      // 2. Save profile
+      const { error: profErr } = await sb.from('profiles').upsert({
+        id:                  user.id,
+        email:               user.email,
+        first_name:          firstName,
+        last_name:           lastName,
+        hcp:                 hcp,
+        onboarding_complete: true,
+        invited_by:          invitedBy ?? null,
+      }, { onConflict: 'id' });
+      if (profErr) throw profErr;
+
+      // 3. Accept pending friendship (inviter → this user)
+      if (invitedBy) {
+        await sb.from('friendships')
+          .update({ status: 'accepted' })
+          .eq('requester_id', invitedBy)
+          .eq('addressee_id', user.id)
+          .eq('status', 'pending');
+      }
+
+      // Success — redirect to app
+      app.innerHTML = `
+        <div class="centre">
+          <div style="font-size:3rem;">⛳</div>
+          <div style="font-size:1.3rem;font-weight:800;color:var(--green);">You're all set!</div>
+          <div style="font-size:0.9rem;color:var(--muted);">Redirecting to the app…</div>
+        </div>`;
+      setTimeout(() => { location.href = '/'; }, 1500);
+
+    } catch (err) {
+      errorEl.textContent = err.message ?? 'Something went wrong. Please try again.';
+      errorEl.style.display = 'block';
+      saveBtn.disabled = false;
+      saveBtn.textContent = '⛳ Complete Setup';
+    }
+  });
+}
+
+main();
+</script>
+</body>
+</html>

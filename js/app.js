@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260704h)
+// LEADERBOARD - app.js  (v3.2 · build 20260704f)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -20,7 +20,7 @@ import {
   realtimeSubscribeRound, realtimeBroadcastRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260704h';
+} from '../data.js?v=20260704i';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -32,8 +32,8 @@ import {
   buildMultiGroupLeaderboard,
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
-} from '../game.js?v=20260704h';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704h';
+} from '../game.js?v=20260704i';
+import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704i';
 
 
 // ================================================================
@@ -8027,53 +8027,97 @@ async function renderFriendsList() {
 }
 
 document.getElementById('btn-search-friend')?.addEventListener('click', async () => {
-  const query = document.getElementById('friend-search-email').value.trim();
+  const query    = document.getElementById('friend-search-email').value.trim();
+  const emptyEl  = document.getElementById('friend-search-empty');
+  const resultEl = document.getElementById('friend-search-result');
   if (!query) return;
   hide('friend-search-result'); hide('friend-search-empty');
+
   try {
-    // Try username first, then email
     let user = null;
     if (query.startsWith('@') || !query.includes('@')) {
-      const username = query.replace(/^@/, '').toLowerCase();
-      user = await profileFindByUsername(username);
+      user = await profileFindByUsername(query.replace(/^@/, '').toLowerCase());
     }
-    if (!user) user = await profileFindByEmail(query);
+    if (!user && query.includes('@')) user = await profileFindByEmail(query);
 
-    if (!user || user.id === currentUser.id) {
-      document.getElementById('friend-search-empty').textContent = 'No user found with that username or email.';
-      show('friend-search-empty'); return;
+    if (user && user.id !== currentUser.id) {
+      // ── Existing user — send friend request ────────────────────
+      const nameStr = user.share_name !== false
+        ? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
+        : user.username ? `@${user.username}` : 'Player';
+      const hcpStr = user.share_hcp !== false && user.hcp != null
+        ? ` · HCP ${fmtHandicap(user.hcp)}` : '';
+      document.getElementById('friend-found-name').textContent = nameStr + hcpStr;
+      show('friend-search-result');
+      const sendBtn = document.getElementById('btn-send-request');
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send Request';
+      sendBtn.style.background = '';
+      sendBtn.style.color = '';
+      sendBtn.onclick = async () => {
+        sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
+        try {
+          await friendRequestSend(currentUser.id, user.id);
+          hide('friend-search-result');
+          document.getElementById('friend-search-email').value = '';
+          document.getElementById('friend-search-empty').textContent = '✓ Friend request sent!';
+          show('friend-search-empty');
+        } catch (err) {
+          const isDupe = err?.code === '23505' || err?.message?.includes('duplicate') || err?.message?.includes('unique');
+          document.getElementById('friend-search-empty').textContent = isDupe
+            ? 'Already friends or request already sent.'
+            : (err.message ?? 'Could not send request.');
+          show('friend-search-empty');
+          sendBtn.disabled = false; sendBtn.textContent = 'Send Request';
+        }
+      };
+
+    } else if (query.includes('@')) {
+      // ── Not found — offer to invite ────────────────────────────
+      document.getElementById('friend-found-name').textContent =
+        `${query} is not on Leaderboard yet`;
+      show('friend-search-result');
+      const sendBtn = document.getElementById('btn-send-request');
+      sendBtn.disabled = false;
+      sendBtn.textContent = '📧 Send Invite Email';
+      sendBtn.style.background = 'var(--green)';
+      sendBtn.style.color = '#fff';
+      sendBtn.onclick = async () => {
+        sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
+        try {
+          const myName = currentProfile
+            ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+            : 'A friend';
+          const res = await fetch('/api/invite-friend', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              inviterProfileId: currentUser.id,
+              inviterName:      myName,
+              recipientEmail:   query,
+            }),
+          });
+          const json = await res.json();
+          hide('friend-search-result');
+          sendBtn.style.background = ''; sendBtn.style.color = '';
+          document.getElementById('friend-search-email').value = '';
+          document.getElementById('friend-search-empty').textContent = res.ok
+            ? (json.status === 'existing_user'
+                ? '✓ Friend request sent!'
+                : `✓ Invite sent to ${query} — they'll get an email to join.`)
+            : (json.error ?? 'Invite failed — please try again.');
+          show('friend-search-empty');
+        } catch (err) {
+          document.getElementById('friend-search-empty').textContent = err.message ?? 'Invite failed.';
+          show('friend-search-empty');
+          sendBtn.disabled = false; sendBtn.textContent = '📧 Send Invite Email';
+        }
+      };
+
+    } else {
+      document.getElementById('friend-search-empty').textContent = 'No user found with that username.';
+      show('friend-search-empty');
     }
-    // Show only searchable info
-    const nameStr = user.share_name !== false
-      ? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
-      : user.username ? `@${user.username}` : 'Player';
-    const hcpStr  = user.share_hcp !== false && user.hcp != null ? ` · HCP ${fmtHandicap(user.hcp)}` : '';
-    document.getElementById('friend-found-name').textContent = nameStr + hcpStr;
-    show('friend-search-result');
-    const sendBtn = document.getElementById('btn-send-request');
-    sendBtn.disabled = false;
-    sendBtn.textContent = 'Send Request';
-    sendBtn.onclick = async () => {
-      sendBtn.disabled = true;
-      sendBtn.textContent = 'Sending…';
-      try {
-        await friendRequestSend(currentUser.id, user.id);
-        hide('friend-search-result');
-        document.getElementById('friend-search-email').value = '';
-        document.getElementById('friend-search-empty').textContent = '✓ Friend request sent!';
-        show('friend-search-empty');
-      } catch (err) {
-        // Supabase unique constraint error = request already exists
-        const isDuplicate = err?.code === '23505' || err?.message?.includes('duplicate') || err?.message?.includes('unique');
-        const msg = isDuplicate
-          ? 'A friend request to this person already exists, or you\'re already friends.'
-          : (err.message ?? 'Could not send request — please try again.');
-        document.getElementById('friend-search-empty').textContent = msg;
-        show('friend-search-empty');
-        sendBtn.disabled = false;
-        sendBtn.textContent = 'Send Request';
-      }
-    };
   } catch (err) {
     document.getElementById('friend-search-empty').textContent = err.message ?? 'Search failed.';
     show('friend-search-empty');
