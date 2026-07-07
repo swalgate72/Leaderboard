@@ -1577,29 +1577,116 @@ function renderSetupPlayerList() {
   }
 
   listEl.innerHTML = setup.players.filter(p => p.name).map((p, i) => {
-    const pi = setup.players.indexOf(p);
-    const gameHcp   = p.gameHandicap ?? p.courseHandicap ?? p.hcpIndex ?? 0;
-    const sourceLabel = { index: 'Handicap Index', course: 'Course HCP', playing: 'Playing Index' }[p.hcpSource] ?? 'Course HCP';
-    return `<div style="display:flex;align-items:center;gap:0.75rem;padding:0.9rem 1rem;
-                background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);">
-      <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
-      <div style="flex:1;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.25rem;">${p.name}</div>
-        <div style="font-size:0.82rem;font-weight:700;color:var(--muted2);">
-          Game HCP <span style="color:var(--white);font-size:0.95rem;">${fmtHandicap(gameHcp)}</span>
-          <span style="color:var(--muted);font-size:0.75rem;margin-left:4px;">(${sourceLabel})</span>
+    const pi     = setup.players.indexOf(p);
+    const vals   = playerHcpValues(p);
+    const source = p.hcpSource ?? 'course';
+    const gameHcp = p.gameHandicap ?? Math.round(vals[source] ?? vals.course);
+
+    // Three pill buttons: Index / Course / Playing
+    const pillStyle = (active, col) => active
+      ? `background:transparent;border:2px solid ${col};color:${col};font-weight:800;`
+      : `background:transparent;border:1px solid var(--border);color:var(--muted);font-weight:600;`;
+
+    const indexPill  = `<button class="hcp-pill" data-pi="${pi}" data-src="index"
+      style="${pillStyle(source==='index','var(--gold)')}
+             font-family:'Barlow Condensed',sans-serif;font-size:0.75rem;
+             padding:0.2rem 0.4rem;border-radius:6px;cursor:pointer;
+             display:flex;flex-direction:column;align-items:center;min-width:2.4rem;line-height:1.2;">
+        <span style="font-size:0.55rem;letter-spacing:0.06em;text-transform:uppercase;">Idx</span>
+        <span>${fmtHandicap(vals.index)}</span>
+      </button>`;
+
+    const coursePill = `<button class="hcp-pill" data-pi="${pi}" data-src="course"
+      style="${pillStyle(source==='course','var(--gold)')}
+             font-family:'Barlow Condensed',sans-serif;font-size:0.75rem;
+             padding:0.2rem 0.4rem;border-radius:6px;cursor:pointer;
+             display:flex;flex-direction:column;align-items:center;min-width:2.4rem;line-height:1.2;">
+        <span style="font-size:0.55rem;letter-spacing:0.06em;text-transform:uppercase;">Crs</span>
+        <span>${fmtHandicap(vals.course)}</span>
+      </button>`;
+
+    const playingPill = `<button class="hcp-pill" data-pi="${pi}" data-src="playing"
+      style="${pillStyle(source==='playing','var(--gold)')}
+             font-family:'Barlow Condensed',sans-serif;font-size:0.75rem;
+             padding:0.2rem 0.4rem;border-radius:6px;cursor:pointer;
+             display:flex;flex-direction:column;align-items:center;min-width:2.4rem;line-height:1.2;">
+        <span style="font-size:0.55rem;letter-spacing:0.06em;text-transform:uppercase;">Ply</span>
+        <span>${fmtHandicap(vals.playing)}</span>
+      </button>`;
+
+    // Nudge controls — shown when source is course or playing and user taps again
+    const showNudge = (source === 'course' || source === 'playing') && p._hcpNudgeOpen;
+    const nudgeHtml = showNudge ? `
+      <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.4rem;" class="hcp-nudge" data-pi="${pi}">
+        <button class="hcp-nudge-btn" data-pi="${pi}" data-dir="-1"
+          style="width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border);
+                 background:var(--surface2);font-size:1.1rem;cursor:pointer;
+                 display:flex;align-items:center;justify-content:center;">−</button>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:800;
+                     color:var(--gold);min-width:2rem;text-align:center;">${gameHcp}</span>
+        <button class="hcp-nudge-btn" data-pi="${pi}" data-dir="1"
+          style="width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border);
+                 background:var(--surface2);font-size:1.1rem;cursor:pointer;
+                 display:flex;align-items:center;justify-content:center;">+</button>
+        <span style="font-size:0.7rem;color:var(--muted);margin-left:2px;">Game HCP</span>
+      </div>` : '';
+
+    return `<div style="padding:0.75rem 1rem;background:var(--surface);
+                border:1px solid var(--border);border-radius:var(--radius-lg);">
+      <div style="display:flex;align-items:center;gap:0.6rem;">
+        <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+                      font-size:1.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
         </div>
+        <div style="display:flex;gap:0.3rem;flex-shrink:0;">
+          ${indexPill}${coursePill}${playingPill}
+        </div>
+        ${pi > 0 ? `<button class="btn btn-ghost" data-remove="${pi}"
+          style="font-size:0.85rem;color:var(--red);padding:0.2rem 0.4rem;flex-shrink:0;">✕</button>` : ''}
       </div>
-      <button class="btn btn-outline player-hcp-btn" data-pi="${pi}"
-        style="font-size:0.78rem;font-weight:800;color:var(--gold);border-color:var(--gold-border);
-               padding:0.3rem 0.65rem;letter-spacing:0.04em;">HCP</button>
-      ${pi > 0 ? `<button class="btn btn-ghost" data-remove="${pi}"
-        style="font-size:0.85rem;color:var(--red);border-color:var(--red-border);padding:0.3rem 0.6rem;">✕</button>` : ''}
+      ${nudgeHtml}
     </div>`;
   }).join('');
 
-  listEl.querySelectorAll('.player-hcp-btn').forEach(btn => {
-    btn.addEventListener('click', () => openPlayerHcpPicker(parseInt(btn.dataset.pi)));
+  // HCP pill click: first tap selects source, second tap on course/playing opens nudge
+  listEl.querySelectorAll('.hcp-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pi  = parseInt(btn.dataset.pi);
+      const src = btn.dataset.src;
+      const p   = setup.players[pi];
+      if (!p) return;
+
+      if (p.hcpSource === src && src !== 'index') {
+        // Second tap — toggle nudge open/closed
+        p._hcpNudgeOpen = !p._hcpNudgeOpen;
+      } else {
+        // First tap — select source, close nudge
+        p.hcpSource     = src;
+        p._hcpNudgeOpen = false;
+        // Set gameHandicap to the base value for that source
+        const vals = playerHcpValues(p);
+        p.gameHandicap  = Math.round(vals[src] ?? vals.course);
+        // Auto-propagate to matched-handicap opponents (same as old modal)
+      }
+      saveSetupState('screen-setup-players');
+      saveSetupDraft();
+      renderSetupPlayerList();
+    });
+  });
+
+  // Nudge +/- buttons
+  listEl.querySelectorAll('.hcp-nudge-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pi  = parseInt(btn.dataset.pi);
+      const dir = parseInt(btn.dataset.dir);
+      const p   = setup.players[pi];
+      if (!p) return;
+      p.gameHandicap = Math.max(0, Math.min(54, (p.gameHandicap ?? 0) + dir));
+      saveSetupState('screen-setup-players');
+      saveSetupDraft();
+      renderSetupPlayerList();
+    });
   });
 
   listEl.querySelectorAll('[data-remove]').forEach(btn => {
