@@ -1332,16 +1332,24 @@
      HISTORY DETAIL SCREEN
      ══════════════════════════════════════════ -->
 <div id="screen-history-detail" class="screen">
-  <div class="sticky-header">
+  <div class="sticky-header" style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
+    <!-- Row 1: Back + Share -->
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:0.6rem 1rem 0.4rem;">
+      <button class="btn btn-ghost" id="history-detail-back"
+              style="padding:0.3rem 0.65rem;font-size:0.85rem;">← Back</button>
       <button id="hd-share-btn"
         style="background:none;border:1px solid var(--border);border-radius:8px;
                color:var(--muted);font-size:0.8rem;font-weight:700;padding:0.3rem 0.7rem;
                cursor:pointer;font-family:'Barlow Condensed',sans-serif;">
         🔗 Share
       </button>
-
-    <button class="btn btn-ghost" id="history-detail-back">← Back</button>
-    <h2 id="hd-title">Round</h2>
+    </div>
+    <!-- Row 2: Title -->
+    <div style="padding:0 1rem 0.65rem;">
+      <h2 id="hd-title" style="font-size:1.1rem;font-weight:800;color:var(--gold);
+                                 margin:0;line-height:1.2;">Round</h2>
+    </div>
   </div>
   <div class="page-pad" style="padding-top:1rem;">
 

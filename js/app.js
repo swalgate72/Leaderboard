@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260704p)
+// LEADERBOARD - app.js  (v3.2 · build 20260704q)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -5430,12 +5430,19 @@ function buildMatchLeaderboard(state) {
   const total   = state.numHoles ?? 18;
 
   // Name labels — pairs show both names
-  const nameA = isPairs
-    ? `${shortName(state.names[0]??'')} & ${shortName(state.names[1]??'')}`
-    : (state.names[0] ?? 'Player 1');
-  const nameB = isPairs
-    ? `${shortName(state.names[2]??'')} & ${shortName(state.names[3]??'')}`
-    : (state.names[1] ?? 'Player 2');
+  // For pairs: stack the two names vertically
+  let nameAHtml, nameBHtml;
+  if (isPairs) {
+    const n0 = shortName(state.names[0]??'');
+    const n1 = shortName(state.names[1]??'');
+    const n2 = shortName(state.names[2]??'');
+    const n3 = shortName(state.names[3]??'');
+    nameAHtml = n1 ? `${n0}<br><span style="font-weight:600;opacity:0.75;">${n1}</span>` : n0;
+    nameBHtml = n3 ? `${n2}<br><span style="font-weight:600;opacity:0.75;">${n3}</span>` : n2;
+  } else {
+    nameAHtml = shortName(state.names[0] ?? 'Player 1');
+    nameBHtml = shortName(state.names[1] ?? 'Player 2');
+  }
 
   // Score column label per format
   const scoreLabel = isCSM ? 'Pts' : 'Net';
@@ -5445,8 +5452,8 @@ function buildMatchLeaderboard(state) {
   const nameAEl  = document.getElementById('lb-name-a');
   const nameBEl  = document.getElementById('lb-name-b');
   if (namesRow) namesRow.style.display = '';
-  if (nameAEl)  nameAEl.textContent    = nameA;
-  if (nameBEl)  nameBEl.textContent    = nameB;
+  if (nameAEl)  nameAEl.innerHTML = nameAHtml;
+  if (nameBEl)  nameBEl.innerHTML = nameBHtml;
 
   // Grid: [net-A 2.5rem] [status-A flex] [hole-chip 3rem] [status-B flex] [net-B 2.5rem]
   // Fixed outer columns keep scores anchored; middle flex columns fill remaining space

@@ -1862,26 +1862,22 @@ html.light .sc-table td     { color: var(--white); }
 }
 .lb-hero-name-a {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: clamp(0.8rem, 4vw, 1.4rem);
+  font-size: clamp(0.85rem, 4vw, 1.3rem);
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--gold);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.2;
 }
 .lb-hero-name-b {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: clamp(0.8rem, 4vw, 1.4rem);
+  font-size: clamp(0.85rem, 4vw, 1.3rem);
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #5ba8d8;
   text-align: right;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.2;
 }
 .lb-hero-vs {
   font-size: 1rem;
