@@ -563,6 +563,28 @@ function setMsg(id, msg, isError = false) {
 }
 function clearMsg(id) { setMsg(id, ''); }
 
+function playerHcpBoxes(p) {
+  const idx     = fmtHandicap(p.hcpIndex ?? 0);
+  const gameHcp = fmtHandicap(p.gameHandicap ?? p.courseHandicap ?? p.hcpIndex ?? 0);
+  const src     = p.hcpSource ?? 'course';
+  const srcLabel = src === 'index' ? 'Idx' : src === 'playing' ? 'Ply' : 'Crs';
+  return `<div style="display:flex;gap:0.25rem;align-items:center;flex-shrink:0;">
+    <div style="display:flex;flex-direction:column;align-items:center;
+                border:1px solid var(--border);border-radius:6px;
+                padding:0.15rem 0.4rem;min-width:2.2rem;line-height:1.2;">
+      <span style="font-size:0.55rem;color:var(--muted);letter-spacing:0.05em;text-transform:uppercase;">Idx</span>
+      <span style="font-size:0.9rem;font-weight:600;color:var(--muted2);">${idx}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;
+                border:2px solid var(--gold);border-radius:6px;
+                padding:0.15rem 0.4rem;min-width:2.2rem;line-height:1.2;
+                background:rgba(184,148,42,0.08);">
+      <span style="font-size:0.55rem;color:var(--gold);letter-spacing:0.05em;text-transform:uppercase;font-weight:700;">${srcLabel}</span>
+      <span style="font-size:0.9rem;font-weight:800;color:var(--gold);">${gameHcp}</span>
+    </div>
+  </div>`;
+}
+
 function fmtHandicap(h) {
   if (h == null || h === '') return '--';
   return parseFloat(h).toFixed(1);
