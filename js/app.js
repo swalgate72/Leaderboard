@@ -5448,36 +5448,50 @@ function buildMatchLeaderboard(state) {
   if (nameAEl)  nameAEl.textContent    = nameA;
   if (nameBEl)  nameBEl.textContent    = nameB;
 
-  // Grid: [net-A 2.5rem] [status-A flex] [hole-chip 3rem] [status-B flex] [net-B 2.5rem]
-  // Fixed outer columns keep scores anchored; middle flex columns fill remaining space
-  const GRID = '2.5rem 1fr 3rem 1fr 2.5rem';
+  // Grid: [net-A 2.8rem] [status-A flex] [hole-chip 3rem] [status-B flex] [net-B 2.8rem]
+  const GRID = '2.8rem 1fr 3rem 1fr 2.8rem';
+
+  // Header: team name (small) above NET/PTS label
+  const teamAShort = isPairs
+    ? `${shortName(state.names[0]??'')} & ${shortName(state.names[1]??'')}`
+    : shortName(state.names[0]??'');
+  const teamBShort = isPairs
+    ? `${shortName(state.names[2]??'')} & ${shortName(state.names[3]??'')}`
+    : shortName(state.names[1]??'');
 
   let html = `
     <div style="display:grid;grid-template-columns:${GRID};
                 align-items:center;padding:0.5rem 0.25rem 0.4rem;
                 border-bottom:1.5px solid var(--border2);font-family:'Barlow Condensed',sans-serif;
                 gap:0 0.25rem;">
-      <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
-                  color:var(--muted);text-align:center;">${scoreLabel}</div>
+      <div style="text-align:center;line-height:1.2;">
+        <div style="font-size:0.55rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+                    color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                    max-width:2.8rem;">${teamAShort.split(' ')[0]}</div>
+        <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+                    color:var(--muted);">${scoreLabel}</div>
+      </div>
       <div></div>
       <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
                   color:var(--muted);text-align:center;">H</div>
       <div></div>
-      <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
-                  color:var(--muted);text-align:center;">${scoreLabel}</div>
+      <div style="text-align:center;line-height:1.2;">
+        <div style="font-size:0.55rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+                    color:#5ba8d8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                    max-width:2.8rem;">${teamBShort.split(' ')[0]}</div>
+        <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+                    color:var(--muted);">${scoreLabel}</div>
+      </div>
     </div>`;
 
   for (let h = 0; h < total; h++) {
     const entry   = log[h] ?? null;
     const holeNum = offset + h + 1;
-    const parH    = par[h] ?? '–';
-    const siH     = si[h]  ?? '–';
     const played  = !!entry;
 
     let netA = '', netB = '';
-    let statusA = '', statusB = '';
-    let boldA = false, boldB = false;
-    let arrowA = '', arrowB = '';
+    let result = 0, ms = 0, up = 0;
+    let changed = false; // hole was won by someone (not halved)
 
     if (played) {
       if (isBB) {
@@ -5491,30 +5505,17 @@ function buildMatchLeaderboard(state) {
         netB = entry.nets?.[1] ?? '';
       }
 
-      const ms     = entry.matchAfter ?? 0;
-      const result = entry.result ?? 0;
-      const up     = Math.abs(ms);
-
-      statusA = ms === 0 ? 'A/S' : ms > 0 ? `${up} UP` : `${up} DN`;
-      statusB = ms === 0 ? 'A/S' : ms < 0 ? `${up} UP` : `${up} DN`;
-
-      if (result !== 0) {
-        boldA = true; boldB = true;
-        arrowA = result > 0 ? '↑' : '↓';
-        arrowB = result > 0 ? '↓' : '↑';
-      }
+      ms      = entry.matchAfter ?? 0;
+      result  = entry.result ?? 0;
+      up      = Math.abs(ms);
+      changed = result !== 0;
     }
 
-    const opacity   = played ? '1' : '0.28';
-    const fwA       = boldA ? '800' : '500';
-    const fwB       = boldB ? '800' : '500';
-    const colA      = played ? (boldA ? 'var(--gold)' : 'var(--muted2)') : 'transparent';
-    const colB      = played ? (boldB ? '#5ba8d8'     : 'var(--muted2)') : 'transparent';
-    const _result   = played ? (entry?.result ?? 0) : 0;
-    const arrowColA = _result > 0 ? 'var(--gold)' : '#5ba8d8';
-    const arrowColB = _result > 0 ? '#5ba8d8'     : 'var(--gold)';
+    const opacity    = played ? '1' : '0.28';
+    const arrowColA  = result > 0 ? 'var(--gold)' : '#5ba8d8';
+    const arrowColB  = result > 0 ? '#5ba8d8'     : 'var(--gold)';
 
-    // Hole chip — small rounded box, just the number
+    // Hole chip
     const holeChip = `
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;
                   text-align:center;padding:0.2rem 0;min-width:2.6rem;">
@@ -5522,26 +5523,50 @@ function buildMatchLeaderboard(state) {
                      color:var(--white);line-height:1;">${holeNum}</span>
       </div>`;
 
+    // Status column content:
+    // - Changed hole: arrow + UP/DN in team colour, bold
+    // - Halved hole: small muted "halved" note
+    // - Unplayed: empty
+    let statusHtmlA = '', statusHtmlB = '';
+
+    if (played && changed) {
+      // A leading after this hole
+      const standingTxt = up === 0 ? 'A/S' : `${up} ${ms > 0 ? 'UP' : 'DN'}`;
+      const standingTxtB = up === 0 ? 'A/S' : `${up} ${ms < 0 ? 'UP' : 'DN'}`;
+      statusHtmlA = `
+        <span style="font-size:0.85rem;color:${arrowColA};font-weight:800;margin-right:2px;">
+          ${result > 0 ? '↑' : '↓'}
+        </span>
+        <span style="font-size:0.95rem;font-weight:800;color:${arrowColA};
+                     letter-spacing:0.02em;white-space:nowrap;">${standingTxt}</span>`;
+      statusHtmlB = `
+        <span style="font-size:0.95rem;font-weight:800;color:${arrowColB};
+                     letter-spacing:0.02em;white-space:nowrap;text-align:right;">${standingTxtB}</span>
+        <span style="font-size:0.85rem;color:${arrowColB};font-weight:800;margin-left:2px;">
+          ${result > 0 ? '↓' : '↑'}
+        </span>`;
+    } else if (played && !changed) {
+      // Halved — show running status quietly (no arrow, muted)
+      const standingTxt = ms === 0 ? 'Halved' : `${up} ${ms > 0 ? 'UP' : 'DN'}`;
+      const standingTxtB = ms === 0 ? 'Halved' : `${up} ${ms < 0 ? 'UP' : 'DN'}`;
+      statusHtmlA = `<span style="font-size:0.8rem;font-weight:400;color:var(--muted);
+                                  letter-spacing:0.01em;">${standingTxt}</span>`;
+      statusHtmlB = `<span style="font-size:0.8rem;font-weight:400;color:var(--muted);
+                                  letter-spacing:0.01em;text-align:right;">${standingTxtB}</span>`;
+    }
+
     html += `
       <div style="display:grid;grid-template-columns:${GRID};
-                  align-items:center;padding:0.55rem 0.25rem;
+                  align-items:center;padding:0.5rem 0.25rem;
                   border-bottom:0.5px solid var(--border);opacity:${opacity};
                   font-family:'Barlow Condensed',sans-serif;gap:0 0.25rem;">
         <div style="font-size:1.6rem;font-weight:700;color:var(--white);
                     text-align:center;line-height:1;">${netA}</div>
-        <div style="display:flex;align-items:center;justify-content:flex-start;gap:3px;
-                    padding-left:0.3rem;">
-          ${boldA ? `<span style="font-size:0.9rem;color:${arrowColA};font-weight:800;">${arrowA}</span>` : ''}
-          <span style="font-size:1rem;font-weight:${fwA};color:${colA};
-                       letter-spacing:0.02em;white-space:nowrap;">${statusA}</span>
-        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-start;gap:2px;
+                    padding-left:0.3rem;">${statusHtmlA}</div>
         ${holeChip}
-        <div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;
-                    padding-right:0.3rem;">
-          <span style="font-size:1rem;font-weight:${fwB};color:${colB};
-                       letter-spacing:0.02em;white-space:nowrap;text-align:right;">${statusB}</span>
-          ${boldB ? `<span style="font-size:0.9rem;color:${arrowColB};font-weight:800;">${arrowB}</span>` : ''}
-        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;
+                    padding-right:0.3rem;">${statusHtmlB}</div>
         <div style="font-size:1.6rem;font-weight:700;color:var(--white);
                     text-align:center;line-height:1;">${netB}</div>
       </div>`;
