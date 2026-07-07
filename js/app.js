@@ -4012,17 +4012,18 @@ function renderMatchBar() {
     el.style.color = col;
   };
 
+  const DIM = 'rgba(255,255,255,0.65)'; // trailing side — bright enough on dark green
   if (ms === 0) {
     setA('A/S', 'var(--gold)');
     setB('A/S', 'var(--gold)');
   } else if (ms > 0) {
     setA(up, 'var(--gold)');
     setLabel(labelElA, dormie ? `&${holesLeft}` : 'UP', 'var(--gold)');
-    setB(up, 'var(--muted2)');
-    setLabel(labelElB, dormie ? `&${holesLeft}` : 'DOWN', 'var(--muted2)');
+    setB(up, DIM);
+    setLabel(labelElB, dormie ? `&${holesLeft}` : 'DOWN', DIM);
   } else {
-    setA(up, 'var(--muted2)');
-    setLabel(labelElA, dormie ? `&${holesLeft}` : 'DOWN', 'var(--muted2)');
+    setA(up, DIM);
+    setLabel(labelElA, dormie ? `&${holesLeft}` : 'DOWN', DIM);
     setB(up, 'var(--p1)');
     setLabel(labelElB, dormie ? `&${holesLeft}` : 'UP', 'var(--p1)');
   }
