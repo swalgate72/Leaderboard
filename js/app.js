@@ -563,29 +563,6 @@ function setMsg(id, msg, isError = false) {
 }
 function clearMsg(id) { setMsg(id, ''); }
 
-// Two-box HCP display: [Index] [Game HCP with halo]
-function playerHcpBoxes(p) {
-  const idx     = fmtHandicap(p.hcpIndex ?? 0);
-  const gameHcp = fmtHandicap(p.gameHandicap ?? p.courseHandicap ?? p.hcpIndex ?? 0);
-  const src     = p.hcpSource ?? 'course';
-  const srcLabel = src === 'index' ? 'Idx' : src === 'playing' ? 'Ply' : 'Crs';
-  return `<div style="display:flex;gap:0.25rem;align-items:center;flex-shrink:0;">
-    <div style="display:flex;flex-direction:column;align-items:center;
-                border:1px solid var(--border);border-radius:6px;
-                padding:0.15rem 0.4rem;min-width:2rem;line-height:1.2;">
-      <span style="font-size:0.55rem;color:var(--muted);letter-spacing:0.05em;text-transform:uppercase;">Idx</span>
-      <span style="font-size:0.9rem;font-weight:600;color:var(--muted2);">${idx}</span>
-    </div>
-    <div style="display:flex;flex-direction:column;align-items:center;
-                border:2px solid var(--gold);border-radius:6px;
-                padding:0.15rem 0.4rem;min-width:2rem;line-height:1.2;
-                background:rgba(184,148,42,0.08);">
-      <span style="font-size:0.55rem;color:var(--gold);letter-spacing:0.05em;text-transform:uppercase;font-weight:700;">${srcLabel}</span>
-      <span style="font-size:0.9rem;font-weight:800;color:var(--gold);">${gameHcp}</span>
-    </div>
-  </div>`;
-}
-
 function fmtHandicap(h) {
   if (h == null || h === '') return '--';
   return parseFloat(h).toFixed(1);
@@ -2678,10 +2655,8 @@ function renderSetupGroupCards() {
                        border-radius:var(--radius-sm);">
                 <span style="font-size:1.1rem;color:var(--muted);">⣿</span>
                 <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
-                <div style="flex:1;">
-                  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${p.name}</div>
-                  ${playerHcpBoxes(p)}
-                </div>
+                <span style="flex:1;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</span>
+                ${playerHcpBoxes(p)}
               </div>`;
             }).join('')}
       </div>`;
@@ -2806,10 +2781,8 @@ function renderB2GroupCards(groups, namedPlayers) {
                        border-radius:var(--radius-sm);">
                 <span style="font-size:1.1rem;color:var(--muted);">⣿</span>
                 <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
-                <div style="flex:1;">
-                  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${p.name}</div>
-                  ${playerHcpBoxes(p)}
-                </div>
+                <span style="flex:1;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</span>
+                ${playerHcpBoxes(p)}
               </div>`;
             }).join('')}
       </div>
@@ -2914,8 +2887,8 @@ function renderSetupPairGroupCards() {
                   <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
                               font-size:1.1rem;color:var(--gold);">${pair.name}</div>
                   <div style="font-size:0.82rem;color:var(--muted2);">
-                    ${p0?.name ?? '?'} ${p0 ? playerHcpBoxes(p0) : ''} &nbsp;
-                    ${p1?.name ?? '?'} ${p1 ? playerHcpBoxes(p1) : ''}
+                    ${p0?.name ?? '?'} · HCP ${fmtHandicap(p0?.hcpIndex ?? 0)} &nbsp;
+                    ${p1?.name ?? '?'} · HCP ${fmtHandicap(p1?.hcpIndex ?? 0)}
                   </div>
                 </div>
                 <div style="text-align:right;flex-shrink:0;">
@@ -3225,12 +3198,12 @@ function buildSetupReview() {
   const hcpDetailHtml = (p, hi) => {
     const h = hcpSummary(p, hi);
     return `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:0.25rem;">
-        <div style="display:flex;gap:0.25rem;align-items:center;">
-          ${playerHcpBoxes(p)}
-          ${showScratch ? `<div style="font-size:0.75rem;color:var(--muted2);margin-left:0.35rem;">
-            Shots <strong style="color:var(--gold)">${h.scratchLabel}</strong></div>` : ''}
-        </div>
+      <div style="display:grid;grid-template-columns:${showScratch ? '1fr 1fr 1fr' : '1fr 1fr'};
+                  gap:0.15rem 0.6rem;text-align:right;font-size:0.8rem;font-weight:600;
+                  color:var(--muted2);margin-top:0.15rem;">
+        <span>Index <strong style="color:var(--white)">${h.index}</strong></span>
+        <span>Playing <strong style="color:var(--white)">${h.playing}</strong></span>
+        ${showScratch ? `<span>Shots <strong style="color:var(--gold)">${h.scratchLabel}</strong></span>` : ''}
       </div>`;
   };
 
