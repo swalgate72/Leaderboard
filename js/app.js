@@ -1701,6 +1701,141 @@ function renderSetupPlayerList() {
 }
 
 // ================================================================
+// FRIENDS PICKER MODAL (multi-select with HCP pills)
+// ================================================================
+
+let _friendsPickerSelected = []; // array of friend objects with _pickerSrc/_pickerVals
+
+function openFriendsPickerModal() {
+  _friendsPickerSelected = [];
+  const modal   = document.getElementById('modal-add-from-friends');
+  const listEl  = document.getElementById('friends-picker-list');
+  const addBtn  = document.getElementById('btn-add-selected-friends');
+  if (!modal || !listEl) return;
+
+  // Get already-added profile IDs to exclude
+  const addedIds = new Set(setup.players.filter(p=>p.profileId).map(p=>p.profileId));
+
+  // Sort friends alphabetically by first name
+  const friends = [...allFriends]
+    .filter(f => !addedIds.has(f.profileId))
+    .sort((a,b) => (a.first_name??'').localeCompare(b.first_name??''));
+
+  if (!friends.length) {
+    listEl.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--muted);">
+      No friends to add. Add friends in the Friends tab first.</div>`;
+    modal.classList.add('open');
+    return;
+  }
+
+  const renderFriendsList = () => {
+    listEl.innerHTML = friends.map((f, fi) => {
+      const isSelected = _friendsPickerSelected.some(s => s.profileId === f.profileId);
+      const vals       = f._pickerVals ?? {
+        index:  Math.round(f.hcp ?? 0),
+        course: Math.round(f.hcp ?? 0),
+        playing: Math.round((f.hcp ?? 0) * (setup.hcpPct ?? 100) / 100),
+      };
+      const src = f._pickerSrc ?? 'course';
+
+      const pill = (label, key) => {
+        const active = src === key && isSelected;
+        const border = active ? '2px solid var(--gold)' : '1px solid var(--border)';
+        const col    = active ? 'var(--gold)' : 'var(--muted)';
+        const fw     = active ? '800' : '600';
+        return `<button class="fp-pill" data-fi="${fi}" data-key="${key}"
+          style="background:transparent;border:${border};color:${col};font-weight:${fw};
+                 font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;
+                 padding:0.35rem 0.6rem;border-radius:8px;cursor:pointer;
+                 display:flex;flex-direction:column;align-items:center;min-width:3.5rem;line-height:1.2;">
+          <span style="font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;">${label}</span>
+          <span>${fmtHandicap(vals[key])}</span>
+        </button>`;
+      };
+
+      const bg     = isSelected ? 'background:rgba(184,148,42,0.1);border-color:var(--gold);' : '';
+      const nameStr = `${f.first_name ?? ''} ${f.last_name ?? ''}`.trim() || f.username || 'Friend';
+
+      return `<div class="fp-row" data-fi="${fi}"
+        style="display:flex;align-items:center;gap:0.6rem;padding:0.75rem 0.75rem;
+               background:var(--surface);border:1px solid var(--border);border-radius:12px;
+               cursor:pointer;${bg}">
+        <span class="dot" style="background:${pHex(fi%8)};flex-shrink:0;"></span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;
+                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameStr}</div>
+          ${f.hcp != null ? `<div style="font-size:0.8rem;color:var(--muted);">Index ${fmtHandicap(f.hcp)}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:0.3rem;flex-shrink:0;">
+          ${pill('Idx','index')}${pill('Crs','course')}${pill('Ply','playing')}
+        </div>
+      </div>`;
+    }).join('');
+
+    // Update add button
+    const count = _friendsPickerSelected.length;
+    addBtn.textContent = count ? `✓ Add Selected (${count})` : 'Add Selected (0)';
+    addBtn.disabled    = count === 0;
+    addBtn.style.opacity = count ? '1' : '0.4';
+
+    // Row click — toggle selection
+    listEl.querySelectorAll('.fp-row').forEach(row => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('.fp-pill')) return; // let pill handle
+        const fi = parseInt(row.dataset.fi);
+        const f  = friends[fi];
+        const idx2 = _friendsPickerSelected.findIndex(s=>s.profileId===f.profileId);
+        if (idx2 === -1) {
+          // Select — ensure vals are initialised
+          f._pickerVals = f._pickerVals ?? {
+            index:   Math.round(f.hcp ?? 0),
+            course:  Math.round(f.hcp ?? 0),
+            playing: Math.round((f.hcp ?? 0) * (setup.hcpPct ?? 100) / 100),
+          };
+          f._pickerSrc = f._pickerSrc ?? 'course';
+          _friendsPickerSelected.push(f);
+        } else {
+          _friendsPickerSelected.splice(idx2, 1);
+        }
+        renderFriendsList();
+      });
+    });
+
+    // Pill click — select source or nudge
+    listEl.querySelectorAll('.fp-pill').forEach(pill => {
+      pill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const fi  = parseInt(pill.dataset.fi);
+        const key = pill.dataset.key;
+        const f   = friends[fi];
+
+        // Ensure selected
+        if (!_friendsPickerSelected.find(s=>s.profileId===f.profileId)) {
+          f._pickerVals = f._pickerVals ?? {
+            index:   Math.round(f.hcp ?? 0),
+            course:  Math.round(f.hcp ?? 0),
+            playing: Math.round((f.hcp ?? 0) * (setup.hcpPct ?? 100) / 100),
+          };
+          _friendsPickerSelected.push(f);
+        }
+
+        if (f._pickerSrc === key && key !== 'index') {
+          // Second tap — show inline nudge
+          f._nudgeOpen = !f._nudgeOpen;
+        } else {
+          f._pickerSrc  = key;
+          f._nudgeOpen  = false;
+        }
+        renderFriendsList();
+      });
+    });
+  };
+
+  renderFriendsList();
+  modal.classList.add('open');
+}
+
+// ================================================================
 // PLAYER HCP PICKER MODAL
 // ================================================================
 
@@ -1838,39 +1973,112 @@ document.getElementById('btn-player-hcp-confirm')?.addEventListener('click', () 
 });
 
 // Open add-player modal (for adding a NEW player)
-document.getElementById('btn-setup-add-player')?.addEventListener('click', () => {
-  document.getElementById('game-manual-name').value = '';
-  document.getElementById('game-manual-hcp').value  = '';
-  document.getElementById('game-manual-chcp').value = '';
+// ── Add Players screen handlers ──────────────────────────────────
+
+// New Player button → open modal
+document.getElementById('btn-setup-add-new-player')?.addEventListener('click', () => {
+  // Pre-fill course/playing HCP from tee data if available
+  const tee = (() => {
+    try {
+      const course = allCourses?.find(c => c.id === setup.courseId);
+      return course?.tees?.[setup.teeIdx ?? 0] ?? null;
+    } catch { return null; }
+  })();
+
+  document.getElementById('game-manual-first').value  = '';
+  document.getElementById('game-manual-last').value   = '';
+  document.getElementById('game-manual-hcp').value    = '';
+  document.getElementById('game-manual-chcp').value   = '';
+  document.getElementById('game-manual-phcp').value   = '';
+  document.getElementById('game-manual-email').value  = '';
+  document.getElementById('game-manual-name').value   = '';
+
   const modal = document.getElementById('modal-add-game-player');
   delete modal.dataset.editIdx;
   modal.classList.add('open');
+  document.getElementById('game-manual-first').focus();
 });
+
+// Auto-fill course/playing when index is entered
+document.getElementById('game-manual-hcp')?.addEventListener('input', function() {
+  const idx = parseFloat(this.value);
+  if (isNaN(idx)) return;
+  const tee    = (() => { try { return allCourses?.find(c=>c.id===setup.courseId)?.tees?.[setup.teeIdx??0]; } catch{return null;} })();
+  const cr     = tee?.courseRating ?? 72;
+  const sr     = tee?.slopeRating  ?? 113;
+  const chcp   = Math.round(idx * sr / 113 + (cr - (tee?.par ?? 72)));
+  const phcp   = Math.round(chcp * (setup.hcpPct ?? 100) / 100);
+  const chcpEl = document.getElementById('game-manual-chcp');
+  const phcpEl = document.getElementById('game-manual-phcp');
+  if (chcpEl && !chcpEl.value) chcpEl.value = Math.max(0, chcp);
+  if (phcpEl && !phcpEl.value) phcpEl.value = Math.max(0, phcp);
+});
+
 document.getElementById('modal-add-game-player-close')?.addEventListener('click', () => {
   const modal = document.getElementById('modal-add-game-player');
   delete modal.dataset.editIdx;
   modal.classList.remove('open');
 });
 
-document.getElementById('btn-game-add-from-friends')?.addEventListener('click', () => {
-  document.getElementById('modal-add-game-player').classList.remove('open');
-  openFriendPicker(-1, (friend) => {
-    addSetupPlayer(friend.name, friend.hcp ?? 0, friend.hcp ?? 0, friend.profileId ?? null);
-  }, true);
+// From Friends button → open friends picker
+document.getElementById('btn-setup-add-from-friends')?.addEventListener('click', () => {
+  openFriendsPickerModal();
 });
 
-document.getElementById('btn-game-invite')?.addEventListener('click', () => {
-  document.getElementById('modal-add-game-player').classList.remove('open');
-  document.getElementById('modal-invite').classList.add('open');
+// Friends picker modal close
+document.getElementById('btn-friends-modal-close')?.addEventListener('click', () => {
+  document.getElementById('modal-add-from-friends').classList.remove('open');
 });
 
-document.getElementById('btn-game-confirm-player')?.addEventListener('click', () => {
-  const name    = document.getElementById('game-manual-name').value.trim();
+// Add Selected Friends button
+document.getElementById('btn-add-selected-friends')?.addEventListener('click', () => {
+  const selected = _friendsPickerSelected;
+  selected.forEach(f => {
+    const fv    = f._pickerVals ?? {};
+    const src   = f._pickerSrc ?? 'course';
+    const idx   = fv.index  ?? f.hcp ?? 0;
+    const chcp  = fv.course ?? f.hcp ?? 0;
+    addSetupPlayer(
+      `${f.first_name ?? ''} ${f.last_name ?? ''}`.trim() || f.username || 'Friend',
+      idx, chcp, f.profileId ?? null
+    );
+    // Override gameHandicap with picker selection
+    const addedP = setup.players.find(p => p.profileId === f.profileId);
+    if (addedP) {
+      addedP.hcpSource    = src;
+      addedP.gameHandicap = Math.round(fv[src] ?? chcp);
+    }
+  });
+  _friendsPickerSelected = [];
+  document.getElementById('modal-add-from-friends').classList.remove('open');
+  renderSetupPlayerList();
+});
+
+document.getElementById('btn-game-confirm-player')?.addEventListener('click', async () => {
+  const first   = document.getElementById('game-manual-first')?.value.trim() ?? '';
+  const last    = document.getElementById('game-manual-last')?.value.trim()  ?? '';
+  const email   = document.getElementById('game-manual-email')?.value.trim() ?? '';
   const hcpRaw  = document.getElementById('game-manual-hcp').value.trim();
   const chcpRaw = document.getElementById('game-manual-chcp').value.trim();
+  const phcpRaw = document.getElementById('game-manual-phcp')?.value.trim() ?? '';
+  const name    = first ? `${first} ${last}`.trim() : document.getElementById('game-manual-name').value.trim();
   if (!name) { alert('Please enter a player name.'); return; }
   const chcp = chcpRaw ? parseFloat(chcpRaw) : null;
+  const phcp = phcpRaw ? parseFloat(phcpRaw) : null;
   const hcp  = hcpRaw  ? parseFloat(hcpRaw)  : (chcp ?? 0);
+  // Update hidden name field for back-compat
+  document.getElementById('game-manual-name').value = name;
+  // If email provided — send invite in background (don't block player add)
+  if (email) {
+    const myName = currentProfile
+      ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+      : 'A friend';
+    fetch('/api/invite-friend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inviterProfileId: currentUser?.id, inviterName: myName, recipientEmail: email }),
+    }).catch(() => {});
+  }
 
   const modal  = document.getElementById('modal-add-game-player');
   const editIdx = modal.dataset.editIdx != null && modal.dataset.editIdx !== ''
@@ -1885,7 +2093,13 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', ()
   } else {
     // Add new player
     delete modal.dataset.editIdx;
+    const effectivePhcp = phcp ?? chcp ?? hcp;
     addSetupPlayer(name, hcp, chcp ?? hcp, null);
+    // Override game HCP with playing HCP if explicitly set
+    if (phcpRaw) {
+      const addedP = setup.players.slice().reverse().find(p => p.name === name);
+      if (addedP) { addedP.hcpSource = 'playing'; addedP.gameHandicap = effectivePhcp; }
+    }
   }
   modal.classList.remove('open');
 });

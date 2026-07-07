@@ -456,14 +456,21 @@
       <!-- Player list — rendered by JS -->
       <div id="setup-player-list" style="display:grid;gap:0.5rem;margin-bottom:1rem;"></div>
 
-      <!-- Add Player button -->
-      <button class="btn btn-outline" id="btn-setup-add-player"
-        style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;
-               border-style:dashed;border-color:var(--gold-border);color:var(--gold);">
-        ＋ Add Player
-      </button>
+      <!-- Add player buttons -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">
+        <button class="btn btn-outline" id="btn-setup-add-new-player"
+          style="padding:1rem;font-size:1rem;font-weight:800;
+                 border-style:dashed;border-color:var(--gold-border);color:var(--gold);">
+          ＋ New Player
+        </button>
+        <button class="btn btn-outline" id="btn-setup-add-from-friends"
+          style="padding:1rem;font-size:1rem;font-weight:800;
+                 border-color:var(--green-border);color:var(--green);">
+          👥 From Friends
+        </button>
+      </div>
 
-      <button class="btn btn-green mt-md" id="btn-setup-players-next"
+      <button class="btn btn-green mt-sm" id="btn-setup-players-next"
         style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;">
         NEXT: ARRANGE GROUPS →
       </button>
@@ -1206,45 +1213,76 @@
   </div>
 </div>
 
+<!-- NEW PLAYER MODAL -->
 <div class="modal-overlay" id="modal-add-game-player">
-  <div class="modal-box" style="max-width:360px;">
+  <div class="modal-box" style="max-width:400px;">
     <div class="modal-header">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;">Add Player</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;">New Player</div>
       <button class="btn btn-ghost" id="modal-add-game-player-close" style="font-size:1.2rem;">✕</button>
     </div>
 
-    <button class="btn btn-outline" id="btn-game-add-from-friends"
-      style="width:100%;padding:0.85rem;font-size:1rem;font-weight:700;margin-bottom:0.5rem;">
-      👥 Add from Friends
-    </button>
-
-    <button class="btn btn-outline" id="btn-game-invite"
-      style="width:100%;padding:0.85rem;font-size:1rem;font-weight:700;margin-bottom:1rem;
-             border-color:var(--green-border);color:var(--green);">
-      📲 Invite to Leaderboard
-    </button>
-
-    <div style="font-size:0.85rem;font-weight:700;color:var(--muted2);margin-bottom:0.75rem;text-align:center;">
-      — or enter manually —
-    </div>
-
     <div class="field">
-      <label>Player Name</label>
-      <input id="game-manual-name" type="text" placeholder="e.g. John Smith" autocomplete="off">
+      <label>First Name</label>
+      <input id="game-manual-first" type="text" placeholder="e.g. John" autocomplete="off">
     </div>
     <div class="field">
-      <label>Handicap Index</label>
-      <input id="game-manual-hcp" type="number" step="0.1" min="0" max="54" placeholder="e.g. 14.2">
+      <label>Surname</label>
+      <input id="game-manual-last" type="text" placeholder="e.g. Smith" autocomplete="off">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">
+      <div class="field" style="margin-bottom:0;">
+        <label>Index</label>
+        <input id="game-manual-hcp" type="number" step="0.1" min="0" max="54" placeholder="14.2">
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Course</label>
+        <input id="game-manual-chcp" type="number" step="1" min="0" max="54" placeholder="auto">
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Playing</label>
+        <input id="game-manual-phcp" type="number" step="1" min="0" max="54" placeholder="auto">
+      </div>
     </div>
     <div class="field">
-      <label>Course Handicap</label>
-      <input id="game-manual-chcp" type="number" step="1" min="0" max="54" placeholder="auto from index">
+      <label>Email (optional — sends invite)</label>
+      <input id="game-manual-email" type="email" placeholder="friend@email.com" autocomplete="off">
     </div>
+
+    <!-- Keep for back-compat -->
+    <input id="game-manual-name" type="hidden">
 
     <button class="btn btn-green" id="btn-game-confirm-player"
       style="width:100%;padding:0.85rem;font-size:1.05rem;font-weight:800;">
-      ✓ Confirm Player
+      ✓ Add Player
     </button>
+  </div>
+</div>
+
+<!-- ADD FROM FRIENDS MODAL -->
+<div class="modal-overlay" id="modal-add-from-friends" style="align-items:flex-end;padding:0;">
+  <div style="background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-height:90vh;
+              display:flex;flex-direction:column;overflow:hidden;">
+    <!-- Fixed header -->
+    <div style="padding:1rem 1rem 0.5rem;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;">
+          Add from Friends
+        </div>
+        <button id="btn-friends-modal-close" style="background:none;border:1px solid var(--border);
+                border-radius:8px;color:var(--muted);font-size:0.85rem;font-weight:700;
+                padding:0.3rem 0.65rem;cursor:pointer;">✕</button>
+      </div>
+      <button id="btn-add-selected-friends"
+        style="width:100%;padding:0.85rem;font-family:'Barlow Condensed',sans-serif;
+               font-size:1.1rem;font-weight:800;background:var(--green);color:#fff;
+               border:none;border-radius:10px;cursor:pointer;opacity:0.4;"
+        disabled>
+        ✓ Add Selected (0)
+      </button>
+    </div>
+    <!-- Scrollable friends list -->
+    <div id="friends-picker-list" style="overflow-y:auto;flex:1;padding:0.75rem 1rem 2rem;
+                                          display:grid;gap:0.5rem;"></div>
   </div>
 </div>
 
