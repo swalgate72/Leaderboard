@@ -535,7 +535,20 @@ export async function friendsLoad(userId) {
   if (error) throw error;
   if (!data?.length) return [];
 
-  // Fetch each friend's profile separately to avoid FK alias issues
+  // Fetch play counts — how many rounds each friend has played with this user
+  const { data: playCounts } = await sb
+    .from('round_players')
+    .select('profile_id')
+    .in('round_id',
+      (await sb.from('round_players').select('round_id').eq('profile_id', userId)
+        .then(r => (r.data ?? []).map(x => x.round_id)))
+    );
+  const countMap = {};
+  (playCounts ?? []).forEach(row => {
+    if (row.profile_id !== userId) countMap[row.profile_id] = (countMap[row.profile_id] ?? 0) + 1;
+  });
+
+  // Fetch each friend's profile
   const friends = [];
   for (const f of data) {
     const friendId = f.requester_id === userId ? f.addressee_id : f.requester_id;
@@ -550,9 +563,13 @@ export async function friendsLoad(userId) {
         profileId:    prof.id,
         name:         `${prof.first_name ?? ''} ${prof.last_name ?? ''}`.trim() || 'Friend',
         hcp:          prof.hcp ?? 0,
+        playCount:    countMap[prof.id] ?? 0,
       });
     }
   }
+
+  // Sort by play count descending (most frequent first), then alphabetically
+  friends.sort((a, b) => (b.playCount - a.playCount) || a.name.localeCompare(b.name));
   return friends;
 }
 

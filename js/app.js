@@ -1738,10 +1738,9 @@ function openFriendsPickerModal() {
   // Get already-added profile IDs to exclude
   const addedIds = new Set(setup.players.filter(p=>p.profileId).map(p=>p.profileId));
 
-  // Sort friends alphabetically by first name
+  // friendsLoad already sorts by play frequency then alphabetically
   const friends = [...allFriends]
-    .filter(f => !addedIds.has(f.profileId))
-    .sort((a,b) => (a.name??a.first_name??'').localeCompare(b.name??b.first_name??''));
+    .filter(f => !addedIds.has(f.profileId));
 
   if (!friends.length) {
     listEl.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--muted);">
@@ -1750,23 +1749,27 @@ function openFriendsPickerModal() {
     return;
   }
 
+  const initVals = (f) => f._pickerVals ?? {
+    index:   Math.round(f.hcp ?? 0),
+    course:  Math.round(f.hcp ?? 0),
+    playing: Math.round((f.hcp ?? 0) * (setup.hcpPct ?? 100) / 100),
+  };
+
   const renderFriendsList = () => {
     listEl.innerHTML = friends.map((f, fi) => {
       const isSelected = _friendsPickerSelected.some(s => s.profileId === f.profileId);
-      const vals       = f._pickerVals ?? {
-        index:  Math.round(f.hcp ?? 0),
-        course: Math.round(f.hcp ?? 0),
-        playing: Math.round((f.hcp ?? 0) * (setup.hcpPct ?? 100) / 100),
-      };
-      const src = f._pickerSrc ?? 'course';
+      const vals  = f._pickerVals ?? initVals(f);
+      const src   = f._pickerSrc ?? 'course';
+      const gameHcp = vals[src] ?? vals.course;
 
       const pill = (label, key) => {
         const active = src === key && isSelected;
         const border = active ? '2px solid var(--gold)' : '1px solid var(--border)';
         const col    = active ? 'var(--gold)' : 'var(--muted)';
         const fw     = active ? '800' : '600';
+        const bg2    = active ? 'background:rgba(184,148,42,0.08);' : '';
         return `<button class="fp-pill" data-fi="${fi}" data-key="${key}"
-          style="background:transparent;border:${border};color:${col};font-weight:${fw};
+          style="background:transparent;${bg2}border:${border};color:${col};font-weight:${fw};
                  font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;
                  padding:0.35rem 0.6rem;border-radius:8px;cursor:pointer;
                  display:flex;flex-direction:column;align-items:center;min-width:3.5rem;line-height:1.2;">
@@ -1775,22 +1778,55 @@ function openFriendsPickerModal() {
         </button>`;
       };
 
-      const bg     = isSelected ? 'background:rgba(184,148,42,0.1);border-color:var(--gold);' : '';
+      // Nudge row — shown when a non-index pill is tapped a second time
+      const showNudge = isSelected && f._nudgeOpen && src !== 'index';
+      const nudgeHtml = showNudge ? `
+        <div style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0 0.1rem;"
+             onclick="event.stopPropagation()">
+          <button class="fp-nudge" data-fi="${fi}" data-dir="-1"
+            style="width:2.8rem;height:2.8rem;border-radius:50%;border:1px solid var(--border);
+                   background:var(--surface2);font-size:1.6rem;cursor:pointer;
+                   display:flex;align-items:center;justify-content:center;">−</button>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:2rem;font-weight:800;
+                       color:var(--gold);min-width:2.5rem;text-align:center;">${gameHcp}</span>
+          <button class="fp-nudge" data-fi="${fi}" data-dir="1"
+            style="width:2.8rem;height:2.8rem;border-radius:50%;border:1px solid var(--border);
+                   background:var(--surface2);font-size:1.6rem;cursor:pointer;
+                   display:flex;align-items:center;justify-content:center;">+</button>
+          <span style="font-size:0.85rem;color:var(--muted);margin-left:2px;">
+            ${src === 'playing' ? 'Playing' : 'Course'} HCP
+          </span>
+          <button class="fp-nudge-update" data-fi="${fi}"
+            style="margin-left:auto;padding:0.3rem 0.65rem;background:var(--green);color:#fff;
+                   border:none;border-radius:8px;font-size:0.8rem;font-weight:700;cursor:pointer;
+                   font-family:'Barlow Condensed',sans-serif;">
+            Update profile
+          </button>
+        </div>` : '';
+
+      const bg     = isSelected ? 'background:rgba(184,148,42,0.08);border-color:var(--gold);' : '';
       const nameStr = f.name || `${f.first_name ?? ''} ${f.last_name ?? ''}`.trim() || f.username || 'Friend';
+      const playBadge = f.playCount > 0
+        ? `<span style="font-size:0.65rem;color:var(--muted);margin-left:4px;">⛳${f.playCount}</span>` : '';
 
       return `<div class="fp-row" data-fi="${fi}"
-        style="display:flex;align-items:center;gap:0.6rem;padding:0.75rem 0.75rem;
-               background:var(--surface);border:1px solid var(--border);border-radius:12px;
-               cursor:pointer;${bg}">
-        <span class="dot" style="background:${pHex(fi%8)};flex-shrink:0;"></span>
-        <div style="flex:1;min-width:0;">
-          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;
-                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameStr}</div>
-          ${f.hcp != null ? `<div style="font-size:0.8rem;color:var(--muted);">Index ${fmtHandicap(f.hcp)}</div>` : ''}
+        style="padding:0.75rem 0.75rem;background:var(--surface);border:1px solid var(--border);
+               border-radius:12px;cursor:pointer;${bg}">
+        <div style="display:flex;align-items:center;gap:0.6rem;">
+          <span class="dot" style="background:${pHex(fi%8)};flex-shrink:0;"></span>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:baseline;gap:2px;">
+              <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;
+                           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameStr}</span>
+              ${playBadge}
+            </div>
+            ${f.hcp != null ? `<div style="font-size:0.75rem;color:var(--muted);">Index ${fmtHandicap(f.hcp)}</div>` : ''}
+          </div>
+          <div style="display:flex;gap:0.3rem;flex-shrink:0;">
+            ${pill('Idx','index')}${pill('Crs','course')}${pill('Ply','playing')}
+          </div>
         </div>
-        <div style="display:flex;gap:0.3rem;flex-shrink:0;">
-          ${pill('Idx','index')}${pill('Crs','course')}${pill('Ply','playing')}
-        </div>
+        ${nudgeHtml}
       </div>`;
     }).join('');
 
@@ -1803,52 +1839,88 @@ function openFriendsPickerModal() {
     // Row click — toggle selection
     listEl.querySelectorAll('.fp-row').forEach(row => {
       row.addEventListener('click', (e) => {
-        if (e.target.closest('.fp-pill')) return; // let pill handle
+        if (e.target.closest('.fp-pill') || e.target.closest('.fp-nudge') ||
+            e.target.closest('.fp-nudge-update')) return;
         const fi = parseInt(row.dataset.fi);
         const f  = friends[fi];
         const idx2 = _friendsPickerSelected.findIndex(s=>s.profileId===f.profileId);
         if (idx2 === -1) {
-          // Select — ensure vals are initialised
-          f._pickerVals = f._pickerVals ?? {
-            index:   Math.round(f.hcp ?? 0),
-            course:  Math.round(f.hcp ?? 0),
-            playing: Math.round((f.hcp ?? 0) * (setup.hcpPct ?? 100) / 100),
-          };
-          f._pickerSrc = f._pickerSrc ?? 'course';
+          f._pickerVals = f._pickerVals ?? initVals(f);
+          f._pickerSrc  = f._pickerSrc  ?? 'course';
           _friendsPickerSelected.push(f);
         } else {
           _friendsPickerSelected.splice(idx2, 1);
+          f._nudgeOpen = false;
         }
         renderFriendsList();
       });
     });
 
-    // Pill click — select source or nudge
+    // Pill click — select source, second tap opens nudge
     listEl.querySelectorAll('.fp-pill').forEach(pill => {
       pill.addEventListener('click', (e) => {
         e.stopPropagation();
         const fi  = parseInt(pill.dataset.fi);
         const key = pill.dataset.key;
         const f   = friends[fi];
-
-        // Ensure selected
         if (!_friendsPickerSelected.find(s=>s.profileId===f.profileId)) {
-          f._pickerVals = f._pickerVals ?? {
-            index:   Math.round(f.hcp ?? 0),
-            course:  Math.round(f.hcp ?? 0),
-            playing: Math.round((f.hcp ?? 0) * (setup.hcpPct ?? 100) / 100),
-          };
+          f._pickerVals = f._pickerVals ?? initVals(f);
           _friendsPickerSelected.push(f);
         }
-
         if (f._pickerSrc === key && key !== 'index') {
-          // Second tap — show inline nudge
           f._nudgeOpen = !f._nudgeOpen;
         } else {
-          f._pickerSrc  = key;
-          f._nudgeOpen  = false;
+          f._pickerSrc = key;
+          f._nudgeOpen = false;
         }
         renderFriendsList();
+      });
+    });
+
+    // Nudge +/- buttons
+    listEl.querySelectorAll('.fp-nudge').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const fi  = parseInt(btn.dataset.fi);
+        const dir = parseInt(btn.dataset.dir);
+        const f   = friends[fi];
+        f._pickerVals = f._pickerVals ?? initVals(f);
+        const src2 = f._pickerSrc ?? 'course';
+        f._pickerVals[src2] = Math.max(0, Math.min(54, (f._pickerVals[src2] ?? 0) + dir));
+        renderFriendsList();
+      });
+    });
+
+    // Update profile button — send in-app message to friend asking if they want to update
+    listEl.querySelectorAll('.fp-nudge-update').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const fi  = parseInt(btn.dataset.fi);
+        const f   = friends[fi];
+        const vals2 = f._pickerVals ?? initVals(f);
+        const src2  = f._pickerSrc ?? 'course';
+        const newVal = vals2[src2];
+        const myName = currentProfile
+          ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+          : 'Your playing partner';
+        const label = src2 === 'playing' ? 'Playing HCP' : 'Course HCP';
+
+        // Send push notification to friend asking if they want to update
+        if (f.profileId) {
+          sendPushToUser(f.profileId, {
+            title: '⛳ Handicap update suggestion',
+            body:  `${myName} played you off ${label} ${newVal}. Want to save this to your profile?`,
+            tag:   `hcp-update-${f.profileId}`,
+            data:  { url: '/', hcpSuggestion: newVal, hcpLabel: label },
+          }).catch(() => {});
+        }
+
+        btn.textContent = '✓ Sent!';
+        btn.style.background = 'var(--muted)';
+        setTimeout(() => {
+          btn.textContent = 'Update profile';
+          btn.style.background = 'var(--green)';
+        }, 2000);
       });
     });
   };
