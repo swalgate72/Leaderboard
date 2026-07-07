@@ -554,16 +554,18 @@ export async function friendsLoad(userId) {
     const friendId = f.requester_id === userId ? f.addressee_id : f.requester_id;
     const { data: prof } = await sb
       .from('profiles')
-      .select('id, first_name, last_name, hcp')
+      .select('id, first_name, last_name, hcp, home_course_id, home_course_handicaps')
       .eq('id', friendId)
       .maybeSingle();
     if (prof) {
       friends.push({
-        friendshipId: f.id,
-        profileId:    prof.id,
-        name:         `${prof.first_name ?? ''} ${prof.last_name ?? ''}`.trim() || 'Friend',
-        hcp:          prof.hcp ?? 0,
-        playCount:    countMap[prof.id] ?? 0,
+        friendshipId:           f.id,
+        profileId:              prof.id,
+        name:                   `${prof.first_name ?? ''} ${prof.last_name ?? ''}`.trim() || 'Friend',
+        hcp:                    prof.hcp ?? 0,
+        home_course_id:         prof.home_course_id ?? null,
+        home_course_handicaps:  prof.home_course_handicaps ?? {},
+        playCount:              countMap[prof.id] ?? 0,
       });
     }
   }

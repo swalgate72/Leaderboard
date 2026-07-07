@@ -1935,10 +1935,35 @@ function openFriendsPickerModal() {
 
 // Resolves the three base values for a player (before any manual adjustment)
 function playerHcpValues(p) {
-  const index   = p.hcpIndex ?? 0;
-  const course  = p.courseHandicap ?? index;
-  const playing = Math.round(course * (setup.hcpPct ?? 100) / 100);
-  return { index, course, playing };
+  const idx = p.hcpIndex ?? p.hcp ?? 0;
+
+  // Check if player's home course matches current game course
+  const gameCourseId  = setup.courseId;
+  const tee           = (() => { try { return allCourses?.find(c=>c.id===gameCourseId)?.tees?.[setup.teeIdx??0]; } catch{return null;} })();
+  const teeName       = tee?.name ?? null;
+  const homeHcps      = p.home_course_handicaps ?? {};
+  const homeCourseId  = p.home_course_id ?? null;
+
+  // Home course matches — use stored tee handicaps
+  if (homeCourseId && gameCourseId && homeCourseId === gameCourseId && teeName && homeHcps[teeName]) {
+    const teeData = homeHcps[teeName];
+    const crs = typeof teeData === 'object' ? (teeData.course  ?? Math.round(idx)) : Number(teeData);
+    const ply = typeof teeData === 'object' ? (teeData.playing ?? Math.round(crs * (setup.hcpPct ?? 100) / 100))
+                                             : Math.round(crs * (setup.hcpPct ?? 100) / 100);
+    return { index: idx, course: crs, playing: ply };
+  }
+
+  // Different course — calculate from slope/rating if available, else round index
+  if (tee?.courseRating && tee?.slopeRating) {
+    const par     = tee.par?.reduce((a,b)=>a+b,0) ?? 72;
+    const crs     = Math.max(0, Math.round(idx * tee.slopeRating / 113 + (tee.courseRating - par)));
+    const playing = Math.max(0, Math.round(crs * (setup.hcpPct ?? 100) / 100));
+    return { index: idx, course: crs, playing };
+  }
+
+  // Fallback — use stored courseHandicap or round index
+  const crs = p.courseHandicap ?? Math.round(idx);
+  return { index: idx, course: crs, playing: Math.max(0, Math.round(crs * (setup.hcpPct ?? 100) / 100)) };
 }
 
 let _hcpPickerSource  = 'course'; // currently selected source
@@ -8670,17 +8695,46 @@ function renderCourseHandicapSection() {
   if (idxEl) idxEl.value = hcpVal;
 
   const saved = currentProfile?.home_course_handicaps ?? {};
-  teesWrap.innerHTML = (course.tees ?? []).map(t => {
-    const safeId = `prof-course-hcp-${t.name.replace(/\s+/g,'-').toLowerCase()}`;
-    const val = saved[t.name] ?? '';
-    return `
-      <div class="field" style="margin:0;">
-        <label>${t.name}</label>
-        <input id="${safeId}" data-tee="${t.name}" class="prof-course-hcp-input"
-          type="number" step="1" min="0" max="54" placeholder="e.g. ${fmtHandicap(currentProfile?.hcp ?? 0)}"
-          value="${val}">
-      </div>`;
-  }).join('');
+
+  // Table header
+  teesWrap.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.4rem 0.5rem;
+                align-items:center;margin-bottom:0.25rem;">
+      <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;
+                  text-transform:uppercase;color:var(--muted);">Tee</div>
+      <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;
+                  text-transform:uppercase;color:var(--muted);text-align:center;">Course</div>
+      <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;
+                  text-transform:uppercase;color:var(--muted);text-align:center;">Playing</div>
+    </div>
+    ${(course.tees ?? []).map(t => {
+      const saved2    = (typeof saved[t.name] === 'object' && saved[t.name] !== null)
+                       ? saved[t.name]
+                       : { course: saved[t.name] ?? '', playing: '' };
+      const crsId = `prof-course-hcp-crs-${t.name.replace(/\s+/g,'-').toLowerCase()}`;
+      const plyId = `prof-course-hcp-ply-${t.name.replace(/\s+/g,'-').toLowerCase()}`;
+      return `
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.4rem 0.5rem;align-items:center;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1rem;
+                      color:var(--white);">${t.name}</div>
+          <input id="${crsId}" data-tee="${t.name}" data-type="course"
+                 class="prof-course-hcp-input"
+                 type="number" step="1" min="0" max="54"
+                 placeholder="--"
+                 value="${saved2.course ?? ''}"
+                 style="text-align:center;padding:0.4rem;border-radius:6px;
+                        border:1px solid var(--border);background:var(--surface2);
+                        color:var(--white);font-size:0.95rem;width:100%;">
+          <input id="${plyId}" data-tee="${t.name}" data-type="playing"
+                 class="prof-course-hcp-input"
+                 type="number" step="1" min="0" max="54"
+                 placeholder="--"
+                 value="${saved2.playing ?? ''}"
+                 style="text-align:center;padding:0.4rem;border-radius:6px;
+                        border:1px solid var(--border);background:var(--surface2);
+                        color:var(--white);font-size:0.95rem;width:100%;">
+        </div>`;
+    }).join('')}`;
 }
 
 document.getElementById('prof-course-select')?.addEventListener('change', renderCourseHandicapSection);
@@ -8712,10 +8766,16 @@ document.getElementById('btn-save-profile')?.addEventListener('click', async () 
     home_course_handicaps: (() => {
       const result = { ...(currentProfile?.home_course_handicaps ?? {}) };
       document.querySelectorAll('.prof-course-hcp-input').forEach(input => {
-        const tee = input.dataset.tee;
-        const v   = parseFloat(input.value);
-        if (input.value.trim() === '') delete result[tee];
-        else result[tee] = v;
+        const tee  = input.dataset.tee;
+        const type = input.dataset.type ?? 'course'; // 'course' or 'playing'
+        const v    = parseFloat(input.value);
+        if (!result[tee] || typeof result[tee] !== 'object') {
+          result[tee] = {};
+        }
+        if (input.value.trim() === '') delete result[tee][type];
+        else result[tee][type] = v;
+        // Clean up if empty
+        if (!Object.keys(result[tee]).length) delete result[tee];
       });
       return result;
     })(),
