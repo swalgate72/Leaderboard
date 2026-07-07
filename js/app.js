@@ -3380,7 +3380,7 @@ function buildSetupReview() {
       </div>`;
     }
   } else if (isPairs && setup.pairs?.length > 0) {
-    const isTournTeamMode = !!setup.tournamentId && activeTournament?.scoring_mode_team !== 'individual';
+    const isSharedBall  = ['foursomes','greensomes'].includes(setup.scoring);
     const numGroups = Math.max(...setup.pairs.map(p => p.groupNumber ?? 1));
     for (let g = 1; g <= numGroups; g++) {
       const groupPairs = setup.pairs.filter(p => (p.groupNumber ?? 1) === g);
@@ -3392,15 +3392,38 @@ function buildSetupReview() {
         const [pi0, pi1] = pair.playerIndices;
         const p0 = setup.players[pi0], p1 = setup.players[pi1];
         const h0 = named.indexOf(p0), h1 = named.indexOf(p1);
+        const hcp0 = hcpObj[h0]?.playingHandicap ?? 0;
+        const hcp1 = hcpObj[h1]?.playingHandicap ?? 0;
+
+        // Foursomes/Greensomes: single combined team handicap
+        let teamHcpHtml = '';
+        if (isSharedBall) {
+          const teamHcp = setup.scoring === 'greensomes'
+            ? greensomesPairHandicap(hcp0, hcp1)
+            : Math.round((hcp0 + hcp1) / 2); // foursomes = average
+          const teamMatch = Math.max(0, teamHcp - Math.min(hcp0, hcp1, 0));
+          const teamScratch = teamHcp === 0 ? 'Scratch' : `SI 1–${teamHcp}`;
+          teamHcpHtml = `
+            <div style="margin-top:0.5rem;padding:0.4rem 0.6rem;background:rgba(184,148,42,0.1);
+                        border-radius:8px;border:1px solid rgba(184,148,42,0.2);">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:0.75rem;font-weight:700;color:var(--muted2);letter-spacing:0.05em;
+                             text-transform:uppercase;">Team Handicap</span>
+                <span style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:800;
+                             color:var(--gold);">${teamHcp}</span>
+              </div>
+              <div style="font-size:0.75rem;color:var(--muted2);margin-top:2px;">
+                ${setup.scoring === 'greensomes' ? 'Greensomes formula: lower + 60% of difference' : 'Foursomes formula: average of both playing handicaps'}
+                · Shots SI 1–${teamHcp}
+              </div>
+            </div>`;
+        }
+
         html += `
           <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
                       padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
-            ${isTournTeamMode
-              ? `<input type="text" class="sg-team-name-input review-team-name"
-                  data-pair="${setup.pairs.indexOf(pair)}"
-                  value="${pair.teamName ?? pair.name}" placeholder="Team name">`
-              : `<div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
-                        color:var(--gold);margin-bottom:0.35rem;">${pair.name}</div>`}
+            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
+                        color:var(--gold);margin-bottom:0.35rem;">${pair.name}</div>
             ${[p0, p1].map((p, si) => {
               const pi  = si === 0 ? pi0 : pi1;
               const hi  = si === 0 ? h0  : h1;
@@ -3408,9 +3431,16 @@ function buildSetupReview() {
                 <div style="display:flex;align-items:center;gap:6px;font-size:0.95rem;font-weight:700;">
                   <span class="dot" style="background:${pHex(pi % 8)};"></span>${p?.name ?? '?'}
                 </div>
-                ${hcpDetailHtml(p, hi)}
+                ${isSharedBall
+                  ? `<div style="font-size:0.8rem;color:var(--muted2);margin-top:0.15rem;">
+                      Index <strong style="color:var(--white)">${fmtHandicap(p?.hcpIndex ?? 0)}</strong>
+                      &nbsp;·&nbsp;Playing <strong style="color:var(--white)">${hcpObj[hi]?.playingHandicap ?? 0}</strong>
+                    </div>`
+                  : hcpDetailHtml(p, hi)
+                }
               </div>`;
             }).join('')}
+            ${teamHcpHtml}
           </div>`;
       });
     }
