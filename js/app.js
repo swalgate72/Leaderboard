@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260704q)
+// LEADERBOARD - app.js  (v3.2 · build 20260704p)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -5430,19 +5430,12 @@ function buildMatchLeaderboard(state) {
   const total   = state.numHoles ?? 18;
 
   // Name labels — pairs show both names
-  // For pairs: stack the two names vertically
-  let nameAHtml, nameBHtml;
-  if (isPairs) {
-    const n0 = shortName(state.names[0]??'');
-    const n1 = shortName(state.names[1]??'');
-    const n2 = shortName(state.names[2]??'');
-    const n3 = shortName(state.names[3]??'');
-    nameAHtml = n1 ? `${n0}<br><span style="font-weight:600;opacity:0.75;">${n1}</span>` : n0;
-    nameBHtml = n3 ? `${n2}<br><span style="font-weight:600;opacity:0.75;">${n3}</span>` : n2;
-  } else {
-    nameAHtml = shortName(state.names[0] ?? 'Player 1');
-    nameBHtml = shortName(state.names[1] ?? 'Player 2');
-  }
+  const nameA = isPairs
+    ? `${shortName(state.names[0]??'')} & ${shortName(state.names[1]??'')}`
+    : (state.names[0] ?? 'Player 1');
+  const nameB = isPairs
+    ? `${shortName(state.names[2]??'')} & ${shortName(state.names[3]??'')}`
+    : (state.names[1] ?? 'Player 2');
 
   // Score column label per format
   const scoreLabel = isCSM ? 'Pts' : 'Net';
@@ -5452,8 +5445,8 @@ function buildMatchLeaderboard(state) {
   const nameAEl  = document.getElementById('lb-name-a');
   const nameBEl  = document.getElementById('lb-name-b');
   if (namesRow) namesRow.style.display = '';
-  if (nameAEl)  nameAEl.innerHTML = nameAHtml;
-  if (nameBEl)  nameBEl.innerHTML = nameBHtml;
+  if (nameAEl)  nameAEl.textContent    = nameA;
+  if (nameBEl)  nameBEl.textContent    = nameB;
 
   // Grid: [net-A 2.5rem] [status-A flex] [hole-chip 3rem] [status-B flex] [net-B 2.5rem]
   // Fixed outer columns keep scores anchored; middle flex columns fill remaining space
@@ -7235,14 +7228,21 @@ async function showEndRound() {
 
   const shareBtn = document.getElementById('er-share-btn');
   if (shareBtn) {
-    const shareUrl = `${location.origin}/view?r=${roundId}`;
+    const shareUrl  = `${location.origin}/view?r=${roundId}`;
+    const titleStr  = `${merged.courseName ?? 'Golf'} · ${fmtLabel(merged.format)}`;
     shareBtn.onclick = async () => {
-      if (navigator.share) {
-        try { await navigator.share({ title: 'Scorecard', url: shareUrl }); } catch {}
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-        shareBtn.textContent = '✅ Link copied!';
-        setTimeout(() => { shareBtn.textContent = '🔗 Share Scorecard'; }, 2000);
+      // Show two options: image or link
+      const choice = await showShareOptions();
+      if (choice === 'image') {
+        await shareScorecardImage(merged, titleStr);
+      } else if (choice === 'link') {
+        if (navigator.share) {
+          try { await navigator.share({ title: titleStr, url: shareUrl }); } catch {}
+        } else {
+          await navigator.clipboard.writeText(shareUrl);
+          shareBtn.textContent = '✅ Link copied!';
+          setTimeout(() => { shareBtn.innerHTML = '🔗 Share Scorecard'; }, 2000);
+        }
       }
     };
     shareBtn.style.display = 'block';
@@ -7745,6 +7745,357 @@ function buildLandscapeScorecard(state, opts = {}) {
 
 function buildEndRoundScorecard(state) {
   return buildLandscapeScorecard(state);
+}
+
+// ================================================================
+// SHARE OPTIONS MODAL
+// ================================================================
+
+function showShareOptions() {
+  return new Promise(resolve => {
+    // Remove any existing
+    document.getElementById('_share-options-modal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = '_share-options-modal';
+    modal.style.cssText = `
+      position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);
+      display:flex;align-items:flex-end;justify-content:center;padding:0 0 env(safe-area-inset-bottom,0px);`;
+
+    modal.innerHTML = `
+      <div style="background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-width:480px;
+                  padding:1.25rem 1.25rem 1.5rem;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:800;
+                    color:var(--white);margin-bottom:1rem;letter-spacing:0.03em;">Share Scorecard</div>
+        <button id="_share-img-btn" style="width:100%;padding:0.85rem;margin-bottom:0.5rem;
+          font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:800;
+          background:var(--green);color:#fff;border:none;border-radius:10px;cursor:pointer;">
+          📸 Share as Image (WhatsApp, Messages…)
+        </button>
+        <button id="_share-link-btn" style="width:100%;padding:0.85rem;margin-bottom:0.5rem;
+          font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:800;
+          background:var(--surface2);color:var(--white);border:1px solid var(--border);
+          border-radius:10px;cursor:pointer;">
+          🔗 Share as Link
+        </button>
+        <button id="_share-cancel-btn" style="width:100%;padding:0.65rem;
+          font-family:'Barlow Condensed',sans-serif;font-size:0.9rem;font-weight:700;
+          background:none;color:var(--muted);border:none;cursor:pointer;">
+          Cancel
+        </button>
+      </div>`;
+
+    document.body.appendChild(modal);
+
+    const cleanup = (val) => { modal.remove(); resolve(val); };
+    modal.addEventListener('click', e => { if (e.target === modal) cleanup(null); });
+    document.getElementById('_share-img-btn')   .onclick = () => cleanup('image');
+    document.getElementById('_share-link-btn')  .onclick = () => cleanup('link');
+    document.getElementById('_share-cancel-btn').onclick = () => cleanup(null);
+  });
+}
+
+// ================================================================
+// SCORECARD IMAGE EXPORT
+// ================================================================
+
+async function shareScorecardImage(state, title) {
+  try {
+    const canvas = document.createElement('canvas');
+    drawScorecardToCanvas(canvas, state, title);
+
+    // Convert to blob
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+    const file = new File([blob], 'scorecard.png', { type: 'image/png' });
+
+    // Try native share (iOS/Android) first
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: title ?? 'Scorecard',
+        text:  'Golf scorecard from Leaderboard',
+      });
+      return;
+    }
+
+    // Fallback: download the image
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = 'scorecard.png';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      alert('Could not share scorecard: ' + (err.message ?? err));
+    }
+  }
+}
+
+function drawScorecardToCanvas(canvas, state, title) {
+  const rows    = buildScorecardRows(state);
+  const fmt     = state.format;
+  const names   = state.names ?? [];
+  const par     = state.par   ?? [];
+  const offset  = state.holeOffset ?? 0;
+  const isPairs = ['foursomes','greensomes'].includes(fmt);
+  const isMatch = ['match','betterball','csm','foursomes','greensomes'].includes(fmt);
+  const isStableford = fmt === 'stableford';
+  const isStroke     = fmt === 'stroke';
+
+  const dispNames = isPairs
+    ? [`${names[0]} & ${names[1]}`, `${names[2]??''} & ${names[3]??''}`]
+    : names;
+
+  // ── Layout constants ────────────────────────────────────────────
+  const SCALE  = 2;   // retina
+  const PAD    = 28;
+  const ROW_H  = 36;
+  const HERO_H = 90;
+  const COL_HOLE  = 36;
+  const COL_PAR   = 30;
+  const COL_SI    = 30;
+  const COL_SCORE = 48;
+  const COL_PTS   = 38;
+  const COL_MATCH = 60;
+  const numPlayers = dispNames.length;
+
+  // Calculate total width
+  let colWidths = [COL_HOLE, COL_PAR, COL_SI];
+  dispNames.forEach(() => {
+    colWidths.push(COL_SCORE);
+    if (isStableford) colWidths.push(COL_PTS);
+    if (isStroke)     colWidths.push(COL_PTS);
+  });
+  if (isMatch) colWidths.push(COL_MATCH);
+
+  const totalW = colWidths.reduce((a, b) => a + b, 0) + PAD * 2;
+  const numHoles = rows.length;
+  // Add subtotal rows for front/back
+  const hasFrontBack = numHoles > 9;
+  const extraRows    = hasFrontBack ? 2 : 0;
+  const totalH = HERO_H + (numHoles + extraRows + 1) * ROW_H + PAD * 2;
+
+  canvas.width  = totalW  * SCALE;
+  canvas.height = totalH  * SCALE;
+  canvas.style.width  = totalW  + 'px';
+  canvas.style.height = totalH  + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(SCALE, SCALE);
+
+  // ── Colours ──────────────────────────────────────────────────────
+  const C = {
+    bg:      '#f4f1eb',
+    surface: '#edeae2',
+    green:   '#1f4028',
+    gold:    '#b8942a',
+    blue:    '#5ba8d8',
+    muted:   '#6b6560',
+    dark:    '#1a1a1a',
+    border:  '#ccc8be',
+    red:     '#c0392b',
+    white:   '#fff',
+  };
+  const playerColors = [C.gold, C.blue, '#7bc47b', '#e07b7b'];
+
+  // ── Hero background ───────────────────────────────────────────────
+  ctx.fillStyle = C.green;
+  ctx.fillRect(0, 0, totalW, HERO_H);
+
+  // Course + format title
+  ctx.fillStyle = C.white;
+  ctx.font      = 'bold 18px Barlow Condensed, Arial';
+  ctx.fillText(title ?? (state.courseName ?? 'Scorecard'), PAD, 32);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font      = '12px Barlow Condensed, Arial';
+  const metaStr = [
+    state.teeName ? state.teeName + ' Tees' : '',
+    fmtLabel(fmt),
+    (state.log?.length ?? 0) + ' holes',
+    state.weather ?? '',
+  ].filter(Boolean).join(' · ').toUpperCase();
+  ctx.fillText(metaStr, PAD, 52);
+
+  // Player names in hero
+  dispNames.forEach((nm, i) => {
+    ctx.fillStyle = playerColors[i] ?? C.gold;
+    ctx.font      = 'bold 14px Barlow Condensed, Arial';
+    ctx.fillText(shortName(nm), PAD + i * 160, 76);
+  });
+
+  // ── Build column x positions ──────────────────────────────────────
+  const colX = [];
+  let cx = PAD;
+  colWidths.forEach(w => { colX.push(cx); cx += w; });
+
+  // ── Header row ────────────────────────────────────────────────────
+  let y = HERO_H + PAD * 0.5;
+
+  const drawRow = (rowData, isHeader, isSubtotal) => {
+    // Row background
+    if (isHeader) {
+      ctx.fillStyle = C.surface;
+      ctx.fillRect(0, y, totalW, ROW_H);
+    } else if (isSubtotal) {
+      ctx.fillStyle = '#e8e5dd';
+      ctx.fillRect(0, y, totalW, ROW_H);
+    }
+
+    // Row border
+    ctx.strokeStyle = C.border;
+    ctx.lineWidth   = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, y + ROW_H); ctx.lineTo(totalW, y + ROW_H);
+    ctx.stroke();
+
+    rowData.forEach((cell, ci) => {
+      const x   = colX[ci];
+      const w   = colWidths[ci];
+      const txt = String(cell.text ?? '');
+      ctx.fillStyle = cell.color ?? C.dark;
+      ctx.font      = `${cell.bold ? 'bold' : 'normal'} ${cell.size ?? 13}px Barlow Condensed, Arial`;
+      ctx.textAlign = cell.align ?? 'center';
+      const tx = cell.align === 'left' ? x + 4 : cell.align === 'right' ? x + w - 4 : x + w / 2;
+      ctx.fillText(txt, tx, y + ROW_H * 0.68);
+
+      // Score decorations (birdie circle, bogey square etc)
+      if (cell.relToPar != null && !isHeader && !isSubtotal && txt && txt !== '--') {
+        const cx2 = x + w / 2, cy2 = y + ROW_H / 2, r = 12;
+        ctx.strokeStyle = cell.relToPar <= -2 ? C.gold
+          : cell.relToPar === -1 ? C.red
+          : cell.relToPar === 1  ? C.blue
+          : cell.relToPar >= 2   ? C.blue : 'transparent';
+        ctx.lineWidth = cell.relToPar <= -2 ? 2 : 1.5;
+        if (cell.relToPar <= -1) {
+          ctx.beginPath(); ctx.arc(cx2, cy2, r, 0, Math.PI*2); ctx.stroke();
+          if (cell.relToPar <= -2) {
+            ctx.beginPath(); ctx.arc(cx2, cy2, r+3, 0, Math.PI*2); ctx.stroke();
+          }
+        } else if (cell.relToPar >= 1) {
+          ctx.strokeRect(cx2-r, cy2-r, r*2, r*2);
+          if (cell.relToPar >= 2) ctx.strokeRect(cx2-r-3, cy2-r-3, (r+3)*2, (r+3)*2);
+        }
+      }
+    });
+
+    ctx.textAlign = 'left'; // reset
+    y += ROW_H;
+  };
+
+  // Header
+  const headerCells = [
+    { text: 'H',   color: C.muted, size: 11 },
+    { text: 'Par', color: C.muted, size: 11 },
+    { text: 'SI',  color: C.muted, size: 11 },
+  ];
+  dispNames.forEach((nm, i) => {
+    headerCells.push({ text: nm.split(' ')[0].toUpperCase(), color: playerColors[i], bold: true, size: 12 });
+    if (isStableford) headerCells.push({ text: 'Pts', color: playerColors[i], size: 11 });
+    if (isStroke)     headerCells.push({ text: 'Net', color: playerColors[i], size: 11 });
+  });
+  if (isMatch) headerCells.push({ text: 'Match', color: C.muted, size: 11 });
+  drawRow(headerCells, true, false);
+
+  // Data rows
+  let frontPts = new Array(numPlayers).fill(0);
+  let backPts  = new Array(numPlayers).fill(0);
+  let frontHas = false, backHas = false;
+  let frontMatchStr = '', backMatchStr = '';
+
+  rows.forEach((row, ri) => {
+    const hNum = offset + ri + 1;
+
+    // Front 9 subtotal
+    if (hasFrontBack && ri === 9) {
+      const subCells = [
+        { text: 'Out', color: C.muted, bold: true, size: 12 },
+        { text: frontPts.map((_, i) => par.slice(0,9).reduce((a,b)=>a+b,0)).join(''), color: C.muted, size: 11 },
+        { text: '', color: C.muted, size: 11 },
+      ];
+      dispNames.forEach((_, i) => {
+        subCells.push({ text: frontHas ? frontPts[i] : '', color: playerColors[i], bold: true, size: 13 });
+        if (isStableford || isStroke) subCells.push({ text: '', size: 11 });
+      });
+      if (isMatch) subCells.push({ text: frontMatchStr, color: C.muted, size: 11 });
+      drawRow(subCells, false, true);
+    }
+
+    const cells = [
+      { text: hNum, color: C.muted, size: 12 },
+      { text: row.par, color: C.muted, size: 12 },
+      { text: row.si,  color: C.muted, size: 11 },
+    ];
+
+    row.players.forEach((p, pi) => {
+      const gross  = p.gross ?? '';
+      const relToPar = gross && row.par ? parseInt(gross) - row.par : null;
+      cells.push({
+        text: p.pickup ? `P.Up` : String(gross || '--'),
+        color: p.won || p.isBest ? playerColors[pi] : C.dark,
+        bold:  !!(p.won || p.isBest),
+        size:  14,
+        relToPar: p.pickup ? null : relToPar,
+      });
+      if (isStableford) cells.push({ text: p.pts ?? '', color: C.muted, size: 12 });
+      if (isStroke)     cells.push({ text: p.net ?? '', color: C.muted, size: 12 });
+
+      // Track totals
+      const val = p.pts ?? p.gross ?? 0;
+      if (ri < 9) { frontPts[pi] += (typeof val === 'number' ? val : 0); frontHas = true; }
+      else        { backPts[pi]  += (typeof val === 'number' ? val : 0); backHas  = true; }
+    });
+
+    if (row.matchStr) {
+      cells.push({ text: row.matchStr, color: C.muted, size: 12 });
+      if (ri === 8) frontMatchStr = row.matchStr;
+    }
+
+    drawRow(cells, false, false);
+  });
+
+  // Back 9 subtotal + total
+  if (hasFrontBack) {
+    const backCells = [
+      { text: 'In', color: C.muted, bold: true, size: 12 },
+      { text: '', size: 11 }, { text: '', size: 11 },
+    ];
+    dispNames.forEach((_, i) => {
+      backCells.push({ text: backHas ? backPts[i] : '', color: playerColors[i], bold: true, size: 13 });
+      if (isStableford || isStroke) backCells.push({ text: '', size: 11 });
+    });
+    if (isMatch) backCells.push({ text: backMatchStr, color: C.muted, size: 11 });
+    drawRow(backCells, false, true);
+  }
+
+  // Total row
+  const totalCells = [
+    { text: 'Total', color: C.dark, bold: true, size: 13 },
+    { text: '', size: 11 }, { text: '', size: 11 },
+  ];
+  dispNames.forEach((_, i) => {
+    const tot = frontPts[i] + backPts[i];
+    totalCells.push({ text: tot || '', color: playerColors[i], bold: true, size: 15 });
+    if (isStableford || isStroke) totalCells.push({ text: '', size: 11 });
+  });
+  if (isMatch) {
+    const ms  = state.matchScore ?? 0;
+    const up  = Math.abs(ms);
+    const txt = ms === 0 ? 'A/S' : ms > 0
+      ? `${dispNames[0].split(' ')[0]} ${up}up`
+      : `${dispNames[1]?.split(' ')[0]} ${up}up`;
+    totalCells.push({ text: txt, color: ms === 0 ? C.green : ms > 0 ? C.gold : C.blue, bold: true, size: 12 });
+  }
+  drawRow(totalCells, false, true);
+
+  // ── Footer ────────────────────────────────────────────────────────
+  ctx.fillStyle = 'rgba(45,92,58,0.08)';
+  ctx.fillRect(0, y, totalW, PAD);
+  ctx.fillStyle = C.muted;
+  ctx.font = '10px Barlow Condensed, Arial';
+  ctx.fillText('Generated by Leaderboard · leaderboard-ten-wheat.vercel.app', PAD, y + 16);
 }
 
 function buildScorecardHTML(state, opts = {}) {
@@ -8574,14 +8925,20 @@ function showHistoryDetail(rid, rounds) {
 
   const hShareBtn = document.getElementById('hd-share-btn');
   if (hShareBtn) {
-    const shareUrl = `${location.origin}/view?r=${r.id}`;
+    const shareUrl  = `${location.origin}/view?r=${r.id}`;
+    const titleStr2 = `${r.course_name ?? 'Golf'} · ${fmtLabel(r.game_format)}`;
     hShareBtn.onclick = async () => {
-      if (navigator.share) {
-        try { await navigator.share({ title: 'Scorecard', url: shareUrl }); } catch {}
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-        hShareBtn.textContent = '✅ Copied!';
-        setTimeout(() => { hShareBtn.textContent = '🔗 Share'; }, 2000);
+      const choice = await showShareOptions();
+      if (choice === 'image') {
+        await shareScorecardImage(merged, titleStr2);
+      } else if (choice === 'link') {
+        if (navigator.share) {
+          try { await navigator.share({ title: titleStr2, url: shareUrl }); } catch {}
+        } else {
+          await navigator.clipboard.writeText(shareUrl);
+          hShareBtn.textContent = '✅ Copied!';
+          setTimeout(() => { hShareBtn.textContent = '🔗 Share'; }, 2000);
+        }
       }
     };
   }
