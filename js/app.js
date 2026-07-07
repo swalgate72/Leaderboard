@@ -5546,13 +5546,11 @@ function buildMatchLeaderboard(state) {
           ${result > 0 ? '↓' : '↑'}
         </span>`;
     } else if (played && !changed) {
-      // Halved — show running status quietly (no arrow, muted)
-      const standingTxt = ms === 0 ? 'Halved' : `${up} ${ms > 0 ? 'UP' : 'DN'}`;
-      const standingTxtB = ms === 0 ? 'Halved' : `${up} ${ms < 0 ? 'UP' : 'DN'}`;
+      // Halved — just say "Halved", quiet and muted
       statusHtmlA = `<span style="font-size:0.8rem;font-weight:400;color:var(--muted);
-                                  letter-spacing:0.01em;">${standingTxt}</span>`;
+                                  letter-spacing:0.01em;">Halved</span>`;
       statusHtmlB = `<span style="font-size:0.8rem;font-weight:400;color:var(--muted);
-                                  letter-spacing:0.01em;text-align:right;">${standingTxtB}</span>`;
+                                  letter-spacing:0.01em;text-align:right;">Halved</span>`;
     }
 
     html += `
