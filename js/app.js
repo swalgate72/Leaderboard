@@ -1719,7 +1719,7 @@ function openFriendsPickerModal() {
   // Sort friends alphabetically by first name
   const friends = [...allFriends]
     .filter(f => !addedIds.has(f.profileId))
-    .sort((a,b) => (a.first_name??'').localeCompare(b.first_name??''));
+    .sort((a,b) => (a.name??a.first_name??'').localeCompare(b.name??b.first_name??''));
 
   if (!friends.length) {
     listEl.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--muted);">
@@ -1754,7 +1754,7 @@ function openFriendsPickerModal() {
       };
 
       const bg     = isSelected ? 'background:rgba(184,148,42,0.1);border-color:var(--gold);' : '';
-      const nameStr = `${f.first_name ?? ''} ${f.last_name ?? ''}`.trim() || f.username || 'Friend';
+      const nameStr = f.name || `${f.first_name ?? ''} ${f.last_name ?? ''}`.trim() || f.username || 'Friend';
 
       return `<div class="fp-row" data-fi="${fi}"
         style="display:flex;align-items:center;gap:0.6rem;padding:0.75rem 0.75rem;
@@ -2039,7 +2039,7 @@ document.getElementById('btn-add-selected-friends')?.addEventListener('click', (
     const idx   = fv.index  ?? f.hcp ?? 0;
     const chcp  = fv.course ?? f.hcp ?? 0;
     addSetupPlayer(
-      `${f.first_name ?? ''} ${f.last_name ?? ''}`.trim() || f.username || 'Friend',
+      f.name || `${f.first_name ?? ''} ${f.last_name ?? ''}`.trim() || f.username || 'Friend',
       idx, chcp, f.profileId ?? null
     );
     // Override gameHandicap with picker selection
