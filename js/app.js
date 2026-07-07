@@ -3419,28 +3419,54 @@ function buildSetupReview() {
             </div>`;
         }
 
+        // Team header line: pair name + team HCP + shots
+        const teamMatchHcp = isSharedBall
+          ? (setup.scoring === 'greensomes'
+              ? greensomesPairHandicap(hcp0, hcp1)
+              : Math.round((hcp0 + hcp1) / 2))
+          : null;
+        const teamScratch = teamMatchHcp === 0 ? 'Scratch'
+          : teamMatchHcp != null ? `SI 1–${teamMatchHcp}` : '';
+
         html += `
           <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
                       padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
-            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
-                        color:var(--gold);margin-bottom:0.35rem;">${pair.name}</div>
+            <!-- Header row: pair name | team HCP | shots -->
+            <div style="display:flex;align-items:baseline;justify-content:space-between;
+                        margin-bottom:0.5rem;flex-wrap:wrap;gap:0.25rem;">
+              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
+                          color:var(--gold);">${pair.name}</div>
+              ${isSharedBall ? `
+                <div style="display:flex;align-items:baseline;gap:0.75rem;">
+                  <span style="font-size:0.85rem;font-weight:700;color:var(--muted2);">
+                    Team HCP <strong style="color:var(--white);font-size:1rem;">${teamMatchHcp}</strong>
+                  </span>
+                  <span style="font-size:0.85rem;font-weight:700;color:var(--gold);">
+                    Shots ${teamScratch}
+                  </span>
+                </div>` : ''}
+            </div>
+            <!-- Player rows: name + playing HCP only -->
             ${[p0, p1].map((p, si) => {
               const pi  = si === 0 ? pi0 : pi1;
               const hi  = si === 0 ? h0  : h1;
-              return `<div style="padding:0.25rem 0;border-bottom:0.5px solid rgba(255,255,255,0.04);">
+              const plyHcp = hcpObj[hi]?.playingHandicap ?? 0;
+              return `<div style="display:flex;align-items:center;justify-content:space-between;
+                                  padding:0.25rem 0;border-bottom:0.5px solid rgba(255,255,255,0.06);">
                 <div style="display:flex;align-items:center;gap:6px;font-size:0.95rem;font-weight:700;">
                   <span class="dot" style="background:${pHex(pi % 8)};"></span>${p?.name ?? '?'}
                 </div>
-                ${isSharedBall
-                  ? `<div style="font-size:0.8rem;color:var(--muted2);margin-top:0.15rem;">
-                      Index <strong style="color:var(--white)">${fmtHandicap(p?.hcpIndex ?? 0)}</strong>
-                      &nbsp;·&nbsp;Playing <strong style="color:var(--white)">${hcpObj[hi]?.playingHandicap ?? 0}</strong>
-                    </div>`
-                  : hcpDetailHtml(p, hi)
-                }
+                <div style="font-size:0.85rem;font-weight:700;color:var(--muted2);">
+                  ${isSharedBall
+                    ? `Playing <strong style="color:var(--white)">${plyHcp}</strong>`
+                    : hcpSummary(p, hi).scratchLabel
+                      ? `Playing <strong style="color:var(--white)">${plyHcp}</strong>
+                         &nbsp;<span style="color:var(--gold);">Shots ${hcpSummary(p,hi).scratchLabel}</span>`
+                      : ''
+                  }
+                </div>
               </div>`;
             }).join('')}
-            ${teamHcpHtml}
           </div>`;
       });
     }
