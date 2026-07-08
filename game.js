@@ -438,6 +438,10 @@ export function buildInitialState({
       return { ...base, totals: new Array(nPlayers).fill(0), groupTotal: 0 };
 
     case 'texas':
+      if (base.texasScoringFmt === 'match') {
+        // Texas matchplay uses match play state
+        return { ...base, matchScore: 0, matchDecided: false };
+      }
       return {
         ...base,
         grossTotal:      0,
@@ -629,32 +633,48 @@ export function processHole(state, grosses) {
     }
 
     case 'texas': {
-      // grosses[0] = team gross score, grosses[1] = driver player index
-      const gross      = grosses[0];
-      const driverIdx  = grosses[1] ?? 0;
-      const teamHcp    = next.teamHcp ?? 0;
-      const teamExtra  = strokesOnHole(teamHcp, si);
-      const net        = gross - teamExtra;
+      const texasFmt = state.texasScoringFmt ?? 'stableford';
 
-      // Stableford pts from net score
-      const pts = Math.max(0, 2 + par - net);
+      if (texasFmt === 'match') {
+        // Texas matchplay: two teams of 2, scramble format, scored as match play
+        // grosses[0] = team A gross, grosses[1] = team B gross
+        const teamAHcp = state.matchHandicaps?.[0] ?? 0; // team A match handicap
+        const teamBHcp = state.matchHandicaps?.[1] ?? 0; // team B match handicap
+        const extraA   = strokesOnHole(teamAHcp, si);
+        const extraB   = strokesOnHole(teamBHcp, si);
+        const netA     = grosses[0] - extraA;
+        const netB     = grosses[1] - extraB;
+        const result   = matchPlayHoleResult(netA, netB);
+        next.matchScore  = (next.matchScore ?? 0) + result;
+        entry.extras     = [extraA, extraB];
+        entry.nets       = [netA, netB];
+        entry.result     = result;
+        entry.matchAfter = next.matchScore;
+      } else {
+        // Texas scramble stableford/stroke
+        const gross      = grosses[0];
+        const driverIdx  = grosses[1] ?? 0;
+        const teamHcp    = next.teamHcp ?? 0;
+        const teamExtra  = strokesOnHole(teamHcp, si);
+        const net        = gross - teamExtra;
+        const pts        = Math.max(0, 2 + par - net);
 
-      next.grossTotal  = (next.grossTotal ?? 0) + gross;
-      next.texasPts    = (next.texasPts   ?? 0) + pts;
+        next.grossTotal  = (next.grossTotal ?? 0) + gross;
+        next.texasPts    = (next.texasPts   ?? 0) + pts;
 
-      // Track driver usage by par
-      const parKey = par === 3 ? 'par3' : par === 4 ? 'par4' : 'par5';
-      const usage  = { ...(next.driverUsage ?? { par3:[], par4:[], par5:[] }) };
-      usage[parKey] = [...(usage[parKey] ?? []), driverIdx];
-      next.driverUsage = usage;
+        const parKey = par === 3 ? 'par3' : par === 4 ? 'par4' : 'par5';
+        const usage  = { ...(next.driverUsage ?? { par3:[], par4:[], par5:[] }) };
+        usage[parKey] = [...(usage[parKey] ?? []), driverIdx];
+        next.driverUsage = usage;
 
-      entry.gross          = gross;
-      entry.net            = net;
-      entry.teamExtra      = teamExtra;
-      entry.pts            = pts;
-      entry.driverIdx      = driverIdx;
-      entry.grossTotalAfter = next.grossTotal;
-      entry.texaPtsAfter   = next.texasPts;
+        entry.gross           = gross;
+        entry.net             = net;
+        entry.teamExtra       = teamExtra;
+        entry.pts             = pts;
+        entry.driverIdx       = driverIdx;
+        entry.grossTotalAfter = next.grossTotal;
+        entry.texaPtsAfter    = next.texasPts;
+      }
       break;
     }
 

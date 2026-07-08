@@ -3700,19 +3700,32 @@ async function teeOff() {
       totalGroups:     setup.numGroups,
       longestDriveHoles: setup.ldEnabled  ? setup.ldHoles  : [],
       nearestPinHoles:   setup.ntpEnabled ? setup.ntpHoles : [],
+      teamScoringMode:   setup.teamScoringMode ?? 'match',
+      texasScoringFmt:   setup.texasScoringFmt ?? 'stableford',
     });
 
     // Texas Scramble: compute and store team handicap and options
     if (fmt === 'texas') {
-      gs.teamHcp         = texasTeamHandicap(gHcpArr, setup.texasMode ?? 'average', setup.hcpPct);
       gs.texasMode       = setup.texasMode ?? 'average';
       gs.texasScoringFmt = setup.texasScoringFmt ?? 'stableford';
       gs.teamName        = `Team ${g + 1}`;
-      gs.grossTotal      = 0;
-      gs.texasPts        = 0;
-      gs.driverUsage     = { par3: [], par4: [], par5: [] };
-      gs.texasDrivesTotal = setup.texasDrivesTotal ?? null;
-      gs.texasDrivesPar3  = setup.texasDrivesPar3  ?? null;
+
+      if (setup.texasScoringFmt === 'match') {
+        // Texas matchplay: compute pair match handicaps like foursomes
+        // Team A = players 0,1; Team B = players 2,3
+        const rawA = Math.round((gHcpArr[0] + gHcpArr[1]) * 0.5);
+        const rawB = Math.round((gHcpArr[2] + gHcpArr[3]) * 0.5);
+        const minH = Math.min(rawA, rawB);
+        gs.matchHandicaps = [rawA - minH, rawB - minH];
+        gs.matchScore     = 0;
+      } else {
+        gs.teamHcp         = texasTeamHandicap(gHcpArr, setup.texasMode ?? 'average', setup.hcpPct);
+        gs.grossTotal      = 0;
+        gs.texasPts        = 0;
+        gs.driverUsage     = { par3: [], par4: [], par5: [] };
+        gs.texasDrivesTotal = setup.texasDrivesTotal ?? null;
+        gs.texasDrivesPar3  = setup.texasDrivesPar3  ?? null;
+      }
     }
 
     groupStates.push(gs);
@@ -3989,7 +4002,8 @@ function renderScoreHeader() {
     renderTotalsBar();
   } else if (fmt === 'match') {
     renderMatchBar(); // only 1v1 match still uses the bar
-  } else if (['betterball','csm','foursomes','greensomes'].includes(fmt)) {
+  } else if (['betterball','csm','foursomes','greensomes'].includes(fmt)
+             || (fmt === 'texas' && (gameState.texasScoringFmt ?? '') === 'match')) {
     document.getElementById('game-match-bar')?.classList.add('hidden'); // status shown inline above pair blocks
   } else if (fmt === 'skins') {
     renderSkinsBar();
@@ -4327,7 +4341,8 @@ function renderHolePanel() {
   // Add Pass scoring button below inputs (injected after makePlayerInputRow calls)
   // We'll add it at the end after inputs are rendered
 
-  const isFoursome = fmt === 'foursomes' || fmt === 'greensomes';
+  const isFoursome = fmt === 'foursomes' || fmt === 'greensomes'
+    || (fmt === 'texas' && (gameState.texasScoringFmt ?? 'stableford') === 'match');
   const isPairs    = ['betterball','csm','foursomes','greensomes'].includes(fmt);
   const isTexas    = fmt === 'texas';
 
@@ -5824,6 +5839,12 @@ function renderLeaderboard() {
     if (isMatch) {
       const gs = states[0] ?? gameState;
       tableEl.innerHTML = buildMatchLeaderboard(gs);
+      return;
+    }
+
+    // Texas matchplay — same hole-by-hole view as foursomes match
+    if (isTexas && (gameState.texasScoringFmt ?? 'stableford') === 'match') {
+      tableEl.innerHTML = buildMatchLeaderboard(states[0] ?? gameState);
       return;
     }
 
