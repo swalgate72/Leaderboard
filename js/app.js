@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260708j)
+// LEADERBOARD - app.js  (v3.2 · build 20260708k)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -3754,13 +3754,19 @@ async function teeOff() {
       : p.hcpIndex ?? 0
     );
     const gHcpObj = calcHandicaps(gHcpArr, setup.hcpPct);
+    // For foursomes/greensomes: pass playing HCPs so engine computes raw pair HCPs
+    const isFoursomeFmt = ['foursomes','greensomes'].includes(fmt);
+    const gMatchHcps    = isFoursomeFmt
+      ? gHcpObj.map(h => h.playingHandicap)
+      : gHcpObj.map(h => h.matchHandicap);
+
 
     const gs = buildInitialState({
       format:          fmt,
       names:           gNames,
       handicapIndexes: gHcpArr,
       playingHandicaps: gHcpObj.map(h => h.playingHandicap),
-      matchHandicaps:   gHcpObj.map(h => h.matchHandicap),
+      matchHandicaps:   gMatchHcps,
       allowancePct:    setup.hcpPct,
       si:              siSlice,
       par:             parSlice,

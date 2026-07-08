@@ -604,27 +604,47 @@ export function processHole(state, grosses) {
 
     case 'foursomes':
     case 'greensomes': {
-      const pairAHcp = format === 'greensomes'
-        ? greensomesPairHandicap(state.matchHandicaps[0], state.matchHandicaps[1])
-        : foursomedPairHandicap(state.matchHandicaps[0], state.matchHandicaps[1]);
-      const pairBHcp = format === 'greensomes'
-        ? greensomesPairHandicap(state.matchHandicaps[2], state.matchHandicaps[3])
-        : foursomedPairHandicap(state.matchHandicaps[2], state.matchHandicaps[3]);
+      // matchHandicaps contains individual PLAYING handicaps
+      // Compute raw pair HCPs, then adjust per scoring mode
+      const mh = state.matchHandicaps ?? [];
+      const rawPairA = format === 'greensomes'
+        ? greensomesPairHandicap(mh[0]??0, mh[1]??0)
+        : foursomedPairHandicap(mh[0]??0, mh[1]??0);
+      const rawPairB = format === 'greensomes'
+        ? greensomesPairHandicap(mh[2]??0, mh[3]??0)
+        : foursomedPairHandicap(mh[2]??0, mh[3]??0);
+
+      const tsMode = state.teamScoringMode ?? 'match';
+
+      // Match: lower pair off scratch, higher gets difference
+      // Stableford/Stroke: each pair gets full raw team HCP
+      let pairAHcp, pairBHcp;
+      if (tsMode === 'match') {
+        const minPair = Math.min(rawPairA, rawPairB);
+        pairAHcp = rawPairA - minPair;
+        pairBHcp = rawPairB - minPair;
+      } else {
+        pairAHcp = rawPairA;
+        pairBHcp = rawPairB;
+      }
+
       const extraA = strokesOnHole(pairAHcp, si);
       const extraB = strokesOnHole(pairBHcp, si);
       const netA   = grosses[0] - extraA;
       const netB   = grosses[1] - extraB;
       const ptsA   = stablefordPoints(grosses[0], extraA, par);
       const ptsB   = stablefordPoints(grosses[1], extraB, par);
-      const tsMode = state.teamScoringMode ?? 'match';
       const result = matchPlayHoleResult(netA, netB);
-      entry.extras = [extraA, extraB];
-      entry.nets   = [netA, netB];
-      entry.result = result;
+
+      entry.extras   = [extraA, extraB];
+      entry.nets     = [netA, netB];
+      entry.result   = result;
+      entry.pairHcps = [pairAHcp, pairBHcp];
+
       if (tsMode === 'stableford') {
         next.teamPts        = [(next.teamPts?.[0]??0)+ptsA, (next.teamPts?.[1]??0)+ptsB];
         next.teamMatchScore = (next.teamMatchScore??0) + result;
-        entry.holePtsA = ptsA; entry.holePtsB = ptsB;
+        entry.holePtsA     = ptsA; entry.holePtsB = ptsB;
         entry.teamPtsAfter = [...next.teamPts];
         entry.matchAfter   = next.teamMatchScore;
       } else if (tsMode === 'stroke') {
