@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260704p)
+// LEADERBOARD - app.js  (v3.2 · build 20260708a)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -3289,6 +3289,7 @@ document.getElementById('setup-abandon-2')        ?.addEventListener('click', ()
 // SETUP -- STEP 3: REVIEW
 // ================================================================
 function buildSetupReview() {
+  console.log('[review] scoring:', setup.scoring, 'pairs:', setup.pairs?.length, 'pairs:', JSON.stringify(setup.pairs?.slice(0,2)));
   const course   = allCourses.find(c => c.id === setup.courseId);
   const tee      = course?.tees?.[setup.teeIdx];
   const { offset, count } = holeRange(setup.holes);
@@ -3471,32 +3472,73 @@ function buildSetupReview() {
       });
     }
   } else {
-    const isTeamFmt = ['best2'].includes(setup.scoring); // texas handled separately above
-    const isTournTeamMode = !!setup.tournamentId && activeTournament?.scoring_mode_team !== 'individual';
+    const isTeamFmt   = ['best2'].includes(setup.scoring);
+    const isSharedBall2 = ['foursomes','greensomes'].includes(setup.scoring);
     const numGroups = Math.max(1, ...named.map(p => p.groupNumber ?? 1));
-    for (let g = 1; g <= numGroups; g++) {
-      const groupPlayers = named.filter(p => (p.groupNumber ?? 1) === g);
-      if (isTeamFmt && isTournTeamMode) {
-        const existingName = groupPlayers[0]?.teamName ?? `Team ${g}`;
-        html += `<input type="text" class="sg-team-name-input review-group-team-name"
-            data-group="${g}" value="${existingName}" placeholder="Team ${g} name">`;
-      } else if (numGroups > 1) {
-        html += `<div style="font-size:0.8rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
-          color:var(--muted);margin:0.75rem 0 0.35rem;">${isTeamFmt ? `Team ${g}` : `Group ${g}`}</div>`;
+
+    // For foursomes/greensomes with no pairs data, build pairs from player order
+    if (isSharedBall2 && named.length >= 2) {
+      const syntheticPairs = [];
+      for (let i = 0; i + 1 < named.length; i += 2) {
+        const p0 = named[i], p1 = named[i+1];
+        const h0 = i, h1 = i+1;
+        const hcp0 = hcpObj[h0]?.playingHandicap ?? 0;
+        const hcp1 = hcpObj[h1]?.playingHandicap ?? 0;
+        const teamHcp = setup.scoring === 'greensomes'
+          ? greensomesPairHandicap(hcp0, hcp1)
+          : Math.round((hcp0 + hcp1) / 2);
+        const teamScratch = teamHcp === 0 ? 'Scratch' : `SI 1–${teamHcp}`;
+        const pairName = `${p0.name.split(' ')[0]} & ${p1.name.split(' ')[0]}`;
+        syntheticPairs.push({ p0, p1, h0, h1, hcp0, hcp1, teamHcp, teamScratch, pairName, pi0: setup.players.indexOf(p0), pi1: setup.players.indexOf(p1) });
       }
-      groupPlayers.forEach(p => {
-        const hi  = named.indexOf(p);
-        const pi  = setup.players.indexOf(p);
-        const hcp = hcpObj[hi];
+      syntheticPairs.forEach(pair => {
         html += `
-          <div style="padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-            <div style="display:flex;align-items:center;gap:8px;font-size:1.15rem;font-weight:800;">
-              <span class="dot" style="background:${pHex(pi % 8)};"></span>${p.name}
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+                      padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;
+                        margin-bottom:0.5rem;flex-wrap:wrap;gap:0.25rem;">
+              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
+                          color:var(--gold);">${pair.pairName}</div>
+              <div style="display:flex;align-items:baseline;gap:0.75rem;">
+                <span style="font-size:0.85rem;font-weight:700;color:var(--muted2);">
+                  Team HCP <strong style="color:var(--white);font-size:1rem;">${pair.teamHcp}</strong>
+                </span>
+                <span style="font-size:0.85rem;font-weight:700;color:var(--gold);">
+                  Shots ${pair.teamScratch}
+                </span>
+              </div>
             </div>
-            ${hcpDetailHtml(p, hi)}
+            ${[[pair.p0, pair.h0, pair.pi0, pair.hcp0], [pair.p1, pair.h1, pair.pi1, pair.hcp1]].map(([p, hi, pi, plyHcp]) => `
+              <div style="display:flex;align-items:center;justify-content:space-between;
+                          padding:0.25rem 0;border-bottom:0.5px solid rgba(255,255,255,0.06);">
+                <div style="display:flex;align-items:center;gap:6px;font-size:0.95rem;font-weight:700;">
+                  <span class="dot" style="background:${pHex(pi % 8)};"></span>${p?.name ?? '?'}
+                </div>
+                <div style="font-size:0.85rem;font-weight:700;color:var(--muted2);">
+                  Playing <strong style="color:var(--white)">${plyHcp}</strong>
+                </div>
+              </div>`).join('')}
           </div>`;
       });
-      if (isTeamFmt && isTournTeamMode) html += `<div style="margin-bottom:1rem;"></div>`;
+    } else {
+      for (let g = 1; g <= numGroups; g++) {
+        const groupPlayers = named.filter(p => (p.groupNumber ?? 1) === g);
+        if (numGroups > 1) {
+          html += `<div style="font-size:0.8rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
+            color:var(--muted);margin:0.75rem 0 0.35rem;">${isTeamFmt ? `Team ${g}` : `Group ${g}`}</div>`;
+        }
+        groupPlayers.forEach(p => {
+          const hi  = named.indexOf(p);
+          const pi  = setup.players.indexOf(p);
+          html += `
+            <div style="padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+              <div style="display:flex;align-items:center;gap:8px;font-size:1.15rem;font-weight:800;">
+                <span class="dot" style="background:${pHex(pi % 8)};"></span>${p.name}
+              </div>
+              ${hcpDetailHtml(p, hi)}
+            </div>`;
+        });
+      }
     }
   }
 
