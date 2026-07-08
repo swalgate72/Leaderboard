@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260708h)
+// LEADERBOARD - app.js  (v3.2 · build 20260708i)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -3395,17 +3395,25 @@ function buildSetupReview() {
     return result;
   })() : {};
 
+  // Scoring mode for team formats
+  const isTeamFmt2    = ['foursomes','greensomes','texas'].includes(setup.scoring);
+  const teamScoreMode2 = setup.scoring === 'texas'
+    ? (setup.texasScoringFmt ?? 'stableford')
+    : (setup.teamScoringMode ?? 'stableford');
+  const teamScoreLabel2 = teamScoreMode2 === 'stroke' ? 'Strokeplay'
+    : teamScoreMode2 === 'match' ? 'Match Play' : 'Stableford';
+
   let html = `
     <div style="display:grid;gap:0.5rem;font-size:1.05rem;font-weight:700;margin-bottom:1rem;">
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Format</span><span>${fmtLabel(setup.scoring)}</span></div>
+      ${isTeamFmt2 ? `
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Scoring</span><span>${teamScoreLabel2}</span></div>
       ${isTexas ? `
-      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Scoring</span><span>${setup.texasScoringFmt === 'stroke' ? 'Strokeplay' : 'Stableford'}</span></div>
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">HCP Mode</span><span>${setup.texasMode === 'weighted' ? 'Weighted' : 'Average'}</span></div>
       ` : ''}
-      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Course</span><span>${course?.name ?? '--'}</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Tees</span><span>${tee?.name ?? '--'}</span></div>
+      ` : ''}
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Holes</span><span>${count === 18 ? '18' : count === 9 && offset === 0 ? 'Front 9' : 'Back 9'}</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">HCP Allowance</span><span>${setup.hcpPct}%</span></div>
+      ${!isTeamFmt2 ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">HCP Allowance</span><span>${setup.hcpPct}%</span></div>` : ''}
     </div>
     <div style="border-top:1px solid var(--border);padding-top:0.75rem;">`;
 
@@ -3441,23 +3449,30 @@ function buildSetupReview() {
     const isSharedBall  = ['foursomes','greensomes'].includes(setup.scoring);
     const numGroups = Math.max(...setup.pairs.map(p => p.groupNumber ?? 1));
 
-    // For shared ball formats: pre-calculate all team HCPs so we can find the minimum
-    // The lower team plays off scratch; higher team gets the difference
-    let teamHcpMap = {}; // pairIdx -> raw team HCP
+    // For shared ball formats: pre-calculate all team HCPs
+    const reviewTeamMode = setup.teamScoringMode ?? 'stableford';
+    const isMatchReview  = reviewTeamMode === 'match';
+    let teamHcpMap = {}; // pairIdx -> shots value
     if (isSharedBall) {
+      const rawMap = {};
       setup.pairs.forEach((pair, pairIdx) => {
         const [pi0, pi1] = pair.playerIndices;
         const p0 = setup.players[pi0], p1 = setup.players[pi1];
         const h0 = named.indexOf(p0), h1 = named.indexOf(p1);
         const hcp0 = hcpObj[h0]?.playingHandicap ?? 0;
         const hcp1 = hcpObj[h1]?.playingHandicap ?? 0;
-        teamHcpMap[pairIdx] = setup.scoring === 'greensomes'
+        rawMap[pairIdx] = setup.scoring === 'greensomes'
           ? greensomesPairHandicap(hcp0, hcp1)
           : Math.round((hcp0 + hcp1) / 2);
       });
-      const minTeamHcp = Math.min(...Object.values(teamHcpMap));
-      // Convert to match shots (difference from lowest)
-      Object.keys(teamHcpMap).forEach(k => { teamHcpMap[k] = teamHcpMap[k] - minTeamHcp; });
+      if (isMatchReview) {
+        // Match play: subtract lowest (lower team plays off scratch)
+        const minTeamHcp = Math.min(...Object.values(rawMap));
+        Object.keys(rawMap).forEach(k => { teamHcpMap[k] = rawMap[k] - minTeamHcp; });
+      } else {
+        // Stableford/Stroke: use raw team HCP directly
+        teamHcpMap = { ...rawMap };
+      }
     }
     for (let g = 1; g <= numGroups; g++) {
       const groupPairs = setup.pairs.filter(p => (p.groupNumber ?? 1) === g);
@@ -3472,10 +3487,10 @@ function buildSetupReview() {
         const hcp0 = hcpObj[h0]?.playingHandicap ?? 0;
         const hcp1 = hcpObj[h1]?.playingHandicap ?? 0;
 
-        // Use pre-calculated match shots from teamHcpMap
+        // Shots label from teamHcpMap (already adjusted for match vs stableford/stroke)
         const pairIdx2   = setup.pairs.indexOf(pair);
-        const matchShots = isSharedBall ? (teamHcpMap[pairIdx2] ?? 0) : 0;
-        const shotsLabel = matchShots === 0 ? 'Plays off Scratch' : `Shots SI 1–${matchShots}`;
+        const teamShots  = isSharedBall ? (teamHcpMap[pairIdx2] ?? 0) : 0;
+        const shotsLabel = teamShots === 0 ? 'Plays off Scratch' : `Shots SI 1–${teamShots}`;
 
 
         // Team header line: pair name + team HCP + shots
@@ -3535,11 +3550,11 @@ function buildSetupReview() {
         const pairName = `${p0.name.split(' ')[0]} & ${p1.name.split(' ')[0]}`;
         syntheticPairs.push({ p0, p1, h0, h1, hcp0, hcp1, rawTeamHcp, pairName, pi0: setup.players.indexOf(p0), pi1: setup.players.indexOf(p1) });
       }
-      // Calculate match shots (difference from lowest team)
-      const minSynHcp = Math.min(...syntheticPairs.map(p => p.rawTeamHcp));
+      // Shots label: match = subtract lowest; stableford/stroke = raw team HCP
+      const minSynHcp = isMatchReview ? Math.min(...syntheticPairs.map(p => p.rawTeamHcp)) : 0;
       syntheticPairs.forEach(pair => {
-        const matchShots2 = pair.rawTeamHcp - minSynHcp;
-        const shotsLabel2 = matchShots2 === 0 ? 'Plays off Scratch' : `Shots SI 1–${matchShots2}`;
+        const teamShots2  = isMatchReview ? pair.rawTeamHcp - minSynHcp : pair.rawTeamHcp;
+        const shotsLabel2 = teamShots2 === 0 ? 'Plays off Scratch' : `Shots SI 1–${teamShots2}`;
         html += `
           <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
                       padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
