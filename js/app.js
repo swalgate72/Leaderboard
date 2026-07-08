@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260708a)
+// LEADERBOARD - app.js  (v3.2 · build 20260708b)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -3383,6 +3383,25 @@ function buildSetupReview() {
   } else if (isPairs && setup.pairs?.length > 0) {
     const isSharedBall  = ['foursomes','greensomes'].includes(setup.scoring);
     const numGroups = Math.max(...setup.pairs.map(p => p.groupNumber ?? 1));
+
+    // For shared ball formats: pre-calculate all team HCPs so we can find the minimum
+    // The lower team plays off scratch; higher team gets the difference
+    let teamHcpMap = {}; // pairIdx -> raw team HCP
+    if (isSharedBall) {
+      setup.pairs.forEach((pair, pairIdx) => {
+        const [pi0, pi1] = pair.playerIndices;
+        const p0 = setup.players[pi0], p1 = setup.players[pi1];
+        const h0 = named.indexOf(p0), h1 = named.indexOf(p1);
+        const hcp0 = hcpObj[h0]?.playingHandicap ?? 0;
+        const hcp1 = hcpObj[h1]?.playingHandicap ?? 0;
+        teamHcpMap[pairIdx] = setup.scoring === 'greensomes'
+          ? greensomesPairHandicap(hcp0, hcp1)
+          : Math.round((hcp0 + hcp1) / 2);
+      });
+      const minTeamHcp = Math.min(...Object.values(teamHcpMap));
+      // Convert to match shots (difference from lowest)
+      Object.keys(teamHcpMap).forEach(k => { teamHcpMap[k] = teamHcpMap[k] - minTeamHcp; });
+    }
     for (let g = 1; g <= numGroups; g++) {
       const groupPairs = setup.pairs.filter(p => (p.groupNumber ?? 1) === g);
       if (numGroups > 1) {
@@ -3396,56 +3415,25 @@ function buildSetupReview() {
         const hcp0 = hcpObj[h0]?.playingHandicap ?? 0;
         const hcp1 = hcpObj[h1]?.playingHandicap ?? 0;
 
-        // Foursomes/Greensomes: single combined team handicap
-        let teamHcpHtml = '';
-        if (isSharedBall) {
-          const teamHcp = setup.scoring === 'greensomes'
-            ? greensomesPairHandicap(hcp0, hcp1)
-            : Math.round((hcp0 + hcp1) / 2); // foursomes = average
-          const teamMatch = Math.max(0, teamHcp - Math.min(hcp0, hcp1, 0));
-          const teamScratch = teamHcp === 0 ? 'Scratch' : `SI 1–${teamHcp}`;
-          teamHcpHtml = `
-            <div style="margin-top:0.5rem;padding:0.4rem 0.6rem;background:rgba(184,148,42,0.1);
-                        border-radius:8px;border:1px solid rgba(184,148,42,0.2);">
-              <div style="display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-size:0.75rem;font-weight:700;color:var(--muted2);letter-spacing:0.05em;
-                             text-transform:uppercase;">Team Handicap</span>
-                <span style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:800;
-                             color:var(--gold);">${teamHcp}</span>
-              </div>
-              <div style="font-size:0.75rem;color:var(--muted2);margin-top:2px;">
-                ${setup.scoring === 'greensomes' ? 'Greensomes formula: lower + 60% of difference' : 'Foursomes formula: average of both playing handicaps'}
-                · Shots SI 1–${teamHcp}
-              </div>
-            </div>`;
-        }
+        // Use pre-calculated match shots from teamHcpMap
+        const pairIdx2   = setup.pairs.indexOf(pair);
+        const matchShots = isSharedBall ? (teamHcpMap[pairIdx2] ?? 0) : 0;
+        const shotsLabel = matchShots === 0 ? 'Plays off Scratch' : `Shots SI 1–${matchShots}`;
+
 
         // Team header line: pair name + team HCP + shots
-        const teamMatchHcp = isSharedBall
-          ? (setup.scoring === 'greensomes'
-              ? greensomesPairHandicap(hcp0, hcp1)
-              : Math.round((hcp0 + hcp1) / 2))
-          : null;
-        const teamScratch = teamMatchHcp === 0 ? 'Scratch'
-          : teamMatchHcp != null ? `SI 1–${teamMatchHcp}` : '';
-
         html += `
           <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
                       padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
-            <!-- Header row: pair name | team HCP | shots -->
+            <!-- Header row: pair name | shots -->
             <div style="display:flex;align-items:baseline;justify-content:space-between;
                         margin-bottom:0.5rem;flex-wrap:wrap;gap:0.25rem;">
               <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
                           color:var(--gold);">${pair.name}</div>
               ${isSharedBall ? `
-                <div style="display:flex;align-items:baseline;gap:0.75rem;">
-                  <span style="font-size:0.85rem;font-weight:700;color:var(--muted2);">
-                    Team HCP <strong style="color:var(--white);font-size:1rem;">${teamMatchHcp}</strong>
-                  </span>
-                  <span style="font-size:0.85rem;font-weight:700;color:var(--gold);">
-                    Shots ${teamScratch}
-                  </span>
-                </div>` : ''}
+                <span style="font-size:0.9rem;font-weight:800;color:var(--gold);">
+                  ${shotsLabel}
+                </span>` : ''}
             </div>
             <!-- Player rows: name + playing HCP only -->
             ${[p0, p1].map((p, si) => {
@@ -3484,14 +3472,17 @@ function buildSetupReview() {
         const h0 = i, h1 = i+1;
         const hcp0 = hcpObj[h0]?.playingHandicap ?? 0;
         const hcp1 = hcpObj[h1]?.playingHandicap ?? 0;
-        const teamHcp = setup.scoring === 'greensomes'
+        const rawTeamHcp = setup.scoring === 'greensomes'
           ? greensomesPairHandicap(hcp0, hcp1)
           : Math.round((hcp0 + hcp1) / 2);
-        const teamScratch = teamHcp === 0 ? 'Scratch' : `SI 1–${teamHcp}`;
         const pairName = `${p0.name.split(' ')[0]} & ${p1.name.split(' ')[0]}`;
-        syntheticPairs.push({ p0, p1, h0, h1, hcp0, hcp1, teamHcp, teamScratch, pairName, pi0: setup.players.indexOf(p0), pi1: setup.players.indexOf(p1) });
+        syntheticPairs.push({ p0, p1, h0, h1, hcp0, hcp1, rawTeamHcp, pairName, pi0: setup.players.indexOf(p0), pi1: setup.players.indexOf(p1) });
       }
+      // Calculate match shots (difference from lowest team)
+      const minSynHcp = Math.min(...syntheticPairs.map(p => p.rawTeamHcp));
       syntheticPairs.forEach(pair => {
+        const matchShots2 = pair.rawTeamHcp - minSynHcp;
+        const shotsLabel2 = matchShots2 === 0 ? 'Plays off Scratch' : `Shots SI 1–${matchShots2}`;
         html += `
           <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
                       padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
@@ -3499,14 +3490,7 @@ function buildSetupReview() {
                         margin-bottom:0.5rem;flex-wrap:wrap;gap:0.25rem;">
               <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
                           color:var(--gold);">${pair.pairName}</div>
-              <div style="display:flex;align-items:baseline;gap:0.75rem;">
-                <span style="font-size:0.85rem;font-weight:700;color:var(--muted2);">
-                  Team HCP <strong style="color:var(--white);font-size:1rem;">${pair.teamHcp}</strong>
-                </span>
-                <span style="font-size:0.85rem;font-weight:700;color:var(--gold);">
-                  Shots ${pair.teamScratch}
-                </span>
-              </div>
+              <span style="font-size:0.9rem;font-weight:800;color:var(--gold);">${shotsLabel2}</span>
             </div>
             ${[[pair.p0, pair.h0, pair.pi0, pair.hcp0], [pair.p1, pair.h1, pair.pi1, pair.hcp1]].map(([p, hi, pi, plyHcp]) => `
               <div style="display:flex;align-items:center;justify-content:space-between;
@@ -4513,15 +4497,23 @@ function renderHolePanel() {
 
       const pairBtnEl = row.querySelector(`#cv-pair-${label}`);
       if (pairBtnEl) {
+        const openPicker = () => {
+          try {
+            openPairScorePicker(label, h, par, null);
+          } catch(err) {
+            console.error('[pair picker] error:', err);
+            alert('Score picker error: ' + err.message);
+          }
+        };
         pairBtnEl.addEventListener('touchstart', (e) => {
           if (_pickerJustClosed) { e.preventDefault(); return; }
           e.preventDefault();
-          openPairScorePicker(label, h, par, anchorPi);
+          openPicker();
         }, { passive: false });
         pairBtnEl.addEventListener('click', (e) => {
           if (_pickerJustClosed) return;
           if (e.sourceCapabilities?.firesTouchEvents) return;
-          openPairScorePicker(label, h, par, anchorPi);
+          openPicker();
         });
       }
     });  // end forEach pairs
@@ -5270,9 +5262,10 @@ function openPairScorePicker(label, h, par, anchorPi) {
   document.getElementById('sp-context').textContent = `Hole ${h + 1} · Par ${par}`;
 
   const fmt     = gameState.format;
+  const mh      = gameState.matchHandicaps ?? [];
   const pairHcp = fmt === 'greensomes'
-    ? greensomesPairHandicap(gameState.matchHandicaps[p0], gameState.matchHandicaps[p1])
-    : foursomedPairHandicap(gameState.matchHandicaps[p0], gameState.matchHandicaps[p1]);
+    ? greensomesPairHandicap(mh[p0] ?? 0, mh[p1] ?? 0)
+    : foursomedPairHandicap(mh[p0] ?? 0, mh[p1] ?? 0);
   const extra   = strokesOnHole(pairHcp, gameState.si[h]);
 
   let min, max;
