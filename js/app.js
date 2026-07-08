@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260708i)
+// LEADERBOARD - app.js  (v3.2 · build 20260708j)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -4503,47 +4503,58 @@ function renderHolePanel() {
     const played    = gameState.log?.length ?? 0;
     const holesLeft = (gameState.numHoles ?? 18) - played;
     const up        = Math.abs(ms);
+    const fmtGs     = gameState.format;
+    const tsMode    = gameState.teamScoringMode ?? 'match';
+    const isTeamSb  = tsMode === 'stableford';
+    const isTeamStr = tsMode === 'stroke';
+    const isTeamMatch = !isTeamSb && !isTeamStr;
 
-    // Foursomes Match Play: each pair's combined handicap = 50% of their
-    // two handicap indexes added together. The lowest pair plays off
-    // scratch; the other pair receives the difference over the match.
-    // (Greensomes uses its own 60/40 weighting via greensomesPairHandicap,
-    // computed the same way but kept separate per format.)
-    const idxs   = gameState.handicapIndexes ?? [];
-    const fmt    = gameState.format;
-    const rawPairHcp = (a, b) => fmt === 'greensomes'
-      ? Math.round(0.6 * Math.min(idxs[a] ?? 0, idxs[b] ?? 0) + 0.4 * Math.max(idxs[a] ?? 0, idxs[b] ?? 0))
-      : Math.round(((idxs[a] ?? 0) + (idxs[b] ?? 0)) * 0.5);
-    const pairAHcpRaw = rawPairHcp(0, 1);
-    const pairBHcpRaw = rawPairHcp(2, 3);
+    // Raw team HCPs (used for stableford/stroke)
+    const mh = gameState.matchHandicaps ?? [];
+    const pairAHcpRaw = fmtGs === 'greensomes'
+      ? greensomesPairHandicap(mh[0]??0, mh[1]??0)
+      : foursomedPairHandicap(mh[0]??0, mh[1]??0);
+    const pairBHcpRaw = fmtGs === 'greensomes'
+      ? greensomesPairHandicap(mh[2]??0, mh[3]??0)
+      : foursomedPairHandicap(mh[2]??0, mh[3]??0);
+
+    // For match play: allowance = difference from lowest
     const lowestPairHcp = Math.min(pairAHcpRaw, pairBHcpRaw);
     const pairAllowance = { A: pairAHcpRaw - lowestPairHcp, B: pairBHcpRaw - lowestPairHcp };
+    const pairRawHcp    = { A: pairAHcpRaw, B: pairBHcpRaw };
 
     [['A', 0, 1, ms], ['B', 2, 3, -ms]].forEach(([label, p0, p1, teamMs]) => {
-      const teamStatus = ms === 0
-        ? 'All Square'
-        : teamMs > 0
-          ? `${up > holesLeft ? `${up}&${holesLeft}` : `${up} Up`}`
-          : `${up > holesLeft ? `${up}&${holesLeft}` : `${up} Down`}`;
+      const pairIdx = label === 'A' ? 0 : 1;
 
-      // Team status header — same visual language as Better Ball / CSM
+      // Status shown next to pair name
+      let teamStatus = '';
+      if (isTeamMatch) {
+        teamStatus = ms === 0
+          ? 'All Square'
+          : teamMs > 0
+            ? `${up > holesLeft ? `${up}&${holesLeft}` : `${up} Up`}`
+            : `${up > holesLeft ? `${up}&${holesLeft}` : `${up} Down`}`;
+      } else if (isTeamSb) {
+        const pts = gameState.teamPts?.[pairIdx] ?? 0;
+        teamStatus = `${pts} pt${pts !== 1 ? 's' : ''}`;
+      } else {
+        const net = gameState.teamNets?.[pairIdx] ?? 0;
+        teamStatus = `${net} net`;
+      }
+
+      const statusColor = isTeamMatch
+        ? (ms === 0 ? 'var(--muted2)' : teamMs > 0 ? 'var(--gold)' : 'var(--muted2)')
+        : 'var(--gold)';
+
       const header = document.createElement('div');
       header.style.cssText = 'padding:0.65rem 0 0.35rem;border-top:1px solid var(--border);margin-top:0.25rem;';
       header.innerHTML = `
         <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.5rem;
-                     color:${ms === 0 ? 'var(--white)' : teamMs > 0 ? 'var(--gold)' : 'var(--muted2)'};">
-          Pair ${label}
-        </span>
+                     color:var(--white);">Pair ${label}</span>
         <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.1rem;
-                     color:${ms === 0 ? 'var(--muted2)' : teamMs > 0 ? 'var(--gold)' : 'var(--muted2)'};
-                     margin-left:0.6rem;">
-          ${teamStatus}
-        </span>`;
+                     color:${statusColor};margin-left:0.6rem;">${teamStatus}</span>`;
       inputsEl.appendChild(header);
 
-      // One shared score for the pair (alternate shot — single ball) — names
-      // stacked vertically so they never collide with the score button,
-      // regardless of how long either name is.
       const existingEntry = gameState.log?.[h];
       const existingGross = existingEntry?.grosses?.[label === 'A' ? 0 : 1];
       const hasExisting    = existingGross != null;
@@ -4556,10 +4567,12 @@ function renderHolePanel() {
         scoreBtnStyle = `border:2px solid ${color};background:${color};color:${existingGross === 1 ? '#000' : '#fff'};`;
       }
 
+      // HCP line: match = shots received; stableford/stroke = raw team HCP
+      const rawHcp     = pairRawHcp[label];
       const allowance  = pairAllowance[label];
-      const hcpLineTxt = allowance === 0
-        ? 'Team HCP — Plays off Scratch'
-        : `Team HCP — Receives ${allowance} shot${allowance === 1 ? '' : 's'}`;
+      const hcpLineTxt = isTeamMatch
+        ? (allowance === 0 ? 'Team HCP — Plays off Scratch' : `Team HCP — Receives ${allowance} shot${allowance === 1 ? '' : 's'}`)
+        : `Team HCP ${rawHcp}`;
 
       const row = document.createElement('div');
       row.className = 'gi-row gi-row-pair';
