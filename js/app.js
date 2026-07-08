@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260708b)
+// LEADERBOARD - app.js  (v3.2 · build 20260708h)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -425,6 +425,7 @@ async function tryRestoreSetupState() {
     } else if (saved.screen === 'screen-setup-course') {
       const fmt = setup.scoring;
       document.getElementById('setup-course-format-label').textContent = FORMAT_LABELS[fmt] ?? fmt;
+  updateCourseScreenForFormat(fmt);
       populateCourseSelect();
       populateNumPlayerSelect();
       populateNumGroupSelect();
@@ -1064,6 +1065,8 @@ document.querySelectorAll('.fmt-btn').forEach(btn => {
     setup.hcpPct   = 100; setup.pairs  = []; setup.players = [];
     setup.texasMode        = 'average';
     setup.texasScoringFmt  = 'stableford';
+    setup.texasTeamSize    = 2;
+    setup.teamScoringMode  = 'stableford';
     setup.texasDrivesTotal = null;
     setup.texasDrivesPar3  = null;
     if (fmt === 'split6')                                                { setup.numPlayers = 3; setup.numGroups = 1; setup.playersPerGroup = null; }
@@ -1110,6 +1113,33 @@ const TEAM_FORMATS = [
   { key: 'best2',      icon: '🥇', label: 'Best 2',         desc: 'Best 2 stableford scores per group · groups vs groups' },
   { key: 'texas',      icon: '🤠', label: 'Texas Scramble', desc: 'All play from best drive · one team score per hole · 2-4 players' },
 ];
+
+const TEAM_SCORING_FORMATS = ['foursomes','greensomes','texas'];
+
+function updateCourseScreenForFormat(fmt) {
+  const isTeamFmt    = TEAM_SCORING_FORMATS.includes(fmt);
+  const hcpField     = document.getElementById('setup-hcp-pct-field');
+  const scoringField = document.getElementById('setup-game-scoring-field');
+  const scoringHint  = document.getElementById('setup-game-scoring-hint');
+  if (hcpField)     hcpField.classList.toggle('hidden', isTeamFmt);
+  if (scoringField) scoringField.classList.toggle('hidden', !isTeamFmt);
+  if (isTeamFmt) {
+    setup.hcpPct = 100;
+    const mode   = setup.teamScoringMode ?? 'stableford';
+    const matchBtn = document.querySelector('.scoring-mode-btn[data-mode="match"]');
+    if (matchBtn) matchBtn.style.display = (fmt === 'texas' && (setup.texasTeamSize ?? 2) > 2) ? 'none' : '';
+    if (scoringHint) scoringHint.textContent = mode === 'match' ? '2v2 matchplay — single group only' : 'Multiple groups supported';
+    document.querySelectorAll('.scoring-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  }
+}
+
+document.getElementById('setup-game-scoring-btns')?.addEventListener('click', e => {
+  const btn = e.target.closest('.scoring-mode-btn');
+  if (!btn) return;
+  setup.teamScoringMode = btn.dataset.mode;
+  updateCourseScreenForFormat(setup.scoring);
+  saveSetupState('screen-setup-course');
+});
 
 function showFormatPicker(category) {
   const TOURNAMENT_EXCLUDED = ['match','skins','itc','split6'];
@@ -1165,10 +1195,12 @@ function showFormatPicker(category) {
         setup.tournamentId     = null;
         setup.tournRoundNumber = null;
       }
-      setup.texasMode       = 'average'; // default handicap mode
-      setup.texasScoringFmt = 'stableford'; // default scoring
-      setup.texasDrivesTotal = null; // min total drives per player
-      setup.texasDrivesPar3  = null; // min par 3 drives per player
+      setup.texasMode        = 'average';
+      setup.texasScoringFmt  = 'stableford';
+      setup.texasTeamSize    = 2;
+      setup.teamScoringMode  = 'stableford';
+      setup.texasDrivesTotal = null;
+      setup.texasDrivesPar3  = null;
       if (fmt === 'split6')                                                { setup.numPlayers = 3; setup.numGroups = 1; setup.playersPerGroup = null; }
       else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ setup.numPlayers = 4; setup.numGroups = 1; setup.playersPerGroup = null; }
       else if (fmt === 'best2')                                            { setup.numPlayers = 8; setup.numGroups = 2; setup.playersPerGroup = 4; }
@@ -1192,19 +1224,13 @@ document.getElementById('setup-format-back')?.addEventListener('click', () => {
 function startSetup() {
   const fmt = setup.scoring;
   document.getElementById('setup-course-format-label').textContent = FORMAT_LABELS[fmt] ?? fmt;
+  updateCourseScreenForFormat(fmt);
 
   // Show Texas Scramble options card only for that format
   const texasCard = document.getElementById('texas-options-card');
   if (texasCard) texasCard.classList.toggle('hidden', fmt !== 'texas');
 
-  // Wire Texas option toggles (only once via _wired flag)
-  if (fmt === 'texas' && !texasCard?._wired) {
-    const setScoringFmt = (v) => {
-      setup.texasScoringFmt = v;
-      document.getElementById('texas-scoring-fmt').value = v;
-      document.getElementById('texas-scoring-stableford').classList.toggle('active', v === 'stableford');
-      document.getElementById('texas-scoring-stroke').classList.toggle('active', v === 'stroke');
-    };
+  if (fmt === 'texas') {
     const setHcpMode = (v) => {
       setup.texasMode = v;
       document.getElementById('texas-hcp-mode').value = v;
@@ -1214,29 +1240,50 @@ function startSetup() {
         ? '25% + 20% + 15% + 10% of player indexes'
         : 'Average of all player indexes';
     };
-    document.getElementById('texas-scoring-stableford')?.addEventListener('click', () => setScoringFmt('stableford'));
-    document.getElementById('texas-scoring-stroke')?.addEventListener('click', () => setScoringFmt('stroke'));
-    document.getElementById('texas-hcp-average')?.addEventListener('click', () => setHcpMode('average'));
-    document.getElementById('texas-hcp-weighted')?.addEventListener('click', () => setHcpMode('weighted'));
-    setScoringFmt(setup.texasScoringFmt ?? 'stableford');
+    const updateTexasScoring = () => {
+      const sz   = setup.texasTeamSize ?? 2;
+      const mode = setup.texasScoringFmt ?? 'stableford';
+      const matchBtn = document.getElementById('texas-scoring-match');
+      if (matchBtn) matchBtn.style.display = sz > 2 ? 'none' : '';
+      if (sz > 2 && mode === 'match') setup.texasScoringFmt = 'stableford';
+      const m = setup.texasScoringFmt ?? 'stableford';
+      document.getElementById('texas-scoring-stableford')?.classList.toggle('active', m === 'stableford');
+      document.getElementById('texas-scoring-stroke')?.classList.toggle('active', m === 'stroke');
+      if (matchBtn) matchBtn.classList.toggle('active', m === 'match');
+      document.getElementById('texas-scoring-fmt').value = m;
+      const hint = document.getElementById('texas-scoring-hint');
+      if (hint) hint.textContent = m === 'match' ? '2v2 matchplay' : `Multiple teams of ${sz}`;
+      document.querySelectorAll('.texas-team-size-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.size) === sz));
+    };
+    if (!texasCard?._wired) {
+      document.querySelectorAll('.texas-team-size-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          setup.texasTeamSize = parseInt(btn.dataset.size);
+          setup.numPlayers = setup.texasTeamSize * 2;
+          updateTexasScoring();
+          saveSetupState('screen-setup-course');
+        });
+      });
+      document.getElementById('texas-scoring-stableford')?.addEventListener('click', () => { setup.texasScoringFmt = 'stableford'; updateTexasScoring(); saveSetupState('screen-setup-course'); });
+      document.getElementById('texas-scoring-stroke')?.addEventListener('click', () => { setup.texasScoringFmt = 'stroke'; updateTexasScoring(); saveSetupState('screen-setup-course'); });
+      document.getElementById('texas-scoring-match')?.addEventListener('click', () => {
+        if ((setup.texasTeamSize??2) > 2) return;
+        setup.texasScoringFmt = 'match'; updateTexasScoring(); saveSetupState('screen-setup-course');
+      });
+      document.getElementById('texas-hcp-average')?.addEventListener('click', () => setHcpMode('average'));
+      document.getElementById('texas-hcp-weighted')?.addEventListener('click', () => setHcpMode('weighted'));
+      const drivesTotalEl = document.getElementById('texas-drives-total');
+      const drivesPar3El  = document.getElementById('texas-drives-par3');
+      if (drivesTotalEl) drivesTotalEl.addEventListener('input', () => { setup.texasDrivesTotal = drivesTotalEl.value ? parseInt(drivesTotalEl.value) : null; });
+      if (drivesPar3El)  drivesPar3El.addEventListener('input',  () => { setup.texasDrivesPar3  = drivesPar3El.value  ? parseInt(drivesPar3El.value)  : null; });
+      if (texasCard) texasCard._wired = true;
+    }
+    updateTexasScoring();
     setHcpMode(setup.texasMode ?? 'average');
-
-    // Drive quotas
     const drivesTotalEl = document.getElementById('texas-drives-total');
     const drivesPar3El  = document.getElementById('texas-drives-par3');
-    if (drivesTotalEl) {
-      drivesTotalEl.value = setup.texasDrivesTotal ?? '';
-      drivesTotalEl.addEventListener('input', () => {
-        setup.texasDrivesTotal = drivesTotalEl.value ? parseInt(drivesTotalEl.value) : null;
-      });
-    }
-    if (drivesPar3El) {
-      drivesPar3El.value = setup.texasDrivesPar3 ?? '';
-      drivesPar3El.addEventListener('input', () => {
-        setup.texasDrivesPar3 = drivesPar3El.value ? parseInt(drivesPar3El.value) : null;
-      });
-    }
-    if (texasCard) texasCard._wired = true;
+    if (drivesTotalEl) drivesTotalEl.value = setup.texasDrivesTotal ?? '';
+    if (drivesPar3El)  drivesPar3El.value  = setup.texasDrivesPar3  ?? '';
   }
 
   // Reset LD/NTP state for a fresh setup
@@ -2284,15 +2331,25 @@ function initSetupPairs() {
     pA.pairIndex = pairIdx; pB.pairIndex = pairIdx;
     // If both players share a persisted team name (team_fixed mode), use it
     const sharedTeamName = (pA.teamName && pA.teamName === pB.teamName) ? pA.teamName : null;
+    const isTeamScoringFmt = ['foursomes','greensomes'].includes(setup.scoring)
+      && (setup.teamScoringMode ?? 'stableford') !== 'match';
     setup.pairs.push({
       _uid: `p${Date.now()}_${pairIdx}_${Math.random().toString(36).slice(2,7)}`,
       name: sharedTeamName || `${pA.name.split(' ')[0]} & ${pB.name.split(' ')[0]}`,
       teamName: sharedTeamName,
       playerIndices: [piA, piB],
-      groupNumber: 1,
+      groupNumber: isTeamScoringFmt ? (pairIdx + 1) : 1,
     });
   }
   if (named.length % 2 !== 0) named[named.length - 1].pairIndex = -1;
+  if (['foursomes','greensomes'].includes(setup.scoring) && (setup.teamScoringMode ?? 'stableford') !== 'match') {
+    setup.numGroups = setup.pairs.length;
+  }
+  if (setup.scoring === 'texas' && (setup.texasScoringFmt ?? 'stableford') !== 'match') {
+    const teamSz = setup.texasTeamSize ?? 2;
+    setup.numGroups = Math.ceil(named.length / teamSz);
+    named.forEach((p, i) => { p.groupNumber = Math.floor(i / teamSz) + 1; });
+  }
   renderSetupPairsScreen();
 }
 
@@ -3704,6 +3761,11 @@ async function teeOff() {
       texasScoringFmt:   setup.texasScoringFmt ?? 'stableford',
     });
 
+    if (['foursomes','greensomes'].includes(fmt)) {
+      gs.teamScoringMode = setup.teamScoringMode ?? 'match';
+      const grpPairs = (setup.pairs ?? []).filter(p => (p.groupNumber ?? 1) === g + 1);
+      if (grpPairs.length > 0) gs.pairName = grpPairs[0].name;
+    }
     // Texas Scramble: compute and store team handicap and options
     if (fmt === 'texas') {
       gs.texasMode       = setup.texasMode ?? 'average';
@@ -5582,7 +5644,8 @@ async function recordHole() {
   const par = gameState.par[h];
   let grosses = [];
 
-  const isFoursome = fmt === 'foursomes' || fmt === 'greensomes';
+  const isFoursome = fmt === 'foursomes' || fmt === 'greensomes'
+    || (fmt === 'texas' && (gameState.texasScoringFmt ?? 'stableford') === 'match');
   const isTexas    = fmt === 'texas';
 
   if (isTexas) {
@@ -5834,6 +5897,26 @@ function renderLeaderboard() {
       }
       return { teamName, members, score, holesPlayed };
     });
+
+    // Foursomes/greensomes team stableford/stroke leaderboard
+    const teamMode = gameState.teamScoringMode ?? 'match';
+    if (['foursomes','greensomes'].includes(fmt) && teamMode !== 'match') {
+      const isTeamSb = teamMode === 'stableford';
+      const pairRows = [];
+      states.filter(s=>s?.names).forEach((s,i) => {
+        const n0=s.names[0],n1=s.names[1],n2=s.names[2],n3=s.names[3];
+        const namesA = [n0,n1].filter(Boolean).map(n=>shortName(n)).join(' & ');
+        const namesB = [n2,n3].filter(Boolean).map(n=>shortName(n)).join(' & ');
+        const scoreA = isTeamSb ? (s.teamPts?.[0]??0) : (s.teamNets?.[0]??0);
+        const scoreB = isTeamSb ? (s.teamPts?.[1]??0) : (s.teamNets?.[1]??0);
+        const thru   = s.log?.length ?? 0;
+        pairRows.push({ label: s.pairName??namesA, sub: namesA, score: scoreA, thru });
+        if (namesB) pairRows.push({ label: namesB, sub: '', score: scoreB, thru });
+      });
+      pairRows.sort((a,b) => isTeamSb ? b.score-a.score : a.score-b.score);
+      tableEl.innerHTML = buildLeaderboardTable(pairRows.map((r,i)=>({rank:i+1,...r,isLead:i===0})), isTeamSb?'Pts':'Net');
+      return;
+    }
 
     // Match formats: use hole-by-hole leaderboard for single group
     if (isMatch) {

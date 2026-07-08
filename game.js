@@ -379,6 +379,8 @@ export function buildInitialState({
   organiserId       = null,
   longestDriveHoles = [],  // array of hole numbers (1-18), absolute not relative to offset
   nearestPinHoles   = [],  // array of hole numbers (1-18)
+  teamScoringMode   = 'match',
+  texasScoringFmt   = 'stableford',
 }) {
   const nPlayers = names.length;
   const base = {
@@ -388,6 +390,8 @@ export function buildInitialState({
     playingHandicaps,
     matchHandicaps,
     allowancePct,
+    teamScoringMode,
+    texasScoringFmt,
     si,
     par,
     numHoles:         numHoles   ?? 18,
@@ -432,6 +436,8 @@ export function buildInitialState({
 
     case 'foursomes':
     case 'greensomes':
+      if (teamScoringMode === 'stableford') return { ...base, teamPts: [0,0], teamMatchScore: 0, matchDecided: false };
+      if (teamScoringMode === 'stroke')     return { ...base, teamNets: [0,0], teamGross: [0,0], teamMatchScore: 0, matchDecided: false };
       return { ...base, matchScore: 0, matchDecided: false };
 
     case 'best2':
@@ -598,23 +604,40 @@ export function processHole(state, grosses) {
 
     case 'foursomes':
     case 'greensomes': {
-      // grosses[0] = pair A score, grosses[1] = pair B score
       const pairAHcp = format === 'greensomes'
         ? greensomesPairHandicap(state.matchHandicaps[0], state.matchHandicaps[1])
         : foursomedPairHandicap(state.matchHandicaps[0], state.matchHandicaps[1]);
       const pairBHcp = format === 'greensomes'
         ? greensomesPairHandicap(state.matchHandicaps[2], state.matchHandicaps[3])
         : foursomedPairHandicap(state.matchHandicaps[2], state.matchHandicaps[3]);
-      const extraA   = strokesOnHole(pairAHcp, si);
-      const extraB   = strokesOnHole(pairBHcp, si);
-      const netA     = grosses[0] - extraA;
-      const netB     = grosses[1] - extraB;
-      const result   = matchPlayHoleResult(netA, netB);
-      next.matchScore  = (next.matchScore ?? 0) + result;
-      entry.extras     = [extraA, extraB];
-      entry.nets       = [netA, netB];
-      entry.result     = result;
-      entry.matchAfter = next.matchScore;
+      const extraA = strokesOnHole(pairAHcp, si);
+      const extraB = strokesOnHole(pairBHcp, si);
+      const netA   = grosses[0] - extraA;
+      const netB   = grosses[1] - extraB;
+      const ptsA   = stablefordPoints(grosses[0], extraA, par);
+      const ptsB   = stablefordPoints(grosses[1], extraB, par);
+      const tsMode = state.teamScoringMode ?? 'match';
+      const result = matchPlayHoleResult(netA, netB);
+      entry.extras = [extraA, extraB];
+      entry.nets   = [netA, netB];
+      entry.result = result;
+      if (tsMode === 'stableford') {
+        next.teamPts        = [(next.teamPts?.[0]??0)+ptsA, (next.teamPts?.[1]??0)+ptsB];
+        next.teamMatchScore = (next.teamMatchScore??0) + result;
+        entry.holePtsA = ptsA; entry.holePtsB = ptsB;
+        entry.teamPtsAfter = [...next.teamPts];
+        entry.matchAfter   = next.teamMatchScore;
+      } else if (tsMode === 'stroke') {
+        next.teamNets       = [(next.teamNets?.[0]??0)+netA, (next.teamNets?.[1]??0)+netB];
+        next.teamMatchScore = (next.teamMatchScore??0) + result;
+        entry.teamNetsAfter = [...next.teamNets];
+        entry.matchAfter    = next.teamMatchScore;
+      } else {
+        next.matchScore  = (next.matchScore??0) + result;
+        entry.matchAfter = next.matchScore;
+        next.teamPts  = [(next.teamPts?.[0]??0)+ptsA, (next.teamPts?.[1]??0)+ptsB];
+        next.teamNets = [(next.teamNets?.[0]??0)+netA, (next.teamNets?.[1]??0)+netB];
+      }
       break;
     }
 

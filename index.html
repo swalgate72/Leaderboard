@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260704h">
+  <link rel="stylesheet" href="styles.css?v=20260708h">
 </head>
 <body>
 
@@ -210,9 +210,9 @@
         <div style="display:grid;gap:0.5rem;">
           <button class="fmt-btn" data-fmt="betterball">⛳ Better Ball</button>
           <button class="fmt-btn" data-fmt="csm">📊 Combined Score</button>
+          <button class="fmt-btn" data-fmt="best2">🥇 Best 2</button>
           <button class="fmt-btn" data-fmt="foursomes">🤝 Foursomes</button>
           <button class="fmt-btn" data-fmt="greensomes">🤝 Greensomes</button>
-          <button class="fmt-btn" data-fmt="best2">🥇 Best 2</button>
           <button class="fmt-btn" data-fmt="texas">🤠 Texas Scramble</button>
         </div>
 
@@ -313,11 +313,22 @@
           <select id="setup-tee-select"><option value="">-- Select a course first --</option></select>
         </div>
 
-        <!-- HCP Allowance moved here from Settings card -->
-        <div class="field">
+        <!-- HCP Allowance — hidden for foursomes/greensomes/texas -->
+        <div class="field" id="setup-hcp-pct-field">
           <label>Handicap Allowance %</label>
           <input id="setup-hcp-pct" type="number" min="0" max="100" step="1" value="100">
           <div class="hint">100 = full · 75 = three-quarter · 50 = half</div>
+        </div>
+
+        <!-- Game Scoring — shown for foursomes/greensomes/texas -->
+        <div class="field hidden" id="setup-game-scoring-field">
+          <label>Game Scoring</label>
+          <div id="setup-game-scoring-btns" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.4rem;">
+            <button class="btn btn-outline scoring-mode-btn active" data-mode="stableford">⭐ Stableford</button>
+            <button class="btn btn-outline scoring-mode-btn" data-mode="stroke">📋 Stroke</button>
+            <button class="btn btn-outline scoring-mode-btn" data-mode="match">⚔️ Match</button>
+          </div>
+          <div class="hint" id="setup-game-scoring-hint"></div>
         </div>
 
         <!-- 18 / Front 9 / Back 9 -->
@@ -391,12 +402,24 @@
     <!-- Texas Scramble options — shown only for that format -->
     <div class="card hidden" id="texas-options-card">
       <div class="card-title">Texas Scramble Options</div>
+
+      <div class="field">
+        <label>Players per Team</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;">
+          <button type="button" class="holes-btn active texas-team-size-btn" data-size="2">2</button>
+          <button type="button" class="holes-btn texas-team-size-btn" data-size="3">3</button>
+          <button type="button" class="holes-btn texas-team-size-btn" data-size="4">4</button>
+        </div>
+      </div>
+
       <div class="field">
         <label>Scoring Format</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
-          <button type="button" class="holes-btn active" id="texas-scoring-stableford">Stableford</button>
-          <button type="button" class="holes-btn" id="texas-scoring-stroke">Strokeplay</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;" id="texas-scoring-btns">
+          <button type="button" class="holes-btn active" id="texas-scoring-stableford">⭐ Stableford</button>
+          <button type="button" class="holes-btn" id="texas-scoring-stroke">📋 Stroke</button>
+          <button type="button" class="holes-btn" id="texas-scoring-match">⚔️ Match</button>
         </div>
+        <div class="hint mt-sm" id="texas-scoring-hint">Any number of teams</div>
         <input type="hidden" id="texas-scoring-fmt" value="stableford">
       </div>
       <div class="field">
@@ -1616,7 +1639,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260704h"></script>
+<script type="module" src="js/app.js?v=20260708h"></script>
 
 
 <!-- ══════════════════════════════════════════
