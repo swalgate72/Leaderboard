@@ -498,7 +498,9 @@ export async function roundPlayersSave(roundId, players) {
 
   const rows = players.map(p => ({
     round_id:         roundId,
-    profile_id:       p.profileId ?? null,
+    // Guest players from guest_friends table don't exist in profiles —
+    // set profile_id to null to avoid FK violation
+    profile_id:       (p.isGuest || p.profileId?.startsWith?.('guest_')) ? null : (p.profileId ?? null),
     name:             p.name,
     handicap_index:   p.handicapIndex,
     playing_handicap: p.playingHandicap,

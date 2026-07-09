@@ -2372,6 +2372,7 @@ document.getElementById('btn-add-selected-friends')?.addEventListener('click', a
       addedP.gameHandicap          = Math.round(fv[src] ?? chcp);
       addedP.home_course_id        = f.home_course_id ?? null;
       addedP.home_course_handicaps = f.home_course_handicaps ?? {};
+      addedP.isGuest               = f.isGuestTable ?? f.is_guest ?? false;
     }
 
     // Auto-save HCPs if playing on their home course and values have changed
@@ -2538,6 +2539,7 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
     if (addedP) {
       addedP.home_course_id        = homeCourseId;
       addedP.home_course_handicaps = homeCourseHcps;
+      addedP.isGuest               = !!guestProfileId; // guest if we just created one
       if (phcp != null) { addedP.hcpSource = 'playing'; addedP.gameHandicap = phcp; }
       else if (chcp != null) { addedP.hcpSource = 'course'; addedP.gameHandicap = chcp; }
     }
@@ -4099,6 +4101,7 @@ async function teeOff() {
     groupStates[g].playerProfileIds = groupPlayers
       .map(p => p.profileId ?? null)
       .filter(id => id !== null);
+    groupStates[g].playerIsGuest = groupPlayers.map(p => p.isGuest ?? false);
     groupStates[g].scorerProfileId = '__unclaimed__';
     groupStates[g].groupNumber     = groupNum;
     groupStates[g].organiserId     = currentUser.id;
@@ -4111,6 +4114,7 @@ async function teeOff() {
     .filter(p => p.groupNumber === 1)
     .map(p => p.profileId ?? null)
     .filter(Boolean);
+  gameState.playerIsGuest = setup.players.filter(p => p.groupNumber === 1).map(p => p.isGuest ?? false);
 
   const btn = document.getElementById('btn-tee-off');
   btn.disabled = true; btn.textContent = 'Starting…';
@@ -7435,6 +7439,7 @@ document.getElementById('btn-resend-invites')?.addEventListener('click', async (
       players: (gs.names ?? []).map((name, i) => ({
         name,
         profileId: gs.playerProfileIds?.[i] ?? null,
+        isGuest:   gs.playerIsGuest?.[i] ?? false,
       })),
     })),
   });
