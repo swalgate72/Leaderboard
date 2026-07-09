@@ -13,7 +13,7 @@ import {
   roundPlayersSave, roundPlayersLoad,
   pushSubscriptionSave, pushSubscriptionsLoadForUser, pushSubscriptionDelete,
   friendsLoad, friendRequestsLoadPending,
-  guestProfileCreate, guestProfileLinkEmail, guestProfileDelete,
+  guestProfileCreate, guestProfileUpdate, guestProfileLinkEmail, guestProfileDelete,
   friendRequestSend, friendRequestAccept, friendRequestDecline, friendRemove,
   smsInviteCreate, gameInviteLoad, gameInvitesPollPending, gameInvitesLoadHistory, smsInviteLookup, smsInviteAccept,
   smsInvitesDeleteMany, invitesForRoundLoad, invitesForTournamentRoundLoad,
@@ -2305,7 +2305,11 @@ document.getElementById('game-manual-hcp')?.addEventListener('input', function()
 document.getElementById('modal-add-game-player-close')?.addEventListener('click', () => {
   const modal = document.getElementById('modal-add-game-player');
   delete modal.dataset.editIdx;
+  delete modal.dataset.editGuestId;
   modal.classList.remove('open');
+  // Re-enable save-guest checkbox in case it was disabled for edit mode
+  const sg = document.getElementById('game-manual-save-guest');
+  if (sg) sg.disabled = false;
 });
 
 // From Friends button → open friends picker
@@ -2446,6 +2450,36 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
   // Update hidden name field for back-compat
   document.getElementById('game-manual-name').value = name;
   // Save as guest friend if checkbox checked
+  // Check if we're editing an existing guest
+  const editGuestId = modal?.dataset?.editGuestId;
+  if (editGuestId) {
+    delete modal.dataset.editGuestId;
+    try {
+      const homeCourseHcpsFull = {};
+      document.querySelectorAll('.np-tee-input').forEach(inp => {
+        const tee = inp.dataset.tee, type = inp.dataset.type, v = inp.value.trim();
+        if (v) { if (!homeCourseHcpsFull[tee]) homeCourseHcpsFull[tee] = {}; homeCourseHcpsFull[tee][type] = parseFloat(v); }
+      });
+      await guestProfileUpdate(editGuestId, {
+        first_name:            first || name,
+        last_name:             last  || '',
+        hcp:                   hcp,
+        email:                 email || null,
+        home_course_id:        homeCourseId || null,
+        home_course_handicaps: Object.keys(homeCourseHcpsFull).length ? homeCourseHcpsFull : null,
+      });
+      // Re-enable the save guest checkbox
+      const saveGuestEl2 = document.getElementById('game-manual-save-guest');
+      if (saveGuestEl2) saveGuestEl2.disabled = false;
+      allFriends = await friendsLoad(currentUser.id);
+      await showFriends();
+    } catch(err) {
+      console.error('[guest] Update failed:', err.message);
+      alert('⚠️ Could not update guest: ' + err.message);
+    }
+    return;
+  }
+
   const saveAsGuest = document.getElementById('game-manual-save-guest')?.checked;
   let guestProfileId = null;
   if (saveAsGuest && currentUser?.id) {
@@ -9354,6 +9388,9 @@ async function renderFriendsList() {
       ? `<span style="font-size:0.65rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;
                       background:rgba(90,180,90,0.15);color:#5ab45a;border-radius:4px;
                       padding:0.1rem 0.35rem;margin-left:4px;vertical-align:middle;">Guest</span>` : '';
+    const editBtn = f.is_guest && f.isGuestTable
+      ? `<button class="btn btn-ghost" style="font-size:0.85rem;margin-right:0.3rem;"
+           data-edit-guest="${f.profileId}">✏️</button>` : '';
     return `
       <div class="friend-item">
         <div class="friend-avatar" style="${f.is_guest ? 'background:#5ab45a;' : ''}">${init}</div>
@@ -9361,18 +9398,81 @@ async function renderFriendsList() {
           <div class="friend-name">${displayName}${guestBadge}</div>
           <div class="friend-sub" style="line-height:1.5;">${details.join(' · ')}</div>
         </div>
-        <button class="btn btn-ghost" style="font-size:0.85rem;border-color:var(--red-border);color:var(--red);"
-          data-remove="${f.friendshipId}">Remove</button>
+        <div style="display:flex;align-items:center;gap:0.25rem;flex-shrink:0;">
+          ${editBtn}
+          <button class="btn btn-ghost" style="font-size:0.85rem;border-color:var(--red-border);color:var(--red);"
+            data-remove="${f.friendshipId}" data-guest-id="${f.is_guest ? f.profileId : ''}">Remove</button>
+        </div>
       </div>`;
   }).join('');
+
+  listEl.querySelectorAll('[data-edit-guest]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const guestId = btn.dataset.editGuest;
+      const f = allFriends.find(x => x.profileId === guestId);
+      if (!f) return;
+      openEditGuestModal(f);
+    });
+  });
+
   listEl.querySelectorAll('[data-remove]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('Remove this friend?')) return;
-      await friendRemove(btn.dataset.remove);
+      const guestId = btn.dataset.guestId;
+      if (guestId) {
+        await guestProfileDelete(currentUser.id, guestId, btn.dataset.remove);
+      } else {
+        await friendRemove(btn.dataset.remove);
+      }
       allFriends = await friendsLoad(currentUser.id);
       await renderFriendsList();
     });
   });
+}
+
+function openEditGuestModal(f) {
+  // Re-use the New Player modal in edit mode
+  const nameParts = (f.name || '').split(' ');
+  document.getElementById('game-manual-first').value  = nameParts[0] ?? '';
+  document.getElementById('game-manual-last').value   = nameParts.slice(1).join(' ') ?? '';
+  document.getElementById('game-manual-hcp').value    = f.hcp != null ? f.hcp : '';
+  document.getElementById('game-manual-email').value  = f.email ?? '';
+  document.getElementById('game-manual-chcp').value   = '';
+  document.getElementById('game-manual-phcp').value   = '';
+  document.getElementById('game-manual-name').value   = f.name ?? '';
+
+  // Pre-tick save as guest (it's already a guest)
+  const saveGuestEl = document.getElementById('game-manual-save-guest');
+  if (saveGuestEl) { saveGuestEl.checked = true; saveGuestEl.disabled = true; }
+
+  // Populate course select
+  const crsSelect = document.getElementById('game-manual-course-select');
+  if (crsSelect) {
+    crsSelect.innerHTML = '<option value="">— No home course —</option>' +
+      (allCourses ?? []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    crsSelect.value = f.home_course_id ?? '';
+  }
+  renderNewPlayerTeeTable();
+
+  // Pre-fill tee values from stored home_course_handicaps
+  if (f.home_course_handicaps && typeof f.home_course_handicaps === 'object') {
+    setTimeout(() => {
+      Object.entries(f.home_course_handicaps).forEach(([teeName, vals]) => {
+        const crsEl = document.querySelector(`.np-tee-input[data-tee="${teeName}"][data-type="course"]`);
+        const plyEl = document.querySelector(`.np-tee-input[data-tee="${teeName}"][data-type="playing"]`);
+        if (crsEl && vals?.course != null) crsEl.value = vals.course;
+        if (plyEl && vals?.playing != null) plyEl.value = vals.playing;
+      });
+    }, 50);
+  }
+
+  // Mark modal as guest-edit mode
+  const modal = document.getElementById('modal-add-game-player');
+  modal.dataset.editGuestId   = f.profileId;
+  modal.dataset.friendsMode   = '1';
+  delete modal.dataset.editIdx;
+  modal.classList.add('open');
+  document.getElementById('game-manual-first').focus();
 }
 
 document.getElementById('btn-search-friend')?.addEventListener('click', async () => {

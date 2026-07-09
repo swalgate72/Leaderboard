@@ -689,6 +689,22 @@ export async function guestProfileCreate(userId, guestData) {
   return data.id;
 }
 
+export async function guestProfileUpdate(guestId, data) {
+  const { first_name, last_name, hcp, email, home_course_id, home_course_handicaps } = data;
+  const update = {
+    first_name:            first_name?.trim() ?? '',
+    last_name:             last_name?.trim()  ?? '',
+    hcp:                   hcp ?? null,
+    home_course_id:        home_course_id ?? null,
+    home_course_handicaps: home_course_handicaps ?? null,
+  };
+  // Update guest_friends table
+  const { error: gErr } = await sb.from('guest_friends').update(update).eq('id', guestId);
+  // Also update profiles if it exists there (legacy)
+  if (email) await sb.from('profiles').update({ email }).eq('id', guestId).eq('is_guest', true).catch(()=>{});
+  if (gErr) throw new Error(gErr.message);
+}
+
 export async function guestProfileLinkEmail(guestId, email) {
   // Link a guest profile to a real email (for when they sign up later)
   const { error } = await sb.from('profiles')
