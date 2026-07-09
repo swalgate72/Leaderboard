@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260708n">
+  <link rel="stylesheet" href="styles.css?v=20260708o">
 </head>
 <body>
 
@@ -1225,27 +1225,48 @@
       <button class="btn btn-ghost" id="modal-add-game-player-close" style="font-size:1.2rem;">✕</button>
     </div>
 
-    <div class="field">
-      <label>First Name</label>
-      <input id="game-manual-first" type="text" placeholder="e.g. John" autocomplete="off">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+      <div class="field">
+        <label>First Name</label>
+        <input id="game-manual-first" type="text" placeholder="e.g. John" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Surname</label>
+        <input id="game-manual-last" type="text" placeholder="e.g. Smith" autocomplete="off">
+      </div>
     </div>
+
     <div class="field">
-      <label>Surname</label>
-      <input id="game-manual-last" type="text" placeholder="e.g. Smith" autocomplete="off">
+      <label>Handicap Index</label>
+      <input id="game-manual-hcp" type="number" step="0.1" min="0" max="54" placeholder="e.g. 14.2">
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">
-      <div class="field" style="margin-bottom:0;">
-        <label>Index</label>
-        <input id="game-manual-hcp" type="number" step="0.1" min="0" max="54" placeholder="14.2">
+
+    <!-- Hidden fallback fields (used when no home course set) -->
+    <input id="game-manual-chcp" type="hidden">
+    <input id="game-manual-phcp" type="hidden">
+
+    <div class="field">
+      <label>Home Course <span style="font-weight:400;color:var(--muted);font-size:0.75rem;">(optional)</span></label>
+      <select id="game-manual-course-select"
+        style="width:100%;padding:0.65rem 0.75rem;border-radius:var(--radius-sm);
+               border:1px solid var(--border);background:var(--surface2);
+               color:var(--white);font-size:0.95rem;font-family:inherit;">
+        <option value="">— No home course —</option>
+      </select>
+    </div>
+
+    <!-- Tee table — shown when a course is selected -->
+    <div id="game-manual-tee-section" class="hidden" style="margin-bottom:0.75rem;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.3rem 0.5rem;
+                  align-items:center;margin-bottom:0.25rem;padding:0 0.1rem;">
+        <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;
+                    text-transform:uppercase;color:var(--muted);">Tee</div>
+        <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;
+                    text-transform:uppercase;color:var(--muted);text-align:center;">Course</div>
+        <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;
+                    text-transform:uppercase;color:var(--muted);text-align:center;">Playing</div>
       </div>
-      <div class="field" style="margin-bottom:0;">
-        <label>Course</label>
-        <input id="game-manual-chcp" type="number" step="1" min="0" max="54" placeholder="auto">
-      </div>
-      <div class="field" style="margin-bottom:0;">
-        <label>Playing</label>
-        <input id="game-manual-phcp" type="number" step="1" min="0" max="54" placeholder="auto">
-      </div>
+      <div id="game-manual-tee-rows"></div>
     </div>
     <div class="field">
       <label>Email (optional — sends invite)</label>
@@ -1630,7 +1651,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260708n"></script>
+<script type="module" src="js/app.js?v=20260708o"></script>
 
 
 <!-- ══════════════════════════════════════════

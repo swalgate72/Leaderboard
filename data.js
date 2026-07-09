@@ -629,20 +629,19 @@ export async function friendRequestDecline(friendshipId) {
 // ── Guest profile management ─────────────────────────────────────
 
 export async function guestProfileCreate(userId, guestData) {
-  // Create a guest profile and friendship in one go
-  const { first_name, last_name, hcp, course_handicap } = guestData;
+  const { first_name, last_name, hcp, home_course_id, home_course_handicaps } = guestData;
 
-  // Create a UUID for the guest
   const guestId = crypto.randomUUID();
 
-  // Insert guest profile
   const { error: profErr } = await sb.from('profiles').insert({
-    id:         guestId,
+    id:                   guestId,
     first_name,
     last_name,
-    hcp:        hcp ?? null,
-    is_guest:   true,
-    onboarding_complete: false,
+    hcp:                  hcp ?? null,
+    home_course_id:       home_course_id ?? null,
+    home_course_handicaps: home_course_handicaps ?? null,
+    is_guest:             true,
+    onboarding_complete:  false,
   });
   if (profErr) throw profErr;
 

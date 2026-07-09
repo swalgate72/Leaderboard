@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260708n)
+// LEADERBOARD - app.js  (v3.2 · build 20260708o)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -2212,6 +2212,80 @@ document.getElementById('btn-player-hcp-confirm')?.addEventListener('click', () 
 // ── Add Players screen handlers ──────────────────────────────────
 
 // New Player button → open modal
+// ── New Player Modal: tee table ─────────────────────────────────
+function renderNewPlayerTeeTable() {
+  const courseId  = document.getElementById('game-manual-course-select')?.value || null;
+  const section   = document.getElementById('game-manual-tee-section');
+  const rowsEl    = document.getElementById('game-manual-tee-rows');
+  if (!section || !rowsEl) return;
+
+  const course = courseId ? allCourses.find(c => c.id === courseId) : null;
+  if (!course || !course.tees?.length) {
+    section.classList.add('hidden');
+    rowsEl.innerHTML = '';
+    return;
+  }
+  section.classList.remove('hidden');
+
+  rowsEl.innerHTML = (course.tees ?? []).map(t => {
+    const safeId = t.name.replace(/\s+/g, '-').toLowerCase();
+    return `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.3rem 0.5rem;
+                  align-items:center;margin-bottom:0.3rem;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;
+                    font-size:1rem;color:var(--white);">${t.name}</div>
+        <input data-tee="${t.name}" data-type="course" class="np-tee-input"
+          type="number" step="1" min="0" max="54" placeholder="--"
+          style="text-align:center;padding:0.4rem;border-radius:6px;
+                 border:1px solid var(--border);background:var(--surface2);
+                 color:var(--white);font-size:0.95rem;width:100%;">
+        <input data-tee="${t.name}" data-type="playing" class="np-tee-input"
+          type="number" step="1" min="0" max="54" placeholder="--"
+          style="text-align:center;padding:0.4rem;border-radius:6px;
+                 border:1px solid var(--border);background:var(--surface2);
+                 color:var(--white);font-size:0.95rem;width:100%;">
+      </div>`;
+  }).join('');
+
+  // Also auto-fill from slope/rating when index changes
+  const idx = parseFloat(document.getElementById('game-manual-hcp')?.value);
+  if (!isNaN(idx)) {
+    (course.tees ?? []).forEach(t => {
+      const cr  = t.courseRating ?? 72;
+      const sr  = t.slopeRating  ?? 113;
+      const par = t.par?.reduce((a,b)=>a+b,0) ?? 72;
+      const crs = Math.max(0, Math.round(idx * sr / 113 + (cr - par)));
+      const ply = Math.max(0, Math.round(crs * (setup.hcpPct ?? 100) / 100));
+      const safeId = t.name.replace(/\s+/g, '-').toLowerCase();
+      const crsEl = rowsEl.querySelector(`input[data-tee="${t.name}"][data-type="course"]`);
+      const plyEl = rowsEl.querySelector(`input[data-tee="${t.name}"][data-type="playing"]`);
+      if (crsEl && !crsEl.value) crsEl.value = crs;
+      if (plyEl && !plyEl.value) plyEl.value = ply;
+    });
+  }
+}
+
+document.getElementById('game-manual-course-select')?.addEventListener('change', renderNewPlayerTeeTable);
+document.getElementById('game-manual-hcp')?.addEventListener('input', () => {
+  // Auto-fill tee table when index typed
+  const courseId = document.getElementById('game-manual-course-select')?.value;
+  if (courseId) renderNewPlayerTeeTable();
+  else {
+    // Fallback: auto-fill single course/playing boxes
+    const idx = parseFloat(document.getElementById('game-manual-hcp')?.value);
+    const tee = (() => { try { return allCourses?.find(c=>c.id===setup.courseId)?.tees?.[setup.teeIdx??0]; } catch{return null;} })();
+    if (!isNaN(idx) && tee) {
+      const cr  = tee.courseRating ?? 72;
+      const sr  = tee.slopeRating  ?? 113;
+      const par = tee.par?.reduce((a,b)=>a+b,0) ?? 72;
+      const crs = Math.max(0, Math.round(idx * sr / 113 + (cr - par)));
+      const ply = Math.max(0, Math.round(crs * (setup.hcpPct ?? 100) / 100));
+      document.getElementById('game-manual-chcp').value = crs;
+      document.getElementById('game-manual-phcp').value = ply;
+    }
+  }
+});
+
 document.getElementById('btn-setup-add-new-player')?.addEventListener('click', () => {
   // Pre-fill course/playing HCP from tee data if available
   const tee = (() => {
@@ -2230,6 +2304,16 @@ document.getElementById('btn-setup-add-new-player')?.addEventListener('click', (
   document.getElementById('game-manual-name').value   = '';
   const saveGuestEl = document.getElementById('game-manual-save-guest');
   if (saveGuestEl) saveGuestEl.checked = false;
+
+  // Populate course select
+  const crsSelect = document.getElementById('game-manual-course-select');
+  if (crsSelect) {
+    crsSelect.innerHTML = '<option value="">— No home course —</option>' +
+      (allCourses ?? []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    // Default to current game course if set
+    if (setup.courseId) crsSelect.value = setup.courseId;
+  }
+  renderNewPlayerTeeTable();
 
   const modal = document.getElementById('modal-add-game-player');
   delete modal.dataset.editIdx;
@@ -2269,41 +2353,83 @@ document.getElementById('btn-friends-modal-close')?.addEventListener('click', ()
 });
 
 // Add Selected Friends button
-document.getElementById('btn-add-selected-friends')?.addEventListener('click', () => {
-  const selected = _friendsPickerSelected;
-  selected.forEach(f => {
-    const fv    = f._pickerVals ?? {};
-    const src   = f._pickerSrc ?? 'course';
-    const idx   = fv.index  ?? f.hcp ?? 0;
-    const chcp  = fv.course ?? f.hcp ?? 0;
-    addSetupPlayer(
-      f.name || `${f.first_name ?? ''} ${f.last_name ?? ''}`.trim() || f.username || 'Friend',
-      idx, chcp, f.profileId ?? null
-    );
-    // Override gameHandicap with picker selection
+document.getElementById('btn-add-selected-friends')?.addEventListener('click', async () => {
+  const selected = [..._friendsPickerSelected];
+  for (const f of selected) {
+    const fv   = f._pickerVals ?? {};
+    const src  = f._pickerSrc ?? 'course';
+    const idx  = fv.index  ?? f.hcp ?? 0;
+    const chcp = fv.course ?? f.hcp ?? 0;
+    const ply  = fv.playing ?? chcp;
+    const name = f.name || `${f.first_name ?? ''} ${f.last_name ?? ''}`.trim() || 'Friend';
+
+    addSetupPlayer(name, idx, chcp, f.profileId ?? null);
+
     const addedP = setup.players.find(p => p.profileId === f.profileId);
     if (addedP) {
-      addedP.hcpSource    = src;
-      addedP.gameHandicap = Math.round(fv[src] ?? chcp);
+      addedP.hcpSource             = src;
+      addedP.gameHandicap          = Math.round(fv[src] ?? chcp);
+      addedP.home_course_id        = f.home_course_id ?? null;
+      addedP.home_course_handicaps = f.home_course_handicaps ?? {};
     }
-  });
+
+    // Auto-save HCPs if playing on their home course and values have changed
+    const isSameCourse = f.home_course_id && setup.courseId && f.home_course_id === setup.courseId;
+    if (isSameCourse && f.profileId && currentUser?.id) {
+      const gameTee  = allCourses?.find(c=>c.id===setup.courseId)?.tees?.[setup.teeIdx??0];
+      const teeName  = gameTee?.name;
+      if (teeName) {
+        const savedTee = f.home_course_handicaps?.[teeName] ?? {};
+        const savedCrs = typeof savedTee === 'object' ? (savedTee.course ?? null) : savedTee;
+        const savedPly = typeof savedTee === 'object' ? (savedTee.playing ?? null) : null;
+        const hcpChanged = Math.round(idx) !== Math.round(f.hcp ?? 0);
+        const crsChanged = Math.round(chcp) !== Math.round(savedCrs ?? 0);
+        const plyChanged = Math.round(ply)  !== Math.round(savedPly ?? 0);
+        if (hcpChanged || crsChanged || plyChanged) {
+          try {
+            const updatedHcps = { ...(f.home_course_handicaps ?? {}), [teeName]: { course: Math.round(chcp), playing: Math.round(ply) } };
+            await sb.from('profiles').update({ hcp: idx, home_course_handicaps: updatedHcps }).eq('id', f.profileId);
+            f.hcp = idx; f.home_course_handicaps = updatedHcps;
+            console.log('[guest] Auto-saved HCPs for', name);
+          } catch(err) { console.warn('[guest] Auto-save failed:', err.message); }
+        }
+      }
+    }
+  }
   _friendsPickerSelected = [];
   document.getElementById('modal-add-from-friends').classList.remove('open');
   renderSetupPlayerList();
 });
+
 
 document.getElementById('btn-game-confirm-player')?.addEventListener('click', async () => {
   const first   = document.getElementById('game-manual-first')?.value.trim() ?? '';
   const last    = document.getElementById('game-manual-last')?.value.trim()  ?? '';
   const email   = document.getElementById('game-manual-email')?.value.trim() ?? '';
   const hcpRaw  = document.getElementById('game-manual-hcp').value.trim();
-  const chcpRaw = document.getElementById('game-manual-chcp').value.trim();
-  const phcpRaw = document.getElementById('game-manual-phcp')?.value.trim() ?? '';
   const name    = first ? `${first} ${last}`.trim() : document.getElementById('game-manual-name').value.trim();
   if (!name) { alert('Please enter a player name.'); return; }
-  const chcp = chcpRaw ? parseFloat(chcpRaw) : null;
-  const phcp = phcpRaw ? parseFloat(phcpRaw) : null;
-  const hcp  = hcpRaw  ? parseFloat(hcpRaw)  : (chcp ?? 0);
+  const hcp  = hcpRaw ? parseFloat(hcpRaw) : 0;
+
+  // Collect tee table data (home course handicaps)
+  const homeCourseId = document.getElementById('game-manual-course-select')?.value || null;
+  const homeCourseHcps = {};
+  document.querySelectorAll('.np-tee-input').forEach(inp => {
+    const tee  = inp.dataset.tee;
+    const type = inp.dataset.type;
+    const v    = inp.value.trim();
+    if (v) {
+      if (!homeCourseHcps[tee]) homeCourseHcps[tee] = {};
+      homeCourseHcps[tee][type] = parseFloat(v);
+    }
+  });
+
+  // For playerHcpValues: use the tee matching the current game tee
+  const gameTee     = allCourses?.find(c=>c.id===setup.courseId)?.tees?.[setup.teeIdx??0];
+  const gameTeeData = gameTee && homeCourseId === setup.courseId
+    ? homeCourseHcps[gameTee.name] : null;
+  const chcp = gameTeeData?.course ?? null;
+  const phcp = gameTeeData?.playing ?? null;
   // Update hidden name field for back-compat
   document.getElementById('game-manual-name').value = name;
   // Save as guest friend if checkbox checked
@@ -2312,10 +2438,11 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
   if (saveAsGuest && currentUser?.id) {
     try {
       guestProfileId = await guestProfileCreate(currentUser.id, {
-        first_name: first || name,
-        last_name:  last  || '',
-        hcp:        hcp,
-        course_handicap: chcp,
+        first_name:           first || name,
+        last_name:            last  || '',
+        hcp:                  hcp,
+        home_course_id:       homeCourseId,
+        home_course_handicaps: Object.keys(homeCourseHcps).length ? homeCourseHcps : null,
       });
       // Refresh friends list so they appear next time
       allFriends = await friendsLoad(currentUser.id);
@@ -2351,6 +2478,14 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
     delete modal.dataset.editIdx;
     const effectivePhcp = phcp ?? chcp ?? hcp;
     addSetupPlayer(name, hcp, chcp ?? hcp, guestProfileId);
+    // Store home course handicaps on the player for smart HCP lookup
+    const addedP = setup.players.slice().reverse().find(p => p.name === name);
+    if (addedP) {
+      addedP.home_course_id        = homeCourseId;
+      addedP.home_course_handicaps = homeCourseHcps;
+      if (phcp != null) { addedP.hcpSource = 'playing'; addedP.gameHandicap = phcp; }
+      else if (chcp != null) { addedP.hcpSource = 'course'; addedP.gameHandicap = chcp; }
+    }
     // Override game HCP with playing HCP if explicitly set
     if (phcpRaw) {
       const addedP = setup.players.slice().reverse().find(p => p.name === name);
