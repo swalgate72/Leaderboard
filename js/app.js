@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260708q)
+// LEADERBOARD - app.js  (v3.2 · build 20260708r)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -2464,6 +2464,7 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
       allFriends = await friendsLoad(currentUser.id);
     } catch (err) {
       console.warn('[guest] Could not save guest profile:', err.message);
+      // Non-blocking — player was already added to the game
     }
   }
 
@@ -9285,6 +9286,8 @@ document.getElementById('btn-theme-light')?.addEventListener('click', () => appl
 async function showFriends() {
   showScreen('screen-friends');
   setActiveBottomNav('nav-friends');
+  // Always re-fetch so new guests appear immediately
+  try { allFriends = await friendsLoad(currentUser.id); } catch {}
   await loadFriendRequests();
   await renderFriendsList();
 }
@@ -9342,11 +9345,15 @@ async function renderFriendsList() {
     if (f.email && f.friends_see_email)    details.push(f.email);
     if (f.username) details.unshift(`@${f.username}`);
     if (noSurname) details.unshift('<span style="color:var(--gold);font-weight:800;">⚠️ No surname — ask them to update their profile</span>');
+    const guestBadge = f.is_guest
+      ? `<span style="font-size:0.65rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;
+                      background:rgba(90,180,90,0.15);color:#5ab45a;border-radius:4px;
+                      padding:0.1rem 0.35rem;margin-left:4px;vertical-align:middle;">Guest</span>` : '';
     return `
       <div class="friend-item">
-        <div class="friend-avatar">${init}</div>
+        <div class="friend-avatar" style="${f.is_guest ? 'background:#5ab45a;' : ''}">${init}</div>
         <div class="friend-info">
-          <div class="friend-name">${displayName}</div>
+          <div class="friend-name">${displayName}${guestBadge}</div>
           <div class="friend-sub" style="line-height:1.5;">${details.join(' · ')}</div>
         </div>
         <button class="btn btn-ghost" style="font-size:0.85rem;border-color:var(--red-border);color:var(--red);"
