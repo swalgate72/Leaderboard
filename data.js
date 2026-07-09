@@ -651,29 +651,16 @@ export async function friendRequestDecline(friendshipId) {
 export async function guestProfileCreate(userId, guestData) {
   const { first_name, last_name, hcp, home_course_id, home_course_handicaps } = guestData;
 
-  const guestId = crypto.randomUUID();
-
-  const { error: profErr } = await sb.from('profiles').insert({
-    id:                   guestId,
-    first_name,
-    last_name,
-    hcp:                  hcp ?? null,
-    home_course_id:       home_course_id ?? null,
-    home_course_handicaps: home_course_handicaps ?? null,
-    is_guest:             true,
-    onboarding_complete:  false,
+  // Use the /api/create-guest Vercel function which uses service role key
+  // to bypass RLS and create the profile + friendship in one go
+  const res = await fetch('/api/create-guest', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ userId, first_name, last_name, hcp, home_course_id, home_course_handicaps }),
   });
-  if (profErr) throw profErr;
-
-  // Create accepted friendship immediately
-  const { error: friendErr } = await sb.from('friendships').insert({
-    requester_id: userId,
-    addressee_id: guestId,
-    status:       'accepted',
-  });
-  if (friendErr) throw friendErr;
-
-  return guestId;
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? 'Failed to create guest');
+  return json.guestId;
 }
 
 export async function guestProfileLinkEmail(guestId, email) {

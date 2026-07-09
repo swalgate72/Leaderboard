@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260708p)
+// LEADERBOARD - app.js  (v3.2 · build 20260708q)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -2403,7 +2403,6 @@ document.getElementById('btn-add-selected-friends')?.addEventListener('click', a
 
 
 document.getElementById('btn-game-confirm-player')?.addEventListener('click', async (e) => {
-  // Disable button immediately to prevent double-tap duplicates
   const confirmBtn = e.currentTarget;
   if (confirmBtn._busy) return;
   confirmBtn._busy = true;
@@ -2420,9 +2419,12 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
     return;
   }
 
-  // Close modal immediately so user can't tap again
+  // Close modal immediately — before async work
   const modal = document.getElementById('modal-add-game-player');
   modal?.classList.remove('open');
+  // Reset button state so next player can be added
+  confirmBtn._busy = false;
+  confirmBtn.disabled = false;
   const hcp  = hcpRaw ? parseFloat(hcpRaw) : 0;
 
   // Collect tee table data (home course handicaps)
@@ -2477,20 +2479,18 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
     }).catch(() => {});
   }
 
-  // modal already declared above
-  const modalEl = document.getElementById('modal-add-game-player');
-  const editIdx = modalEl.dataset.editIdx != null && modal.dataset.editIdx !== ''
+  const editIdx = modal?.dataset.editIdx != null && modal?.dataset.editIdx !== ''
     ? parseInt(modal.dataset.editIdx) : -1;
 
   if (editIdx >= 0 && setup.players[editIdx]) {
     // Edit existing player
     setup.players[editIdx] = { ...setup.players[editIdx], name, hcpIndex: hcp, courseHandicap: chcp ?? hcp };
-    delete modalEl.dataset.editIdx;
+    delete modal.dataset.editIdx;
     saveSetupState('screen-setup-players');
     renderSetupPlayerList();
   } else {
     // Add new player
-    delete modalEl.dataset.editIdx;
+    delete modal?.dataset?.editIdx;
     const effectivePhcp = phcp ?? chcp ?? hcp;
     addSetupPlayer(name, hcp, chcp ?? hcp, guestProfileId);
     // Store home course handicaps on the player for smart HCP lookup
@@ -2501,15 +2501,8 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
       if (phcp != null) { addedP.hcpSource = 'playing'; addedP.gameHandicap = phcp; }
       else if (chcp != null) { addedP.hcpSource = 'course'; addedP.gameHandicap = chcp; }
     }
-    // Override game HCP with playing HCP if explicitly set
-    if (phcpRaw) {
-      const addedP = setup.players.slice().reverse().find(p => p.name === name);
-      if (addedP) { addedP.hcpSource = 'playing'; addedP.gameHandicap = effectivePhcp; }
-    }
+
   }
-  // Modal already closed above
-  confirmBtn._busy = false;
-  confirmBtn.disabled = false;
 });
 
 function addSetupPlayer(name, hcpIndex, courseHandicap, profileId) {
