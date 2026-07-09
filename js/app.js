@@ -2352,6 +2352,37 @@ document.getElementById('btn-friends-modal-close')?.addEventListener('click', ()
   document.getElementById('modal-add-from-friends').classList.remove('open');
 });
 
+// Add Guest Friend from Friends tab — opens same new player modal, guest mode
+document.getElementById('btn-add-guest-friend')?.addEventListener('click', () => {
+  // Reset modal fields
+  document.getElementById('game-manual-first').value  = '';
+  document.getElementById('game-manual-last').value   = '';
+  document.getElementById('game-manual-hcp').value    = '';
+  document.getElementById('game-manual-chcp').value   = '';
+  document.getElementById('game-manual-phcp').value   = '';
+  document.getElementById('game-manual-email').value  = '';
+  document.getElementById('game-manual-name').value   = '';
+
+  // Pre-tick "save as guest" — that's the whole point here
+  const saveGuestEl = document.getElementById('game-manual-save-guest');
+  if (saveGuestEl) saveGuestEl.checked = true;
+
+  // Populate course dropdown
+  const crsSelect = document.getElementById('game-manual-course-select');
+  if (crsSelect) {
+    crsSelect.innerHTML = '<option value="">— No home course —</option>' +
+      (allCourses ?? []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    crsSelect.value = ''; // no default course when adding outside a game
+  }
+  renderNewPlayerTeeTable();
+
+  // Flag that we're in friends-tab mode (after save, refresh friends list)
+  const modal = document.getElementById('modal-add-game-player');
+  modal.dataset.friendsMode = '1';
+  modal.classList.add('open');
+  document.getElementById('game-manual-first').focus();
+});
+
 // Add Selected Friends button
 document.getElementById('btn-add-selected-friends')?.addEventListener('click', async () => {
   const selected = [..._friendsPickerSelected];
@@ -2453,18 +2484,26 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
   let guestProfileId = null;
   if (saveAsGuest && currentUser?.id) {
     try {
+      console.log('[guest] Creating:', first || name, 'userId:', currentUser.id);
       guestProfileId = await guestProfileCreate(currentUser.id, {
-        first_name:           first || name,
-        last_name:            last  || '',
-        hcp:                  hcp,
-        home_course_id:       homeCourseId,
+        first_name:            first || name,
+        last_name:             last  || '',
+        hcp:                   hcp,
+        home_course_id:        homeCourseId,
         home_course_handicaps: Object.keys(homeCourseHcps).length ? homeCourseHcps : null,
       });
-      // Refresh friends list so they appear next time
+      console.log('[guest] Created, id:', guestProfileId);
       allFriends = await friendsLoad(currentUser.id);
+      console.log('[guest] Friends count:', allFriends.length);
+      // If opened from friends tab: refresh and return
+      if (modal?.dataset?.friendsMode === '1') {
+        delete modal.dataset.friendsMode;
+        await showFriends();
+        return;
+      }
     } catch (err) {
-      console.warn('[guest] Could not save guest profile:', err.message);
-      // Non-blocking — player was already added to the game
+      console.error('[guest] FAILED:', err.message);
+      alert('⚠️ Could not save guest: ' + err.message);
     }
   }
 
