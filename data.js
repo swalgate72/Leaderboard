@@ -535,28 +535,48 @@ export async function friendsLoad(userId) {
   if (error) throw error;
   if (!data?.length) return [];
 
-  // Fetch play counts — how many rounds each friend has played with this user
-  const { data: playCounts } = await sb
-    .from('round_players')
-    .select('profile_id')
-    .in('round_id',
-      (await sb.from('round_players').select('round_id').eq('profile_id', userId)
-        .then(r => (r.data ?? []).map(x => x.round_id)))
-    );
+  // Fetch play counts safely — empty array would break .in() query
   const countMap = {};
-  (playCounts ?? []).forEach(row => {
-    if (row.profile_id !== userId) countMap[row.profile_id] = (countMap[row.profile_id] ?? 0) + 1;
-  });
+  try {
+    const { data: myRounds } = await sb
+      .from('round_players').select('round_id').eq('profile_id', userId);
+    const roundIds = (myRounds ?? []).map(x => x.round_id);
+    if (roundIds.length > 0) {
+      const { data: playCounts } = await sb
+        .from('round_players').select('profile_id').in('round_id', roundIds);
+      (playCounts ?? []).forEach(row => {
+        if (row.profile_id !== userId)
+          countMap[row.profile_id] = (countMap[row.profile_id] ?? 0) + 1;
+      });
+    }
+  } catch (e) { /* play counts are non-critical */ }
 
   // Fetch each friend's profile
   const friends = [];
   for (const f of data) {
     const friendId = f.requester_id === userId ? f.addressee_id : f.requester_id;
-    const { data: prof } = await sb
+    const { data: prof, error: profErr } = await sb
       .from('profiles')
       .select('id, first_name, last_name, hcp, home_course_id, home_course_handicaps, is_guest, email')
       .eq('id', friendId)
       .maybeSingle();
+    if (profErr) {
+      // Fallback: try without new columns in case migration hasn't run
+      const { data: prof2 } = await sb
+        .from('profiles')
+        .select('id, first_name, last_name, hcp')
+        .eq('id', friendId)
+        .maybeSingle();
+      if (prof2) {
+        friends.push({
+          friendshipId: f.id, profileId: prof2.id,
+          name: `${prof2.first_name ?? ''} ${prof2.last_name ?? ''}`.trim() || 'Friend',
+          hcp: prof2.hcp ?? 0, home_course_id: null, home_course_handicaps: {},
+          playCount: countMap[prof2.id] ?? 0, is_guest: false, email: null,
+        });
+      }
+      continue;
+    }
     if (prof) {
       friends.push({
         friendshipId:           f.id,
