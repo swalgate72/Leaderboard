@@ -2247,44 +2247,10 @@ function renderNewPlayerTeeTable() {
       </div>`;
   }).join('');
 
-  // Also auto-fill from slope/rating when index changes
-  const idx = parseFloat(document.getElementById('game-manual-hcp')?.value);
-  if (!isNaN(idx)) {
-    (course.tees ?? []).forEach(t => {
-      const cr  = t.courseRating ?? 72;
-      const sr  = t.slopeRating  ?? 113;
-      const par = t.par?.reduce((a,b)=>a+b,0) ?? 72;
-      const crs = Math.max(0, Math.round(idx * sr / 113 + (cr - par)));
-      const ply = Math.max(0, Math.round(crs * (setup.hcpPct ?? 100) / 100));
-      const safeId = t.name.replace(/\s+/g, '-').toLowerCase();
-      const crsEl = rowsEl.querySelector(`input[data-tee="${t.name}"][data-type="course"]`);
-      const plyEl = rowsEl.querySelector(`input[data-tee="${t.name}"][data-type="playing"]`);
-      if (crsEl && !crsEl.value) crsEl.value = crs;
-      if (plyEl && !plyEl.value) plyEl.value = ply;
-    });
-  }
+  // Fields default to empty (--) — user fills them in manually
 }
 
 document.getElementById('game-manual-course-select')?.addEventListener('change', renderNewPlayerTeeTable);
-document.getElementById('game-manual-hcp')?.addEventListener('input', () => {
-  // Auto-fill tee table when index typed
-  const courseId = document.getElementById('game-manual-course-select')?.value;
-  if (courseId) renderNewPlayerTeeTable();
-  else {
-    // Fallback: auto-fill single course/playing boxes
-    const idx = parseFloat(document.getElementById('game-manual-hcp')?.value);
-    const tee = (() => { try { return allCourses?.find(c=>c.id===setup.courseId)?.tees?.[setup.teeIdx??0]; } catch{return null;} })();
-    if (!isNaN(idx) && tee) {
-      const cr  = tee.courseRating ?? 72;
-      const sr  = tee.slopeRating  ?? 113;
-      const par = tee.par?.reduce((a,b)=>a+b,0) ?? 72;
-      const crs = Math.max(0, Math.round(idx * sr / 113 + (cr - par)));
-      const ply = Math.max(0, Math.round(crs * (setup.hcpPct ?? 100) / 100));
-      document.getElementById('game-manual-chcp').value = crs;
-      document.getElementById('game-manual-phcp').value = ply;
-    }
-  }
-});
 
 document.getElementById('btn-setup-add-new-player')?.addEventListener('click', () => {
   // Pre-fill course/playing HCP from tee data if available

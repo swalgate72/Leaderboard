@@ -15,20 +15,27 @@ export default async function handler(req, res) {
   });
 
   try {
-    // Create a real auth user for the guest using a fake email
-    // This gives us a valid UUID that satisfies the profiles FK constraint
-    const guestEmail = `guest_${Date.now()}_${Math.random().toString(36).slice(2,8)}@leaderboard.guest`;
+    // Create a guest auth user with a random password they'll never use
+    const guestEmail  = `guest_${Date.now()}_${Math.random().toString(36).slice(2,9)}@leaderboard.guest`;
+    const guestPass   = crypto.randomUUID(); // random, never used
 
     const { data: authData, error: authErr } = await admin.auth.admin.createUser({
-      email:             guestEmail,
-      email_confirm:     true,  // no confirmation needed
-      user_metadata:     { is_guest: true, invited_by: userId },
+      email:              guestEmail,
+      password:           guestPass,
+      email_confirm:      true,
+      app_metadata:       { is_guest: true },
+      user_metadata:      { is_guest: true, invited_by: userId },
     });
-    if (authErr) throw new Error('Auth: ' + authErr.message);
 
-    const guestId = authData.user.id;
+    if (authErr) {
+      console.error('createUser error:', JSON.stringify(authErr));
+      throw new Error('Auth error: ' + authErr.message);
+    }
 
-    // Upsert profile (trigger may have already created it)
+    const guestId = authData?.user?.id;
+    if (!guestId) throw new Error('No user ID returned from createUser');
+
+    // Upsert profile
     const { error: profErr } = await admin.from('profiles').upsert({
       id:                    guestId,
       first_name:            first_name.trim(),
@@ -39,20 +46,28 @@ export default async function handler(req, res) {
       is_guest:              true,
       onboarding_complete:   false,
     }, { onConflict: 'id' });
-    if (profErr) throw new Error('Profile: ' + profErr.message);
 
-    // Create accepted friendship
+    if (profErr) {
+      console.error('profile upsert error:', JSON.stringify(profErr));
+      throw new Error('Profile error: ' + profErr.message);
+    }
+
+    // Create friendship
     const { error: friendErr } = await admin.from('friendships').insert({
       requester_id: userId,
       addressee_id: guestId,
       status:       'accepted',
     });
-    if (friendErr) throw new Error('Friendship: ' + friendErr.message);
+
+    if (friendErr) {
+      console.error('friendship error:', JSON.stringify(friendErr));
+      throw new Error('Friendship error: ' + friendErr.message);
+    }
 
     return res.status(200).json({ guestId });
 
   } catch (err) {
-    console.error('create-guest error:', err);
+    console.error('create-guest error:', err?.message, err);
     return res.status(500).json({ error: err.message ?? 'Failed to create guest' });
   }
 }
