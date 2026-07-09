@@ -490,17 +490,24 @@ export async function roundsLoadHistory(userId) {
 // ================================================================
 
 export async function roundPlayersSave(roundId, players) {
-  // Delete existing players for this round then re-insert
-  // Simpler than upsert for this use case
   await sb.from('round_players').delete().eq('round_id', roundId);
-
   if (!players.length) return;
+
+  // Get all non-null profileIds to validate against profiles table
+  const candidateIds = [...new Set(players.map(p => p.profileId).filter(Boolean))];
+  let validProfileIds = new Set();
+  if (candidateIds.length > 0) {
+    const { data: validProfiles } = await sb
+      .from('profiles')
+      .select('id')
+      .in('id', candidateIds);
+    validProfileIds = new Set((validProfiles ?? []).map(p => p.id));
+  }
 
   const rows = players.map(p => ({
     round_id:         roundId,
-    // Guest players from guest_friends table don't exist in profiles —
-    // set profile_id to null to avoid FK violation
-    profile_id:       (p.isGuest || p.profileId?.startsWith?.('guest_')) ? null : (p.profileId ?? null),
+    // Only use profileId if it exists in profiles table
+    profile_id:       (p.profileId && validProfileIds.has(p.profileId)) ? p.profileId : null,
     name:             p.name,
     handicap_index:   p.handicapIndex,
     playing_handicap: p.playingHandicap,

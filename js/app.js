@@ -4144,13 +4144,14 @@ async function teeOff() {
       gameState:    stateToSave,
     });
     await roundPlayersSave(roundId, setup.players.map((p, i) => ({
-      profileId:       p.profileId ?? null,
+      profileId:       p.isGuest ? null : (p.profileId ?? null),
       name:            p.name || `Player ${i+1}`,
       handicapIndex:   p.hcpIndex || 0,
       playingHandicap: hcpObj[i].playingHandicap,
       groupNumber:     p.groupNumber,
       isScorer:        p.isScorer ?? false,
       mobile:          p.mobile ?? null,
+      isGuest:         p.isGuest ?? false,
     })));
     subscribeToRound(roundId);
 
