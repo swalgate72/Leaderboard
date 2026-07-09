@@ -592,6 +592,28 @@ export async function friendsLoad(userId) {
     }
   }
 
+  // Also load guest friends from guest_friends table
+  try {
+    const { data: guests } = await sb
+      .from('guest_friends')
+      .select('id, first_name, last_name, hcp, home_course_id, home_course_handicaps')
+      .eq('owner_id', userId);
+    (guests ?? []).forEach(g => {
+      friends.push({
+        friendshipId:           `guest_${g.id}`,
+        profileId:              g.id,
+        name:                   `${g.first_name ?? ''} ${g.last_name ?? ''}`.trim() || 'Guest',
+        hcp:                    g.hcp ?? 0,
+        home_course_id:         g.home_course_id ?? null,
+        home_course_handicaps:  g.home_course_handicaps ?? {},
+        playCount:              0,
+        is_guest:               true,
+        email:                  null,
+        isGuestTable:           true, // flag so delete uses correct table
+      });
+    });
+  } catch (e) { /* guest_friends table may not exist yet */ }
+
   // Sort by play count descending (most frequent first), then alphabetically
   friends.sort((a, b) => (b.playCount - a.playCount) || a.name.localeCompare(b.name));
   return friends;
@@ -650,17 +672,21 @@ export async function friendRequestDecline(friendshipId) {
 
 export async function guestProfileCreate(userId, guestData) {
   const { first_name, last_name, hcp, home_course_id, home_course_handicaps } = guestData;
-
-  // Use the /api/create-guest Vercel function which uses service role key
-  // to bypass RLS and create the profile + friendship in one go
-  const res = await fetch('/api/create-guest', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ userId, first_name, last_name, hcp, home_course_id, home_course_handicaps }),
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error ?? 'Failed to create guest');
-  return json.guestId;
+  // Insert directly into guest_friends table (no auth user needed)
+  const { data, error } = await sb
+    .from('guest_friends')
+    .insert({
+      owner_id:              userId,
+      first_name:            first_name?.trim() ?? '',
+      last_name:             last_name?.trim()  ?? '',
+      hcp:                   hcp ?? null,
+      home_course_id:        home_course_id ?? null,
+      home_course_handicaps: home_course_handicaps ?? null,
+    })
+    .select('id')
+    .single();
+  if (error) throw new Error(error.message);
+  return data.id;
 }
 
 export async function guestProfileLinkEmail(guestId, email) {
@@ -673,15 +699,16 @@ export async function guestProfileLinkEmail(guestId, email) {
 }
 
 export async function guestProfileDelete(userId, guestId, friendshipId) {
-  // Remove friendship first, then delete the guest profile
-  if (friendshipId) {
-    await sb.from('friendships').delete().eq('id', friendshipId);
+  if (friendshipId?.startsWith?.('guest_')) {
+    // Guest from guest_friends table
+    const { error } = await sb.from('guest_friends').delete()
+      .eq('id', guestId).eq('owner_id', userId);
+    if (error) throw error;
+  } else {
+    // Legacy: guest stored in profiles/friendships
+    if (friendshipId) await sb.from('friendships').delete().eq('id', friendshipId);
+    await sb.from('profiles').delete().eq('id', guestId).eq('is_guest', true);
   }
-  const { error } = await sb.from('profiles')
-    .delete()
-    .eq('id', guestId)
-    .eq('is_guest', true);
-  if (error) throw error;
 }
 
 export async function friendRemove(friendshipId) {
