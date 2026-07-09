@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260708m)
+// LEADERBOARD - app.js  (v3.2 · build 20260708n)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -13,6 +13,7 @@ import {
   roundPlayersSave, roundPlayersLoad,
   pushSubscriptionSave, pushSubscriptionsLoadForUser, pushSubscriptionDelete,
   friendsLoad, friendRequestsLoadPending,
+  guestProfileCreate, guestProfileLinkEmail, guestProfileDelete,
   friendRequestSend, friendRequestAccept, friendRequestDecline, friendRemove,
   smsInviteCreate, gameInviteLoad, gameInvitesPollPending, gameInvitesLoadHistory, smsInviteLookup, smsInviteAccept,
   smsInvitesDeleteMany, invitesForRoundLoad, invitesForTournamentRoundLoad,
@@ -1851,21 +1852,50 @@ function openFriendsPickerModal() {
           </button>
         </div>` : '';
 
-      const bg     = isSelected ? 'background:rgba(184,148,42,0.08);border-color:var(--gold);' : '';
+      const isGuest = f.is_guest ?? false;
+      const bg      = isSelected
+        ? (isGuest ? 'background:rgba(90,180,90,0.08);border-color:#5ab45a;' : 'background:rgba(184,148,42,0.08);border-color:var(--gold);')
+        : '';
+      const borderCol = isGuest ? '1px solid #5ab45a' : '1px solid var(--border)';
       const nameStr = f.name || `${f.first_name ?? ''} ${f.last_name ?? ''}`.trim() || f.username || 'Friend';
       const playBadge = f.playCount > 0
         ? `<span style="font-size:0.65rem;color:var(--muted);margin-left:4px;">⛳${f.playCount}</span>` : '';
+      const guestBadge = isGuest
+        ? `<span style="font-size:0.6rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;
+                        background:rgba(90,180,90,0.15);color:#5ab45a;border-radius:4px;
+                        padding:0.1rem 0.35rem;margin-left:4px;">Guest</span>` : '';
+
+      // For guests: show email field to link to real account
+      const guestEmailHtml = isGuest ? `
+        <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.4rem;padding-top:0.4rem;
+                    border-top:0.5px solid var(--border);" onclick="event.stopPropagation()">
+          <input class="fp-guest-email" data-fi="${fi}"
+            type="email" placeholder="Link email when they sign up…"
+            value="${f.email ?? ''}"
+            style="flex:1;font-size:0.85rem;padding:0.3rem 0.5rem;border-radius:6px;
+                   border:1px solid var(--border);background:var(--surface2);color:var(--white);">
+          <button class="fp-guest-link-btn" data-fi="${fi}"
+            style="padding:0.3rem 0.55rem;font-size:0.75rem;font-weight:700;background:var(--green);
+                   color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;">
+            Link
+          </button>
+          <button class="fp-guest-delete-btn" data-fi="${fi}"
+            style="padding:0.3rem 0.55rem;font-size:0.75rem;font-weight:700;background:var(--red);
+                   color:#fff;border:none;border-radius:6px;cursor:pointer;">
+            🗑
+          </button>
+        </div>` : '';
 
       return `<div class="fp-row" data-fi="${fi}"
-        style="padding:0.75rem 0.75rem;background:var(--surface);border:1px solid var(--border);
+        style="padding:0.75rem 0.75rem;background:var(--surface);border:${borderCol};
                border-radius:12px;cursor:pointer;${bg}">
         <div style="display:flex;align-items:center;gap:0.6rem;">
-          <span class="dot" style="background:${pHex(fi%8)};flex-shrink:0;"></span>
+          <span class="dot" style="background:${isGuest ? '#5ab45a' : pHex(fi%8)};flex-shrink:0;"></span>
           <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:baseline;gap:2px;">
+            <div style="display:flex;align-items:baseline;gap:2px;flex-wrap:wrap;">
               <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;
                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameStr}</span>
-              ${playBadge}
+              ${guestBadge}${playBadge}
             </div>
             ${f.hcp != null ? `<div style="font-size:0.75rem;color:var(--muted);">Index ${fmtHandicap(f.hcp)}</div>` : ''}
           </div>
@@ -1874,6 +1904,7 @@ function openFriendsPickerModal() {
           </div>
         </div>
         ${nudgeHtml}
+        ${guestEmailHtml}
       </div>`;
     }).join('');
 
@@ -1935,6 +1966,45 @@ function openFriendsPickerModal() {
         const src2 = f._pickerSrc ?? 'course';
         f._pickerVals[src2] = Math.max(0, Math.min(54, (f._pickerVals[src2] ?? 0) + dir));
         renderFriendsList();
+      });
+    });
+
+    // Guest: link email to real account
+    listEl.querySelectorAll('.fp-guest-link-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const fi    = parseInt(btn.dataset.fi);
+        const f     = friends[fi];
+        const email = listEl.querySelectorAll('.fp-guest-email')[fi]?.value.trim();
+        if (!email) { alert('Enter an email address first.'); return; }
+        try {
+          await guestProfileLinkEmail(f.profileId, email);
+          f.email = email;
+          btn.textContent = '✓';
+          btn.style.background = 'var(--muted)';
+          setTimeout(() => renderFriendsList(), 1500);
+        } catch(err) {
+          alert('Could not link email: ' + err.message);
+        }
+      });
+    });
+
+    // Guest: delete guest friend
+    listEl.querySelectorAll('.fp-guest-delete-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const fi = parseInt(btn.dataset.fi);
+        const f  = friends[fi];
+        if (!confirm(`Remove ${f.name} from your friends list?`)) return;
+        try {
+          await guestProfileDelete(currentUser?.id, f.profileId, f.friendshipId);
+          friends.splice(fi, 1);
+          allFriends = allFriends.filter(x => x.profileId !== f.profileId);
+          _friendsPickerSelected = _friendsPickerSelected.filter(x => x.profileId !== f.profileId);
+          renderFriendsList();
+        } catch(err) {
+          alert('Could not delete guest: ' + err.message);
+        }
       });
     });
 
@@ -2158,6 +2228,8 @@ document.getElementById('btn-setup-add-new-player')?.addEventListener('click', (
   document.getElementById('game-manual-phcp').value   = '';
   document.getElementById('game-manual-email').value  = '';
   document.getElementById('game-manual-name').value   = '';
+  const saveGuestEl = document.getElementById('game-manual-save-guest');
+  if (saveGuestEl) saveGuestEl.checked = false;
 
   const modal = document.getElementById('modal-add-game-player');
   delete modal.dataset.editIdx;
@@ -2234,7 +2306,25 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
   const hcp  = hcpRaw  ? parseFloat(hcpRaw)  : (chcp ?? 0);
   // Update hidden name field for back-compat
   document.getElementById('game-manual-name').value = name;
-  // If email provided — send invite in background (don't block player add)
+  // Save as guest friend if checkbox checked
+  const saveAsGuest = document.getElementById('game-manual-save-guest')?.checked;
+  let guestProfileId = null;
+  if (saveAsGuest && currentUser?.id) {
+    try {
+      guestProfileId = await guestProfileCreate(currentUser.id, {
+        first_name: first || name,
+        last_name:  last  || '',
+        hcp:        hcp,
+        course_handicap: chcp,
+      });
+      // Refresh friends list so they appear next time
+      allFriends = await friendsLoad(currentUser.id);
+    } catch (err) {
+      console.warn('[guest] Could not save guest profile:', err.message);
+    }
+  }
+
+  // If email provided — send invite in background
   if (email) {
     const myName = currentProfile
       ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
@@ -2260,7 +2350,7 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
     // Add new player
     delete modal.dataset.editIdx;
     const effectivePhcp = phcp ?? chcp ?? hcp;
-    addSetupPlayer(name, hcp, chcp ?? hcp, null);
+    addSetupPlayer(name, hcp, chcp ?? hcp, guestProfileId);
     // Override game HCP with playing HCP if explicitly set
     if (phcpRaw) {
       const addedP = setup.players.slice().reverse().find(p => p.name === name);

@@ -554,7 +554,7 @@ export async function friendsLoad(userId) {
     const friendId = f.requester_id === userId ? f.addressee_id : f.requester_id;
     const { data: prof } = await sb
       .from('profiles')
-      .select('id, first_name, last_name, hcp, home_course_id, home_course_handicaps')
+      .select('id, first_name, last_name, hcp, home_course_id, home_course_handicaps, is_guest, email')
       .eq('id', friendId)
       .maybeSingle();
     if (prof) {
@@ -566,6 +566,8 @@ export async function friendsLoad(userId) {
         home_course_id:         prof.home_course_id ?? null,
         home_course_handicaps:  prof.home_course_handicaps ?? {},
         playCount:              countMap[prof.id] ?? 0,
+        is_guest:               prof.is_guest ?? false,
+        email:                  prof.email ?? null,
       });
     }
   }
@@ -621,6 +623,58 @@ export async function friendRequestDecline(friendshipId) {
     .from('friendships')
     .update({ status: 'declined', updated_at: new Date().toISOString() })
     .eq('id', friendshipId);
+  if (error) throw error;
+}
+
+// ── Guest profile management ─────────────────────────────────────
+
+export async function guestProfileCreate(userId, guestData) {
+  // Create a guest profile and friendship in one go
+  const { first_name, last_name, hcp, course_handicap } = guestData;
+
+  // Create a UUID for the guest
+  const guestId = crypto.randomUUID();
+
+  // Insert guest profile
+  const { error: profErr } = await sb.from('profiles').insert({
+    id:         guestId,
+    first_name,
+    last_name,
+    hcp:        hcp ?? null,
+    is_guest:   true,
+    onboarding_complete: false,
+  });
+  if (profErr) throw profErr;
+
+  // Create accepted friendship immediately
+  const { error: friendErr } = await sb.from('friendships').insert({
+    requester_id: userId,
+    addressee_id: guestId,
+    status:       'accepted',
+  });
+  if (friendErr) throw friendErr;
+
+  return guestId;
+}
+
+export async function guestProfileLinkEmail(guestId, email) {
+  // Link a guest profile to a real email (for when they sign up later)
+  const { error } = await sb.from('profiles')
+    .update({ email: email.toLowerCase() })
+    .eq('id', guestId)
+    .eq('is_guest', true);
+  if (error) throw error;
+}
+
+export async function guestProfileDelete(userId, guestId, friendshipId) {
+  // Remove friendship first, then delete the guest profile
+  if (friendshipId) {
+    await sb.from('friendships').delete().eq('id', friendshipId);
+  }
+  const { error } = await sb.from('profiles')
+    .delete()
+    .eq('id', guestId)
+    .eq('is_guest', true);
   if (error) throw error;
 }
 

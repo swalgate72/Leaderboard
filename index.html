@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260708l">
+  <link rel="stylesheet" href="styles.css?v=20260708n">
 </head>
 <body>
 
@@ -1252,6 +1252,16 @@
       <input id="game-manual-email" type="email" placeholder="friend@email.com" autocomplete="off">
     </div>
 
+    <label style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0 0.75rem;
+                  cursor:pointer;font-size:0.95rem;font-weight:700;color:var(--white);">
+      <input type="checkbox" id="game-manual-save-guest"
+             style="width:1.2rem;height:1.2rem;cursor:pointer;accent-color:var(--green);">
+      💾 Save for future games
+      <span style="font-size:0.75rem;font-weight:400;color:var(--muted);margin-left:2px;">
+        (adds to Friends list as guest)
+      </span>
+    </label>
+
     <!-- Keep for back-compat -->
     <input id="game-manual-name" type="hidden">
 
@@ -1620,7 +1630,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260708l"></script>
+<script type="module" src="js/app.js?v=20260708n"></script>
 
 
 <!-- ══════════════════════════════════════════
