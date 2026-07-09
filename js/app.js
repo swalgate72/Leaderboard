@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260708k)
+// LEADERBOARD - app.js  (v3.2 · build 20260708m)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -421,7 +421,7 @@ async function tryRestoreSetupState() {
 
   try {
     if (saved.screen === 'screen-setup-format') {
-      showFormatPicker(setup.category ?? 'solo');
+      showHome(); // format picker is no longer used
     } else if (saved.screen === 'screen-setup-course') {
       const fmt = setup.scoring;
       document.getElementById('setup-course-format-label').textContent = FORMAT_LABELS[fmt] ?? fmt;
@@ -1528,7 +1528,7 @@ document.getElementById('setup-num-groups')?.addEventListener('change', e => {
 });
 document.getElementById('setup-add-course-btn')?.addEventListener('click', () => { cwiz.returnTo = 'setup'; openCourseWizard(null); });
 document.getElementById('setup-course-back')?.addEventListener('click', () => {
-  showFormatPicker(setup.category ?? 'solo');
+  clearSetupState(); clearSetupDraft(); showHome();
 });
 // Save & Close — save current setup position and return home
 function saveSetupInPlace(screenId) {
@@ -2331,20 +2331,18 @@ function initSetupPairs() {
     pA.pairIndex = pairIdx; pB.pairIndex = pairIdx;
     // If both players share a persisted team name (team_fixed mode), use it
     const sharedTeamName = (pA.teamName && pA.teamName === pB.teamName) ? pA.teamName : null;
-    const isTeamScoringFmt = ['foursomes','greensomes'].includes(setup.scoring)
-      && (setup.teamScoringMode ?? 'stableford') !== 'match';
     setup.pairs.push({
       _uid: `p${Date.now()}_${pairIdx}_${Math.random().toString(36).slice(2,7)}`,
       name: sharedTeamName || `${pA.name.split(' ')[0]} & ${pB.name.split(' ')[0]}`,
       teamName: sharedTeamName,
       playerIndices: [piA, piB],
-      groupNumber: isTeamScoringFmt ? (pairIdx + 1) : 1,
+      groupNumber: 1, // default all pairs in one group (one 4-ball)
     });
   }
   if (named.length % 2 !== 0) named[named.length - 1].pairIndex = -1;
-  if (['foursomes','greensomes'].includes(setup.scoring) && (setup.teamScoringMode ?? 'stableford') !== 'match') {
-    setup.numGroups = setup.pairs.length;
-  }
+  // For foursomes/greensomes stableford/stroke: keep 1 group by default
+  // User can manually split into multiple groups on the groups screen if needed
+  // (Match play always uses 1 group anyway)
   if (setup.scoring === 'texas' && (setup.texasScoringFmt ?? 'stableford') !== 'match') {
     const teamSz = setup.texasTeamSize ?? 2;
     setup.numGroups = Math.ceil(named.length / teamSz);
@@ -4474,6 +4472,7 @@ function renderHolePanel() {
       texasBtnEl.addEventListener('touchstart', (e) => {
         if (_pickerJustClosed) { e.preventDefault(); return; }
         e.preventDefault();
+        _spScrolling = false;
         openTexasScorePicker(h, par);
       }, { passive: false });
       texasBtnEl.addEventListener('click', (e) => {
@@ -4619,6 +4618,7 @@ function renderHolePanel() {
         pairBtnEl.addEventListener('touchstart', (e) => {
           if (_pickerJustClosed) { e.preventDefault(); return; }
           e.preventDefault();
+          _spScrolling = false;
           openPicker();
         }, { passive: false });
         pairBtnEl.addEventListener('click', (e) => {
@@ -5139,6 +5139,7 @@ function makePlayerInputRow(pi, h, par) {
     scoreBtnEl.addEventListener('touchstart', (e) => {
       if (_pickerJustClosed) { e.preventDefault(); return; }
       e.preventDefault(); // prevent ghost click entirely
+      _spScrolling = false; // clear any stale scroll state from page scroll
       openScorePicker(pi, h, par);
     }, { passive: false });
     // click: fallback for non-touch (desktop/mouse)
@@ -5233,6 +5234,7 @@ function attachScrollGuard(gridEl) {
 }
 
 function openScorePicker(pi, h, par) {
+  _spScrolling = false; // always reset before opening picker
   const cvEl = document.getElementById(`cv${pi}`);
   const current = cvEl?.dataset.value;
 
