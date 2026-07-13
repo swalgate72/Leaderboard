@@ -4750,7 +4750,7 @@ function renderHolePanel() {
     const texasBtnEl = row.querySelector('#cv-texas');
     if (texasBtnEl) {
       texasBtnEl.addEventListener('touchstart', (e) => {
-        if (_pickerJustClosed) { e.preventDefault(); return; }
+        if (_pickerJustClosed || _pageScrolling) { e.preventDefault(); return; }
         e.preventDefault();
         _spScrolling = false;
         openTexasScorePicker(h, par);
@@ -4896,7 +4896,7 @@ function renderHolePanel() {
           }
         };
         pairBtnEl.addEventListener('touchstart', (e) => {
-          if (_pickerJustClosed) { e.preventDefault(); return; }
+          if (_pickerJustClosed || _pageScrolling) { e.preventDefault(); return; }
           e.preventDefault();
           _spScrolling = false;
           openPicker();
@@ -5417,9 +5417,9 @@ function makePlayerInputRow(pi, h, par) {
   if (scoreBtnEl) {
     // touchstart: open picker immediately (faster response)
     scoreBtnEl.addEventListener('touchstart', (e) => {
-      if (_pickerJustClosed) { e.preventDefault(); return; }
-      e.preventDefault(); // prevent ghost click entirely
-      _spScrolling = false; // clear any stale scroll state from page scroll
+      if (_pickerJustClosed || _pageScrolling) { e.preventDefault(); return; }
+      e.preventDefault();
+      _spScrolling = false;
       openScorePicker(pi, h, par);
     }, { passive: false });
     // click: fallback for non-touch (desktop/mouse)
@@ -5499,7 +5499,26 @@ function openTexasScorePicker(h, par) {
 // If yes, suppress the button action on touchend.
 let _spScrolling = false;
 let _spTouchStartY = 0;
-const SCROLL_THRESHOLD = 6; // px — less than this = tap, more = scroll
+const SCROLL_THRESHOLD = 6;
+
+// Page-level scroll tracker — prevents picker opening mid-scroll
+let _pageScrolling = false;
+let _pageScrollTimer = null;
+let _pageTouchStartY = 0;
+document.addEventListener('touchstart', (e) => {
+  _pageTouchStartY = e.touches[0]?.clientY ?? 0;
+}, { passive: true });
+document.addEventListener('touchmove', (e) => {
+  if (Math.abs((e.touches[0]?.clientY ?? 0) - _pageTouchStartY) > 8) {
+    _pageScrolling = true;
+    clearTimeout(_pageScrollTimer);
+    _pageScrollTimer = setTimeout(() => { _pageScrolling = false; }, 300);
+  }
+}, { passive: true });
+document.addEventListener('touchend', () => {
+  clearTimeout(_pageScrollTimer);
+  _pageScrollTimer = setTimeout(() => { _pageScrolling = false; }, 150);
+}, { passive: true });
 
 function attachScrollGuard(gridEl) {
   gridEl.addEventListener('touchstart', (e) => {
