@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801d)
+// LEADERBOARD - app.js  (v3.2 · build 20260801e)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -4377,6 +4377,8 @@ function renderScoreHeader() {
 
   if (['stableford','stroke','split6','best2'].includes(fmt)) {
     renderTotalsBar();
+  } else if (fmt === 'texas' && (gameState.texasScoringFmt ?? 'stableford') !== 'match') {
+    renderTexasScoreBar();
   } else if (fmt === 'match') {
     renderMatchBar(); // only 1v1 match still uses the bar
   } else if (['betterball','csm','foursomes','greensomes'].includes(fmt)
@@ -4464,6 +4466,28 @@ function renderTotalsBar() {
   // Hide group banner for non-best2 formats
   const groupBanner = document.getElementById('game-group-total-banner');
   if (groupBanner) groupBanner.classList.add('hidden');
+}
+
+function renderTexasScoreBar() {
+  const bar         = document.getElementById('game-totals-bar');
+  const isStableford = (gameState.texasScoringFmt ?? 'stableford') === 'stableford';
+  const holesPlayed = gameState.log?.length ?? 0;
+  const teamName    = gameState.teamName ?? 'Team';
+  const score       = isStableford ? (gameState.texasPts ?? 0) : (gameState.grossTotal ?? 0);
+  const label       = isStableford ? 'pts' : 'gross';
+  const teamHcp     = gameState.teamHcp ?? 0;
+
+  bar.style.gridTemplateColumns = '1fr';
+  bar.innerHTML = `
+    <div class="total-cell" style="grid-column:1/-1;">
+      <div class="tc-name" style="font-size:0.7rem;letter-spacing:0.12em;">🤠 ${teamName.toUpperCase()} · HCP ${teamHcp}</div>
+      <div style="display:flex;align-items:baseline;justify-content:center;gap:4px;">
+        <div class="tc-pts" style="color:var(--gold);font-size:3rem;">${score}</div>
+        <span style="font-size:1rem;font-weight:600;color:var(--gold);">${label}</span>
+      </div>
+      <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">${holesPlayed} hole${holesPlayed !== 1 ? 's' : ''} played</div>
+    </div>`;
+  bar.classList.remove('hidden');
 }
 
 function renderMatchBar() {
@@ -6002,9 +6026,15 @@ async function recordHole() {
     const scoreEl  = document.getElementById('cv-texas');
     const gross    = parseInt(scoreEl?.dataset?.value, 10);
     const driverEl = document.querySelector('.texas-driver-btn.active');
-    const driver   = driverEl ? parseInt(driverEl.dataset.pi, 10) : 0;
+    const driver   = driverEl ? parseInt(driverEl.dataset.pi, 10) : -1;
     if (!gross || gross < 1) { alert('Please enter a score for the team.'); return; }
-    grosses = [gross, driver];
+    // If drive quotas are set, require a driver to be selected
+    const hasQuota = (gameState.texasDrivesTotal != null) || (gameState.texasDrivesPar3 != null);
+    if (hasQuota && driver === -1) {
+      alert('Please select whose drive was used for this hole.');
+      return;
+    }
+    grosses = [gross, driver === -1 ? 0 : driver];
   } else if (isFoursome) {
     const vA = parseInt(document.getElementById('cv-pair-A')?.dataset?.value, 10);
     const vB = parseInt(document.getElementById('cv-pair-B')?.dataset?.value, 10);
