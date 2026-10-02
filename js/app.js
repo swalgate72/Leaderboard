@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260708r)
+// LEADERBOARD - app.js  (v3.2 · build 20260708z2)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -5499,7 +5499,7 @@ function openTexasScorePicker(h, par) {
 // If yes, suppress the button action on touchend.
 let _spScrolling = false;
 let _spTouchStartY = 0;
-const SCROLL_THRESHOLD = 6;
+const SCROLL_THRESHOLD = 10; // px — rapid tap moves ~0-8px; scroll moves 10px+
 
 // Page-level scroll tracker — prevents picker opening mid-scroll
 let _pageScrolling = false;
@@ -5521,6 +5521,8 @@ document.addEventListener('touchend', () => {
 }, { passive: true });
 
 function attachScrollGuard(gridEl) {
+  if (gridEl._scrollGuardAttached) return;
+  gridEl._scrollGuardAttached = true;
   gridEl.addEventListener('touchstart', (e) => {
     _spScrolling   = false;
     _spTouchStartY = e.touches[0]?.clientY ?? 0;
