@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260708z2)
+// LEADERBOARD - app.js  (v3.2 · build 20260801b)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -21,7 +21,9 @@ import {
   realtimeSubscribeRound, realtimeBroadcastRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-} from '../data.js?v=20260704l';
+  exportBackup, importBackup, exportFromSupabase,
+  MULTI_USER,
+} from '../provider.js';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -261,6 +263,7 @@ async function flushToSupabase() {
 
 // Start the sync loop (called when entering game screen)
 function startSyncLoop() {
+  if (!MULTI_USER) return; // local mode: no Supabase sync
   stopSyncLoop();
   _syncTimer = setInterval(_syncTick, SYNC_INTERVAL);
   // Also sync immediately when network comes back
@@ -712,7 +715,9 @@ async function boot() {
 // ================================================================
 function onSignedOut() {
   currentUser = null; currentProfile = null; roundId = null; gameState = null;
-  showScreen('screen-auth');
+  if (MULTI_USER) showScreen('screen-auth');
+  // In local mode: auth state change to SIGNED_OUT should not occur
+  // (local authOnStateChange always fires SIGNED_IN with the local owner)
 }
 
 // ================================================================
@@ -755,7 +760,7 @@ async function onSignedIn(user) {
   currentUser = user;
 
   // Subscribe to push notifications (non-blocking — won't delay sign-in)
-  subscribeToPush(user.id).catch(() => {});
+  if (MULTI_USER) subscribeToPush(user.id).catch(() => {});
 
   // ── IndexedDB health check ─────────────────────────────────────
   // iOS Safari clears IDB under low-storage conditions — warn early
@@ -799,8 +804,8 @@ async function onSignedIn(user) {
     currentProfile = await profileLoad(user.id);
     allCourses     = await coursesLoadAll();
     allFriends     = await friendsLoad(user.id);
-    subscribeToFriendRequests();
-    subscribeToGameInvites();
+    if (MULTI_USER) subscribeToFriendRequests();
+    if (MULTI_USER) subscribeToGameInvites();
 
     const joinToken  = sessionStorage.getItem('lb-join-token');
     const joinTround = sessionStorage.getItem('lb-join-tround');
@@ -2390,7 +2395,13 @@ document.getElementById('btn-add-selected-friends')?.addEventListener('click', a
         if (hcpChanged || crsChanged || plyChanged) {
           try {
             const updatedHcps = { ...(f.home_course_handicaps ?? {}), [teeName]: { course: Math.round(chcp), playing: Math.round(ply) } };
-            await sb.from('profiles').update({ hcp: idx, home_course_handicaps: updatedHcps }).eq('id', f.profileId);
+            if (MULTI_USER) {
+              // Supabase path: update remote profile directly
+              await sb.from('profiles').update({ hcp: idx, home_course_handicaps: updatedHcps }).eq('id', f.profileId);
+            } else {
+              // Local path: update the player record in IDB
+              await guestProfileUpdate(f.profileId, { hcp: idx, home_course_handicaps: updatedHcps });
+            }
             f.hcp = idx; f.home_course_handicaps = updatedHcps;
             console.log('[guest] Auto-saved HCPs for', name);
           } catch(err) { console.warn('[guest] Auto-save failed:', err.message); }
@@ -2508,8 +2519,8 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
     }
   }
 
-  // If email provided — send invite in background
-  if (email) {
+  // If email provided — send invite in background (multi-user mode only)
+  if (email && MULTI_USER) {
     const myName = currentProfile
       ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
       : 'A friend';
@@ -4334,7 +4345,7 @@ function enterGameScreen() {
   renderHolePanel();
   document.getElementById('scorecard-overlay')?.classList.remove('open');
   subscribeChallenges();
-  startSyncLoop();
+  if (MULTI_USER) startSyncLoop();
   updateAmendBtn();
 }
 
@@ -5499,7 +5510,7 @@ function openTexasScorePicker(h, par) {
 // If yes, suppress the button action on touchend.
 let _spScrolling = false;
 let _spTouchStartY = 0;
-const SCROLL_THRESHOLD = 10; // px — rapid tap moves ~0-8px; scroll moves 10px+
+const SCROLL_THRESHOLD = 6;
 
 // Page-level scroll tracker — prevents picker opening mid-scroll
 let _pageScrolling = false;
@@ -5521,8 +5532,6 @@ document.addEventListener('touchend', () => {
 }, { passive: true });
 
 function attachScrollGuard(gridEl) {
-  if (gridEl._scrollGuardAttached) return;
-  gridEl._scrollGuardAttached = true;
   gridEl.addEventListener('touchstart', (e) => {
     _spScrolling   = false;
     _spTouchStartY = e.touches[0]?.clientY ?? 0;
@@ -6050,7 +6059,7 @@ async function recordHole() {
       if (banner) banner.textContent =
         `✏️ AMEND MODE — Hole ${offset+nextHole+1} of ${gameState.log.length} · Confirm each hole to recalculate`;
       const snap = _buildStateToSave();
-      if (snap) idbSave(roundId, snap, true).then(() => _syncTick()).catch(() => {});
+      if (snap) idbSave(roundId, snap, true).then(() => { if (MULTI_USER) _syncTick(); }).catch(() => {});
       renderScoreHeader(); renderHolePanel();
       return;
     } else {
@@ -6588,7 +6597,7 @@ function buildLeaderboardTable(rows, scoreLabel) {
 document.getElementById('btn-game-scorecard')?.addEventListener('click', () => {
   renderScorecardOverlay();
   document.getElementById('scorecard-overlay')?.classList.add('open');
-  _syncTick();
+  if (MULTI_USER) _syncTick();
 });
 
 // ── Hole Navigation ────────────────────────────────────────────
@@ -9342,6 +9351,110 @@ document.getElementById('btn-save-profile')?.addEventListener('click', async () 
 });
 
 document.getElementById('btn-profile-home')?.addEventListener('click', () => showHome());
+
+// ================================================================
+// BACKUP / RESTORE
+// ================================================================
+
+document.getElementById('btn-backup-export')?.addEventListener('click', async () => {
+  const btn = document.getElementById('btn-backup-export');
+  if (btn) { btn.disabled = true; btn.textContent = 'Exporting…'; }
+  try {
+    const json     = await exportBackup();
+    const blob     = new Blob([json], { type: 'application/json' });
+    const url      = URL.createObjectURL(blob);
+    const a        = document.createElement('a');
+    const dateStr  = new Date().toISOString().slice(0, 10);
+    a.href         = url;
+    a.download     = `leaderboard-backup-${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  } catch (err) {
+    alert('Export failed: ' + (err.message ?? err));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⬇️ Export Backup'; }
+  }
+});
+
+document.getElementById('btn-backup-import')?.addEventListener('click', () => {
+  document.getElementById('backup-import-file')?.click();
+});
+
+document.getElementById('backup-import-file')?.addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  e.target.value = ''; // reset so same file can be re-selected
+
+  let json;
+  try { json = await file.text(); }
+  catch { alert('Could not read file.'); return; }
+
+  // Parse and show summary before confirming
+  let backup;
+  try { backup = JSON.parse(json); }
+  catch { alert('The selected file is not a valid backup (not valid JSON).'); return; }
+
+  const exportDate = backup.exportedAt
+    ? new Date(backup.exportedAt).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })
+    : 'unknown date';
+  const playerCount = backup.players?.length ?? 0;
+  const courseCount = backup.courses?.length ?? 0;
+  const roundCount  = backup.rounds?.length  ?? 0;
+
+  const confirmed = confirm(
+    `Restore this backup?
+
+` +
+    `Backup date: ${exportDate}
+` +
+    `Players: ${playerCount}  |  Courses: ${courseCount}  |  Rounds: ${roundCount}
+
+` +
+    `⚠️ Your current players, courses, rounds and settings will be REPLACED by the contents of this backup.
+
+` +
+    `This cannot be undone. Continue?`
+  );
+  if (!confirmed) return;
+
+  const btn = document.getElementById('btn-backup-import');
+  if (btn) { btn.disabled = true; btn.textContent = 'Restoring…'; }
+  try {
+    await importBackup(json);
+    alert('Backup restored successfully. The app will now reload.');
+    window.location.reload();
+  } catch (err) {
+    alert('Restore failed: ' + (err.message ?? err));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⬆️ Import Backup'; }
+  }
+});
+
+// Supabase export (migration tool — only available while still on Supabase)
+document.getElementById('btn-supabase-export')?.addEventListener('click', async () => {
+  const btn = document.getElementById('btn-supabase-export');
+  if (btn) { btn.disabled = true; btn.textContent = 'Exporting from Supabase…'; }
+  try {
+    // Dynamically import data.js only when explicitly requested
+    const supabaseProvider = await import('../data.js?v=20260704l');
+    const json     = await exportFromSupabase(supabaseProvider);
+    const blob     = new Blob([json], { type: 'application/json' });
+    const url      = URL.createObjectURL(blob);
+    const a        = document.createElement('a');
+    const dateStr  = new Date().toISOString().slice(0, 10);
+    a.href         = url;
+    a.download     = `leaderboard-supabase-export-${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+    alert('Supabase export complete. Save this file before shutting down Supabase. Then use Import Backup to restore it in local mode.');
+  } catch (err) {
+    alert('Supabase export failed: ' + (err.message ?? err));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⬇️ Export from Supabase'; }
+  }
+});
 document.getElementById('prof-add-course-btn')?.addEventListener('click', () => { cwiz.returnTo = 'profile'; openCourseWizard(null); });
 document.getElementById('btn-theme-dark') ?.addEventListener('click', () => applyTheme('dark'));
 document.getElementById('btn-theme-light')?.addEventListener('click', () => applyTheme('light'));
@@ -9508,6 +9621,11 @@ document.getElementById('btn-search-friend')?.addEventListener('click', async ()
   const resultEl = document.getElementById('friend-search-result');
   if (!query) return;
   hide('friend-search-result'); hide('friend-search-empty');
+  // Friend search requires multi-user/Supabase — not available in local mode
+  if (!MULTI_USER) {
+    if (emptyEl) { emptyEl.textContent = 'Friend search is not available in local mode. Add players manually using the + button.'; emptyEl.style.display = 'block'; }
+    return;
+  }
 
   try {
     let user = null;
