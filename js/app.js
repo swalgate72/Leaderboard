@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801b)
+// LEADERBOARD - app.js  (v3.2 · build 20260801c)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -3549,7 +3549,12 @@ function getMyCourseHandicapDefault() {
     const course = allCourses.find(c => c.id === setup.courseId);
     const tee    = course?.tees?.[setup.teeIdx];
     const saved  = currentProfile?.home_course_handicaps ?? {};
-    if (tee && saved[tee.name] != null) return saved[tee.name];
+    if (tee && saved[tee.name] != null) {
+      const val = saved[tee.name];
+      // home_course_handicaps stores { course, playing } objects — extract the number
+      if (typeof val === 'object' && val !== null) return val.course ?? null;
+      return val; // legacy: raw number
+    }
   } catch {}
   return null;
 }
