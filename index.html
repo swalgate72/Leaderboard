@@ -17,12 +17,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20260708t">
 </head>
-<body>
+<body class="local-mode">
 
 <!-- ══════════════════════════════════════════
      AUTH SCREEN
      ══════════════════════════════════════════ -->
-<div id="screen-auth" class="screen active">
+<div id="screen-auth" class="screen active auth-only">
   <div style="max-width:480px;margin:0 auto;padding-bottom:2rem;">
 
     <!-- Hero header -->
@@ -992,6 +992,22 @@
     <button class="btn btn-primary btn-full" id="btn-save-profile">SAVE PROFILE</button>
     <button class="btn btn-outline mt-sm" id="btn-open-privacy" style="width:100%;">🔒 Contact Preferences</button>
 
+    <!-- Backup & Restore -->
+    <div class="card mt-sm">
+      <div class="card-title">Backup &amp; Restore</div>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0.5rem 0 0.75rem;">
+        Export all your data to a file. Save to iCloud Drive or Google Drive as your backup.
+      </p>
+      <button class="btn btn-outline btn-full" id="btn-backup-export" style="margin-bottom:0.5rem;">⬇️ Export Backup</button>
+      <button class="btn btn-outline btn-full" id="btn-backup-import">⬆️ Import Backup</button>
+      <input type="file" id="backup-import-file" accept=".json,application/json" style="display:none;">
+      <button class="btn btn-ghost btn-full" id="btn-supabase-export"
+        style="font-size:0.8rem;color:var(--muted);margin-top:0.4rem;display:none;"
+        title="Export existing Supabase data before switching to local mode">
+        ⬇️ Export from Supabase (migration tool)
+      </button>
+    </div>
+
     <!-- Appearance -->
     <div class="card mt-sm">
       <div class="card-title">Appearance</div>
@@ -1007,7 +1023,7 @@
       </div>
     </div>
 
-    <button class="btn btn-danger  mt-sm"    id="btn-sign-out" style="width:100%;">SIGN OUT</button>
+    <button class="btn btn-danger  mt-sm auth-only" id="btn-sign-out" style="width:100%;">SIGN OUT</button>
 
     </div>
   </div>
@@ -1663,7 +1679,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260708t"></script>
+<script type="module" src="js/app.js?v=20260801a"></script>
 
 
 <!-- ══════════════════════════════════════════
@@ -2359,4 +2375,6 @@
 </div>
 
 </body>
-</html>
+</html>  /* Local mode */
+  body.local-mode .auth-only      { display: none !important; }
+  body.local-mode .multiuser-only { display: none !important; }
