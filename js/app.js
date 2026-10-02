@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801c)
+// LEADERBOARD - app.js  (v3.2 · build 20260801d)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -4848,12 +4848,12 @@ function renderHolePanel() {
         : 'var(--gold)';
 
       const header = document.createElement('div');
-      header.style.cssText = 'padding:0.65rem 0 0.35rem;border-top:1px solid var(--border);margin-top:0.25rem;';
+      header.style.cssText = 'padding:0.65rem 0 0.35rem;border-top:1px solid var(--border);margin-top:0.25rem;display:flex;align-items:center;justify-content:space-between;';
       header.innerHTML = `
         <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.5rem;
                      color:var(--white);">Pair ${label}</span>
-        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.1rem;
-                     color:${statusColor};margin-left:0.6rem;">${teamStatus}</span>`;
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.5rem;
+                     color:${statusColor};">${teamStatus}</span>`;
       inputsEl.appendChild(header);
 
       const existingEntry = gameState.log?.[h];
@@ -4942,15 +4942,14 @@ function renderHolePanel() {
           : `${up > holesLeft ? `${up}&${holesLeft}` : `${up} Down`}`;
 
       const header = document.createElement('div');
-      header.style.cssText = 'padding:0.65rem 0 0.35rem;border-top:1px solid var(--border);margin-top:0.25rem;';
+      header.style.cssText = 'padding:0.65rem 0 0.35rem;border-top:1px solid var(--border);margin-top:0.25rem;display:flex;align-items:center;justify-content:space-between;';
       header.innerHTML = `
         <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.5rem;
                      color:${ms === 0 ? 'var(--white)' : teamMs > 0 ? 'var(--gold)' : 'var(--muted2)'};">
           ${teamName}
         </span>
-        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.1rem;
-                     color:${ms === 0 ? 'var(--muted2)' : teamMs > 0 ? 'var(--gold)' : 'var(--muted2)'};
-                     margin-left:0.6rem;">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.5rem;
+                     color:${ms === 0 ? 'var(--muted2)' : teamMs > 0 ? 'var(--gold)' : 'var(--muted2)'};">
           ${teamStatus}
         </span>`;
       inputsEl.appendChild(header);
