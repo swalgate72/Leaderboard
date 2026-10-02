@@ -132,7 +132,9 @@ export async function profileFindByUsername() { return null; }
 
 export async function coursesLoadAll() {
   const all = await coursesStore.getAll();
-  return all.sort((a, b) => a.name.localeCompare(b.name));
+  return all
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(c => ({ ...c, is_default: c.isDefault ?? false })); // app.js checks c.is_default
 }
 
 export async function courseLoadById(id) {
