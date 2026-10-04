@@ -699,7 +699,7 @@
 
     <!-- Amend / Record -->
     <div class="hole-actions" style="margin-top:0.75rem;">
-      <button class="btn-back-hole" id="btn-amend-scores" disabled>✏️ Amend</button>
+      <button class="btn-back-hole" id="btn-amend-scores" disabled style="line-height:1.1;">Scorecard<br>Edit</button>
       <button class="btn-record" id="btn-record-hole">RECORD HOLE →</button>
     </div>
 
@@ -762,23 +762,30 @@
 
   </div><!-- /game-bottom-bar -->
 
-  <!-- ══ AMEND SCORECARD OVERLAY ══ -->
+  <!-- ══ SCORECARD EDIT OVERLAY ══ -->
   <div id="amend-overlay" style="display:none;position:fixed;inset:0;z-index:800;
-       background:var(--bg);overflow-y:auto;padding:0 0 2rem;">
-    <div style="background:var(--surface);padding:1rem 1.25rem 0.75rem;
-                border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.25rem;">
+       background:var(--bg);overflow-y:auto;padding:0 0 env(safe-area-inset-bottom,0);">
+    <!-- Sticky header -->
+    <div id="amend-overlay-head" style="background:var(--surface);padding:0.75rem 1rem 0.6rem;
+                border-bottom:2px solid var(--border);position:sticky;top:0;z-index:2;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;
-                    font-weight:800;color:var(--white);">✏️ Amend Scorecard</div>
+                    font-weight:800;color:var(--white);">✏️ Scorecard Edit</div>
         <button id="btn-amend-cancel" style="background:none;border:1px solid var(--border);
                 border-radius:8px;color:var(--muted);font-size:0.85rem;font-weight:700;
-                padding:0.35rem 0.75rem;cursor:pointer;">Cancel</button>
+                padding:0.35rem 0.75rem;cursor:pointer;">Done</button>
       </div>
-      <div style="font-size:1.1rem;color:var(--muted);font-weight:600;">
-        Tap the hole you want to correct
-      </div>
+      <div id="amend-overlay-sub" style="font-size:0.85rem;color:var(--muted);margin-top:0.2rem;"></div>
     </div>
-    <div id="amend-hole-list" style="padding:0.5rem 1rem;"></div>
+    <!-- Scrollable scorecard table -->
+    <div id="amend-sc-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0.5rem 0 1rem;">
+      <div id="amend-hole-list"></div>
+    </div>
+    <!-- Live totals footer -->
+    <div id="amend-totals-bar" style="background:var(--surface2);border-top:2px solid var(--border);
+         padding:0.6rem 1rem;position:sticky;bottom:0;z-index:2;overflow-x:auto;">
+      <div id="amend-totals-inner" style="display:flex;gap:0;min-width:max-content;"></div>
+    </div>
   </div>
 
   <!-- ══ HOLE NAVIGATION PANEL ══ -->
