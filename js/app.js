@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801f)
+// LEADERBOARD - app.js  (v3.2 · build 20260801g)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -5693,6 +5693,7 @@ function openScorePicker(pi, h, par) {
 let _pickerJustClosed = false;
 
 function closeScorePicker() {
+  _amendPickerMode = false; // cancel amend pick if user dismisses without selecting
   document.getElementById('modal-score-picker').classList.remove('open');
   _pickerJustClosed = true;
   // Clear after a generous window — 600ms covers all iOS devices
@@ -5837,6 +5838,24 @@ function scoreColorForRelToPar(relToPar, value) {
 }
 
 function setScoreValue(pi, h, par, value, isPickup) {
+  // Amend-scorecard mode: apply edit immediately via editHole() and re-render
+  if (_amendPickerMode && _amendPickerHIdx === h && _amendPickerPi === pi) {
+    _amendPickerMode = false;
+    const newGrosses = [...(gameState.log[h]?.grosses ?? [])];
+    newGrosses[pi]   = value;
+    const rebuilt    = editHole(gameState, h, newGrosses);
+    rebuilt.allGroupStates = gameState.allGroupStates;
+    rebuilt.organiserId    = gameState.organiserId;
+    gameState = rebuilt;
+    // Persist the change
+    saveRoundState().catch(() => {});
+    // Refresh score header in game screen (behind the overlay)
+    renderScoreHeader();
+    // Re-render the amend scorecard so totals update live
+    _renderAmendScorecard();
+    return;
+  }
+
   const cvEl = document.getElementById(`cv${pi}`);
   if (!cvEl) return;
   cvEl.dataset.value  = String(value);
@@ -5869,95 +5888,259 @@ let _amendOriginalHole = null;
 function openAmendOverlay() {
   if (!gameState?.log?.length) return;
   const overlay = document.getElementById('amend-overlay');
-  const listEl  = document.getElementById('amend-hole-list');
-  if (!overlay || !listEl) return;
+  if (!overlay) return;
 
-  const log    = gameState.log;
+  const sub = document.getElementById('amend-overlay-sub');
+  if (sub) sub.textContent = `${gameState.courseName ?? ''} · ${fmtLabel(gameState.format)} · ${gameState.log.length} holes played`;
+
+  _renderAmendScorecard();
+  overlay.style.display = 'block';
+}
+
+// Build and render the edit scorecard table + live totals footer.
+// Called on open and re-called after every score change.
+function _renderAmendScorecard() {
+  const listEl   = document.getElementById('amend-hole-list');
+  const totalsEl = document.getElementById('amend-totals-inner');
+  if (!listEl) return;
+
+  const fmt    = gameState.format;
+  const log    = gameState.log ?? [];
   const par    = gameState.par  ?? [];
   const si     = gameState.si   ?? [];
   const names  = gameState.names ?? [];
   const offset = gameState.holeOffset ?? 0;
-  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(gameState.format);
+  const numHoles = gameState.numHoles ?? 18;
+  const byHole   = {};
+  log.forEach(e => { byHole[e.hIdx] = e; });
 
-  listEl.innerHTML = log.map((entry, hi) => {
-    const holeNum = offset + hi + 1;
-    const parH = par[hi] ?? '–';
-    const siH  = si[hi]  ?? '–';
+  // ── Determine columns ──────────────────────────────────────────
+  // For pair formats the columns show pair nets; for individual formats one col per player.
+  const isTexas   = fmt === 'texas';
+  const isPairFmt = ['betterball','csm','foursomes','greensomes'].includes(fmt);
+  const isMatch   = fmt === 'match';
 
-    let scoresHtml = '';
-    if (isPairs) {
-      scoresHtml = `
-        <div style="display:flex;gap:1.5rem;margin-top:0.4rem;flex-wrap:wrap;">
-          <span style="font-size:1.4rem;color:var(--muted);font-weight:600;">
-            <span style="color:var(--gold);font-weight:800;">${shortName(names[0]??'A')}</span>
-            &nbsp;Net ${entry.bbA?.net ?? '–'}
-          </span>
-          <span style="font-size:1.4rem;color:var(--muted);font-weight:600;">
-            <span style="color:#5ba8d8;font-weight:800;">${shortName(names[2]??'B')}</span>
-            &nbsp;Net ${entry.bbB?.net ?? '–'}
-          </span>
-        </div>`;
-    } else {
-      scoresHtml = `<div style="display:flex;gap:1.25rem;flex-wrap:wrap;margin-top:0.4rem;">
-        ${names.map((n, pi) => `
-          <span style="font-size:1.4rem;color:var(--muted);font-weight:600;">
-            <span style="font-weight:800;color:var(--white);">${n.split(' ')[0]}</span>
-            &nbsp;${entry.grosses?.[pi] ?? '–'}
-          </span>`).join('')}
-      </div>`;
+  // Player columns: array of { label, color, getValue(entry) → { gross, shots, net, pts } }
+  let cols;
+  if (isPairFmt) {
+    cols = [
+      { label: `${shortName(names[0]??'')} & ${shortName(names[1]??'')}`, color: pHex(0),
+        getValue: (e) => e ? { gross: e.grosses?.[0] ?? e.grosses?.[1], shots: null,
+          net: e.bbA?.net ?? e.nets?.[0] ?? null, pts: e.sbPts ? (e.sbPts[0]??0)+(e.sbPts[1]??0) : null } : null },
+      { label: `${shortName(names[2]??'')} & ${shortName(names[3]??'')}`, color: pHex(2),
+        getValue: (e) => e ? { gross: e.grosses?.[2] ?? e.grosses?.[3], shots: null,
+          net: e.bbB?.net ?? e.nets?.[1] ?? null, pts: e.sbPts ? (e.sbPts[2]??0)+(e.sbPts[3]??0) : null } : null },
+    ];
+  } else if (isTexas) {
+    cols = [{ label: gameState.teamName ?? 'Team', color: pHex(0),
+      getValue: (e) => e ? { gross: e.gross, shots: e.teamExtra ?? 0, net: e.net, pts: e.pts } : null }];
+  } else {
+    cols = names.map((nm, pi) => ({
+      label: nm, color: pHex(pi),
+      getValue: (e) => {
+        if (!e) return null;
+        const gross = e.grosses?.[pi];
+        if (gross == null) return null;
+        const shots = e.extras?.[pi] ?? indivStrokesOnHole(gameState.playingHandicaps?.[pi] ?? 0, e.si);
+        const net   = gross - shots;
+        const pts   = e.holePts?.[pi] ?? e.sbPts?.[pi] ?? null;
+        return { gross, shots, net, pts };
+      },
+    }));
+  }
+
+  // ── Build table ────────────────────────────────────────────────
+  const colW    = Math.max(64, Math.floor(Math.min(window.innerWidth - 80, 500) / cols.length));
+  const holeColW = 60;
+
+  // Header row
+  let headerCells = `<th style="min-width:${holeColW}px;position:sticky;left:0;background:var(--surface);z-index:3;text-align:left;padding:0.4rem 0.5rem;font-size:0.8rem;color:var(--muted);font-weight:700;">HOLE</th>`;
+  cols.forEach(c => {
+    headerCells += `<th style="min-width:${colW}px;width:${colW}px;padding:0.3rem 0.2rem;font-size:0.8rem;font-weight:800;color:${c.color};text-align:center;">${shortName(c.label)}</th>`;
+  });
+
+  // Data rows
+  let bodyRows = '';
+  for (let h = 0; h < numHoles; h++) {
+    const entry   = byHole[h];
+    const holeNum = h + offset + 1;
+    const parH    = par[h] ?? 4;
+    const siH     = si[h]  ?? h + 1;
+    const played  = !!entry;
+    const isCurrent = h === gameState.hole && !played;
+
+    const rowBg = isCurrent ? 'background:rgba(212,168,67,0.07);'
+      : played ? '' : 'opacity:0.38;';
+
+    let cells = `<td class="asc-hole-cell" style="${rowBg}">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:var(--white);">${holeNum}</span>
+      <div style="font-size:0.7rem;color:var(--muted);font-weight:600;white-space:nowrap;">P${parH} S${siH}</div>
+    </td>`;
+
+    cols.forEach((c, ci) => {
+      const val = c.getValue(entry);
+      if (!val) {
+        cells += `<td class="asc-score-cell" data-h="${h}" data-ci="${ci}" style="${rowBg}"></td>`;
+        return;
+      }
+      // Gross colour
+      const relToPar = val.gross - parH;
+      const grossCol = val.gross === 1 ? 'var(--gold)'
+        : relToPar < 0 ? '#d64545'
+        : relToPar === 0 ? 'var(--green)'
+        : relToPar <= 2 ? '#3a7bd5' : 'var(--muted)';
+
+      const shotDot  = val.shots > 0 ? `<span style="color:var(--gold);font-size:0.6rem;line-height:1;vertical-align:middle;">${'•'.repeat(Math.min(val.shots,2))}</span> ` : '';
+      const netHtml  = val.net != null ? `<div style="font-size:0.72rem;font-weight:700;color:var(--muted2);margin-top:1px;">${shotDot}${val.net}</div>` : '';
+      const ptsHtml  = val.pts != null ? `<div style="font-size:0.68rem;font-weight:800;color:var(--gold);margin-top:1px;">${val.pts}pt</div>` : '';
+
+      cells += `<td class="asc-score-cell" data-h="${h}" data-ci="${ci}" style="${rowBg}cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0);">
+        <div style="display:inline-flex;align-items:center;justify-content:center;
+                    width:36px;height:36px;border-radius:50%;background:${grossCol};
+                    font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;
+                    color:${val.gross===1?'#000':'#fff'};">${val.gross}</div>
+        ${netHtml}${ptsHtml}
+      </td>`;
+    });
+
+    bodyRows += `<tr>${cells}</tr>`;
+  }
+
+  // ── Totals row ─────────────────────────────────────────────────
+  let totalCells = `<td class="asc-hole-cell" style="border-top:2px solid var(--border);font-weight:800;font-size:0.85rem;color:var(--gold);">TOTAL</td>`;
+  const grandGross = cols.map(() => 0);
+  const grandNet   = cols.map(() => 0);
+  const grandPts   = cols.map(() => 0);
+  const hasNet     = cols.map(() => false);
+  const hasPts     = cols.map(() => false);
+
+  for (let h = 0; h < numHoles; h++) {
+    const entry = byHole[h];
+    if (!entry) continue;
+    cols.forEach((c, ci) => {
+      const val = c.getValue(entry);
+      if (!val) return;
+      grandGross[ci] += val.gross ?? 0;
+      if (val.net  != null) { grandNet[ci] += val.net;  hasNet[ci] = true; }
+      if (val.pts  != null) { grandPts[ci] += val.pts;  hasPts[ci] = true; }
+    });
+  }
+
+  cols.forEach((c, ci) => {
+    if (!grandGross[ci] && !hasNet[ci] && !hasPts[ci]) {
+      totalCells += `<td class="asc-score-cell" style="border-top:2px solid var(--border);"></td>`;
+      return;
     }
+    const netLine = hasNet[ci] ? `<div style="font-size:0.72rem;font-weight:700;color:var(--muted2);">Net ${grandNet[ci]}</div>` : '';
+    const ptsLine = hasPts[ci] ? `<div style="font-size:0.72rem;font-weight:800;color:var(--gold);">${grandPts[ci]}pt</div>` : '';
+    totalCells += `<td class="asc-score-cell" style="border-top:2px solid var(--border);">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:var(--white);">${grandGross[ci]}</div>
+      ${netLine}${ptsLine}
+    </td>`;
+  });
 
-    // Running score after this hole
+  listEl.innerHTML = `<table class="asc-table">
+    <thead><tr>${headerCells}</tr></thead>
+    <tbody>${bodyRows}<tr>${totalCells}</tr></tbody>
+  </table>`;
+
+  // ── Live totals footer bar ─────────────────────────────────────
+  if (totalsEl) {
     const fmt2 = gameState.format;
-    const isMatch2 = ['match','betterball','csm','foursomes','greensomes'].includes(fmt2);
-    const isItc2   = fmt2 === 'itc';
-    let standingHtml = '';
-    if (isMatch2) {
-      const ms  = entry.matchAfter ?? 0;
-      const up  = Math.abs(ms);
-      const n0  = names[0]?.split(' ')[0] ?? 'A';
-      const n1  = isPairs ? (names[2]?.split(' ')[0] ?? 'B') : (names[1]?.split(' ')[0] ?? 'B');
-      const txt = ms === 0 ? 'All Square'
-        : ms > 0 ? `${n0} ${up} UP` : `${n1} ${up} UP`;
-      const col = ms === 0 ? 'var(--muted)' : ms > 0 ? 'var(--gold)' : '#5ba8d8';
-      standingHtml = `<div style="font-size:1.1rem;font-weight:800;color:${col};margin-top:0.35rem;">${txt}</div>`;
-    } else if (isItc2) {
-      const pts2  = entry.ptsAfter ?? [];
-      const maxP  = Math.max(...pts2);
-      const li    = pts2.indexOf(maxP);
-      const txt   = maxP === 0 ? 'All Square'
-        : names.length === 2
-          ? (() => { const d=pts2[0]-pts2[1]; return d===0?'All Square':d>0?`${shortName(names[0])} ${Math.abs(d)} UP`:`${shortName(names[1])} ${Math.abs(d)} UP`; })()
-          : `${shortName(names[li]??'')} leads`;
-      standingHtml = `<div style="font-size:1.1rem;font-weight:800;color:var(--gold);margin-top:0.35rem;">${txt}</div>`;
-    } else if (entry.totalsAfter) {
-      // Points / stroke formats — show each player's running total
-      const totLine = names.map((n, pi) =>
-        `<span style="color:var(--white);font-weight:700;">${n.split(' ')[0]}</span> ${entry.totalsAfter[pi] ?? 0}`
-      ).join('  ·  ');
-      standingHtml = `<div style="font-size:1rem;color:var(--muted);margin-top:0.35rem;">${totLine}</div>`;
-    }
+    const isS   = ['stableford','best2'].includes(fmt2);
+    const isStr = fmt2 === 'stroke';
+    const isS6  = fmt2 === 'split6';
+    const isSk  = fmt2 === 'skins';
+    const isItc = fmt2 === 'itc';
 
-    return `
-      <div style="border:1px solid var(--border);border-radius:12px;padding:1rem;
-                  margin-bottom:0.65rem;cursor:pointer;background:var(--surface);
-                  -webkit-tap-highlight-color:rgba(0,0,0,0);"
-           onclick="startAmendFromHole(${hi})">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-family:'Barlow Condensed',sans-serif;font-size:2rem;
-                       font-weight:800;color:var(--white);">Hole ${holeNum}</span>
-          <span style="font-size:1.2rem;color:var(--muted);font-weight:700;letter-spacing:0.04em;">
-            Par ${parH} · SI ${siH}
-          </span>
-        </div>
-        ${scoresHtml}
-        ${standingHtml}
+    totalsEl.innerHTML = cols.map((c, ci) => {
+      let scoreHtml = '';
+      if (isS)   scoreHtml = `<div class="asc-tot-score">${gameState.totals?.[ci] ?? grandPts[ci]}</div><div class="asc-tot-label">pts</div>`;
+      else if (isStr) scoreHtml = `<div class="asc-tot-score">${gameState.totals?.[ci] ?? grandNet[ci]}</div><div class="asc-tot-label">net</div>`;
+      else if (isS6)  scoreHtml = `<div class="asc-tot-score">${gameState.runningPts?.[ci] ?? 0}</div><div class="asc-tot-label">pts</div>`;
+      else if (isSk)  scoreHtml = `<div class="asc-tot-score">${gameState.skins?.[ci] ?? 0}</div><div class="asc-tot-label">skins</div>`;
+      else if (isItc) scoreHtml = `<div class="asc-tot-score">${gameState.pts?.[ci] ?? 0}</div><div class="asc-tot-label">pts</div>`;
+      else if (isTexas) scoreHtml = `<div class="asc-tot-score">${(gameState.texasScoringFmt??'stableford')==='stableford' ? (gameState.texasPts??0) : (gameState.grossTotal??0)}</div><div class="asc-tot-label">${(gameState.texasScoringFmt??'stableford')==='stableford'?'pts':'gross'}</div>`;
+      else if (isPairFmt) {
+        const ms = gameState.matchScore ?? 0;
+        const up = Math.abs(ms);
+        const leading = ci === 0 ? ms > 0 : ms < 0;
+        const txt = ms === 0 ? 'All Sq' : leading ? `${up} Up` : `${up} Dn`;
+        const col = ms === 0 ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
+        scoreHtml = `<div class="asc-tot-score" style="color:${col};">${txt}</div>`;
+      } else if (isMatch) {
+        const ms = gameState.matchScore ?? 0;
+        const up = Math.abs(ms);
+        const leading = ci === 0 ? ms > 0 : ms < 0;
+        const txt = ms === 0 ? 'All Sq' : leading ? `${up} Up` : `${up} Dn`;
+        const col = ms === 0 ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
+        scoreHtml = `<div class="asc-tot-score" style="color:${col};">${txt}</div>`;
+      } else {
+        scoreHtml = `<div class="asc-tot-score">${grandGross[ci] || '–'}</div><div class="asc-tot-label">gross</div>`;
+      }
+      return `<div class="asc-tot-cell" style="border-color:${c.color};">
+        <div class="asc-tot-name" style="color:${c.color};">${shortName(c.label)}</div>
+        ${scoreHtml}
       </div>`;
-  }).join('');
+    }).join('');
+  }
 
-  overlay.style.display = 'block';
+  // ── Wire cell taps ─────────────────────────────────────────────
+  listEl.querySelectorAll('td.asc-score-cell[data-h]').forEach(td => {
+    const h   = parseInt(td.dataset.h);
+    const ci  = parseInt(td.dataset.ci);
+    const entry = byHole[h];
+    if (!entry) return; // unplayed hole — not editable
+
+    td.addEventListener('click', () => _openAmendScorePicker(h, ci));
+    td.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      _openAmendScorePicker(h, ci);
+    }, { passive: false });
+  });
 }
 
+// Open the score picker for a specific hole+column in the amend scorecard.
+// After score is confirmed, editHole() rebuilds state and the scorecard re-renders live.
+function _openAmendScorePicker(hIdx, colIdx) {
+  const fmt      = gameState.format;
+  const entry    = gameState.log[hIdx];
+  if (!entry) return;
+
+  const par = gameState.par[hIdx];
+  const isPairFmt = ['betterball','csm','foursomes','greensomes'].includes(fmt);
+  const isTexas   = fmt === 'texas';
+
+  if (isPairFmt || isTexas) {
+    // For pair/texas formats, fall through to the existing openHoleEdit modal
+    // (these need to enter both players' scores or the team score+driver)
+    openHoleEdit(hIdx + (gameState.holeOffset ?? 0) + 1);
+    return;
+  }
+
+  // Individual player: work out which player index this column maps to
+  const pi = colIdx; // for individual formats cols are 1-to-1 with players
+
+  // Use the existing score picker — but wire its completion to editHole() + re-render
+  _amendPickerHIdx = hIdx;
+  _amendPickerPi   = pi;
+  _amendPickerPar  = par;
+  _amendPickerMode = true;
+
+  // Set the cv element to the existing score so the picker shows it selected
+  const cvEl = document.getElementById(`cv${pi}`);
+  if (cvEl) {
+    cvEl.dataset.value = String(entry.grosses?.[pi] ?? '');
+    cvEl.textContent   = String(entry.grosses?.[pi] ?? '');
+  }
+
+  openScorePicker(pi, hIdx, par);
+}
+
+let _amendPickerHIdx = null;
+let _amendPickerPi   = null;
+let _amendPickerPar  = null;
+let _amendPickerMode = false;
 function closeAmendOverlay() {
   const overlay = document.getElementById('amend-overlay');
   if (overlay) overlay.style.display = 'none';
