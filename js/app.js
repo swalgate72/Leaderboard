@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801g)
+// LEADERBOARD - app.js  (v3.2 · build 20260801h)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -6045,40 +6045,50 @@ function _renderAmendScorecard() {
   </table>`;
 
   // ── Live totals footer bar ─────────────────────────────────────
+  // Always derive from the cell totals (grandGross/grandNet/grandPts)
+  // so the footer is guaranteed consistent with the table.
+  // For formats with a running total that isn't a simple sum (split6, match,
+  // skins, itc) we also read from gameState which is authoritative post-rebuild.
   if (totalsEl) {
-    const fmt2 = gameState.format;
-    const isS   = ['stableford','best2'].includes(fmt2);
-    const isStr = fmt2 === 'stroke';
+    const fmt2  = gameState.format;
     const isS6  = fmt2 === 'split6';
     const isSk  = fmt2 === 'skins';
     const isItc = fmt2 === 'itc';
+    const isMatchFmt = fmt2 === 'match' || isPairFmt;
 
     totalsEl.innerHTML = cols.map((c, ci) => {
       let scoreHtml = '';
-      if (isS)   scoreHtml = `<div class="asc-tot-score">${gameState.totals?.[ci] ?? grandPts[ci]}</div><div class="asc-tot-label">pts</div>`;
-      else if (isStr) scoreHtml = `<div class="asc-tot-score">${gameState.totals?.[ci] ?? grandNet[ci]}</div><div class="asc-tot-label">net</div>`;
-      else if (isS6)  scoreHtml = `<div class="asc-tot-score">${gameState.runningPts?.[ci] ?? 0}</div><div class="asc-tot-label">pts</div>`;
-      else if (isSk)  scoreHtml = `<div class="asc-tot-score">${gameState.skins?.[ci] ?? 0}</div><div class="asc-tot-label">skins</div>`;
-      else if (isItc) scoreHtml = `<div class="asc-tot-score">${gameState.pts?.[ci] ?? 0}</div><div class="asc-tot-label">pts</div>`;
-      else if (isTexas) scoreHtml = `<div class="asc-tot-score">${(gameState.texasScoringFmt??'stableford')==='stableford' ? (gameState.texasPts??0) : (gameState.grossTotal??0)}</div><div class="asc-tot-label">${(gameState.texasScoringFmt??'stableford')==='stableford'?'pts':'gross'}</div>`;
-      else if (isPairFmt) {
+      if (isMatchFmt) {
+        // Match/pairs: show running match score from gameState (authoritative)
         const ms = gameState.matchScore ?? 0;
         const up = Math.abs(ms);
         const leading = ci === 0 ? ms > 0 : ms < 0;
         const txt = ms === 0 ? 'All Sq' : leading ? `${up} Up` : `${up} Dn`;
         const col = ms === 0 ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
         scoreHtml = `<div class="asc-tot-score" style="color:${col};">${txt}</div>`;
-      } else if (isMatch) {
-        const ms = gameState.matchScore ?? 0;
-        const up = Math.abs(ms);
-        const leading = ci === 0 ? ms > 0 : ms < 0;
-        const txt = ms === 0 ? 'All Sq' : leading ? `${up} Up` : `${up} Dn`;
-        const col = ms === 0 ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
-        scoreHtml = `<div class="asc-tot-score" style="color:${col};">${txt}</div>`;
+      } else if (isS6) {
+        // Split 6: relative running pts from gameState
+        const rp = gameState.runningPts?.[ci] ?? 0;
+        scoreHtml = `<div class="asc-tot-score">${rp}</div><div class="asc-tot-label">pts</div>`;
+      } else if (isSk) {
+        scoreHtml = `<div class="asc-tot-score">${gameState.skins?.[ci] ?? 0}</div><div class="asc-tot-label">skins</div>`;
+      } else if (isItc) {
+        scoreHtml = `<div class="asc-tot-score">${gameState.pts?.[ci] ?? 0}</div><div class="asc-tot-label">pts</div>`;
+      } else if (isTexas) {
+        const isSbFmt = (gameState.texasScoringFmt ?? 'stableford') === 'stableford';
+        const score   = isSbFmt ? (grandPts[ci] || 0) : (grandGross[ci] || 0);
+        scoreHtml = `<div class="asc-tot-score">${score}</div><div class="asc-tot-label">${isSbFmt ? 'pts' : 'gross'}</div>`;
+      } else if (hasPts[ci]) {
+        // Stableford / best2 / csm / split6 individual — sum pts from cells
+        scoreHtml = `<div class="asc-tot-score">${grandPts[ci]}</div><div class="asc-tot-label">pts</div>`;
+      } else if (hasNet[ci]) {
+        // Stroke play — sum nets from cells
+        scoreHtml = `<div class="asc-tot-score">${grandNet[ci]}</div><div class="asc-tot-label">net</div>`;
       } else {
+        // Fallback: show gross total
         scoreHtml = `<div class="asc-tot-score">${grandGross[ci] || '–'}</div><div class="asc-tot-label">gross</div>`;
       }
-      return `<div class="asc-tot-cell" style="border-color:${c.color};">
+      return `<div class="asc-tot-cell" style="border-left-color:${c.color};">
         <div class="asc-tot-name" style="color:${c.color};">${shortName(c.label)}</div>
         ${scoreHtml}
       </div>`;
