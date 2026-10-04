@@ -2381,6 +2381,35 @@ html.light .bottom-nav-btn.active {
 }
 .sc-player-header .dot { width: 8px; height: 8px; }
 
+/* Detail mode — stacked cell */
+.sc-detail-cell {
+  vertical-align: top;
+  line-height: 1.25;
+}
+.sc-detail-net {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted2);
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.sc-detail-pts {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--gold);
+  margin-top: 1px;
+}
+.sc-shot-dot {
+  font-size: 0.65rem;
+  color: var(--gold);
+  letter-spacing: -1px;
+  font-weight: 900;
+  margin-right: 1px;
+}
+
 /* Auth screen: match app text sizing */
 #screen-auth .field > label {
   font-size: 1rem;
