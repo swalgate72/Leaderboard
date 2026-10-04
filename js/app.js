@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801j)
+// LEADERBOARD - app.js  (v3.2 · build 20260801k)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -608,6 +608,12 @@ function shortName(fullName) {
   const parts = fullName.trim().split(' ').filter(Boolean);
   if (parts.length === 1) return parts[0];
   return parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase();
+}
+
+// Returns initials: "Steve W" → "SW", "Alex" → "A"
+function toInitials(fullName) {
+  if (!fullName) return '';
+  return fullName.trim().split(' ').filter(Boolean).map(w => w[0].toUpperCase()).join('');
 }
 
 
@@ -6045,16 +6051,18 @@ function _renderAmendScorecard() {
           </div>
         </th>`;
       } else {
-        // BB/CSM: show both players stacked
+        // BB/CSM: show initials for both players side-by-side
+        const ini0 = toInitials(pc.labels[0]);
+        const ini1 = toInitials(pc.labels[1]);
         headerCells += `<th style="min-width:${colW}px;padding:0.3rem 0.4rem;text-align:center;">
-          <div style="display:flex;flex-direction:column;gap:2px;align-items:center;">
-            <div style="display:flex;align-items:center;gap:4px;">
-              <span style="width:7px;height:7px;border-radius:50%;background:${pc.colors[0]};display:inline-block;flex-shrink:0;"></span>
-              <span style="font-size:0.8rem;font-weight:800;color:${pc.colors[0]};">${pc.labels[0]}</span>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+              <span style="width:8px;height:8px;border-radius:50%;background:${pc.colors[0]};display:inline-block;"></span>
+              <span style="font-size:0.78rem;font-weight:800;color:${pc.colors[0]};white-space:nowrap;">${ini0}</span>
             </div>
-            <div style="display:flex;align-items:center;gap:4px;">
-              <span style="width:7px;height:7px;border-radius:50%;background:${pc.colors[1]};display:inline-block;flex-shrink:0;"></span>
-              <span style="font-size:0.8rem;font-weight:800;color:${pc.colors[1]};">${pc.labels[1]}</span>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+              <span style="width:8px;height:8px;border-radius:50%;background:${pc.colors[1]};display:inline-block;"></span>
+              <span style="font-size:0.78rem;font-weight:800;color:${pc.colors[1]};white-space:nowrap;">${ini1}</span>
             </div>
           </div>
         </th>`;
@@ -6118,7 +6126,7 @@ function _renderAmendScorecard() {
 
           innerHtml = `
             <div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:0.1rem 0;">
-              <div style="display:flex;gap:6px;align-items:center;">
+              <div style="display:flex;gap:14px;align-items:center;">
                 ${disc0}${disc1}
               </div>
               <div style="display:flex;align-items:baseline;justify-content:center;gap:3px;
@@ -6190,16 +6198,43 @@ function _renderAmendScorecard() {
   }
 
   if (pairCols) {
-    // Pair formats total row: show match score
+    // Pair formats total row: match score + individual gross totals
     const ms = gameState.matchScore ?? 0;
     const up = Math.abs(ms);
+    // Compute individual gross totals from log
+    const pGross = names.map(() => 0);
+    const pNet   = names.map(() => 0);
+    log.forEach(e => {
+      names.forEach((_, pi) => {
+        if (e.grosses?.[pi] != null) {
+          pGross[pi] += e.grosses[pi];
+          pNet[pi]   += (e.nets?.[pi] ?? (e.grosses[pi] - (e.extras?.[pi] ?? 0)));
+        }
+      });
+    });
+
     pairCols.forEach((pc, ci) => {
       const leading = ci === 0 ? ms > 0 : ms < 0;
       const halved  = ms === 0;
       const txt = halved ? 'All Sq' : leading ? `${up} Up` : `${up} Dn`;
       const col = halved ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
-      totalCells += `<td class="asc-score-cell" style="border-top:2px solid var(--border);text-align:center;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;color:${col};">${txt}</div>
+      const [p0i, p1i] = pc.p;
+      const ini0 = toInitials(names[p0i] ?? '');
+      const ini1 = toInitials(names[p1i] ?? '');
+      totalCells += `<td class="asc-score-cell" style="border-top:2px solid var(--border);text-align:center;padding:0.4rem 0.2rem;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;color:${col};margin-bottom:4px;">${txt}</div>
+        <div style="display:flex;justify-content:center;gap:10px;">
+          <div style="display:flex;flex-direction:column;align-items:center;">
+            <span style="font-size:0.65rem;font-weight:800;color:${pc.colors[0]};">${ini0}</span>
+            <span style="font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:800;color:var(--white);">${pGross[p0i] || '–'}</span>
+            <span style="font-size:0.62rem;color:var(--muted2);">${pNet[p0i] || ''} net</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;">
+            <span style="font-size:0.65rem;font-weight:800;color:${pc.colors[1]};">${ini1}</span>
+            <span style="font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:800;color:var(--white);">${pGross[p1i] || '–'}</span>
+            <span style="font-size:0.62rem;color:var(--muted2);">${pNet[p1i] || ''} net</span>
+          </div>
+        </div>
       </td>`;
     });
   } else {
