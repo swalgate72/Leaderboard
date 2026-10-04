@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801e)
+// LEADERBOARD - app.js  (v3.2 · build 20260801f)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -6807,9 +6807,10 @@ function flashHoleResult(holeIdx) {
 // Which score modes a format supports
 function scorecardModesFor(fmt) {
   // betterball, csm, best2: own-ball formats — add Players tab for individual scores
-  if (['betterball','csm','best2'].includes(fmt)) return ['points','strokes','players'];
-  if (['stableford','split6','texas'].includes(fmt)) return ['points','strokes'];
-  return ['strokes'];
+  if (['betterball','csm','best2'].includes(fmt)) return ['points','strokes','detail','players'];
+  if (['stableford','split6','texas'].includes(fmt)) return ['points','strokes','detail'];
+  // match, skins, itc, foursomes, greensomes, stroke — detail shows gross+shots+net
+  return ['strokes','detail'];
 }
 
 // Build the column definitions for a given group's state.
@@ -6833,6 +6834,16 @@ function scorecardColumns(state) {
       const isPickup = entry.pickups?.[pi] ?? false;
       if (isPickup) return { text: `P.Up (${gross})`, relToPar: 99, pickup: true };
       const relToPar = gross - entry.par;
+      if (mode === 'detail') {
+        // Show gross / shots-dot + net / pts stacked
+        const hcp    = state.playingHandicaps?.[pi] ?? state.matchHandicaps?.[pi] ?? 0;
+        const shots  = indivStrokesOnHole(hcp, entry.si);
+        const net    = gross - shots;
+        const pts    = entry.holePts?.[pi] ?? entry.sbPts?.[pi];
+        const fmt2   = state.format;
+        const hasPts = ['stableford','split6','best2'].includes(fmt2) && pts != null;
+        return { text: String(gross), relToPar, detail: { shots, net, pts: hasPts ? pts : null } };
+      }
       return { text: String(gross), relToPar };
     },
   });
@@ -6899,12 +6910,17 @@ function scorecardColumns(state) {
       return [0, 1].map(pi => ({
         label: pi === 0 ? `${names[0]} & ${names[1]}` : `${names[2]} & ${names[3]}`,
         dotColor: pHex(pi === 0 ? 0 : 2),
-        getCell: (entry) => {
+        getCell: (entry, mode) => {
           if (!entry) return { text: '' };
           const gross = entry.grosses?.[pi];
           const net   = entry.nets?.[pi] ?? gross;
           if (gross == null) return { text: '' };
-          return { text: String(net), sub: gross !== net ? String(gross) : null };
+          if (mode === 'detail') {
+            const shots = gross - (entry.nets?.[pi] ?? gross);
+            return { text: String(gross), relToPar: gross - entry.par,
+                     detail: { shots, net, pts: null } };
+          }
+          return { text: String(net), sub: gross !== net ? `Gross ${gross}` : null };
         },
       }));
 
@@ -6934,8 +6950,15 @@ function scorecardColumns(state) {
         getCell: (entry, mode) => {
           if (!entry) return { text: '' };
           if (mode === 'points') return { text: entry.pts != null ? String(entry.pts) : '-' };
-          // Strokes mode: show gross with par-relative colouring
           if (entry.gross == null) return { text: '' };
+          if (mode === 'detail') {
+            const shots = entry.teamExtra ?? 0;
+            const net   = entry.net ?? (entry.gross - shots);
+            const pts   = entry.pts;
+            return { text: String(entry.gross), relToPar: entry.gross - entry.par,
+                     detail: { shots, net, pts: pts != null ? pts : null } };
+          }
+          // Strokes mode: show gross with par-relative colouring
           return { text: String(entry.gross), relToPar: entry.gross - entry.par };
         },
       }];
@@ -6964,14 +6987,18 @@ function buildVerticalScorecard(state, mode) {
     columns = names.map((_, pi) => ({
       label:    names[pi] ?? `P${pi+1}`,
       dotColor: pHex(pi),
-      getCell: (entry) => {
+      getCell: (entry, mode) => {
         if (!entry) return { text: '' };
         const gross = entry.grosses?.[pi];
         if (gross == null) return { text: '' };
-        const extras = entry.extras?.[pi] ?? 0;
-        const net    = gross - extras;
-        // Show gross with net in sub if they differ
-        return { text: String(gross), sub: extras > 0 ? `Net ${net}` : null, relToPar: gross - entry.par };
+        const shots = entry.extras?.[pi] ?? indivStrokesOnHole(state.playingHandicaps?.[pi] ?? 0, entry.si);
+        const net   = gross - shots;
+        if (mode === 'detail') {
+          const pts = entry.holePts?.[pi];
+          return { text: String(gross), relToPar: gross - entry.par,
+                   detail: { shots, net, pts: pts != null ? pts : null } };
+        }
+        return { text: String(gross), sub: shots > 0 ? `Net ${net}` : null, relToPar: gross - entry.par };
       },
     }));
   } else {
@@ -7016,24 +7043,39 @@ function buildVerticalScorecard(state, mode) {
         inner = `<span style="display:inline-block;background:var(--gold);color:#fff;
                    border-radius:4px;padding:1px 4px;font-size:0.75em;font-weight:800;
                    line-height:1.3;white-space:nowrap;">${cell.text}</span>`;
-      } else if (mode === 'strokes' && cell.relToPar != null && cell.text !== '') {
+      } else if ((mode === 'strokes' || mode === 'detail') && cell.relToPar != null && cell.text !== '') {
         const r = cell.relToPar;
         const red  = '#d64545';
         const blue = '#3a7bd5';
-        const single = (color) =>
-          `<span style="display:inline-block;border:2px solid ${color};border-radius:2px;padding:1px 5px;line-height:1.2;">${cell.text}</span>`;
-        const double = (color) =>
+        const single = (color, t) =>
+          `<span style="display:inline-block;border:2px solid ${color};border-radius:2px;padding:1px 5px;line-height:1.2;">${t}</span>`;
+        const double = (color, t) =>
           `<span style="display:inline-block;border:2px solid ${color};border-radius:4px;padding:3px 7px;line-height:1.2;">
-             <span style="display:inline-block;border:2px solid ${color};border-radius:2px;padding:0 3px;line-height:1.2;">${cell.text}</span>
+             <span style="display:inline-block;border:2px solid ${color};border-radius:2px;padding:0 3px;line-height:1.2;">${t}</span>
            </span>`;
-        if (r <= -2)      inner = double(red);
-        else if (r === -1) inner = single(red);
-        else if (r === 1)  inner = single(blue);
-        else if (r === 2)  inner = double(blue);
+        if (r <= -2)       inner = double(red, cell.text);
+        else if (r === -1) inner = single(red, cell.text);
+        else if (r === 1)  inner = single(blue, cell.text);
+        else if (r === 2)  inner = double(blue, cell.text);
+      }
+
+      // Detail mode: stacked gross / shots+net / pts
+      let detailHtml = '';
+      if (mode === 'detail' && cell.detail) {
+        const d = cell.detail;
+        const shotsDot = d.shots > 0
+          ? `<span class="sc-shot-dot">${'•'.repeat(Math.min(d.shots, 2))}</span>`
+          : '';
+        const netCol = d.net < (entry?.par ?? 4) ? '#d64545' : d.net > (entry?.par ?? 4) ? '#3a7bd5' : 'var(--muted2)';
+        detailHtml += `<div class="sc-detail-net">${shotsDot}<span style="color:${netCol};">${d.net}</span></div>`;
+        if (d.pts != null) {
+          const ptsCol = d.pts >= 3 ? '#d64545' : d.pts <= 1 ? '#3a7bd5' : 'var(--muted2)';
+          detailHtml += `<div class="sc-detail-pts" style="color:${ptsCol};">${d.pts}pt</div>`;
+        }
       }
 
       const sub = cell.sub ? `<div style="font-size:0.7em;color:var(--muted2);font-weight:500;margin-top:1px;">${cell.sub}</div>` : '';
-      return `<td class="sc-score-cell">${inner}${sub}</td>`;
+      return `<td class="sc-score-cell${mode === 'detail' ? ' sc-detail-cell' : ''}">${inner}${detailHtml}${sub}</td>`;
     }).join('');
 
     const holeDisp1 = h + 1 + (state.holeOffset ?? 0);
@@ -7068,10 +7110,35 @@ function buildVerticalScorecard(state, mode) {
     if (!frontHas[ci] && !backHas[ci]) return '';
     return (frontHas[ci] ? frontTotals[ci] : 0) + (backHas[ci] ? backTotals[ci] : 0);
   });
+
+  // In detail mode: show net total + pts total derived from hole cells
+  const detailTotals = mode === 'detail' ? columns.map((c, ci) => {
+    const entries = log.filter(e => e != null);
+    let netSum = 0; let ptsSum = 0; let hasNet = false; let hasPts = false;
+    for (let h = 0; h < totalHoles; h++) {
+      const entry = byHole[h];
+      if (!entry) continue;
+      const cell = c.getCell(entry, 'detail');
+      if (cell.detail) {
+        netSum += cell.detail.net ?? 0; hasNet = true;
+        if (cell.detail.pts != null) { ptsSum += cell.detail.pts; hasPts = true; }
+      }
+    }
+    return { gross: grandTotals[ci], net: hasNet ? netSum : null, pts: hasPts ? ptsSum : null };
+  }) : null;
+
   bodyRows += `
     <tr class="sc-total-row">
       <td>Total</td>
-      ${columns.map((c, ci) => `<td>${grandTotals[ci]}</td>`).join('')}
+      ${columns.map((c, ci) => {
+        if (mode === 'detail' && detailTotals?.[ci]) {
+          const dt = detailTotals[ci];
+          const netHtml = dt.net != null ? `<div class="sc-detail-net" style="color:var(--muted2);">Net ${dt.net}</div>` : '';
+          const ptsHtml = dt.pts != null ? `<div class="sc-detail-pts" style="color:var(--gold);">${dt.pts}pt</div>` : '';
+          return `<td class="sc-detail-cell">${dt.gross}${netHtml}${ptsHtml}</td>`;
+        }
+        return `<td>${grandTotals[ci]}</td>`;
+      }).join('')}
     </tr>`;
 
   // Texas Scramble: add team HCP footer and net total for stroke mode
@@ -10613,53 +10680,15 @@ document.getElementById('btn-hole-edit-confirm')?.addEventListener('click', asyn
   modal.classList.remove('open');
 
   // ── CASCADE RECALCULATION ──────────────────────────────────────
-  // Rebuild gameState from scratch up to (but not including) holeIdx
-  // then replay from holeIdx with new grosses, then replay remaining holes
-  const log         = gameState.log ?? [];
-  const originalLog = [...log];
+  // Snapshot CURRENT (pre-edit) totals for diff display
+  const log           = gameState.log ?? [];
+  const beforeTotals  = [...(gameState.totals    ?? [])];
+  const beforeMatch   = gameState.matchScore     ?? 0;
+  const beforeSkins   = [...(gameState.skins     ?? [])];
+  const beforeRunning = [...(gameState.runningPts ?? [])];
 
-  // Rebuild state up to holeIdx
-  let rebuiltState = buildInitialState({
-    format:          gameState.format,
-    names:           gameState.names,
-    handicapIndexes: gameState.handicapIndexes,
-    playingHandicaps: gameState.playingHandicaps,
-    matchHandicaps:  gameState.matchHandicaps,
-    allowancePct:    gameState.allowancePct ?? 100,
-    si:              gameState.si,
-    par:             gameState.par,
-    numHoles:        gameState.numHoles,
-    holeOffset:      gameState.holeOffset ?? 0,
-    courseName:      gameState.courseName,
-    teeName:         gameState.teeName,
-    tournamentId:    gameState.tournamentId,
-    
-    groupNumber:     gameState.groupNumber,
-    longestDriveHoles: gameState.longestDriveHoles ?? [],
-    nearestPinHoles:   gameState.nearestPinHoles   ?? [],
-  });
-  // Rebuild wipes results since they're independent of score replay — restore them
-  rebuiltState.ldResults  = gameState.ldResults  ?? {};
-  rebuiltState.ntpResults = gameState.ntpResults ?? {};
-
-  // Replay holes 0..holeIdx-1 with original scores
-  for (let i = 0; i < holeIdx; i++) {
-    rebuiltState = processHole(rebuiltState, originalLog[i].grosses);
-  }
-
-  // Snapshot totals before edit (for diff)
-  const beforeTotals  = [...(rebuiltState.totals ?? [])];
-  const beforeMatch   = rebuiltState.matchScore ?? 0;
-  const beforeSkins   = [...(rebuiltState.skins ?? [])];
-  const beforeRunning = [...(rebuiltState.runningPts ?? [])];
-
-  // Process the edited hole
-  rebuiltState = processHole(rebuiltState, newGrosses);
-
-  // Replay holes holeIdx+1..end with original scores
-  for (let i = holeIdx + 1; i < originalLog.length; i++) {
-    rebuiltState = processHole(rebuiltState, originalLog[i].grosses);
-  }
+  // Single authoritative edit path: editHole() → recalcState() → full rebuild from log
+  let rebuiltState = editHole(gameState, holeIdx, newGrosses);
 
   // Preserve allGroupStates reference
   rebuiltState.allGroupStates = gameState.allGroupStates;
