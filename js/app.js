@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801i)
+// LEADERBOARD - app.js  (v3.2 · build 20260801j)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -6024,7 +6024,7 @@ function _renderAmendScorecard() {
     const bg = gross === 1 ? 'var(--gold)' : r < 0 ? '#d64545' : r === 0 ? 'var(--green)' : r <= 2 ? '#3a7bd5' : '#555';
     return `<div style="display:inline-flex;align-items:center;justify-content:center;
       width:${size}px;height:${size}px;border-radius:50%;background:${bg};
-      font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:${Math.round(size*0.44)}rem;
+      font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:${Math.round(size*0.44)}px;
       color:${gross===1?'#000':'#fff'};flex-shrink:0;${extraStyle}">${gross}</div>`;
   };
 
