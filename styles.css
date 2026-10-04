@@ -2410,6 +2410,74 @@ html.light .bottom-nav-btn.active {
   margin-right: 1px;
 }
 
+/* ── Amend Scorecard Edit table ──────────────────── */
+.asc-table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+}
+.asc-table th {
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  border-bottom: 2px solid var(--border2);
+  font-family: 'Barlow Condensed', sans-serif;
+  padding: 0.4rem 0.25rem;
+  text-align: center;
+}
+.asc-hole-cell {
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 2;
+  padding: 0.35rem 0.5rem;
+  border-right: 1px solid var(--border2);
+  vertical-align: middle;
+  min-width: 56px;
+}
+.asc-score-cell {
+  text-align: center;
+  vertical-align: middle;
+  padding: 0.3rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s;
+}
+.asc-score-cell:active { background: rgba(212,168,67,0.12); }
+/* Live totals footer */
+.asc-tot-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border-right: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  min-width: 72px;
+}
+.asc-tot-cell:first-child { border-left-width: 3px; }
+.asc-tot-name {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+.asc-tot-score {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--gold);
+  line-height: 1;
+}
+.asc-tot-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
 /* Auth screen: match app text sizing */
 #screen-auth .field > label {
   font-size: 1rem;
