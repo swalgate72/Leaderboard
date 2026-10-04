@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801h)
+// LEADERBOARD - app.js  (v3.2 · build 20260801i)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -5921,16 +5921,78 @@ function _renderAmendScorecard() {
   const isMatch   = fmt === 'match';
 
   // Player columns: array of { label, color, getValue(entry) → { gross, shots, net, pts } }
+  // For pair formats we use a richer pairCols structure instead.
+  const isFoursomeFmt = fmt === 'foursomes' || fmt === 'greensomes';
   let cols;
+  let pairCols = null; // used instead of cols for pair formats
+
   if (isPairFmt) {
-    cols = [
-      { label: `${shortName(names[0]??'')} & ${shortName(names[1]??'')}`, color: pHex(0),
-        getValue: (e) => e ? { gross: e.grosses?.[0] ?? e.grosses?.[1], shots: null,
-          net: e.bbA?.net ?? e.nets?.[0] ?? null, pts: e.sbPts ? (e.sbPts[0]??0)+(e.sbPts[1]??0) : null } : null },
-      { label: `${shortName(names[2]??'')} & ${shortName(names[3]??'')}`, color: pHex(2),
-        getValue: (e) => e ? { gross: e.grosses?.[2] ?? e.grosses?.[3], shots: null,
-          net: e.bbB?.net ?? e.nets?.[1] ?? null, pts: e.sbPts ? (e.sbPts[2]??0)+(e.sbPts[3]??0) : null } : null },
+    // pairCols: array of 2 pair objects, each describing both players + result disc
+    pairCols = [
+      {
+        p: [0, 1],
+        colors: [pHex(0), pHex(1)],
+        labels: [shortName(names[0]??'P1'), shortName(names[1]??'P2')],
+        getPlayers: (e) => {
+          if (!e) return null;
+          if (isFoursomeFmt) {
+            // One gross per pair — grosses[0] = pair A score
+            const gross = e.grosses?.[0];
+            const net   = e.nets?.[0] ?? gross;
+            const shots = gross != null ? gross - (net ?? gross) : 0;
+            return { single: true, gross, shots, net };
+          }
+          return {
+            p0: { gross: e.grosses?.[0], shots: e.extras?.[0] ?? 0,
+                  net: e.nets?.[0], counted: e.bbA?.pi === 0 },
+            p1: { gross: e.grosses?.[1], shots: e.extras?.[1] ?? 0,
+                  net: e.nets?.[1], counted: e.bbA?.pi === 1 },
+          };
+        },
+        getResult: (e) => {
+          if (!e) return null;
+          const result = e.result ?? 0; // +1 = pair A won, -1 = pair B won
+          const won = result > 0;
+          const halved = result === 0;
+          if (fmt === 'betterball') return { score: e.bbA?.net, label: 'net', won, halved };
+          if (fmt === 'csm')        return { score: e.totalA,  label: 'pts', won, halved };
+          // foursomes/greensomes
+          const net = e.nets?.[0] ?? e.grosses?.[0];
+          return { score: net, label: 'net', won, halved };
+        },
+      },
+      {
+        p: [2, 3],
+        colors: [pHex(2), pHex(3)],
+        labels: [shortName(names[2]??'P3'), shortName(names[3]??'P4')],
+        getPlayers: (e) => {
+          if (!e) return null;
+          if (isFoursomeFmt) {
+            const gross = e.grosses?.[1];
+            const net   = e.nets?.[1] ?? gross;
+            const shots = gross != null ? gross - (net ?? gross) : 0;
+            return { single: true, gross, shots, net };
+          }
+          return {
+            p0: { gross: e.grosses?.[2], shots: e.extras?.[2] ?? 0,
+                  net: e.nets?.[2], counted: e.bbA?.pi === 2 || e.bbB?.pi === 2 },
+            p1: { gross: e.grosses?.[3], shots: e.extras?.[3] ?? 0,
+                  net: e.nets?.[3], counted: e.bbA?.pi === 3 || e.bbB?.pi === 3 },
+          };
+        },
+        getResult: (e) => {
+          if (!e) return null;
+          const result = e.result ?? 0;
+          const won = result < 0; // pair B wins when result < 0
+          const halved = result === 0;
+          if (fmt === 'betterball') return { score: e.bbB?.net, label: 'net', won, halved };
+          if (fmt === 'csm')        return { score: e.totalB,  label: 'pts', won, halved };
+          const net = e.nets?.[1] ?? e.grosses?.[1];
+          return { score: net, label: 'net', won, halved };
+        },
+      },
     ];
+    cols = pairCols; // keep for iteration count; actual rendering uses pairCols branch
   } else if (isTexas) {
     cols = [{ label: gameState.teamName ?? 'Team', color: pHex(0),
       getValue: (e) => e ? { gross: e.gross, shots: e.teamExtra ?? 0, net: e.net, pts: e.pts } : null }];
@@ -5950,14 +6012,59 @@ function _renderAmendScorecard() {
   }
 
   // ── Build table ────────────────────────────────────────────────
-  const colW    = Math.max(64, Math.floor(Math.min(window.innerWidth - 80, 500) / cols.length));
+  // Pair formats: 2 wide cols (each showing 2 players + result disc)
+  // Individual formats: 1 col per player
+  const numDataCols = pairCols ? 2 : cols.length;
+  const colW    = Math.max(100, Math.floor(Math.min(window.innerWidth - 72, 520) / numDataCols));
   const holeColW = 60;
+
+  const grossDisc = (gross, parH, size = 36, extraStyle = '') => {
+    if (gross == null) return '';
+    const r = gross - parH;
+    const bg = gross === 1 ? 'var(--gold)' : r < 0 ? '#d64545' : r === 0 ? 'var(--green)' : r <= 2 ? '#3a7bd5' : '#555';
+    return `<div style="display:inline-flex;align-items:center;justify-content:center;
+      width:${size}px;height:${size}px;border-radius:50%;background:${bg};
+      font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:${Math.round(size*0.44)}rem;
+      color:${gross===1?'#000':'#fff'};flex-shrink:0;${extraStyle}">${gross}</div>`;
+  };
 
   // Header row
   let headerCells = `<th style="min-width:${holeColW}px;position:sticky;left:0;background:var(--surface);z-index:3;text-align:left;padding:0.4rem 0.5rem;font-size:0.8rem;color:var(--muted);font-weight:700;">HOLE</th>`;
-  cols.forEach(c => {
-    headerCells += `<th style="min-width:${colW}px;width:${colW}px;padding:0.3rem 0.2rem;font-size:0.8rem;font-weight:800;color:${c.color};text-align:center;">${shortName(c.label)}</th>`;
-  });
+
+  if (pairCols) {
+    pairCols.forEach(pc => {
+      if (isFoursomeFmt) {
+        // Foursomes: show "P1 & P2" as one header
+        headerCells += `<th style="min-width:${colW}px;padding:0.3rem 0.4rem;text-align:center;">
+          <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;">
+            <span style="width:7px;height:7px;border-radius:50%;background:${pc.colors[0]};display:inline-block;flex-shrink:0;"></span>
+            <span style="font-size:0.8rem;font-weight:800;color:${pc.colors[0]};">${pc.labels[0]}</span>
+            <span style="font-size:0.75rem;color:var(--muted);">&</span>
+            <span style="width:7px;height:7px;border-radius:50%;background:${pc.colors[1]};display:inline-block;flex-shrink:0;"></span>
+            <span style="font-size:0.8rem;font-weight:800;color:${pc.colors[1]};">${pc.labels[1]}</span>
+          </div>
+        </th>`;
+      } else {
+        // BB/CSM: show both players stacked
+        headerCells += `<th style="min-width:${colW}px;padding:0.3rem 0.4rem;text-align:center;">
+          <div style="display:flex;flex-direction:column;gap:2px;align-items:center;">
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="width:7px;height:7px;border-radius:50%;background:${pc.colors[0]};display:inline-block;flex-shrink:0;"></span>
+              <span style="font-size:0.8rem;font-weight:800;color:${pc.colors[0]};">${pc.labels[0]}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="width:7px;height:7px;border-radius:50%;background:${pc.colors[1]};display:inline-block;flex-shrink:0;"></span>
+              <span style="font-size:0.8rem;font-weight:800;color:${pc.colors[1]};">${pc.labels[1]}</span>
+            </div>
+          </div>
+        </th>`;
+      }
+    });
+  } else {
+    cols.forEach(c => {
+      headerCells += `<th style="min-width:${colW}px;width:${colW}px;padding:0.3rem 0.2rem;font-size:0.8rem;font-weight:800;color:${c.color};text-align:center;">${shortName(c.label)}</th>`;
+    });
+  }
 
   // Data rows
   let bodyRows = '';
@@ -5977,67 +6084,138 @@ function _renderAmendScorecard() {
       <div style="font-size:0.7rem;color:var(--muted);font-weight:600;white-space:nowrap;">P${parH} S${siH}</div>
     </td>`;
 
-    cols.forEach((c, ci) => {
-      const val = c.getValue(entry);
-      if (!val) {
-        cells += `<td class="asc-score-cell" data-h="${h}" data-ci="${ci}" style="${rowBg}"></td>`;
-        return;
-      }
-      // Gross colour
-      const relToPar = val.gross - parH;
-      const grossCol = val.gross === 1 ? 'var(--gold)'
-        : relToPar < 0 ? '#d64545'
-        : relToPar === 0 ? 'var(--green)'
-        : relToPar <= 2 ? '#3a7bd5' : 'var(--muted)';
+    if (pairCols) {
+      pairCols.forEach((pc, ci) => {
+        if (!entry) {
+          cells += `<td class="asc-score-cell" data-h="${h}" data-ci="${ci}" style="${rowBg}padding:0.4rem 0.3rem;"></td>`;
+          return;
+        }
+        const players = pc.getPlayers(entry);
+        const result  = pc.getResult(entry);
 
-      const shotDot  = val.shots > 0 ? `<span style="color:var(--gold);font-size:0.6rem;line-height:1;vertical-align:middle;">${'•'.repeat(Math.min(val.shots,2))}</span> ` : '';
-      const netHtml  = val.net != null ? `<div style="font-size:0.72rem;font-weight:700;color:var(--muted2);margin-top:1px;">${shotDot}${val.net}</div>` : '';
-      const ptsHtml  = val.pts != null ? `<div style="font-size:0.68rem;font-weight:800;color:var(--gold);margin-top:1px;">${val.pts}pt</div>` : '';
+        // Result disc colour
+        const discBg    = result?.won ? 'var(--gold)' : result?.halved ? 'var(--surface3)' : 'var(--surface3)';
+        const discBorder = result?.won ? 'var(--gold)' : 'var(--border)';
+        const discTextCol = result?.won ? '#000' : 'var(--muted2)';
+        const scoreStr  = result?.score != null ? String(result.score) : '–';
+        const labelStr  = result?.label ?? '';
 
-      cells += `<td class="asc-score-cell" data-h="${h}" data-ci="${ci}" style="${rowBg}cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0);">
-        <div style="display:inline-flex;align-items:center;justify-content:center;
-                    width:36px;height:36px;border-radius:50%;background:${grossCol};
-                    font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;
-                    color:${val.gross===1?'#000':'#fff'};">${val.gross}</div>
-        ${netHtml}${ptsHtml}
-      </td>`;
-    });
+        let innerHtml;
+        if (isFoursomeFmt && players?.single) {
+          // One gross circle for the pair + net below + result disc
+          const { gross, shots, net } = players;
+          const shotDots = shots > 0 ? `<span style="color:var(--gold);font-size:0.65rem;margin-right:2px;">${'•'.repeat(Math.min(shots,2))}</span>` : '';
+          innerHtml = `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+              ${grossDisc(gross, parH, 38)}
+              <div style="font-size:0.8rem;font-weight:700;color:var(--muted2);">${shotDots}${net ?? ''}</div>
+            </div>`;
+        } else if (players) {
+          // Two individual gross circles + a result disc
+          const { p0, p1 } = players;
+          const disc0 = grossDisc(p0?.gross, parH, 34, p0?.counted ? 'box-shadow:0 0 0 2.5px var(--gold);' : 'opacity:0.7;');
+          const disc1 = grossDisc(p1?.gross, parH, 34, p1?.counted ? 'box-shadow:0 0 0 2.5px var(--gold);' : 'opacity:0.7;');
+
+          innerHtml = `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:0.1rem 0;">
+              <div style="display:flex;gap:6px;align-items:center;">
+                ${disc0}${disc1}
+              </div>
+              <div style="display:flex;align-items:baseline;justify-content:center;gap:3px;
+                          background:${discBg};border:1.5px solid ${discBorder};border-radius:16px;
+                          padding:2px 8px;min-width:32px;">
+                <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1rem;color:${discTextCol};">${scoreStr}</span>
+                <span style="font-size:0.62rem;font-weight:700;color:${discTextCol};opacity:0.8;">${labelStr}</span>
+              </div>
+            </div>`;
+        } else {
+          innerHtml = '';
+        }
+
+        cells += `<td class="asc-score-cell" data-h="${h}" data-ci="${ci}"
+          style="${rowBg}cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0);padding:0.3rem 0.2rem;vertical-align:middle;text-align:center;">
+          ${innerHtml}
+        </td>`;
+      });
+    } else {
+      cols.forEach((c, ci) => {
+        const val = c.getValue(entry);
+        if (!val) {
+          cells += `<td class="asc-score-cell" data-h="${h}" data-ci="${ci}" style="${rowBg}"></td>`;
+          return;
+        }
+        const relToPar = val.gross - parH;
+        const grossCol = val.gross === 1 ? 'var(--gold)'
+          : relToPar < 0 ? '#d64545'
+          : relToPar === 0 ? 'var(--green)'
+          : relToPar <= 2 ? '#3a7bd5' : 'var(--muted)';
+
+        const shotDot  = val.shots > 0 ? `<span style="color:var(--gold);font-size:0.6rem;line-height:1;vertical-align:middle;">${'•'.repeat(Math.min(val.shots,2))}</span> ` : '';
+        const netHtml  = val.net != null ? `<div style="font-size:0.75rem;font-weight:700;color:var(--muted2);margin-top:2px;">${shotDot}${val.net}</div>` : '';
+        const ptsHtml  = val.pts != null ? `<div style="font-size:0.7rem;font-weight:800;color:var(--gold);margin-top:1px;">${val.pts}pt</div>` : '';
+
+        cells += `<td class="asc-score-cell" data-h="${h}" data-ci="${ci}" style="${rowBg}cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0);">
+          <div style="display:inline-flex;align-items:center;justify-content:center;
+                      width:36px;height:36px;border-radius:50%;background:${grossCol};
+                      font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;
+                      color:${val.gross===1?'#000':'#fff'};">${val.gross}</div>
+          ${netHtml}${ptsHtml}
+        </td>`;
+      });
+    }
 
     bodyRows += `<tr>${cells}</tr>`;
   }
 
   // ── Totals row ─────────────────────────────────────────────────
   let totalCells = `<td class="asc-hole-cell" style="border-top:2px solid var(--border);font-weight:800;font-size:0.85rem;color:var(--gold);">TOTAL</td>`;
-  const grandGross = cols.map(() => 0);
-  const grandNet   = cols.map(() => 0);
-  const grandPts   = cols.map(() => 0);
-  const hasNet     = cols.map(() => false);
-  const hasPts     = cols.map(() => false);
+  const grandGross = new Array(numDataCols).fill(0);
+  const grandNet   = new Array(numDataCols).fill(0);
+  const grandPts   = new Array(numDataCols).fill(0);
+  const hasNet     = new Array(numDataCols).fill(false);
+  const hasPts     = new Array(numDataCols).fill(false);
 
-  for (let h = 0; h < numHoles; h++) {
-    const entry = byHole[h];
-    if (!entry) continue;
-    cols.forEach((c, ci) => {
-      const val = c.getValue(entry);
-      if (!val) return;
-      grandGross[ci] += val.gross ?? 0;
-      if (val.net  != null) { grandNet[ci] += val.net;  hasNet[ci] = true; }
-      if (val.pts  != null) { grandPts[ci] += val.pts;  hasPts[ci] = true; }
-    });
+  if (!pairCols) {
+    for (let h = 0; h < numHoles; h++) {
+      const entry = byHole[h];
+      if (!entry) continue;
+      cols.forEach((c, ci) => {
+        const val = c.getValue(entry);
+        if (!val) return;
+        grandGross[ci] += val.gross ?? 0;
+        if (val.net  != null) { grandNet[ci] += val.net;  hasNet[ci] = true; }
+        if (val.pts  != null) { grandPts[ci] += val.pts;  hasPts[ci] = true; }
+      });
+    }
   }
 
-  cols.forEach((c, ci) => {
-    if (!grandGross[ci] && !hasNet[ci] && !hasPts[ci]) {
-      totalCells += `<td class="asc-score-cell" style="border-top:2px solid var(--border);"></td>`;
-      return;
-    }
-    const netLine = hasNet[ci] ? `<div style="font-size:0.72rem;font-weight:700;color:var(--muted2);">Net ${grandNet[ci]}</div>` : '';
-    const ptsLine = hasPts[ci] ? `<div style="font-size:0.72rem;font-weight:800;color:var(--gold);">${grandPts[ci]}pt</div>` : '';
-    totalCells += `<td class="asc-score-cell" style="border-top:2px solid var(--border);">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:var(--white);">${grandGross[ci]}</div>
-      ${netLine}${ptsLine}
-    </td>`;
-  });
+  if (pairCols) {
+    // Pair formats total row: show match score
+    const ms = gameState.matchScore ?? 0;
+    const up = Math.abs(ms);
+    pairCols.forEach((pc, ci) => {
+      const leading = ci === 0 ? ms > 0 : ms < 0;
+      const halved  = ms === 0;
+      const txt = halved ? 'All Sq' : leading ? `${up} Up` : `${up} Dn`;
+      const col = halved ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
+      totalCells += `<td class="asc-score-cell" style="border-top:2px solid var(--border);text-align:center;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;color:${col};">${txt}</div>
+      </td>`;
+    });
+  } else {
+    cols.forEach((c, ci) => {
+      if (!grandGross[ci] && !hasNet[ci] && !hasPts[ci]) {
+        totalCells += `<td class="asc-score-cell" style="border-top:2px solid var(--border);"></td>`;
+        return;
+      }
+      const netLine = hasNet[ci] ? `<div style="font-size:0.72rem;font-weight:700;color:var(--muted2);">Net ${grandNet[ci]}</div>` : '';
+      const ptsLine = hasPts[ci] ? `<div style="font-size:0.72rem;font-weight:800;color:var(--gold);">${grandPts[ci]}pt</div>` : '';
+      totalCells += `<td class="asc-score-cell" style="border-top:2px solid var(--border);">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:var(--white);">${grandGross[ci]}</div>
+        ${netLine}${ptsLine}
+      </td>`;
+    });
+  }
 
   listEl.innerHTML = `<table class="asc-table">
     <thead><tr>${headerCells}</tr></thead>
@@ -6056,12 +6234,17 @@ function _renderAmendScorecard() {
     const isItc = fmt2 === 'itc';
     const isMatchFmt = fmt2 === 'match' || isPairFmt;
 
-    totalsEl.innerHTML = cols.map((c, ci) => {
+    // Use pairCols labels/colors for pair formats
+    const totCols = pairCols
+      ? pairCols.map(pc => ({ label: `${pc.labels[0]} & ${pc.labels[1]}`, color: pc.colors[0] }))
+      : cols;
+    totalsEl.innerHTML = totCols.map((c, ci) => {
       let scoreHtml = '';
       if (isMatchFmt) {
         // Match/pairs: show running match score from gameState (authoritative)
         const ms = gameState.matchScore ?? 0;
         const up = Math.abs(ms);
+        // For pair formats ci maps to pairCols index (0=pair A, 1=pair B)
         const leading = ci === 0 ? ms > 0 : ms < 0;
         const txt = ms === 0 ? 'All Sq' : leading ? `${up} Up` : `${up} Dn`;
         const col = ms === 0 ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
