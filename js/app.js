@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801k)
+// LEADERBOARD - app.js  (v3.2 · build 20260801l)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -6051,19 +6051,13 @@ function _renderAmendScorecard() {
           </div>
         </th>`;
       } else {
-        // BB/CSM: show initials for both players side-by-side
+        // BB/CSM: initials only, no dots, wider gap to align above discs
         const ini0 = toInitials(pc.labels[0]);
         const ini1 = toInitials(pc.labels[1]);
         headerCells += `<th style="min-width:${colW}px;padding:0.3rem 0.4rem;text-align:center;">
-          <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-              <span style="width:8px;height:8px;border-radius:50%;background:${pc.colors[0]};display:inline-block;"></span>
-              <span style="font-size:0.78rem;font-weight:800;color:${pc.colors[0]};white-space:nowrap;">${ini0}</span>
-            </div>
-            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-              <span style="width:8px;height:8px;border-radius:50%;background:${pc.colors[1]};display:inline-block;"></span>
-              <span style="font-size:0.78rem;font-weight:800;color:${pc.colors[1]};white-space:nowrap;">${ini1}</span>
-            </div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:20px;">
+            <span style="font-size:1.5rem;font-weight:800;color:${pc.colors[0]};white-space:nowrap;line-height:1;">${ini0}</span>
+            <span style="font-size:1.5rem;font-weight:800;color:${pc.colors[1]};white-space:nowrap;line-height:1;">${ini1}</span>
           </div>
         </th>`;
       }
@@ -6129,11 +6123,11 @@ function _renderAmendScorecard() {
               <div style="display:flex;gap:14px;align-items:center;">
                 ${disc0}${disc1}
               </div>
-              <div style="display:flex;align-items:baseline;justify-content:center;gap:3px;
-                          background:${discBg};border:1.5px solid ${discBorder};border-radius:16px;
-                          padding:2px 8px;min-width:32px;">
-                <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1rem;color:${discTextCol};">${scoreStr}</span>
-                <span style="font-size:0.62rem;font-weight:700;color:${discTextCol};opacity:0.8;">${labelStr}</span>
+              <div style="display:flex;align-items:baseline;justify-content:center;gap:4px;
+                          background:${discBg};border:1.5px solid ${discBorder};border-radius:20px;
+                          padding:4px 14px;min-width:52px;">
+                <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;color:${discTextCol};">${scoreStr}</span>
+                <span style="font-size:0.74rem;font-weight:700;color:${discTextCol};opacity:0.85;">${labelStr}</span>
               </div>
             </div>`;
         } else {
@@ -11189,7 +11183,7 @@ document.getElementById('btn-hole-edit-diff-confirm')?.addEventListener('click',
   // Apply the rebuilt state
   gameState = rebuiltState;
 
-  // Save to Supabase
+  // Save
   await saveRoundState();
 
   // Re-render game screen
@@ -11197,7 +11191,11 @@ document.getElementById('btn-hole-edit-diff-confirm')?.addEventListener('click',
   renderScoreHeader();
   document.getElementById('result-flash').innerHTML = '&nbsp;';
 
-  alert('Score updated and scorecard recalculated.');
+  // If the amend scorecard overlay is open, re-render it live
+  const amendOverlay = document.getElementById('amend-overlay');
+  if (amendOverlay && amendOverlay.style.display !== 'none') {
+    _renderAmendScorecard();
+  }
 });
 
 document.getElementById('btn-hole-edit-diff-cancel')?.addEventListener('click', () => {
