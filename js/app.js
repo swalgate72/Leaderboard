@@ -1,5 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801o)
+// LEADERBOARD - app.js  (v3.2 · build 20260801p)
+window.APP_BUILD = '20260801p'; // check in console to verify deployed version
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -5873,9 +5874,8 @@ function setScoreValue(pi, h, par, value, isPickup) {
     // behind the overlay matches the updated gameState immediately.
     renderScoreHeader();
     renderHolePanel();
-    // Re-render the amend scorecard in the next animation frame so the
-    // browser has time to close the picker modal first (iOS repaint timing).
-    requestAnimationFrame(() => _renderAmendScorecard());
+    // Re-render the amend scorecard synchronously — same gameState as main screen.
+    _renderAmendScorecard();
     return;
   }
 
@@ -6357,6 +6357,7 @@ function _openAmendScorePicker(hIdx, colIdx) {
   if (isPairFmt || isTexas) {
     // For pair/texas formats, fall through to the existing openHoleEdit modal
     // (these need to enter both players' scores or the team score+driver)
+    _holeEditFromScorecard = true;  // tell btn-hole-edit-confirm to skip diff modal
     openHoleEdit(hIdx + (gameState.holeOffset ?? 0) + 1);
     return;
   }
@@ -6384,6 +6385,9 @@ let _amendPickerHIdx = null;
 let _amendPickerPi   = null;
 let _amendPickerPar  = null;
 let _amendPickerMode = false;
+// Flag: true when openHoleEdit was opened from Scorecard Edit overlay.
+// Used in btn-hole-edit-confirm to skip the diff modal for that path.
+let _holeEditFromScorecard = false;
 function closeAmendOverlay() {
   const overlay = document.getElementById('amend-overlay');
   if (overlay) overlay.style.display = 'none';
@@ -11120,7 +11124,27 @@ document.getElementById('btn-hole-edit-confirm')?.addEventListener('click', asyn
   rebuiltState.allGroupStates = gameState.allGroupStates;
   rebuiltState.organiserId    = gameState.organiserId;
 
-  // ── DIFF SUMMARY ───────────────────────────────────────────────
+  // ── SCORECARD EDIT FAST PATH ──────────────────────────────────
+  // When the edit originated from the Scorecard Edit overlay, apply immediately
+  // without showing the diff modal. The user has already confirmed by adjusting
+  // the spinners and pressing Confirm.
+  if (_holeEditFromScorecard) {
+    _holeEditFromScorecard = false; // reset for next use
+    gameState = rebuiltState;
+    await saveRoundState();
+    renderGameHeader();
+    renderScoreHeader();
+    renderHolePanel();
+    document.getElementById('result-flash').innerHTML = '&nbsp;';
+    // Re-render the Scorecard Edit overlay synchronously (no rAF)
+    const amendEl = document.getElementById('amend-overlay');
+    if (amendEl && amendEl.style.display !== 'none') {
+      _renderAmendScorecard();
+    }
+    return;
+  }
+
+  // ── DIFF SUMMARY (normal live amend path) ──────────────────────
   const fmt      = gameState.format;
   const isStroke = fmt === 'stroke';
   const isSkins  = fmt === 'skins';
@@ -11213,10 +11237,10 @@ document.getElementById('btn-hole-edit-diff-confirm')?.addEventListener('click',
   renderHolePanel();
   document.getElementById('result-flash').innerHTML = '&nbsp;';
 
-  // If the amend scorecard overlay is open, re-render it live
+  // If the amend scorecard overlay is open, re-render it synchronously
   const amendOverlay = document.getElementById('amend-overlay');
   if (amendOverlay && amendOverlay.style.display !== 'none') {
-    requestAnimationFrame(() => _renderAmendScorecard());
+    _renderAmendScorecard();
   }
 });
 
