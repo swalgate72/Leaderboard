@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801m)
+// LEADERBOARD - app.js  (v3.2 · build 20260801o)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -5544,7 +5544,7 @@ function openTexasScorePicker(h, par) {
 // If yes, suppress the button action on touchend.
 let _spScrolling = false;
 let _spTouchStartY = 0;
-const SCROLL_THRESHOLD = 6;
+const SCROLL_THRESHOLD = 10; // px — rapid tap is <10px; deliberate scroll is ≥10px
 
 // Page-level scroll tracker — prevents picker opening mid-scroll
 let _pageScrolling = false;
@@ -5566,6 +5566,11 @@ document.addEventListener('touchend', () => {
 }, { passive: true });
 
 function attachScrollGuard(gridEl) {
+  // Guard: only attach once per gridEl — prevents listener accumulation
+  // across repeated picker opens (each open calls this function).
+  if (gridEl._scrollGuardAttached) return;
+  gridEl._scrollGuardAttached = true;
+
   gridEl.addEventListener('touchstart', (e) => {
     _spScrolling   = false;
     _spTouchStartY = e.touches[0]?.clientY ?? 0;
@@ -5642,6 +5647,8 @@ function openScorePicker(pi, h, par) {
   attachScrollGuard(gridEl);
   gridEl.querySelectorAll('.sp-num-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
+      // Desktop/mouse fallback only. On touch devices this is always
+      // suppressed by e.preventDefault() in the touchend handler below.
       e.stopPropagation();
       if (_spScrolling) { _spScrolling = false; return; }
       const v = parseInt(btn.dataset.val, 10);
@@ -5649,6 +5656,12 @@ function openScorePicker(pi, h, par) {
       closeScorePicker();
     });
     btn.addEventListener('touchend', (e) => {
+      // e.preventDefault() is called FIRST, unconditionally.
+      // This suppresses the iOS synthetic click that fires ~300ms later,
+      // preventing a second call to setScoreValue() via the click handler.
+      // Without this, if the touchend exits early (scroll detected),
+      // the synthetic click fires later and can call setScoreValue() at an
+      // unexpected time — causing delayed/duplicate score commits.
       e.preventDefault();
       e.stopPropagation();
       if (_spScrolling) { _spScrolling = false; return; }
