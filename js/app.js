@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801l)
+// LEADERBOARD - app.js  (v3.2 · build 20260801m)
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -5855,10 +5855,14 @@ function setScoreValue(pi, h, par, value, isPickup) {
     gameState = rebuilt;
     // Persist the change
     saveRoundState().catch(() => {});
-    // Refresh score header in game screen (behind the overlay)
+    // Refresh BOTH the score header AND the hole panel in the game screen.
+    // renderHolePanel() is needed so the live match score / pair status
+    // behind the overlay matches the updated gameState immediately.
     renderScoreHeader();
-    // Re-render the amend scorecard so totals update live
-    _renderAmendScorecard();
+    renderHolePanel();
+    // Re-render the amend scorecard in the next animation frame so the
+    // browser has time to close the picker modal first (iOS repaint timing).
+    requestAnimationFrame(() => _renderAmendScorecard());
     return;
   }
 
@@ -6314,8 +6318,12 @@ function _renderAmendScorecard() {
     const entry = byHole[h];
     if (!entry) return; // unplayed hole — not editable
 
-    td.addEventListener('click', () => _openAmendScorePicker(h, ci));
+    td.addEventListener('click', (e) => {
+      if (_pickerJustClosed) return;
+      _openAmendScorePicker(h, ci);
+    });
     td.addEventListener('touchend', (e) => {
+      if (_pickerJustClosed) return;
       e.preventDefault();
       _openAmendScorePicker(h, ci);
     }, { passive: false });
@@ -11186,15 +11194,16 @@ document.getElementById('btn-hole-edit-diff-confirm')?.addEventListener('click',
   // Save
   await saveRoundState();
 
-  // Re-render game screen
+  // Re-render game screen (header + hole panel so live scoring matches)
   renderGameHeader();
   renderScoreHeader();
+  renderHolePanel();
   document.getElementById('result-flash').innerHTML = '&nbsp;';
 
   // If the amend scorecard overlay is open, re-render it live
   const amendOverlay = document.getElementById('amend-overlay');
   if (amendOverlay && amendOverlay.style.display !== 'none') {
-    _renderAmendScorecard();
+    requestAnimationFrame(() => _renderAmendScorecard());
   }
 });
 
