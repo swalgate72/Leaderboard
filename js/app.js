@@ -1,6 +1,23 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20260801p)
-window.APP_BUILD = '20260801p'; // check in console to verify deployed version
+window.APP_BUILD = 'SCORECARD-DEBUG-01';
+console.log('[SCORECARD DEBUG] BUILD =', window.APP_BUILD, '| format will appear here when round loaded');
+
+// ── SCORECARD DEBUG HELPER ────────────────────────────────────────
+function _dbg(label, extra) {
+  const hIdx = extra?._hIdx ?? 0;
+  console.log('[SCORECARD DEBUG]', label, {
+    t: Math.round(performance.now()),
+    build: window.APP_BUILD,
+    format: gameState?.format,
+    matchScore: gameState?.matchScore,
+    hole0gross: gameState?.log?.[hIdx]?.grosses?.join(',') ?? 'no-log',
+    hole0bbAnet: gameState?.log?.[hIdx]?.bbA?.net ?? 'n/a',
+    result0: gameState?.log?.[hIdx]?.result ?? 'n/a',
+    ...extra,
+  });
+}
+window._dbg = _dbg; // expose for manual console calls
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
 
@@ -4640,6 +4657,9 @@ function renderITCBar() {
 function renderHolePanel() {
   const h     = gameState.hole;
   const total = gameState.numHoles ?? 18;
+  if (gameState?.format && ['betterball','csm','foursomes','greensomes'].includes(gameState.format)) {
+    console.log('[SCORECARD DEBUG] RENDER_MAIN matchScore=' + gameState.matchScore + ' log0grosses=' + JSON.stringify(gameState.log?.[0]?.grosses));
+  }
 
   if (h >= total) { showEndRound(); return; }
 
@@ -5867,6 +5887,7 @@ function setScoreValue(pi, h, par, value, isPickup) {
     rebuilt.allGroupStates = gameState.allGroupStates;
     rebuilt.organiserId    = gameState.organiserId;
     gameState = rebuilt;
+    console.log('[SCORECARD DEBUG] GAMESTATE_COMMITTED via setScoreValue matchScore=' + gameState.matchScore);
     // Persist the change
     saveRoundState().catch(() => {});
     // Refresh BOTH the score header AND the hole panel in the game screen.
@@ -5929,6 +5950,7 @@ function _renderAmendScorecard() {
 
   const fmt    = gameState.format;
   const log    = gameState.log ?? [];
+  console.log('[SCORECARD DEBUG] RENDER_SCORECARD matchScore=' + gameState.matchScore + ' log0grosses=' + JSON.stringify(log[0]?.grosses) + ' overlayDisplay=' + document.getElementById('amend-overlay')?.style.display + ' listElInDom=' + document.contains(listEl));
   const par    = gameState.par  ?? [];
   const si     = gameState.si   ?? [];
   const names  = gameState.names ?? [];
@@ -6325,6 +6347,20 @@ function _renderAmendScorecard() {
   }
 
   // ── Wire cell taps ─────────────────────────────────────────────
+  // Phase 9 DOM check
+  (() => {
+    const allOverlays = document.querySelectorAll('#amend-overlay');
+    const allTables   = document.querySelectorAll('.asc-table');
+    const allLists    = document.querySelectorAll('#amend-hole-list');
+    console.log('[SCORECARD DEBUG] DOM_CHECK overlays=' + allOverlays.length + ' tables=' + allTables.length + ' listEls=' + allLists.length);
+    // Check hole 0 cells (if played)
+    const hole0cells = document.querySelectorAll('td.asc-score-cell[data-h="0"]');
+    hole0cells.forEach((td, i) => {
+      const disc = td.querySelector('div[style*="border-radius:50%"]');
+      console.log('[SCORECARD DEBUG] HOLE0_CELL_' + i + ' ci=' + td.dataset.ci + ' discText=' + (disc?.textContent?.trim() ?? 'none') + ' visible=' + (td.offsetParent !== null));
+    });
+  })();
+
   listEl.querySelectorAll('td.asc-score-cell[data-h]').forEach(td => {
     const h   = parseInt(td.dataset.h);
     const ci  = parseInt(td.dataset.ci);
@@ -6332,10 +6368,12 @@ function _renderAmendScorecard() {
     if (!entry) return; // unplayed hole — not editable
 
     td.addEventListener('click', (e) => {
+      console.log('[SCORECARD DEBUG] CELL CLICK h=' + h + ' ci=' + ci + ' pickerJustClosed=' + _pickerJustClosed + ' overlayDisplay=' + document.getElementById('amend-overlay')?.style.display);
       if (_pickerJustClosed) return;
       _openAmendScorePicker(h, ci);
     });
     td.addEventListener('touchend', (e) => {
+      console.log('[SCORECARD DEBUG] CELL TOUCHEND h=' + h + ' ci=' + ci + ' pickerJustClosed=' + _pickerJustClosed + ' overlayDisplay=' + document.getElementById('amend-overlay')?.style.display);
       if (_pickerJustClosed) return;
       e.preventDefault();
       _openAmendScorePicker(h, ci);
@@ -6493,6 +6531,7 @@ async function recordHole() {
 
   if (isEditingPast) {
     gameState = editHole(gameState, h, grosses);
+    console.log('[SCORECARD DEBUG] GAMESTATE_ASSIGNED via recordHole-amend matchScore=' + gameState.matchScore);
     gameState.hole = h + 1;
   } else {
     gameState = processHole(gameState, grosses);
@@ -7862,6 +7901,7 @@ function subscribeToRound(id) {
       // Single group — replace entirely, preserving allGroupStates if we have it
       const saved = gameState?.allGroupStates;
       gameState = incoming;
+      console.log('[SCORECARD DEBUG] GAMESTATE_ASSIGNED via realtime-incoming matchScore=' + gameState.matchScore);
       if (saved?.length > 1 && !gameState.allGroupStates) gameState.allGroupStates = saved;
     }
 
@@ -11046,6 +11086,7 @@ function openHoleEdit(holeNumber) {
   const holeOffset = gameState.holeOffset ?? 0;
   const holeIdx    = holeNumber - holeOffset - 1; // 0-based index in log
   const log        = gameState.log ?? [];
+  console.log('[SCORECARD DEBUG] OPEN_HOLE_EDIT holeNumber=' + holeNumber + ' holeIdx=' + holeIdx + ' logLen=' + log.length + ' fromScorecard=' + _holeEditFromScorecard + ' currentGrosses=' + JSON.stringify(log[holeIdx]?.grosses));
 
   if (holeIdx < 0 || holeIdx >= log.length) {
     alert(`Hole ${holeNumber} has not been played yet.`);
@@ -11117,8 +11158,10 @@ document.getElementById('btn-hole-edit-confirm')?.addEventListener('click', asyn
   const beforeSkins   = [...(gameState.skins     ?? [])];
   const beforeRunning = [...(gameState.runningPts ?? [])];
 
+  console.log('[SCORECARD DEBUG] EDIT_HOLE_INPUT holeIdx=' + holeIdx + ' fromScorecard=' + _holeEditFromScorecard + ' oldGrosses=' + JSON.stringify(gameState.log?.[holeIdx]?.grosses) + ' newGrosses=' + JSON.stringify(newGrosses));
   // Single authoritative edit path: editHole() → recalcState() → full rebuild from log
   let rebuiltState = editHole(gameState, holeIdx, newGrosses);
+  console.log('[SCORECARD DEBUG] EDIT_HOLE_OUTPUT rebuiltGrosses=' + JSON.stringify(rebuiltState.log?.[holeIdx]?.grosses) + ' rebuiltMatchScore=' + rebuiltState.matchScore + ' sameObj=' + (gameState === rebuiltState));
 
   // Preserve allGroupStates reference
   rebuiltState.allGroupStates = gameState.allGroupStates;
@@ -11131,6 +11174,7 @@ document.getElementById('btn-hole-edit-confirm')?.addEventListener('click', asyn
   if (_holeEditFromScorecard) {
     _holeEditFromScorecard = false; // reset for next use
     gameState = rebuiltState;
+    console.log('[SCORECARD DEBUG] GAMESTATE_COMMITTED via fast-path grosses=' + JSON.stringify(gameState.log?.[holeIdx]?.grosses) + ' matchScore=' + gameState.matchScore);
     await saveRoundState();
     renderGameHeader();
     renderScoreHeader();
@@ -11211,6 +11255,7 @@ document.getElementById('btn-hole-edit-confirm')?.addEventListener('click', asyn
   });
   // Store in closure
   diffModal._rebuiltState = rebuiltState;
+  console.log('[SCORECARD DEBUG] DIFF_OPEN rebuiltGrosses=' + JSON.stringify(rebuiltState.log?.[holeIdx]?.grosses) + ' rebuiltMatchScore=' + rebuiltState.matchScore);
   diffModal.classList.add('open');
 });
 
@@ -11226,7 +11271,9 @@ document.getElementById('btn-hole-edit-diff-confirm')?.addEventListener('click',
   if (!rebuiltState) return;
 
   // Apply the rebuilt state
+  console.log('[SCORECARD DEBUG] DIFF_APPLY rebuiltMatchScore=' + rebuiltState.matchScore);
   gameState = rebuiltState;
+  console.log('[SCORECARD DEBUG] GAMESTATE_COMMITTED via diff-confirm matchScore=' + gameState.matchScore);
 
   // Save
   await saveRoundState();
@@ -11245,6 +11292,7 @@ document.getElementById('btn-hole-edit-diff-confirm')?.addEventListener('click',
 });
 
 document.getElementById('btn-hole-edit-diff-cancel')?.addEventListener('click', () => {
+  console.log('[SCORECARD DEBUG] DIFF_CANCEL — edit ABANDONED, gameState NOT updated');
   document.getElementById('modal-hole-edit-diff').classList.remove('open');
 });
 
