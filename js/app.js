@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20260801x)
-window.APP_BUILD = '20260801x';
+window.APP_BUILD = '20260801y';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -6481,16 +6481,53 @@ function _renderAmendScorecard() {
 
   // ── Inject score sub-line into individual column headers ───────
   if (!pairCols) {
+    // Determine display mode based on format
+    const texSubFmt = gameState.texasScoringFmt ?? 'stableford';
+    const isMatchHdr  = fmt === 'match' || fmt === 'itc'
+      || (fmt === 'texas' && texSubFmt === 'match');
+    const isStrokeHdr = fmt === 'stroke'
+      || (fmt === 'texas' && texSubFmt === 'stroke');
+    const isPtsHdr = !isMatchHdr && !isStrokeHdr; // stableford, skins, split6, best2, texas-stableford
+
+    // For match/ITC: compute match score per player column
+    const ms = gameState.matchScore ?? 0;
+    const msAbs = Math.abs(ms);
+
     cols.forEach((c, ci) => {
       const th = listEl.querySelector(`th[data-hdr-ci="${ci}"]`);
       if (!th) return;
       let scoreHtml = '';
-      if (hasPts[ci])       scoreHtml = `${grandPts[ci]}<span style="font-size:0.8rem;font-weight:600;color:var(--muted);margin-left:2px;">pts</span>`;
-      else if (hasNet[ci])  scoreHtml = `${grandNet[ci]}<span style="font-size:0.8rem;font-weight:600;color:var(--muted);margin-left:2px;">net</span>`;
-      else if (grandGross[ci]) scoreHtml = `${grandGross[ci]}`;
+      let scoreColor = 'var(--white)';
+
+      if (isMatchHdr) {
+        if (fmt === 'match') {
+          // 2-player: ci=0 leads if ms>0, ci=1 leads if ms<0
+          const leading = ci === 0 ? ms > 0 : ms < 0;
+          const halved  = ms === 0;
+          const txt = halved ? 'All Sq' : leading ? `${msAbs} Up` : `${msAbs} Dn`;
+          scoreColor = halved ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
+          scoreHtml = txt;
+        } else {
+          // ITC / texas-match: show pts total (ITC is multi-player, pts accumulate)
+          const pts = grandPts[ci] || 0;
+          scoreHtml = `${pts}<span style="font-size:0.8rem;font-weight:600;color:var(--muted);margin-left:2px;">pts</span>`;
+        }
+      } else if (isStrokeHdr) {
+        const strokes = hasNet[ci] ? grandNet[ci] : grandGross[ci];
+        if (strokes) {
+          scoreHtml = `${strokes}<span style="font-size:0.8rem;font-weight:600;color:var(--muted);margin-left:2px;">str</span>`;
+        }
+      } else {
+        // Pts-based (stableford, skins, split6, best2)
+        const pts = grandPts[ci] || 0;
+        if (pts) {
+          scoreHtml = `${pts}<span style="font-size:0.8rem;font-weight:600;color:var(--muted);margin-left:2px;">pts</span>`;
+        }
+      }
+
       if (scoreHtml) {
         th.innerHTML = `<div style="font-size:1.5rem;font-weight:800;color:${c.color};line-height:1;">${shortName(c.label)}</div>
-          <div style="font-size:1.2rem;font-weight:800;color:var(--white);line-height:1.1;">${scoreHtml}</div>`;
+          <div style="font-size:1.2rem;font-weight:800;color:${scoreColor};line-height:1.1;">${scoreHtml}</div>`;
       }
     });
   }
