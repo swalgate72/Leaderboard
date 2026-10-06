@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801r)
-window.APP_BUILD = '20260801r';
+// LEADERBOARD - app.js  (v3.2 · build 20260801s)
+window.APP_BUILD = '20260801s';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -5473,7 +5473,7 @@ function makePlayerInputRow(pi, h, par) {
         style="width:40px;height:40px;border-radius:50%;border:2px solid var(--border2);
                background:rgba(255,255,255,0.06);color:var(--white);font-size:1.4rem;
                display:flex;align-items:center;justify-content:center;
-               touch-action:manipulation;user-select:none;cursor:pointer;">▼</button>
+               touch-action:manipulation;user-select:none;cursor:pointer;">⬇</button>
       <!-- Centre score disc — same id/class as before so recordHole reads it -->
       <div id="cv${pi}" class="score-btn gi-score-disc" data-pi="${pi}"
         data-value="${hasExisting ? existingGross : ''}" data-pickup="${isPickup ? '1' : '0'}"
@@ -5489,7 +5489,7 @@ function makePlayerInputRow(pi, h, par) {
         style="width:40px;height:40px;border-radius:50%;border:2px solid #38a169;
                background:rgba(56,161,105,0.15);color:#38a169;font-size:1.4rem;
                display:flex;align-items:center;justify-content:center;
-               touch-action:manipulation;user-select:none;cursor:pointer;">▲</button>
+               touch-action:manipulation;user-select:none;cursor:pointer;">⬆</button>
       <!-- Pickup button -->
       <button class="gi-pickup-btn" data-pi="${pi}"
         style="height:40px;padding:0 8px;border-radius:8px;border:2px solid var(--border2);
@@ -6312,8 +6312,7 @@ function _renderAmendScorecard() {
           : relToPar === 0 ? 'var(--green)'
           : relToPar <= 2 ? '#3a7bd5' : 'var(--muted)';
 
-        const shotDot  = val.shots > 0 ? `<span style="color:var(--gold);font-size:0.6rem;line-height:1;vertical-align:middle;">${'•'.repeat(Math.min(val.shots,2))}</span> ` : '';
-        const netHtml  = val.net != null ? `<div style="font-size:0.75rem;font-weight:700;color:var(--muted2);margin-top:2px;">${shotDot}${val.net}</div>` : '';
+        const netHtml  = val.net != null ? `<div style="font-size:1.4rem;font-weight:800;color:var(--muted2);margin-top:2px;">Net ${val.net}</div>` : '';
         const ptsHtml  = val.pts != null ? `<div style="font-size:0.7rem;font-weight:800;color:var(--gold);margin-top:1px;">${val.pts}pt</div>` : '';
 
         cells += `<td class="asc-score-cell" data-h="${h}" data-ci="${ci}" style="${rowBg}cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0);">
@@ -6467,18 +6466,62 @@ function _renderAmendScorecard() {
     }).join('');
   }
 
-  // ── Wire cell taps ─────────────────────────────────────────────
-  // Phase 9 DOM check
-  (() => {
-    const allOverlays = document.querySelectorAll('#amend-overlay');
-    const allTables   = document.querySelectorAll('.asc-table');
-    const allLists    = document.querySelectorAll('#amend-hole-list');
-      // Check hole 0 cells (if played)
-    const hole0cells = document.querySelectorAll('td.asc-score-cell[data-h="0"]');
-    hole0cells.forEach((td, i) => {
-      const disc = td.querySelector('div[style*="border-radius:50%"]');
+  // ── Names bar in header (names + running score, replaces bottom totals bar) ──
+  const namesBar = document.getElementById('amend-names-bar');
+  if (namesBar) {
+    const fmt2  = gameState.format;
+    const isS6  = fmt2 === 'split6';
+    const isSk  = fmt2 === 'skins';
+    const isItc = fmt2 === 'itc';
+    const isMatchFmt2 = fmt2 === 'match' || isPairFmt;
+
+    // Build one chip per player/pair
+    const barCols = pairCols
+      ? pairCols.map((pc, ci) => {
+          const ms   = gameState.matchScore ?? 0;
+          const up   = Math.abs(ms);
+          const leading = ci === 0 ? ms > 0 : ms < 0;
+          const txt  = ms === 0 ? 'All Sq' : leading ? `${up} Up` : `${up} Dn`;
+          const col  = ms === 0 ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
+          return { name: `${pc.labels[0]} & ${pc.labels[1]}`, color: pc.colors[0], scoreHtml: `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:${col};">${txt}</span>` };
+        })
+      : cols.map((c, ci) => {
+          let scoreHtml = '';
+          if (isMatchFmt2) {
+            const ms  = gameState.matchScore ?? 0;
+            const up  = Math.abs(ms);
+            const leading = ci === 0 ? ms > 0 : ms < 0;
+            const txt = ms === 0 ? 'All Sq' : leading ? `${up} Up` : `${up} Dn`;
+            const col = ms === 0 ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
+            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:${col};">${txt}</span>`;
+          } else if (isS6) {
+            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${gameState.runningPts?.[ci] ?? 0}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">pts</span>`;
+          } else if (isSk) {
+            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${gameState.skins?.[ci] ?? 0}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">skins</span>`;
+          } else if (isItc) {
+            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${gameState.pts?.[ci] ?? 0}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">pts</span>`;
+          } else if (isTexas) {
+            const isSbFmt = (gameState.texasScoringFmt ?? 'stableford') === 'stableford';
+            const score   = isSbFmt ? (grandPts[ci] || 0) : (grandGross[ci] || 0);
+            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${score}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">${isSbFmt ? 'pts' : 'gross'}</span>`;
+          } else if (hasPts[ci]) {
+            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${grandPts[ci]}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">pts</span>`;
+          } else if (hasNet[ci]) {
+            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${grandNet[ci]}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">net</span>`;
+          } else {
+            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${grandGross[ci] || '–'}</span>`;
+          }
+          return { name: shortName(c.label), color: c.color, scoreHtml };
         });
-  })();
+
+    namesBar.innerHTML = barCols.map(bc => `
+      <div style="display:flex;flex-direction:column;gap:1px;">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.6rem;color:${bc.color};line-height:1;">${bc.name}</span>
+        <div style="display:flex;align-items:baseline;gap:3px;">${bc.scoreHtml}</div>
+      </div>`).join('');
+  }
+
+  // ── Wire cell taps ─────────────────────────────────────────────
 
   listEl.querySelectorAll('td.asc-score-cell[data-h]').forEach(td => {
     const h   = parseInt(td.dataset.h);
