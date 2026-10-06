@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801s)
-window.APP_BUILD = '20260801s';
+// LEADERBOARD - app.js  (v3.2 · build 20260801t)
+window.APP_BUILD = '20260801t';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -6224,7 +6224,7 @@ function _renderAmendScorecard() {
     });
   } else {
     cols.forEach(c => {
-      headerCells += `<th style="min-width:${colW}px;width:${colW}px;padding:0.3rem 0.2rem;font-size:0.8rem;font-weight:800;color:${c.color};text-align:center;">${shortName(c.label)}</th>`;
+      headerCells += `<th style="min-width:${colW}px;width:${colW}px;padding:0.3rem 0.2rem;font-size:1.5rem;font-weight:800;color:${c.color};text-align:center;" data-hdr-ci="${ci}">${shortName(c.label)}</th>`;
     });
   }
 
@@ -6242,8 +6242,8 @@ function _renderAmendScorecard() {
       : played ? '' : 'opacity:0.38;';
 
     let cells = `<td class="asc-hole-cell" style="${rowBg}">
-      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:var(--white);">${holeNum}</span>
-      <div style="font-size:0.7rem;color:var(--muted);font-weight:600;white-space:nowrap;">P${parH} S${siH}</div>
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:2rem;color:var(--white);line-height:1;">${holeNum}</span>
+      <div style="font-size:1.1rem;color:var(--muted);font-weight:600;white-space:nowrap;line-height:1.2;">P${parH} S${siH}</div>
     </td>`;
 
     if (pairCols) {
@@ -6410,6 +6410,22 @@ function _renderAmendScorecard() {
     <tbody>${bodyRows}<tr>${totalCells}</tr></tbody>
   </table>`;
 
+  // ── Inject score sub-line into individual column headers ───────
+  if (!pairCols) {
+    cols.forEach((c, ci) => {
+      const th = listEl.querySelector(`th[data-hdr-ci="${ci}"]`);
+      if (!th) return;
+      let scoreHtml = '';
+      if (hasPts[ci])       scoreHtml = `${grandPts[ci]}<span style="font-size:0.8rem;font-weight:600;color:var(--muted);margin-left:2px;">pts</span>`;
+      else if (hasNet[ci])  scoreHtml = `${grandNet[ci]}<span style="font-size:0.8rem;font-weight:600;color:var(--muted);margin-left:2px;">net</span>`;
+      else if (grandGross[ci]) scoreHtml = `${grandGross[ci]}`;
+      if (scoreHtml) {
+        th.innerHTML = `<div style="font-size:1.5rem;font-weight:800;color:${c.color};line-height:1;">${shortName(c.label)}</div>
+          <div style="font-size:1.2rem;font-weight:800;color:var(--white);line-height:1.1;">${scoreHtml}</div>`;
+      }
+    });
+  }
+
   // ── Live totals footer bar ─────────────────────────────────────
   // Always derive from the cell totals (grandGross/grandNet/grandPts)
   // so the footer is guaranteed consistent with the table.
@@ -6466,9 +6482,10 @@ function _renderAmendScorecard() {
     }).join('');
   }
 
-  // ── Names bar in header (names + running score, replaces bottom totals bar) ──
+  // ── Names bar in header — no longer used; names+scores now live in column headers ──
   const namesBar = document.getElementById('amend-names-bar');
-  if (namesBar) {
+  if (namesBar) { namesBar.innerHTML = ''; }
+  if (false && namesBar) {
     const fmt2  = gameState.format;
     const isS6  = fmt2 === 'split6';
     const isSk  = fmt2 === 'skins';
