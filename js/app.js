@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801t)
-window.APP_BUILD = '20260801t';
+// LEADERBOARD - app.js  (v3.2 · build 20260801u)
+window.APP_BUILD = '20260801u';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -6223,7 +6223,7 @@ function _renderAmendScorecard() {
       }
     });
   } else {
-    cols.forEach(c => {
+    cols.forEach((c, ci) => {
       headerCells += `<th style="min-width:${colW}px;width:${colW}px;padding:0.3rem 0.2rem;font-size:1.5rem;font-weight:800;color:${c.color};text-align:center;" data-hdr-ci="${ci}">${shortName(c.label)}</th>`;
     });
   }
