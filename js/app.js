@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20260801x)
-window.APP_BUILD = '20260801z';
+window.APP_BUILD = '20260802a';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -4587,13 +4587,13 @@ function renderITCBar() {
   bar.innerHTML = names.map((nm, i) => {
     const inChair  = gameState.chair === i;
     const ptsVal   = pts[i] ?? 0;
-    const col      = ptsVal > 0 ? 'var(--gold)' : 'var(--muted2)';
+    const numCol   = ptsVal > 0 ? 'var(--gold)' : 'var(--white)';
     return `
       <div class="total-cell${inChair ? ' itc-in-chair' : ''}">
         <div class="tc-name" style="font-size:${nameFontSizeItc};">
           <span class="dot" style="background:${pHex(i)};"></span>${shortName(nm).toUpperCase()}
         </div>
-        <div class="tc-pts" style="color:${col};">${ptsVal}<span style="font-size:0.7em;font-weight:600;color:var(--muted);margin-left:3px;">pts</span></div>
+        <div class="tc-pts" style="color:${numCol};">${ptsVal}<span style="font-size:0.7em;font-weight:600;color:var(--white);opacity:0.6;margin-left:3px;">pts</span></div>
         ${inChair ? `<div style="font-size:0.75rem;color:var(--gold);font-weight:700;margin-top:2px;">🪑 Chair</div>` : ''}
       </div>`;
   }).join('');
@@ -6500,8 +6500,12 @@ function _renderAmendScorecard() {
           const txt = halved ? 'All Sq' : leading ? `${msAbs} Up` : `${msAbs} Dn`;
           scoreColor = halved ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
           scoreHtml = txt;
+        } else if (fmt === 'itc') {
+          // ITC: read authoritative pts from gameState.pts (not per-hole sum which may be incomplete)
+          const pts = (gameState.pts ?? [])[ci] ?? 0;
+          scoreHtml = `${pts}<span style="font-size:0.8rem;font-weight:600;color:var(--muted);margin-left:2px;">pts</span>`;
         } else {
-          // ITC / texas-match: show pts total (ITC is multi-player, pts accumulate)
+          // texas-match: sum from holes
           const pts = grandPts[ci] || 0;
           scoreHtml = `${pts}<span style="font-size:0.8rem;font-weight:600;color:var(--muted);margin-left:2px;">pts</span>`;
         }
