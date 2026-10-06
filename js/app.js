@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801v)
-window.APP_BUILD = '20260801v';
+// LEADERBOARD - app.js  (v3.2 · build 20260801w)
+window.APP_BUILD = '20260801w';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -4286,16 +4286,7 @@ async function resumeRound(id) {
 
     if (!round) return;
 
-    // Show offline banner if we couldn't reach Supabase
-    if (fromIdb) {
-      const banner = document.createElement('div');
-      banner.textContent = '📶 Offline — scores will sync when connected';
-      banner.style.cssText = `position:fixed;top:0;left:0;right:0;background:#b45309;
-        color:#fff;text-align:center;padding:0.4rem;font-weight:800;font-size:0.8rem;z-index:9999;`;
-      banner.id = 'offline-banner';
-      document.getElementById('offline-banner')?.remove();
-      document.body.prepend(banner);
-    }
+    // Offline banner removed — app is local-only (IndexedDB), no sync needed
     roundId = id;
     let gs = round.game_state;
     if (gs?.allGroupStates) {
