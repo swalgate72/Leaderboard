@@ -1211,6 +1211,87 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
   margin-top: 2px;
 }
 
+/* Inline live score control (replaces popup picker for individual players) */
+.gi-score-ctrl {
+  flex-shrink: 0;
+}
+
+.gi-arr {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  user-select: none;
+  cursor: pointer;
+  transition: background 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gi-arr-dn {
+  border: 2px solid var(--border2);
+  background: rgba(255,255,255,0.06);
+  color: var(--white);
+  font-size: 1.1rem;
+}
+
+.gi-arr-up {
+  border: 2px solid #38a169;
+  background: rgba(56,161,105,0.15);
+  color: #38a169;
+  font-size: 1.1rem;
+}
+
+.gi-arr:active { opacity: 0.6; }
+
+.gi-score-disc {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  touch-action: manipulation;
+  user-select: none;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gi-pickup-btn {
+  height: 40px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 2px solid var(--border2);
+  background: rgba(255,255,255,0.04);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  touch-action: manipulation;
+  user-select: none;
+  cursor: pointer;
+  line-height: 1.2;
+  min-width: 38px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+
+.gi-pickup-btn:active { opacity: 0.7; }
+
+html.light .gi-arr-dn {
+  background: rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.2);
+  color: #111;
+}
+
+html.light .gi-arr-up {
+  background: rgba(56,161,105,0.12);
+}
+
 /* +/- counter */
 
 /* Hole action buttons */
