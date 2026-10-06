@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801u)
-window.APP_BUILD = '20260801u';
+// LEADERBOARD - app.js  (v3.2 · build 20260801v)
+window.APP_BUILD = '20260801v';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -6200,25 +6200,40 @@ function _renderAmendScorecard() {
   if (pairCols) {
     pairCols.forEach(pc => {
       if (isFoursomeFmt) {
-        // Foursomes: show "P1 & P2" as one header
+        // Foursomes/greensomes: show "P1 & P2" as one header + match score
+        const pairColIdx = pairCols.indexOf(pc);
+        const ms   = gameState.matchScore ?? 0;
+        const up   = Math.abs(ms);
+        const leading = pairColIdx === 0 ? ms > 0 : ms < 0;
+        const msTxt = ms === 0 ? 'All Sq' : leading ? `${up} Up` : `${up} Dn`;
+        const msCol = ms === 0 ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
         headerCells += `<th style="min-width:${colW}px;padding:0.3rem 0.4rem;text-align:center;">
           <div style="display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;">
             <span style="width:7px;height:7px;border-radius:50%;background:${pc.colors[0]};display:inline-block;flex-shrink:0;"></span>
-            <span style="font-size:0.8rem;font-weight:800;color:${pc.colors[0]};">${pc.labels[0]}</span>
-            <span style="font-size:0.75rem;color:var(--muted);">&</span>
+            <span style="font-size:1.2rem;font-weight:800;color:${pc.colors[0]};">${pc.labels[0]}</span>
+            <span style="font-size:0.9rem;color:var(--muted);">&</span>
             <span style="width:7px;height:7px;border-radius:50%;background:${pc.colors[1]};display:inline-block;flex-shrink:0;"></span>
-            <span style="font-size:0.8rem;font-weight:800;color:${pc.colors[1]};">${pc.labels[1]}</span>
+            <span style="font-size:1.2rem;font-weight:800;color:${pc.colors[1]};">${pc.labels[1]}</span>
           </div>
+          <div style="font-size:1.2rem;font-weight:800;color:${msCol};line-height:1.2;">${msTxt}</div>
         </th>`;
       } else {
         // BB/CSM: initials only, no dots, wider gap to align above discs
         const ini0 = toInitials(pc.labels[0]);
         const ini1 = toInitials(pc.labels[1]);
+        // Match score from this pair's perspective (pairColIdx 0 → positive ms = winning)
+        const pairColIdx = pairCols.indexOf(pc);
+        const ms   = gameState.matchScore ?? 0;
+        const up   = Math.abs(ms);
+        const leading = pairColIdx === 0 ? ms > 0 : ms < 0;
+        const msTxt = ms === 0 ? 'All Sq' : leading ? `${up} Up` : `${up} Dn`;
+        const msCol = ms === 0 ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
         headerCells += `<th style="min-width:${colW}px;padding:0.3rem 0.4rem;text-align:center;">
           <div style="display:flex;align-items:center;justify-content:center;gap:20px;">
             <span style="font-size:1.5rem;font-weight:800;color:${pc.colors[0]};white-space:nowrap;line-height:1;">${ini0}</span>
             <span style="font-size:1.5rem;font-weight:800;color:${pc.colors[1]};white-space:nowrap;line-height:1;">${ini1}</span>
           </div>
+          <div style="font-size:1.2rem;font-weight:800;color:${msCol};line-height:1.2;">${msTxt}</div>
         </th>`;
       }
     });
