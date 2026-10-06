@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801w)
-window.APP_BUILD = '20260801w';
+// LEADERBOARD - app.js  (v3.2 · build 20260801x)
+window.APP_BUILD = '20260801x';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -4749,33 +4749,52 @@ function renderHolePanel() {
   const isTexas    = fmt === 'texas';
 
   if (isTexas) {
-    // Texas Scramble: one team score + driver selector
+    // Texas Scramble: inline up/down arrows (same UX as other formats) + driver selector
     const teamName   = gameState.teamName ?? 'Team';
     const teamHcp    = gameState.teamHcp  ?? 0;
     const existEntry = gameState.log[h];
+    const existGross = existEntry?.gross ?? null;
+    const teamExtra  = (() => { const si = gameState.si[h]; return teamHcp <= 0 ? 0 : Math.floor(teamHcp / 18) + (si <= (teamHcp % 18) ? 1 : 0); })();
+
+    const discColor   = existGross != null ? scoreColorForRelToPar(existGross - par, existGross) : 'transparent';
+    const discText    = existGross != null ? String(existGross) : String(par);
+    const discBorder  = existGross != null ? `2px solid ${discColor}` : '2px solid var(--border2)';
+    const discBg      = existGross != null ? discColor : 'var(--surface3)';
+    const discFgColor = existGross != null ? '#fff' : 'var(--muted)';
 
     const row = document.createElement('div');
     row.className = 'gi-row';
     row.style.cssText = 'flex-direction:column;align-items:stretch;gap:0.65rem;';
-    const texasScoreStyle = existEntry?.gross != null
-      ? (() => { const c = scoreColorForRelToPar(existEntry.gross - par); return `background:${c};border:1.5px solid ${c};color:#fff;`; })()
-      : 'background:var(--surface2);border:1.5px solid var(--border);color:var(--muted);';
 
     row.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div>
+        <div style="flex:1;min-width:0;">
           <div class="gi-name" style="font-size:1.35rem;">🤠 ${teamName}</div>
-          <div class="gi-hcp" style="font-size:1rem;font-weight:800;">Team HCP ${teamHcp}</div>
+          <div class="gi-hcp" style="font-size:1rem;font-weight:800;">Team HCP ${teamHcp}${teamExtra > 0 ? ` · +${teamExtra} this hole` : ''}</div>
         </div>
-        <div class="score-btn" id="cv-texas" data-value="${existEntry?.gross ?? ''}"
-          style="min-width:64px;text-align:center;cursor:pointer;padding:0.6rem 1rem;
-                 border-radius:10px;
-                 font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:800;${texasScoreStyle}">
-          ${existEntry?.gross ?? 'Score'}
+        <div class="gi-score-ctrl" style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
+          <button class="gi-arr gi-arr-dn-texas"
+            style="width:40px;height:40px;border-radius:50%;border:2px solid var(--border2);
+                   background:rgba(255,255,255,0.06);color:var(--white);font-size:1.4rem;
+                   display:flex;align-items:center;justify-content:center;
+                   touch-action:manipulation;user-select:none;cursor:pointer;">⬇</button>
+          <div id="cv-texas" class="score-btn gi-score-disc"
+            data-value="${existGross ?? ''}"
+            style="width:52px;height:52px;border-radius:50%;
+                   border:${discBorder};background:${discBg};color:${discFgColor};
+                   font-family:'Barlow Condensed',sans-serif;font-size:1.55rem;font-weight:800;
+                   display:flex;align-items:center;justify-content:center;flex-direction:column;
+                   touch-action:manipulation;user-select:none;cursor:pointer;
+                   transition:background 0.12s,border-color 0.12s;">${discText}</div>
+          <button class="gi-arr gi-arr-up-texas"
+            style="width:40px;height:40px;border-radius:50%;border:2px solid #38a169;
+                   background:rgba(56,161,105,0.15);color:#38a169;font-size:1.4rem;
+                   display:flex;align-items:center;justify-content:center;
+                   touch-action:manipulation;user-select:none;cursor:pointer;">⬆</button>
         </div>
       </div>
       <div>
-        <div style="font-size:1rem;font-weight:800;color:var(--muted2);margin-bottom:0.4rem;">Driver used:</div>
+        <div style="font-size:1rem;font-weight:800;color:var(--muted2);margin-bottom:0.4rem;">Tee shot used:</div>
         <div style="display:flex;gap:0.4rem;flex-wrap:wrap;" id="texas-driver-btns">
           ${gameState.names.map((name, pi) => `
             <button class="texas-driver-btn ${(existEntry?.driverIdx ?? -1) === pi ? 'holes-btn active' : 'btn-outline'}"
@@ -4787,21 +4806,68 @@ function renderHolePanel() {
       </div>`;
     inputsEl.appendChild(row);
 
-    // Wire score button
-    const texasBtnEl = row.querySelector('#cv-texas');
-    if (texasBtnEl) {
-      texasBtnEl.addEventListener('touchstart', (e) => {
-        if (_pickerJustClosed || _pageScrolling) { e.preventDefault(); return; }
-        e.preventDefault();
-        _spScrolling = false;
-        openTexasScorePicker(h, par);
-      }, { passive: false });
-      texasBtnEl.addEventListener('click', (e) => {
-        if (_pickerJustClosed) return;
-        if (e.sourceCapabilities?.firesTouchEvents) return;
-        openTexasScorePicker(h, par);
-      });
+    // Helper to update the cv-texas disc
+    function _texasSetScore(val) {
+      const el = row.querySelector('#cv-texas');
+      if (!el) return;
+      el.dataset.value = String(val);
+      const color = scoreColorForRelToPar(val - par, val);
+      el.style.background  = color;
+      el.style.borderColor = color;
+      el.style.color       = '#fff';
+      el.style.fontSize    = '1.55rem';
+      el.textContent       = String(val);
     }
+    function _texasCurrentScore() {
+      const v = parseInt(row.querySelector('#cv-texas')?.dataset?.value, 10);
+      return isNaN(v) ? null : v;
+    }
+    const TX_MIN = 1, TX_MAX = par + teamExtra + 5;
+
+    // DOWN arrow
+    row.querySelector('.gi-arr-dn-texas').addEventListener('touchstart', (e) => {
+      if (_pageScrolling) return;
+      e.preventDefault();
+      const cur = _texasCurrentScore();
+      const next = cur != null ? cur - 1 : par - 1;
+      if (next < TX_MIN) return;
+      _texasSetScore(next);
+    }, { passive: false });
+    row.querySelector('.gi-arr-dn-texas').addEventListener('click', (e) => {
+      if (e.sourceCapabilities?.firesTouchEvents) return;
+      const cur = _texasCurrentScore();
+      const next = cur != null ? cur - 1 : par - 1;
+      if (next < TX_MIN) return;
+      _texasSetScore(next);
+    });
+
+    // UP arrow
+    row.querySelector('.gi-arr-up-texas').addEventListener('touchstart', (e) => {
+      if (_pageScrolling) return;
+      e.preventDefault();
+      const cur = _texasCurrentScore();
+      const next = cur != null ? cur + 1 : par + 1;
+      if (next > TX_MAX) return;
+      _texasSetScore(next);
+    }, { passive: false });
+    row.querySelector('.gi-arr-up-texas').addEventListener('click', (e) => {
+      if (e.sourceCapabilities?.firesTouchEvents) return;
+      const cur = _texasCurrentScore();
+      const next = cur != null ? cur + 1 : par + 1;
+      if (next > TX_MAX) return;
+      _texasSetScore(next);
+    });
+
+    // Centre disc — tap to reset to par
+    row.querySelector('#cv-texas').addEventListener('touchstart', (e) => {
+      if (_pageScrolling) return;
+      e.preventDefault();
+      _texasSetScore(par);
+    }, { passive: false });
+    row.querySelector('#cv-texas').addEventListener('click', (e) => {
+      if (e.sourceCapabilities?.firesTouchEvents) return;
+      _texasSetScore(par);
+    });
 
     // Wire driver buttons
     row.querySelectorAll('.texas-driver-btn').forEach(btn => {
@@ -4812,9 +4878,6 @@ function renderHolePanel() {
         });
         btn.className = 'texas-driver-btn holes-btn active';
         btn.style.cssText = 'flex:1;min-width:80px;padding:0.55rem 0.4rem;font-size:0.85rem;font-weight:700;';
-        // Store selected driver index on the score element
-        const scoreEl = document.getElementById('cv-texas');
-        if (scoreEl) scoreEl.dataset.driver = btn.dataset.pi;
       });
     });
 
@@ -5039,7 +5102,7 @@ function renderHolePanel() {
 
     driverWrap.innerHTML = `
       <div style="font-size:0.9rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
-                  color:var(--muted);margin-bottom:0.35rem;">Drives Used</div>
+                  color:var(--muted);margin-bottom:0.35rem;">Tee Shots Used</div>
       <table style="width:100%;border-collapse:collapse;background:var(--surface2);border-radius:var(--radius-sm);overflow:hidden;">
         <thead>
           <tr>
