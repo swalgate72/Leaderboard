@@ -699,7 +699,7 @@
 
     <!-- Amend / Record -->
     <div class="hole-actions" style="margin-top:0.75rem;">
-      <button class="btn-back-hole" id="btn-amend-scores" disabled style="line-height:1.1;">Scorecard<br>Edit</button>
+      <button class="btn-back-hole" id="btn-amend-scores" disabled style="line-height:1.1;border:3px solid var(--white);font-weight:900;">Scorecard<br>Edit</button>
       <button class="btn-record" id="btn-record-hole">RECORD HOLE →</button>
     </div>
 
@@ -718,8 +718,8 @@
     background:var(--bg);
     padding:0.35rem 0.5rem 0.3rem;">
 
-    <!-- Single row: 5 compact icon+label buttons -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:0.25rem;">
+    <!-- Single row: 4 compact icon+label buttons (Scorer removed) -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.25rem;">
       <button class="btn btn-outline" id="btn-game-scorecard"
         style="padding:0.4rem 0.1rem;font-size:0.65rem;font-weight:800;
                font-family:'Barlow Condensed',sans-serif;letter-spacing:0.01em;
@@ -738,18 +738,14 @@
                display:flex;flex-direction:column;align-items:center;gap:0.1rem;line-height:1.1;">
         <span style="font-size:1rem;">⛳</span>Holes
       </button>
-      <button class="btn btn-outline" id="btn-pass-scorer"
-        style="padding:0.4rem 0.1rem;font-size:0.65rem;font-weight:800;
-               font-family:'Barlow Condensed',sans-serif;letter-spacing:0.01em;
-               display:flex;flex-direction:column;align-items:center;gap:0.1rem;line-height:1.1;">
-        <span style="font-size:1rem;">↩</span>Scorer
-      </button>
       <button class="btn btn-outline" id="btn-game-abandon"
         style="padding:0.4rem 0.1rem;font-size:0.65rem;font-weight:800;
                font-family:'Barlow Condensed',sans-serif;letter-spacing:0.01em;
                display:flex;flex-direction:column;align-items:center;gap:0.1rem;line-height:1.1;">
         <span style="font-size:1rem;">🏠</span>Home
       </button>
+      <!-- btn-pass-scorer hidden but kept for JS compatibility -->
+      <button id="btn-pass-scorer" style="display:none;"></button>
     </div>
 
     <!-- Resend Invites — organiser only, shown via JS -->
@@ -776,15 +772,16 @@
                 padding:0.35rem 0.75rem;cursor:pointer;">Done</button>
       </div>
       <div id="amend-overlay-sub" style="font-size:0.85rem;color:var(--muted);margin-top:0.2rem;"></div>
+      <!-- Player names + running score — populated by _renderAmendScorecard() -->
+      <div id="amend-names-bar" style="display:flex;gap:1.2rem;margin-top:0.5rem;flex-wrap:wrap;"></div>
     </div>
     <!-- Scrollable scorecard table -->
     <div id="amend-sc-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0.5rem 0 1rem;">
       <div id="amend-hole-list"></div>
     </div>
-    <!-- Live totals footer -->
-    <div id="amend-totals-bar" style="background:var(--surface2);border-top:2px solid var(--border);
-         padding:0.6rem 1rem;position:sticky;bottom:0;z-index:2;overflow-x:auto;">
-      <div id="amend-totals-inner" style="display:flex;gap:0;min-width:max-content;"></div>
+    <!-- Live totals footer — hidden, data now shown in header -->
+    <div id="amend-totals-bar" style="display:none;">
+      <div id="amend-totals-inner"></div>
     </div>
   </div>
 
@@ -1687,7 +1684,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20260801r"></script>
+<script type="module" src="js/app.js?v=20260801s"></script>
 
 
 <!-- ══════════════════════════════════════════
