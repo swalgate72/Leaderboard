@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20260801x)
-window.APP_BUILD = '20260801y';
+window.APP_BUILD = '20260801z';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -4581,48 +4581,22 @@ function renderITCBar() {
   const maxPts  = Math.max(...pts);
   const holesLeft = (gameState.numHoles ?? 18) - (gameState.log?.length ?? 0);
 
-  if (nPlayers === 2) {
-    bar.style.gridTemplateColumns = '1fr 1fr';
-    // 2-player ITC — show exactly like matchplay: 1 UP / 1 DOWN / A/S
-    const diff = pts[0] - pts[1]; // +ve = player 0 leading
-    const up   = Math.abs(diff);
-    bar.innerHTML = names.map((nm, i) => {
-      const inChair = gameState.chair === i;
-      let standing;
-      if (diff === 0)      standing = 'A/S';
-      else if (i === 0)    standing = diff > 0 ? `${up} UP`   : `${up} DOWN`;
-      else                 standing = diff < 0 ? `${up} UP`   : `${up} DOWN`;
-      const isLeading = (i === 0 && diff > 0) || (i === 1 && diff < 0);
-      const col = diff === 0 ? 'var(--muted2)' : isLeading ? 'var(--gold)' : 'var(--muted2)';
-      return `
-        <div class="total-cell${inChair ? ' itc-in-chair' : ''}">
-          <div class="tc-name">
-            <span class="dot" style="background:${pHex(i)};"></span>${shortName(nm).toUpperCase()}
-          </div>
-          <div class="tc-pts" style="color:${col};">${standing}</div>
-          ${inChair ? `<div style="font-size:0.75rem;color:var(--gold);font-weight:700;margin-top:2px;">🪑 Chair</div>` : ''}
-        </div>`;
-    }).join('');
-  } else {
-    // 3-4 player ITC — show relative to leader
-    const nameFontSize2 = nPlayers <= 2 ? '1.5rem' : nPlayers === 3 ? '1.2rem' : '1rem';
-    bar.style.gridTemplateColumns = `repeat(${nPlayers}, 1fr)`;
-    bar.innerHTML = names.map((nm, i) => {
-      const inChair = gameState.chair === i;
-      const gap     = pts[i] - maxPts;
-      const isLead  = gap === 0 && maxPts > 0;
-      const gapStr  = gap === 0 ? (maxPts === 0 ? 'A/S' : 'LEADS') : `${gap}`;
-      const col = isLead ? 'var(--gold)' : 'var(--muted2)';
-      return `
-        <div class="total-cell${inChair ? ' itc-in-chair' : ''}">
-          <div class="tc-name" style="font-size:${nameFontSize2};">
-            <span class="dot" style="background:${pHex(i)};"></span>${shortName(nm).toUpperCase()}
-          </div>
-          <div class="tc-pts" style="color:${col};">${gapStr}</div>
-          ${inChair ? `<div style="font-size:0.75rem;color:var(--gold);font-weight:700;margin-top:2px;">🪑 Chair</div>` : ''}
-        </div>`;
-    }).join('');
-  }
+  // ITC bar: always show simple pts total for each player (consistent with other formats)
+  const nameFontSizeItc = nPlayers <= 2 ? '1.5rem' : nPlayers === 3 ? '1.2rem' : '1rem';
+  bar.style.gridTemplateColumns = `repeat(${nPlayers}, 1fr)`;
+  bar.innerHTML = names.map((nm, i) => {
+    const inChair  = gameState.chair === i;
+    const ptsVal   = pts[i] ?? 0;
+    const col      = ptsVal > 0 ? 'var(--gold)' : 'var(--muted2)';
+    return `
+      <div class="total-cell${inChair ? ' itc-in-chair' : ''}">
+        <div class="tc-name" style="font-size:${nameFontSizeItc};">
+          <span class="dot" style="background:${pHex(i)};"></span>${shortName(nm).toUpperCase()}
+        </div>
+        <div class="tc-pts" style="color:${col};">${ptsVal}<span style="font-size:0.7em;font-weight:600;color:var(--muted);margin-left:3px;">pts</span></div>
+        ${inChair ? `<div style="font-size:0.75rem;color:var(--gold);font-weight:700;margin-top:2px;">🪑 Chair</div>` : ''}
+      </div>`;
+  }).join('');
   bar.classList.remove('hidden');
 }
 
@@ -6134,6 +6108,21 @@ function _renderAmendScorecard() {
   const byHole   = {};
   log.forEach(e => { byHole[e.hIdx] = e; });
 
+  // ── ITC: build chair-entering map (who holds chair at start of each hole) ──
+  // entry.newChair = player who won chair ON that hole → they hold it entering the NEXT hole.
+  const itcChairEntering = {};  // h → player index (or null)
+  if (fmt === 'itc') {
+    let currentChair = null;
+    for (let h = 0; h < numHoles; h++) {
+      itcChairEntering[h] = currentChair;
+      const e = byHole[h];
+      if (e) {
+        if (e.newChair != null) currentChair = e.newChair;
+        else if (e.halved) { /* chair stays — no change */ }
+      }
+    }
+  }
+
   // ── Determine columns ──────────────────────────────────────────
   // For pair formats the columns show pair nets; for individual formats one col per player.
   const isTexas   = fmt === 'texas';
@@ -6384,12 +6373,16 @@ function _renderAmendScorecard() {
         const netHtml  = val.net != null ? `<div style="font-size:1.4rem;font-weight:800;color:var(--muted2);margin-top:2px;">Net ${val.net}</div>` : '';
         const ptsHtml  = val.pts != null ? `<div style="font-size:0.7rem;font-weight:800;color:var(--gold);margin-top:1px;">${val.pts}pt</div>` : '';
 
+        // ITC: show chair symbol if this player holds the chair entering this hole
+        const chairHtml = (fmt === 'itc' && itcChairEntering[h] === ci)
+          ? `<div style="font-size:0.8rem;line-height:1;margin-top:1px;">🪑</div>` : '';
+
         cells += `<td class="asc-score-cell" data-h="${h}" data-ci="${ci}" style="${rowBg}cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0);">
           <div style="display:inline-flex;align-items:center;justify-content:center;
                       width:36px;height:36px;border-radius:50%;background:${grossCol};
                       font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;
                       color:${val.gross===1?'#000':'#fff'};">${val.gross}</div>
-          ${netHtml}${ptsHtml}
+          ${netHtml}${ptsHtml}${chairHtml}
         </td>`;
       });
     }
