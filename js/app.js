@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801q)
-window.APP_BUILD = '20260801q';
+// LEADERBOARD - app.js  (v3.2 · build 20260801r)
+window.APP_BUILD = '20260801r';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -5439,10 +5439,26 @@ function makePlayerInputRow(pi, h, par) {
     scoreBtnStyle = `border:2px solid ${color};background:${color};color:${existingGross === 1 ? '#000' : '#fff'};`;
   }
 
+  // Build the inline scoring control.
+  // cv${pi} remains the canonical score DOM node — recordHole() still reads
+  // cv${pi}.dataset.value and cv${pi}.dataset.pickup, unchanged.
+  // All scoring, pickup, and Scorecard Edit paths are unaffected.
+
   const row = document.createElement('div');
   row.className = `gi-row${inChair ? ' in-chair' : ''}`;
+
+  // Score colour / content for the centre disc (same logic as before)
+  const discColor  = !hasExisting ? 'transparent'
+    : isPickup ? 'var(--gold)'
+    : scoreColorForRelToPar(existingGross - par, existingGross);
+  const discText   = !hasExisting ? String(par)
+    : isPickup ? `<span style="font-size:0.72rem;font-weight:800;line-height:1.1;display:block;">P.Up</span><span style="font-size:0.82rem;font-weight:700;opacity:0.85;">(${existingGross})</span>`
+    : String(existingGross);
+  const discTextColor = (!hasExisting || existingGross === 1) ? 'var(--white)' : '#fff';
+  const discBorder = !hasExisting ? '2px solid var(--border2)' : `2px solid ${discColor}`;
+
   row.innerHTML = `
-    <div style="flex:1;">
+    <div style="flex:1;min-width:0;">
       <div class="gi-name">
         <span class="dot" style="background:${pHex(pi)};"></span>
         ${shortName(gameState.names[pi])} ${badge}
@@ -5451,34 +5467,140 @@ function makePlayerInputRow(pi, h, par) {
       <div class="gi-hcp">${hcpLine}</div>
       <div class="gi-prev" id="gi-prev-${pi}" style="font-size:0.58rem;color:var(--muted);min-height:1em;margin-top:2px;letter-spacing:0.03em;">${prevLabel}</div>
     </div>
-    <div>
-      <div id="cv${pi}" data-value="${hasExisting ? existingGross : ''}" data-pickup="0"
-        class="score-btn" data-pi="${pi}"
-        style="min-width:64px;min-height:52px;display:flex;align-items:center;justify-content:center;
-               border-radius:10px;
-               font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:800;
-               cursor:pointer;user-select:none;${scoreBtnStyle}">
-        ${scoreBtnVal}
-      </div>
+    <div class="gi-score-ctrl" style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
+      <!-- DOWN arrow -->
+      <button class="gi-arr gi-arr-dn" data-pi="${pi}"
+        style="width:40px;height:40px;border-radius:50%;border:2px solid var(--border2);
+               background:rgba(255,255,255,0.06);color:var(--white);font-size:1.4rem;
+               display:flex;align-items:center;justify-content:center;
+               touch-action:manipulation;user-select:none;cursor:pointer;">▼</button>
+      <!-- Centre score disc — same id/class as before so recordHole reads it -->
+      <div id="cv${pi}" class="score-btn gi-score-disc" data-pi="${pi}"
+        data-value="${hasExisting ? existingGross : ''}" data-pickup="${isPickup ? '1' : '0'}"
+        style="width:52px;height:52px;border-radius:50%;
+               border:${discBorder};background:${hasExisting ? discColor : 'var(--surface3)'};
+               color:${hasExisting ? discTextColor : 'var(--muted)'};
+               font-family:'Barlow Condensed',sans-serif;font-size:${hasExisting && !isPickup ? '1.55rem' : '1rem'};font-weight:800;
+               display:flex;align-items:center;justify-content:center;flex-direction:column;
+               touch-action:manipulation;user-select:none;cursor:pointer;
+               transition:background 0.12s,border-color 0.12s;">${discText}</div>
+      <!-- UP arrow -->
+      <button class="gi-arr gi-arr-up" data-pi="${pi}"
+        style="width:40px;height:40px;border-radius:50%;border:2px solid #38a169;
+               background:rgba(56,161,105,0.15);color:#38a169;font-size:1.4rem;
+               display:flex;align-items:center;justify-content:center;
+               touch-action:manipulation;user-select:none;cursor:pointer;">▲</button>
+      <!-- Pickup button -->
+      <button class="gi-pickup-btn" data-pi="${pi}"
+        style="height:40px;padding:0 8px;border-radius:8px;border:2px solid var(--border2);
+               background:${isPickup ? 'var(--gold)' : 'rgba(255,255,255,0.04)'};
+               color:${isPickup ? '#000' : 'var(--muted)'};font-size:0.7rem;font-weight:800;
+               letter-spacing:0.04em;touch-action:manipulation;user-select:none;cursor:pointer;
+               line-height:1.2;min-width:38px;">P<br>UP</button>
     </div>`;
 
-  const scoreBtnEl = row.querySelector('.score-btn');
-  if (scoreBtnEl) {
-    // touchstart: open picker immediately (faster response)
-    scoreBtnEl.addEventListener('touchstart', (e) => {
-      if (_pickerJustClosed || _pageScrolling) { e.preventDefault(); return; }
-      e.preventDefault();
-      _spScrolling = false;
-      openScorePicker(pi, h, par);
-    }, { passive: false });
-    // click: fallback for non-touch (desktop/mouse)
-    scoreBtnEl.addEventListener('click', (e) => {
-      if (_pickerJustClosed) return;
-      // Only run if NOT already handled by touchstart
-      if (e.sourceCapabilities?.firesTouchEvents) return;
-      openScorePicker(pi, h, par);
-    });
+  // ── Wire the new inline controls ──────────────────────────────────
+  // Touch model: touchstart fires immediately with e.preventDefault() to
+  // suppress the synthetic click (no double-fire). _pageScrolling guard
+  // prevents accidental taps while the user is scrolling.
+
+  function _liveSetScore(newVal, newIsPickup) {
+    setScoreValue(pi, h, par, newVal, newIsPickup);
   }
+
+  function _currentScore() {
+    const el = document.getElementById(`cv${pi}`);
+    const v = parseInt(el?.dataset?.value, 10);
+    return isNaN(v) ? null : v;
+  }
+
+  function _currentIsPickup() {
+    return document.getElementById(`cv${pi}`)?.dataset?.pickup === '1';
+  }
+
+  const MIN_GROSS = 1;
+  const MAX_GROSS = par + extra + 5; // sensible ceiling
+
+  // DOWN arrow — decrease by 1
+  row.querySelector('.gi-arr-dn').addEventListener('touchstart', (e) => {
+    if (_pageScrolling) return;
+    e.preventDefault();
+    const cur = _currentScore();
+    const next = cur != null ? cur - 1 : par - 1;
+    if (next < MIN_GROSS) return;
+    _liveSetScore(next, false);
+  }, { passive: false });
+  row.querySelector('.gi-arr-dn').addEventListener('click', (e) => {
+    if (e.sourceCapabilities?.firesTouchEvents) return; // already handled
+    const cur = _currentScore();
+    const next = cur != null ? cur - 1 : par - 1;
+    if (next < MIN_GROSS) return;
+    _liveSetScore(next, false);
+  });
+
+  // UP arrow — increase by 1
+  row.querySelector('.gi-arr-up').addEventListener('touchstart', (e) => {
+    if (_pageScrolling) return;
+    e.preventDefault();
+    const cur = _currentScore();
+    const next = cur != null ? cur + 1 : par + 1;
+    if (next > MAX_GROSS) return;
+    _liveSetScore(next, false);
+  }, { passive: false });
+  row.querySelector('.gi-arr-up').addEventListener('click', (e) => {
+    if (e.sourceCapabilities?.firesTouchEvents) return;
+    const cur = _currentScore();
+    const next = cur != null ? cur + 1 : par + 1;
+    if (next > MAX_GROSS) return;
+    _liveSetScore(next, false);
+  });
+
+  // Centre disc — tap to set par
+  row.querySelector('.gi-score-disc').addEventListener('touchstart', (e) => {
+    if (_pageScrolling) return;
+    e.preventDefault();
+    if (_currentIsPickup()) {
+      // Un-pickup: restore to par
+      _liveSetScore(par, false);
+    } else {
+      _liveSetScore(par, false);
+    }
+  }, { passive: false });
+  row.querySelector('.gi-score-disc').addEventListener('click', (e) => {
+    if (e.sourceCapabilities?.firesTouchEvents) return;
+    _liveSetScore(par, false);
+  });
+
+  // Pickup button
+  row.querySelector('.gi-pickup-btn').addEventListener('touchstart', (e) => {
+    if (_pageScrolling) return;
+    e.preventDefault();
+    if (_currentIsPickup()) {
+      // Un-pickup: restore to par
+      _liveSetScore(par, false);
+    } else {
+      // Use existing pickup value: net double bogey
+      const morePickupVal = par + extra + 2;
+      _liveSetScore(morePickupVal, true);
+      // Update pickup button style immediately
+      const pbtn = row.querySelector('.gi-pickup-btn');
+      if (pbtn) {
+        pbtn.style.background = 'var(--gold)';
+        pbtn.style.color = '#000';
+        pbtn.style.borderColor = 'var(--gold)';
+      }
+    }
+  }, { passive: false });
+  row.querySelector('.gi-pickup-btn').addEventListener('click', (e) => {
+    if (e.sourceCapabilities?.firesTouchEvents) return;
+    if (_currentIsPickup()) {
+      _liveSetScore(par, false);
+    } else {
+      const morePickupVal = par + extra + 2;
+      _liveSetScore(morePickupVal, true);
+    }
+  });
+
   return row;
 }
 
@@ -5886,19 +6008,37 @@ function setScoreValue(pi, h, par, value, isPickup) {
   if (!cvEl) return;
   cvEl.dataset.value  = String(value);
   cvEl.dataset.pickup = isPickup ? '1' : '0';
-  cvEl.textContent    = String(value);
+
   if (isPickup) {
     cvEl.style.color       = '#fff';
     cvEl.style.background  = 'var(--gold)';
     cvEl.style.borderColor = 'var(--gold)';
-    cvEl.innerHTML = `<span style="font-size:0.75rem;font-weight:800;display:block;line-height:1.1;">P.Up</span><span style="font-size:0.85rem;font-weight:700;color:rgba(255,255,255,0.8);">(${value})</span>`;
+    cvEl.style.fontSize    = '1rem';
+    cvEl.innerHTML = `<span style="font-size:0.72rem;font-weight:800;display:block;line-height:1.1;">P.Up</span><span style="font-size:0.82rem;font-weight:700;opacity:0.85;">(${value})</span>`;
   } else {
     const relToPar = value - par;
     const color = scoreColorForRelToPar(relToPar, value);
     cvEl.style.color       = value === 1 ? '#000' : '#fff';
     cvEl.style.background  = color;
     cvEl.style.borderColor = color;
+    cvEl.style.fontSize    = '1.55rem';
+    cvEl.textContent       = String(value);
   }
+
+  // Update the pickup button style in the inline control (if present)
+  const pickupBtn = cvEl.closest('.gi-row')?.querySelector('.gi-pickup-btn');
+  if (pickupBtn) {
+    if (isPickup) {
+      pickupBtn.style.background  = 'var(--gold)';
+      pickupBtn.style.color       = '#000';
+      pickupBtn.style.borderColor = 'var(--gold)';
+    } else {
+      pickupBtn.style.background  = 'rgba(255,255,255,0.04)';
+      pickupBtn.style.color       = 'var(--muted)';
+      pickupBtn.style.borderColor = 'var(--border2)';
+    }
+  }
+
 }
 
 // ----------------------------------------------------------------
