@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20260801x)
-window.APP_BUILD = '20260802b';
+window.APP_BUILD = '20260802c';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -4593,7 +4593,7 @@ function renderITCBar() {
         <div class="tc-name" style="font-size:${nameFontSizeItc};">
           <span class="dot" style="background:${pHex(i)};"></span>${shortName(nm).toUpperCase()}
         </div>
-        <div class="tc-pts" style="color:var(--white);font-size:2em;">${ptsVal}<span style="font-size:0.55em;font-weight:600;color:var(--white);opacity:0.7;margin-left:4px;">pts</span></div>
+        <div class="tc-pts" style="color:#fff;font-size:2em;">${ptsVal}<span style="font-size:0.55em;font-weight:600;color:#fff;opacity:0.75;margin-left:4px;">pts</span></div>
         ${inChair ? `<div style="font-size:0.75rem;color:var(--gold);font-weight:700;margin-top:2px;">🪑 Chair</div>` : ''}
       </div>`;
   }).join('');
