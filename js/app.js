@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20260801x)
-window.APP_BUILD = '20260802c';
+window.APP_BUILD = '20260802d';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -7085,17 +7085,38 @@ function renderLeaderboard() {
   // ── Non-tournament, non-team format: live group scores ────────────
   if (!isTourney) {
     const states = gameState.allGroupStates ?? [gameState];
-    const rows = buildMultiGroupLeaderboard(states);
-
-    if (!rows.length) {
-      tableEl.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);">No scores yet.</div>';
-      return;
-    }
 
     // Match (1v1): use hole-by-hole leaderboard
     if (isMatch) {
       const gs = (gameState.allGroupStates ?? [gameState])[0] ?? gameState;
       tableEl.innerHTML = buildMatchLeaderboard(gs);
+      return;
+    }
+
+    // ITC: read pts directly from authoritative gameState.pts (not totals, which may lag after edits)
+    if (isItc) {
+      const gs = states[0] ?? gameState;
+      const names = gs.names ?? [];
+      const pts   = gs.pts ?? [];
+      const holesPlayed = gs.log?.length ?? 0;
+      const itcRows = names.map((nm, i) => ({
+        rank:   0,
+        label:  nm,
+        sub:    null,
+        score:  pts[i] ?? 0,
+        thru:   holesPlayed,
+        isLead: false,
+      }));
+      itcRows.sort((a, b) => b.score - a.score);
+      itcRows.forEach((r, i) => { r.rank = i + 1; r.isLead = i === 0; });
+      tableEl.innerHTML = buildLeaderboardTable(itcRows, 'Pts');
+      return;
+    }
+
+    const rows = buildMultiGroupLeaderboard(states);
+
+    if (!rows.length) {
+      tableEl.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);">No scores yet.</div>';
       return;
     }
 
