@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20260801x)
-window.APP_BUILD = '20260802e';
+window.APP_BUILD = '20260802f';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -6119,9 +6119,9 @@ function _renderAmendScorecard() {
       itcChairEntering[h] = currentChair;
       const e = byHole[h];
       if (e) {
-        if (e.newChair != null) currentChair = e.newChair;
-        else if (e.halved) currentChair = null;  // halved → chair becomes empty
-        // else: won by someone via pts but newChair not set? shouldn't happen
+        if (e.pointScoredBy != null) { /* chair holder defended — currentChair stays */ }
+        else if (e.newChair != null) currentChair = e.newChair;  // new player takes chair
+        else currentChair = null;  // halved — chair becomes empty
       } else {
         // first unplayed hole
         if (itcNextUnplayedHole === -1) itcNextUnplayedHole = h;
