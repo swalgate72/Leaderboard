@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20260801x)
-window.APP_BUILD = '20260802d';
+window.APP_BUILD = '20260802e';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -6110,15 +6110,21 @@ function _renderAmendScorecard() {
 
   // ── ITC: build chair-entering map (who holds chair at start of each hole) ──
   // entry.newChair = player who won chair ON that hole → they hold it entering the NEXT hole.
-  const itcChairEntering = {};  // h → player index (or null)
+  // itcChairEntering[h] = player index (held), or null (empty/up for grabs), or undefined (before game started)
+  const itcChairEntering = {};  // h → player index | null | undefined
+  let itcNextUnplayedHole = -1; // first hole with no log entry
   if (fmt === 'itc') {
-    let currentChair = null;
+    let currentChair = undefined; // undefined = game hasn't started yet (no chair concept)
     for (let h = 0; h < numHoles; h++) {
       itcChairEntering[h] = currentChair;
       const e = byHole[h];
       if (e) {
         if (e.newChair != null) currentChair = e.newChair;
-        else if (e.halved) { /* chair stays — no change */ }
+        else if (e.halved) currentChair = null;  // halved → chair becomes empty
+        // else: won by someone via pts but newChair not set? shouldn't happen
+      } else {
+        // first unplayed hole
+        if (itcNextUnplayedHole === -1) itcNextUnplayedHole = h;
       }
     }
   }
@@ -6361,7 +6367,10 @@ function _renderAmendScorecard() {
       cols.forEach((c, ci) => {
         const val = c.getValue(entry);
         if (!val) {
-          cells += `<td class="asc-score-cell" data-h="${h}" data-ci="${ci}" style="${rowBg}"></td>`;
+          // ITC: on the next unplayed hole, show empty chair in the first column
+          const emptyChairHtml = (fmt === 'itc' && h === itcNextUnplayedHole && ci === 0 && itcChairEntering[h] === null)
+            ? `<div style="font-size:1.2rem;opacity:0.45;line-height:1;padding:0.3rem 0;">🪑</div>` : '';
+          cells += `<td class="asc-score-cell" data-h="${h}" data-ci="${ci}" style="${rowBg}">${emptyChairHtml}</td>`;
           return;
         }
         const relToPar = val.gross - parH;
