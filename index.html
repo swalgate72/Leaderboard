@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261008a">
+  <link rel="stylesheet" href="styles.css?v=20261008b">
 </head>
 <body class="local-mode">
 
@@ -142,47 +142,25 @@
         <div class="home-hero-avatar" id="home-hero-avatar">--</div>
       </div>
       <div class="home-hero-title">Leaderboard</div>
-      <div class="home-hero-stats">
-        <div class="home-hero-stat">
-          <div class="home-hero-stat-label">Handicap</div>
-          <div class="home-hero-stat-value" id="home-stat-hcp">--</div>
-        </div>
-        <div class="home-hero-stat">
-          <div class="home-hero-stat-label">Best Score</div>
-          <div class="home-hero-stat-value" id="home-stat-best">--</div>
-        </div>
-        <div class="home-hero-stat">
-          <div class="home-hero-stat-label">Rounds</div>
-          <div class="home-hero-stat-value" id="home-stat-rounds">--</div>
-        </div>
-      </div>
-
       <!-- Setup draft reminder (only shown if a game setup is in progress) -->
       <div id="home-draft-row" style="display:none;margin-bottom:0.5rem;"></div>
 
-      <!-- Permanent Active buttons -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;padding:0.75rem 0 0.25rem;">
+      <!-- Active Games button — full width -->
+      <div style="padding:0.75rem 0 0.25rem;">
         <button id="btn-home-active-games" class="btn"
-          style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);
-                 color:#fff;padding:0.65rem;font-family:'Barlow Condensed',sans-serif;
-                 font-size:1rem;font-weight:800;border-radius:var(--radius-sm);
+          style="width:100%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);
+                 color:#fff;padding:0.75rem;font-family:'Barlow Condensed',sans-serif;
+                 font-size:1.1rem;font-weight:800;border-radius:var(--radius-sm);
                  display:flex;align-items:center;justify-content:center;gap:0.4rem;position:relative;">
           ⛳ Active Games
           <span id="home-active-games-badge" style="display:none;background:#fff;color:#0e1a13;
             border-radius:50%;width:20px;height:20px;font-size:0.72rem;font-weight:800;
             display:none;align-items:center;justify-content:center;flex-shrink:0;"></span>
         </button>
-        <button id="btn-home-game-invites" class="btn"
-          style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);
-                 color:#fff;padding:0.65rem;font-family:'Barlow Condensed',sans-serif;
-                 font-size:1rem;font-weight:800;border-radius:var(--radius-sm);
-                 display:flex;align-items:center;justify-content:center;gap:0.4rem;position:relative;">
-          📩 Game Invites
-          <span id="home-game-invites-badge" style="display:none;background:#fff;color:#0e1a13;
-            border-radius:50%;width:20px;height:20px;font-size:0.72rem;font-weight:800;
-            display:none;align-items:center;justify-content:center;flex-shrink:0;"></span>
-        </button>
       </div>
+      <!-- Hidden for JS back-compat -->
+      <button id="btn-home-game-invites" style="display:none;"></button>
+      <span id="home-game-invites-badge" style="display:none;"></span>
     </div>
 
     <div style="padding:0.75rem 0.75rem 0;">
@@ -908,16 +886,26 @@
         <div class="home-hero-avatar" id="profile-avatar">?</div>
       </div>
       <div class="home-hero-title" id="profile-name">Welcome</div>
-      <div class="home-hero-stats" style="grid-template-columns:1fr 1fr;">
-        <div class="home-hero-stat">
-          <div class="home-hero-stat-label">Sync Status</div>
-          <div class="home-hero-stat-value" id="profile-sync-text" style="font-size:1.05rem;">Synced</div>
-        </div>
+      <div class="home-hero-stats" style="grid-template-columns:1fr 1fr 1fr 1fr;">
         <div class="home-hero-stat">
           <div class="home-hero-stat-label">Handicap</div>
           <div class="home-hero-stat-value" id="profile-hcp">--</div>
         </div>
+        <div class="home-hero-stat">
+          <div class="home-hero-stat-label">Best Score</div>
+          <div class="home-hero-stat-value" id="home-stat-best">--</div>
+        </div>
+        <div class="home-hero-stat">
+          <div class="home-hero-stat-label">Rounds</div>
+          <div class="home-hero-stat-value" id="home-stat-rounds">--</div>
+        </div>
+        <div class="home-hero-stat">
+          <div class="home-hero-stat-label">Sync</div>
+          <div class="home-hero-stat-value" id="profile-sync-text" style="font-size:0.9rem;">Synced</div>
+        </div>
       </div>
+      <!-- Hidden for JS back-compat -->
+      <span id="home-stat-hcp" style="display:none;"></span>
     </div>
 
     <div class="page-pad-sm">
@@ -925,17 +913,8 @@
     <div class="card">
       <div class="card-title">Your Details</div>
 
-      <!-- Username -->
-      <div class="field">
-        <label>Username <span style="font-size:0.85rem;color:var(--muted);font-weight:600;">searchable handle</span></label>
-        <input id="prof-username" type="text" placeholder="e.g. stevewalgate72" autocomplete="off"
-          style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;letter-spacing:0.04em;">
-      </div>
-
-      <div style="font-size:0.95rem;font-weight:600;color:var(--muted2);margin-bottom:0.75rem;line-height:1.5;">
-        Tap buttons to control visibility:
-        &#128269; = anyone can find you &nbsp;|&nbsp; &#128101; = confirmed friends only
-      </div>
+      <!-- Hidden for JS back-compat -->
+      <input id="prof-username" type="hidden">
 
       <!-- Name -->
       <div class="two-col" style="margin-bottom:0.75rem;">
@@ -990,7 +969,8 @@
     </div>
 
     <button class="btn btn-primary btn-full" id="btn-save-profile">SAVE PROFILE</button>
-    <button class="btn btn-outline mt-sm" id="btn-open-privacy" style="width:100%;">🔒 Contact Preferences</button>
+    <!-- btn-open-privacy hidden; kept for JS back-compat -->
+    <button id="btn-open-privacy" style="display:none;"></button>
 
     <!-- Backup & Restore -->
     <div class="card mt-sm">
@@ -1052,43 +1032,36 @@
       <div id="friend-requests-list"></div>
     </div>
 
-    <!-- Add by email -->
+    <!-- Hidden elements kept for JS back-compat -->
+    <input id="friend-search-email" type="hidden">
+    <div id="friend-search-result" style="display:none;"></div>
+    <div id="friend-found-name" style="display:none;"></div>
+    <button id="btn-send-request" style="display:none;"></button>
+    <div id="friend-search-empty" style="display:none;"></div>
+    <button id="btn-search-friend" style="display:none;"></button>
+
+    <!-- Copy Invite to Leaderboard -->
     <div class="card">
-      <div class="card-title">Add Friend by Email</div>
-      <div class="field">
-        <label>Email Address</label>
-        <input id="friend-search-email" type="email" placeholder="@username or email" style="font-size:1.05rem;padding:0.8rem 0.9rem;">
+      <button class="btn btn-green btn-full" id="btn-open-invite"
+        style="font-size:1.1rem;font-weight:800;padding:1rem;">
+        📋 Copy Invite to Leaderboard
+      </button>
+      <div class="hint mt-sm" style="text-align:center;">
+        Copies the full invite message &amp; link — paste into email, text or WhatsApp
       </div>
-      <div id="friend-search-result" class="hidden"
-        style="background:var(--surface2);border:1px solid var(--gold-border);border-radius:var(--radius-sm);padding:0.65rem 0.85rem;margin-bottom:0.65rem;">
-        <div id="friend-found-name" style="font-size:1rem;margin-bottom:0.5rem;"></div>
-        <button class="btn btn-primary" style="padding:0.45rem 1rem;width:auto;" id="btn-send-request">Send Request</button>
-      </div>
-      <div id="friend-search-empty" class="hidden hint mb-sm"></div>
-      <button class="btn btn-outline" id="btn-search-friend">🔍 Search</button>
     </div>
 
-    <!-- Invite to Leaderboard -->
+    <!-- Add Player to Favourites -->
     <div class="card mt-md">
-      <div class="card-title">Invite to Leaderboard</div>
-      <div class="card-sub mb-sm" style="font-size:0.85rem;">Send someone a link to join — includes instructions to install the app on their phone.</div>
-      <button class="btn btn-green btn-full" id="btn-open-invite">📲 Send Invite</button>
-    </div>
-
-    <!-- Add Guest Friend -->
-    <div class="card mt-md">
-      <div class="card-title">Add Guest Friend</div>
-      <div class="card-sub mb-sm" style="font-size:0.85rem;">
-        Add someone who doesn't have an account. They'll appear in your friends list so you can quickly add them to games.
-      </div>
       <button class="btn btn-outline btn-full" id="btn-add-guest-friend"
-        style="border-color:var(--green-border);color:var(--green);font-weight:800;">
-        👤 Add Guest Friend
+        style="border-color:var(--green-border);color:var(--green);font-weight:800;
+               font-size:1.05rem;padding:0.85rem;">
+        👤 Add Player to Favourites
       </button>
     </div>
 
     <!-- Friends list -->
-    <div class="home-section-label mt-md">Your Friends</div>
+    <div class="home-section-label mt-md">Your Players</div>
     <div id="friends-list" style="display:grid;gap:0.75rem;"></div>
 
     </div>
@@ -1305,9 +1278,9 @@
                   cursor:pointer;font-size:0.95rem;font-weight:700;color:var(--white);">
       <input type="checkbox" id="game-manual-save-guest"
              style="width:1.2rem;height:1.2rem;cursor:pointer;accent-color:var(--green);">
-      💾 Save for future games
+      💾 Save to Favourites
       <span style="font-size:0.75rem;font-weight:400;color:var(--muted);margin-left:2px;">
-        (adds to Friends list as guest)
+        (adds to your Players list for quick re-use)
       </span>
     </label>
 
@@ -1357,14 +1330,16 @@
     </div>
 
     <!-- Invite text box with copy -->
+    <button class="btn btn-green mb-sm" id="invite-copy-btn"
+      style="width:100%;font-size:1.1rem;font-weight:800;padding:0.9rem;">
+      📋 Copy Invite Message
+    </button>
     <div class="field">
-      <label>Invite Message</label>
-      <textarea id="invite-text-box" readonly rows="6"
+      <textarea id="invite-text-box" readonly rows="5"
         style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
                padding:0.65rem 0.85rem;color:var(--white);font-size:0.82rem;width:100%;
                line-height:1.5;resize:none;outline:none;font-family:'Lato',sans-serif;"></textarea>
     </div>
-    <button class="btn btn-outline mb-md" id="invite-copy-btn" style="width:100%;">📋 Copy Message</button>
 
     <div class="field">
       <label>Mobile Number (inc. country code)</label>
