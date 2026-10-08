@@ -2059,11 +2059,12 @@ html.light .home-hero {
 .fmt-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.65rem;
   width: 100%;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
-  padding: 1rem 0.9rem;
+  padding: 1.1rem 0.5rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -2082,11 +2083,12 @@ html.light .home-hero {
 html.light .fmt-btn { background: var(--surface); color: var(--white); }
 
 .home-section-label {
-  font-size: 0.6rem;
-  letter-spacing: 0.2em;
+  font-size: 1.2rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
-  font-weight: 400;
+  color: var(--white);
+  font-weight: 800;
+  font-family: 'Barlow Condensed', sans-serif;
   margin: 0 0.1rem 0.55rem;
 }
 
