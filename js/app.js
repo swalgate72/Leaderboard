@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20260801x)
-window.APP_BUILD = '20260802f';
+// LEADERBOARD - app.js  (v3.2 · build 20261008d)
+window.APP_BUILD = '20261008d';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -2319,10 +2319,17 @@ document.getElementById('modal-add-game-player-close')?.addEventListener('click'
   const modal = document.getElementById('modal-add-game-player');
   delete modal.dataset.editIdx;
   delete modal.dataset.editGuestId;
+  delete modal.dataset.editRealFriendId;
   modal.classList.remove('open');
-  // Re-enable save-guest checkbox in case it was disabled for edit mode
+  // Restore title and save-guest checkbox visibility
+  const titleEl = document.querySelector('#modal-add-game-player .modal-header div');
+  if (titleEl) titleEl.textContent = 'New Player';
   const sg = document.getElementById('game-manual-save-guest');
-  if (sg) sg.disabled = false;
+  if (sg) {
+    sg.disabled = false;
+    const row = sg.closest('label') || sg.parentElement;
+    if (row) row.style.display = '';
+  }
 });
 
 // From Friends button → open friends picker
@@ -2359,8 +2366,19 @@ document.getElementById('btn-add-guest-friend')?.addEventListener('click', () =>
   }
   renderNewPlayerTeeTable();
 
-  // Flag that we're in friends-tab mode (after save, refresh friends list)
+  // Ensure save row visible and re-enabled
+  if (saveGuestEl) {
+    const row = saveGuestEl.closest('label') || saveGuestEl.parentElement;
+    if (row) row.style.display = '';
+    saveGuestEl.disabled = false;
+  }
+
+  // Reset modal title and clear any lingering edit-mode flags
+  const titleEl = document.querySelector('#modal-add-game-player .modal-header div');
+  if (titleEl) titleEl.textContent = 'New Player';
   const modal = document.getElementById('modal-add-game-player');
+  delete modal.dataset.editGuestId;
+  delete modal.dataset.editRealFriendId;
   modal.dataset.friendsMode = '1';
   modal.classList.add('open');
   document.getElementById('game-manual-first').focus();
@@ -2488,15 +2506,21 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
         home_course_id:        homeCourseId || null,
         home_course_handicaps: Object.keys(homeCourseHcpsFull).length ? homeCourseHcpsFull : null,
       });
-      // Re-enable the save guest checkbox
-      const saveGuestEl2 = document.getElementById('game-manual-save-guest');
-      if (saveGuestEl2) saveGuestEl2.disabled = false;
-      allFriends = await friendsLoad(currentUser.id);
-      await showFriends();
     } catch(err) {
       console.error('[guest] Update failed:', err.message);
-      alert('⚠️ Could not update guest: ' + err.message);
+      alert('⚠️ Could not update player: ' + err.message);
     }
+    // Restore UI
+    const saveGuestEl2 = document.getElementById('game-manual-save-guest');
+    if (saveGuestEl2) {
+      saveGuestEl2.disabled = false;
+      const row2 = saveGuestEl2.closest('label') || saveGuestEl2.parentElement;
+      if (row2) row2.style.display = '';
+    }
+    const titleEl2 = document.querySelector('#modal-add-game-player .modal-header div');
+    if (titleEl2) titleEl2.textContent = 'New Player';
+    allFriends = await friendsLoad(currentUser.id);
+    await showFriends();
     return;
   }
 
@@ -10390,58 +10414,54 @@ async function loadFriendRequests() {
 async function renderFriendsList() {
   const listEl = document.getElementById('friends-list');
   if (!allFriends.length) {
-    listEl.innerHTML = '<div class="history-empty">No friends yet -- add one above.</div>';
+    listEl.innerHTML = '<div class="history-empty">No players yet — add one above.</div>';
     return;
   }
   listEl.innerHTML = allFriends.map(f => {
     const displayName = f.name || f.username || 'Unknown';
     const init = displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-    const noSurname = !f.name.trim().includes(' ') && !f.name.toLowerCase().includes('friend');
     const details = [];
-    if (f.hcp != null && f.friends_see_hcp !== false) details.push(`HCP ${fmtHandicap(f.hcp)}`);
-    if (f.mobile && f.friends_see_mobile)  details.push(f.mobile);
-    if (f.email && f.friends_see_email)    details.push(f.email);
+    if (f.hcp != null) details.push(`HCP ${fmtHandicap(f.hcp)}`);
+    if (f.email && (f.friends_see_email !== false)) details.push(f.email);
     if (f.username) details.unshift(`@${f.username}`);
-    if (noSurname) details.unshift('<span style="color:var(--gold);font-weight:800;">⚠️ No surname — ask them to update their profile</span>');
-    const guestBadge = f.is_guest
-      ? `<span style="font-size:0.65rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;
-                      background:rgba(90,180,90,0.15);color:#5ab45a;border-radius:4px;
-                      padding:0.1rem 0.35rem;margin-left:4px;vertical-align:middle;">Guest</span>` : '';
-    const editBtn = f.is_guest && f.isGuestTable
-      ? `<button class="btn btn-ghost" style="font-size:0.85rem;margin-right:0.3rem;"
-           data-edit-guest="${f.profileId}">✏️</button>` : '';
+    const friendId = f.is_guest ? (f.profileId || '') : (f.userId || '');
     return `
-      <div class="friend-item">
-        <div class="friend-avatar" style="${f.is_guest ? 'background:#5ab45a;' : ''}">${init}</div>
+      <div class="friend-item" data-fid="${f.friendshipId}" data-gid="${f.is_guest ? (f.profileId || '') : ''}" data-is-guest="${f.is_guest ? '1' : '0'}">
+        <div class="friend-avatar">${init}</div>
         <div class="friend-info">
-          <div class="friend-name">${displayName}${guestBadge}</div>
+          <div class="friend-name">${displayName}</div>
           <div class="friend-sub" style="line-height:1.5;">${details.join(' · ')}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:0.25rem;flex-shrink:0;">
-          ${editBtn}
-          <button class="btn btn-ghost" style="font-size:0.85rem;border-color:var(--red-border);color:var(--red);"
-            data-remove="${f.friendshipId}" data-guest-id="${f.is_guest ? f.profileId : ''}">Remove</button>
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
+          <button class="btn btn-ghost friend-edit-btn" style="font-size:1rem;padding:0.4rem 0.6rem;" title="Edit">✏️</button>
+          <button class="btn btn-ghost friend-del-btn" style="font-size:1rem;padding:0.4rem 0.6rem;border-color:var(--red-border);color:var(--red);" title="Remove">🗑️</button>
         </div>
       </div>`;
   }).join('');
 
-  listEl.querySelectorAll('[data-edit-guest]').forEach(btn => {
+  listEl.querySelectorAll('.friend-edit-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const guestId = btn.dataset.editGuest;
-      const f = allFriends.find(x => x.profileId === guestId);
+      const row = btn.closest('[data-fid]');
+      const gid = row.dataset.gid;
+      const isGuest = row.dataset.isGuest === '1';
+      const f = isGuest
+        ? allFriends.find(x => x.profileId === gid)
+        : allFriends.find(x => x.friendshipId === row.dataset.fid);
       if (!f) return;
       openEditGuestModal(f);
     });
   });
 
-  listEl.querySelectorAll('[data-remove]').forEach(btn => {
+  listEl.querySelectorAll('.friend-del-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Remove this friend?')) return;
-      const guestId = btn.dataset.guestId;
-      if (guestId) {
-        await guestProfileDelete(currentUser.id, guestId, btn.dataset.remove);
+      if (!confirm('Remove this player?')) return;
+      const row = btn.closest('[data-fid]');
+      const gid = row.dataset.gid;
+      const fid = row.dataset.fid;
+      if (gid) {
+        await guestProfileDelete(currentUser.id, gid, fid);
       } else {
-        await friendRemove(btn.dataset.remove);
+        await friendRemove(fid);
       }
       allFriends = await friendsLoad(currentUser.id);
       await renderFriendsList();
@@ -10450,7 +10470,7 @@ async function renderFriendsList() {
 }
 
 function openEditGuestModal(f) {
-  // Re-use the New Player modal in edit mode
+  // Re-use the New Player modal in edit mode — works for both guests and real friends
   const nameParts = (f.name || '').split(' ');
   document.getElementById('game-manual-first').value  = nameParts[0] ?? '';
   document.getElementById('game-manual-last').value   = nameParts.slice(1).join(' ') ?? '';
@@ -10460,9 +10480,14 @@ function openEditGuestModal(f) {
   document.getElementById('game-manual-phcp').value   = '';
   document.getElementById('game-manual-name').value   = f.name ?? '';
 
-  // Pre-tick save as guest (it's already a guest)
+  // Save-to-favourites checkbox — hidden/locked in edit mode
   const saveGuestEl = document.getElementById('game-manual-save-guest');
-  if (saveGuestEl) { saveGuestEl.checked = true; saveGuestEl.disabled = true; }
+  if (saveGuestEl) {
+    const row = saveGuestEl.closest('label') || saveGuestEl.parentElement;
+    row.style.display = 'none';
+    saveGuestEl.checked = true;
+    saveGuestEl.disabled = true;
+  }
 
   // Populate course select
   const crsSelect = document.getElementById('game-manual-course-select');
@@ -10485,10 +10510,20 @@ function openEditGuestModal(f) {
     }, 50);
   }
 
-  // Mark modal as guest-edit mode
+  // Update modal title to "Edit Player"
+  const titleEl = document.querySelector('#modal-add-game-player .modal-header div');
+  if (titleEl) titleEl.textContent = 'Edit Player';
+
+  // Mark modal as edit mode — guest vs real friend
   const modal = document.getElementById('modal-add-game-player');
-  modal.dataset.editGuestId   = f.profileId;
-  modal.dataset.friendsMode   = '1';
+  if (f.is_guest && f.profileId) {
+    modal.dataset.editGuestId = f.profileId;
+    delete modal.dataset.editRealFriendId;
+  } else {
+    modal.dataset.editRealFriendId = f.friendshipId || f.userId || '';
+    delete modal.dataset.editGuestId;
+  }
+  modal.dataset.friendsMode = '1';
   delete modal.dataset.editIdx;
   modal.classList.add('open');
   document.getElementById('game-manual-first').focus();
