@@ -2064,7 +2064,7 @@ html.light .home-hero {
   width: 100%;
   text-align: center;
   cursor: pointer;
-  padding: 1.1rem 0.5rem;
+  padding: 1.2rem 0.5rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
