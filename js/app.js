@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261010q';
+window.APP_BUILD = '20261010r';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -1756,9 +1756,9 @@ function openFriendsPickerModal() {
           style="background:transparent;${bg2}border:${border};color:${col};font-weight:${fw};
                  font-family:'Plus Jakarta Sans',sans-serif;font-size:1.4rem;
                  padding:0.35rem 0.6rem;border-radius:8px;cursor:pointer;
-                 display:flex;flex-direction:column;align-items:center;min-width:3.5rem;line-height:1.2;">
-          <span style="font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;">${label}</span>
-          <span>${fmtHandicap(vals[key])}</span>
+                 display:flex;flex-direction:column;align-items:flex-end;line-height:1.2;">
+          <span style="font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;align-self:center;">${label}</span>
+          <span style="font-variant-numeric:tabular-nums;">${fmtHandicap(vals[key])}</span>
         </button>`;
       };
 
