@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261010o)
-window.APP_BUILD = '20261010o';
+// LEADERBOARD - app.js  (v3.2 · build 20261010p)
+window.APP_BUILD = '20261010p';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -4581,7 +4581,11 @@ function renderHolePanel() {
   const inputsEl = document.getElementById('game-inputs');
   inputsEl.innerHTML = '';
   // 1–2 players: big Stitch-style cards. 3+: compact one-row cards so the hole fits on one screen.
-  inputsEl.classList.toggle('gi-roomy', (gameState.names?.filter(Boolean).length ?? 0) <= 2);
+  const _nPlayers = gameState.names?.filter(Boolean).length ?? 0;
+  const _tallPhone = window.innerHeight > 760; // iPhone SE-size screens keep 3 players on one-row cards
+  const _stack3   = _nPlayers === 3 && _tallPhone;
+  inputsEl.classList.toggle('gi-roomy', _nPlayers <= 2 || _stack3);
+  inputsEl.classList.toggle('gi-n3', _stack3);
 
   const recordBtn  = document.getElementById('btn-record-hole');
   const backHoleBtn = document.getElementById('btn-amend-scores');

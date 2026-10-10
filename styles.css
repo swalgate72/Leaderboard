@@ -4080,3 +4080,179 @@ html.light .btn-back-hole {
 }
 .game-hero .tc-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 380px) { .game-hero .tc-name { font-size: 0.95rem; letter-spacing: 0.01em; } }
+
+/* ================================================================
+   SIZE BUMP (build 20261010p) — use the spare height
+   Home ≈ +30%. Scoring: 3 players get stacked cards (≈ +60%),
+   4 players stay one-row but larger, 1–2 players keep the big cards.
+   ================================================================ */
+
+/* ── Home ──────────────────────────────────────────────────────── */
+#screen-home .home-hero { padding-bottom: 1.1rem; margin-bottom: 0.9rem; }
+#screen-home .home-hero-identity { gap: 0.9rem; margin-bottom: 0.85rem; }
+#screen-home .home-hero-avatar { width: 56px; height: 56px; font-size: 1.3rem; }
+#screen-home .home-hero-avatar::after { width: 12px; height: 12px; }
+#screen-home .home-hero-title { font-size: 2.15rem; }
+#screen-home .home-hero-subline { font-size: 0.95rem; }
+#screen-home .home-hero-stats { padding: 0.75rem 0.2rem; margin-bottom: 0.75rem; }
+#screen-home .home-hero-stat-label { font-size: 0.68rem; margin-bottom: 0.25rem; }
+#screen-home .home-hero-stat-value { font-size: 1.65rem; }
+#screen-home .home-round-card { padding: 0.7rem 0.75rem; border-radius: 17px; gap: 0.75rem; }
+#screen-home .home-round-icon { width: 44px; height: 44px; border-radius: 12px; }
+#screen-home .home-round-icon svg { width: 22px; height: 22px; }
+#screen-home .home-round-status { font-size: 0.72rem; }
+#screen-home .home-round-course { font-size: 1.05rem; }
+#screen-home .home-round-btn { padding: 0.6rem 0.6rem 0.6rem 0.95rem; border-radius: 12px; font-size: 1rem; }
+#screen-home .home-section-label { font-size: 0.82rem; margin: 0.1rem 0.1rem 0.55rem; }
+#screen-home .home-section-label::before { height: 16px; }
+#screen-home .fmt-stack { gap: 0.55rem; }
+#screen-home .fmt-grid { gap: 0.6rem; }
+#screen-home .fmt-col { height: 4.25rem; border-radius: 17px; }
+#screen-home .fmt-btn { font-size: 1.08rem; gap: 0.65rem; padding: 0 0.7rem; }
+#screen-home .fmt-btn svg { width: 38px; height: 38px; padding: 6px; border-radius: 11px; }
+
+/* ── Scoring: hole header a bit bigger ─────────────────────────── */
+.hole-hdr { margin-bottom: 0.75rem; gap: 0.75rem; }
+.hole-badge { width: 56px; height: 60px; border-radius: 15px; }
+.hole-badge .hole-lbl { font-size: 0.62rem; }
+.hole-badge .hole-num { font-size: 1.8rem; }
+.hole-meta .si-big { font-size: 1.45rem; }
+.si-pill { font-size: 0.8rem; padding: 0.15rem 0.6rem; }
+.hole-sub { font-size: 0.86rem; }
+.hole-pager { padding: 0.55rem 0.6rem 0.55rem 0.85rem; font-size: 0.95rem; }
+.btn-record, html.light .btn-record { padding: 1rem 1rem; font-size: 1.15rem; border-radius: 18px; }
+.btn-back-hole, html.light .btn-back-hole { padding: 0.65rem 0.95rem; font-size: 0.85rem; }
+
+/* ── 3 players: stacked cards, ~60% bigger than the one-row cards ── */
+#game-inputs.gi-n3 .gi-card { padding: 0.75rem 0.85rem 0.75rem; margin-bottom: 0.6rem; border-radius: 20px; }
+#game-inputs.gi-n3 .gi-top { padding-bottom: 0.55rem; align-items: center; }
+#game-inputs.gi-n3 .gi-name { font-size: 1.2rem; }
+#game-inputs.gi-n3 .gi-hcp { font-size: 0.86rem; }
+#game-inputs.gi-n3 .gi-hcp b { color: var(--white); }
+#game-inputs.gi-n3 .gi-hcp-short,
+#game-inputs.gi-n3 .gi-prev,
+#game-inputs.gi-n3 .gi-calc-lbl { display: none; }
+#game-inputs.gi-n3 .gi-calc-val { font-size: 0.92rem; padding: 0.35rem 0.75rem; }
+#game-inputs.gi-n3 .gi-score-ctrl { padding-top: 0.6rem; gap: 0.55rem; }
+#game-inputs.gi-n3 .gi-arr,
+#game-inputs.gi-n3 .gi-pickup-btn { height: 66px; border-radius: 18px; }
+#game-inputs.gi-n3 .gi-disc-wrap { position: relative; }
+#game-inputs.gi-n3 .gi-score-disc { width: 78px; height: 78px; font-size: 2.1rem; padding-bottom: 12px; }
+#game-inputs.gi-n3 .gi-score-disc.is-pickup { font-size: 0.95rem; padding-bottom: 10px; }
+#game-inputs.gi-n3 .gi-rel {
+  position: absolute;
+  left: 0; right: 0; bottom: 11px;
+  text-align: center;
+  font-size: 0.56rem;
+  pointer-events: none;
+}
+
+/* Long handicap line only where there's room */
+#game-inputs.gi-roomy .gi-hcp-short { display: none; }
+
+/* ── 4 players: one-row cards, ~25% bigger ─────────────────────── */
+#game-inputs:not(.gi-roomy) .gi-card { padding: 0.7rem 0.65rem 0.7rem 0.8rem; margin-bottom: 0.55rem; border-radius: 18px; }
+#game-inputs:not(.gi-roomy) .gi-name { font-size: 1.12rem; }
+#game-inputs:not(.gi-roomy) .gi-hcp { font-size: 0.8rem; }
+#game-inputs:not(.gi-roomy) .gi-calc-val { font-size: 0.78rem; padding: 0.22rem 0.55rem; }
+#game-inputs:not(.gi-roomy) .gi-score-ctrl { gap: 0.4rem; }
+#game-inputs:not(.gi-roomy) .gi-arr,
+#game-inputs:not(.gi-roomy) .gi-pickup-btn { width: 46px; height: 62px; border-radius: 16px; }
+#game-inputs:not(.gi-roomy) .gi-score-disc { width: 70px; height: 70px; font-size: 1.8rem; padding-bottom: 10px; }
+#game-inputs:not(.gi-roomy) .gi-rel { font-size: 0.52rem; bottom: 10px; }
+
+/* Short phones (iPhone SE etc.) — fall back toward the compact sizes */
+@media (max-height: 760px) {
+  #screen-home .fmt-col { height: 3.05rem; }
+  #screen-home .fmt-btn { font-size: 0.92rem; }
+  #screen-home .fmt-btn svg { width: 28px; height: 28px; padding: 4px; }
+  #screen-home .home-hero-avatar { width: 44px; height: 44px; font-size: 1.05rem; }
+  #screen-home .home-hero-title { font-size: 1.6rem; }
+  #screen-home .home-hero-identity { margin-bottom: 0.55rem; }
+  #screen-home .home-hero-stats { padding: 0.5rem 0.15rem; margin-bottom: 0.55rem; }
+  #screen-home .home-hero-stat-value { font-size: 1.3rem; }
+  #screen-home .home-round-card { padding: 0.5rem 0.6rem; }
+  #screen-home .home-round-icon { width: 36px; height: 36px; }
+  .hole-badge { width: 46px; height: 48px; }
+  .hole-badge .hole-num { font-size: 1.45rem; }
+  .hole-hdr { margin-bottom: 0.45rem; }
+  .btn-record, html.light .btn-record { padding: 0.7rem 1rem; }
+  #game-inputs.gi-n3 .gi-card { padding: 0.5rem 0.7rem; margin-bottom: 0.4rem; }
+  #game-inputs.gi-n3 .gi-arr,
+  #game-inputs.gi-n3 .gi-pickup-btn { height: 52px; }
+  #game-inputs.gi-n3 .gi-score-disc { width: 62px; height: 62px; font-size: 1.6rem; padding-bottom: 9px; }
+  #game-inputs.gi-n3 .gi-rel { bottom: 8px; font-size: 0.48rem; }
+  #game-inputs:not(.gi-roomy) .gi-card { padding-top: 0.4rem; padding-bottom: 0.4rem; margin-bottom: 0.35rem; }
+  #game-inputs:not(.gi-roomy) .gi-arr,
+  #game-inputs:not(.gi-roomy) .gi-pickup-btn { width: 42px; height: 48px; }
+  #game-inputs:not(.gi-roomy) .gi-score-disc { width: 54px; height: 54px; font-size: 1.4rem; padding-bottom: 9px; }
+  #game-inputs:not(.gi-roomy) .gi-rel { bottom: 8px; font-size: 0.46rem; }
+}
+
+/* Fit tuning (20261010p) */
+#screen-home .fmt-col { height: 3.85rem; }
+#screen-home .fmt-stack { gap: 0.5rem; }
+#screen-home .home-hero-identity { margin-bottom: 0.7rem; }
+#screen-home .home-hero-avatar { width: 52px; height: 52px; }
+#screen-home .home-hero-title { font-size: 2rem; }
+#screen-home .home-hero-stats { padding: 0.6rem 0.2rem; margin-bottom: 0.65rem; }
+#screen-home .home-hero-stat-value { font-size: 1.55rem; }
+#screen-home .home-round-card { padding: 0.6rem 0.7rem; }
+#screen-home .home-hero { padding-bottom: 0.95rem; margin-bottom: 0.75rem; }
+
+#game-inputs.gi-n3 .gi-card { padding: 0.6rem 0.8rem; margin-bottom: 0.5rem; }
+#game-inputs.gi-n3 .gi-top { padding-bottom: 0.4rem; }
+#game-inputs.gi-n3 .gi-score-ctrl { padding-top: 0.45rem; }
+#game-inputs.gi-n3 .gi-arr,
+#game-inputs.gi-n3 .gi-pickup-btn { height: 58px; }
+#game-inputs.gi-n3 .gi-score-disc { width: 70px; height: 70px; font-size: 1.95rem; padding-bottom: 11px; }
+#game-inputs.gi-n3 .gi-rel { bottom: 10px; }
+.hole-hdr { margin-bottom: 0.6rem; }
+.btn-record, html.light .btn-record { padding: 0.9rem 1rem; }
+
+@media (max-height: 760px) {
+  #screen-home .fmt-col { height: 2.85rem; }
+  #screen-home .home-hero-title { font-size: 1.5rem; }
+  #screen-home .home-hero-avatar { width: 42px; height: 42px; }
+  #screen-home .home-hero-stat-value { font-size: 1.2rem; }
+  #screen-home .home-round-course { font-size: 0.92rem; }
+  #screen-home .home-section-label { margin-bottom: 0.4rem; }
+  #screen-home .fmt-stack { gap: 0.4rem; }
+}
+#screen-home .fmt-col { height: 4.1rem; }
+#game-inputs:not(.gi-roomy) .gi-card { padding-top: 0.8rem; padding-bottom: 0.8rem; }
+#game-inputs:not(.gi-roomy) .gi-arr,
+#game-inputs:not(.gi-roomy) .gi-pickup-btn { height: 74px; width: 50px; }
+#game-inputs:not(.gi-roomy) .gi-score-disc { width: 80px; height: 80px; font-size: 2rem; padding-bottom: 12px; }
+#game-inputs:not(.gi-roomy) .gi-rel { font-size: 0.56rem; bottom: 11px; }
+#game-inputs:not(.gi-roomy) .gi-name { font-size: 1.18rem; }
+#game-inputs:not(.gi-roomy) .gi-hcp { font-size: 0.84rem; }
+#game-inputs:not(.gi-roomy) .gi-calc-val { font-size: 0.82rem; }
+@media (max-height: 760px) {
+  #screen-home .fmt-col { height: 2.85rem; }
+  #game-inputs:not(.gi-roomy) .gi-card { padding-top: 0.3rem; padding-bottom: 0.3rem; margin-bottom: 0.3rem; }
+  #game-inputs:not(.gi-roomy) .gi-arr,
+  #game-inputs:not(.gi-roomy) .gi-pickup-btn { width: 42px; height: 48px; }
+  #game-inputs:not(.gi-roomy) .gi-score-disc { width: 54px; height: 54px; font-size: 1.4rem; }
+  #game-inputs:not(.gi-roomy) .gi-name { font-size: 1rem; }
+  #game-inputs:not(.gi-roomy) .gi-hcp { font-size: 0.74rem; }
+  #game-inputs:not(.gi-roomy) .gi-calc-val { font-size: 0.72rem; }
+}
+/* 4 players: narrower stepper so names and the net pill have room */
+#game-inputs:not(.gi-roomy) .gi-score-ctrl { gap: 0.3rem; }
+#game-inputs:not(.gi-roomy) .gi-arr { width: 44px; height: 70px; }
+#game-inputs:not(.gi-roomy) .gi-pickup-btn { width: 46px; height: 70px; font-size: 0.56rem; }
+#game-inputs:not(.gi-roomy) .gi-score-disc { width: 72px; height: 72px; font-size: 1.85rem; padding-bottom: 11px; }
+#game-inputs:not(.gi-roomy) .gi-rel { font-size: 0.52rem; bottom: 10px; }
+#game-inputs:not(.gi-roomy) .gi-card { padding-left: 0.7rem; padding-right: 0.55rem; gap: 0.4rem; }
+#game-inputs:not(.gi-roomy) .gi-name { font-size: 1.08rem; }
+#game-inputs:not(.gi-roomy) .gi-calc-val { font-size: 0.76rem; padding: 0.2rem 0.45rem; }
+@media (max-height: 760px) {
+  #game-inputs:not(.gi-roomy) .gi-arr,
+  #game-inputs:not(.gi-roomy) .gi-pickup-btn { width: 42px; height: 48px; }
+  #game-inputs:not(.gi-roomy) .gi-score-disc { width: 54px; height: 54px; font-size: 1.4rem; padding-bottom: 9px; }
+  #game-inputs:not(.gi-roomy) .gi-rel { font-size: 0.46rem; bottom: 8px; }
+}
+/* Idle round card text */
+#screen-home .home-round-card.is-idle .home-round-status { font-size: 1rem; }
+#screen-home .home-round-card.is-idle .home-round-course { font-size: 0.86rem; -webkit-line-clamp: 1; }
