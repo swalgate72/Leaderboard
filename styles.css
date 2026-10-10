@@ -3908,3 +3908,175 @@ html.light .btn-back-hole {
   -webkit-box-orient: vertical;
 }
 .home-round-btn { padding: 0.55rem 0.55rem 0.55rem 0.8rem; font-size: 0.9rem; }
+
+/* ================================================================
+   ONE-SCREEN FIT (build 20261010o)
+   Home and the scoring screen sized to fit a phone without scrolling.
+   ================================================================ */
+
+/* ── Home ──────────────────────────────────────────────────────── */
+#screen-home .home-hero {
+  padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem 0.9rem;
+  margin-bottom: 0.7rem;
+  border-radius: 0 0 24px 24px;
+}
+#screen-home .home-hero-identity { gap: 0.75rem; margin-bottom: 0.7rem; }
+#screen-home .home-hero-avatar { width: 44px; height: 44px; font-size: 1.05rem; }
+#screen-home .home-hero-avatar::after { width: 10px; height: 10px; }
+#screen-home .home-hero-title {
+  font-size: 1.75rem;
+  line-height: 1.05;
+  margin: 0;
+}
+#screen-home .home-hero-subline { font-size: 0.8rem; margin-top: 3px; }
+#screen-home .home-hero-stats {
+  padding: 0.55rem 0.15rem;
+  border-radius: 14px;
+  margin-bottom: 0.6rem;
+}
+#screen-home .home-hero-stat { padding: 0 0.65rem; }
+#screen-home .home-hero-stat-label { font-size: 0.6rem; margin-bottom: 0.15rem; }
+#screen-home .home-hero-stat-value { font-size: 1.3rem; }
+#screen-home .home-hero-stat-sub { display: none; }
+#screen-home .home-round-card { padding: 0.55rem 0.6rem; border-radius: 15px; gap: 0.6rem; }
+#screen-home .home-round-icon { width: 36px; height: 36px; border-radius: 10px; }
+#screen-home .home-round-icon svg { width: 19px; height: 19px; }
+#screen-home .home-round-course { font-size: 0.9rem; }
+#screen-home .home-round-btn { padding: 0.45rem 0.5rem 0.45rem 0.75rem; border-radius: 10px; font-size: 0.85rem; }
+#screen-home .home-section-label { margin: 0 0.1rem 0.4rem; font-size: 0.72rem; }
+#screen-home .home-section-label::before { height: 13px; }
+#screen-home .fmt-stack { gap: 0.4rem; }
+#screen-home .fmt-grid { gap: 0.5rem; }
+#screen-home .fmt-col { height: 3.15rem; border-radius: 14px; }
+#screen-home .fmt-btn { font-size: 0.9rem; gap: 0.5rem; padding: 0 0.55rem; line-height: 1.12; }
+#screen-home .fmt-btn svg { width: 30px; height: 30px; padding: 5px; border-radius: 9px; }
+
+/* ── Scoring screen: hero + hole header ───────────────────────── */
+.game-hero { padding: 0.6rem 0.9rem 0.7rem !important; border-radius: 0 0 20px 20px; }
+.game-hero #game-sub { margin-bottom: 0.45rem !important; font-size: 0.7rem !important; }
+.game-hero .total-cell { padding: 0.4rem 0.3rem; }
+.game-hero .tc-name { font-size: 1.15rem; margin-bottom: 0.05rem; }
+.game-hero .tc-pts { font-size: 1.9rem; }
+.game-hero #result-flash.result-flash-permanent { padding: 0.35rem 0.8rem; margin-top: 0.35rem !important; }
+
+.hole-panel { padding: 0.6rem 0.75rem 0.5rem; }
+.hole-hdr { margin: 0 0.05rem 0.55rem; gap: 0.65rem; }
+.hole-badge { width: 46px; height: 48px; border-radius: 13px; }
+.hole-badge .hole-lbl { font-size: 0.54rem; }
+.hole-badge .hole-num { font-size: 1.45rem; }
+.hole-meta .si-big { font-size: 1.2rem; }
+.si-pill { font-size: 0.72rem; padding: 0.1rem 0.5rem; }
+.hole-sub { font-size: 0.76rem; margin-top: 0.1rem; }
+.hole-pager { padding: 0.45rem 0.5rem 0.45rem 0.75rem; border-radius: 12px; font-size: 0.88rem; }
+
+.hole-actions { margin-top: 0.1rem !important; }
+.btn-record, html.light .btn-record { padding: 0.8rem 1rem; font-size: 1.05rem; border-radius: 16px; }
+.btn-back-hole, html.light .btn-back-hole { padding: 0.5rem 0.85rem; border-radius: 16px; font-size: 0.78rem; }
+
+/* ── Compact player card (3–4 players): one row, stepper on the right ── */
+#game-inputs:not(.gi-roomy) .gi-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.6rem 0.55rem 0.75rem;
+  margin-bottom: 0.45rem;
+  border-radius: 16px;
+}
+#game-inputs:not(.gi-roomy) .gi-top {
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding: 0;
+  border: none;
+}
+#game-inputs:not(.gi-roomy) .gi-id { width: 100%; }
+#game-inputs:not(.gi-roomy) .gi-name {
+  font-size: 1rem;
+  gap: 0.3rem;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+#game-inputs:not(.gi-roomy) .gi-name-txt { overflow: hidden; text-overflow: ellipsis; }
+#game-inputs:not(.gi-roomy) .gi-name .dot { width: 8px; height: 8px; flex-shrink: 0; }
+#game-inputs:not(.gi-roomy) .gi-pill { font-size: 0.64rem; padding: 0.05rem 0.38rem; flex-shrink: 0; }
+#game-inputs:not(.gi-roomy) .gi-pill-long,
+#game-inputs:not(.gi-roomy) .gi-pill-none,
+#game-inputs:not(.gi-roomy) .gi-hcp-long,
+#game-inputs:not(.gi-roomy) .gi-prev { display: none; }
+#game-inputs:not(.gi-roomy) .gi-hcp { font-size: 0.74rem; margin-top: 1px; white-space: nowrap; }
+#game-inputs:not(.gi-roomy) .gi-hcp b { font-weight: 700; color: var(--white); }
+#game-inputs:not(.gi-roomy) .gi-calc { text-align: left; }
+#game-inputs:not(.gi-roomy) .gi-calc-lbl { display: none; }
+#game-inputs:not(.gi-roomy) .gi-calc-val { font-size: 0.72rem; padding: 0.18rem 0.5rem; }
+
+#game-inputs:not(.gi-roomy) .gi-score-ctrl {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0;
+  flex-shrink: 0;
+}
+#game-inputs:not(.gi-roomy) .gi-arr { width: 44px; height: 50px; border-radius: 14px; }
+#game-inputs:not(.gi-roomy) .gi-arr svg { width: 20px; height: 20px; }
+#game-inputs:not(.gi-roomy) .gi-disc-wrap { position: relative; }
+#game-inputs:not(.gi-roomy) .gi-score-disc {
+  width: 58px; height: 58px;
+  border-width: 3.5px;
+  font-size: 1.55rem;
+  padding-bottom: 9px;
+}
+#game-inputs:not(.gi-roomy) .gi-score-disc.is-pickup { font-size: 0.8rem; padding-bottom: 8px; }
+#game-inputs:not(.gi-roomy) .gi-pu-lbl { font-size: 0.66rem; }
+#game-inputs:not(.gi-roomy) .gi-pu-val { font-size: 0.74rem; }
+#game-inputs:not(.gi-roomy) .gi-rel {
+  position: absolute;
+  left: 0; right: 0; bottom: 9px;
+  text-align: center;
+  font-size: 0.48rem;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+}
+#game-inputs:not(.gi-roomy) .gi-pickup-btn {
+  min-width: 0;
+  width: 44px;
+  height: 50px;
+  padding: 0;
+  border-radius: 14px;
+  font-size: 0.58rem;
+  letter-spacing: 0.03em;
+}
+
+/* Roomy (1–2 players): tighten the big cards a touch */
+#game-inputs.gi-roomy .gi-card { padding: 0.8rem 0.85rem 0.75rem; }
+#game-inputs.gi-roomy .gi-top { padding-bottom: 0.6rem; }
+#game-inputs.gi-roomy .gi-score-ctrl { padding-top: 0.7rem; }
+
+@media (max-width: 370px) {
+  #game-inputs:not(.gi-roomy) .gi-arr,
+  #game-inputs:not(.gi-roomy) .gi-pickup-btn { width: 40px; }
+  #game-inputs:not(.gi-roomy) .gi-score-disc { width: 54px; height: 54px; font-size: 1.4rem; }
+}
+
+/* Use spare height on taller phones; squeeze on short ones (iPhone SE etc.) */
+#screen-home .fmt-col { height: 3.4rem; }
+#game-inputs:not(.gi-roomy) .gi-arr,
+#game-inputs:not(.gi-roomy) .gi-pickup-btn { height: 54px; }
+#game-inputs:not(.gi-roomy) .gi-score-disc { width: 62px; height: 62px; }
+
+@media (max-height: 760px) {
+  #screen-home .fmt-col { height: 2.85rem; }
+  #screen-home .fmt-btn svg { width: 26px; height: 26px; padding: 4px; }
+  #screen-home .home-hero-identity { margin-bottom: 0.5rem; }
+  #screen-home .home-hero-title { font-size: 1.5rem; }
+  .game-hero .tc-pts { font-size: 1.55rem; }
+  .game-hero .tc-name { font-size: 1rem; }
+  .hole-hdr { margin-bottom: 0.4rem; }
+  #game-inputs:not(.gi-roomy) .gi-card { padding-top: 0.4rem; padding-bottom: 0.4rem; margin-bottom: 0.35rem; }
+  #game-inputs:not(.gi-roomy) .gi-arr,
+  #game-inputs:not(.gi-roomy) .gi-pickup-btn { height: 48px; }
+  #game-inputs:not(.gi-roomy) .gi-score-disc { width: 54px; height: 54px; font-size: 1.4rem; }
+  .btn-record, html.light .btn-record { padding: 0.7rem 1rem; }
+}
+.game-hero .tc-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 380px) { .game-hero .tc-name { font-size: 0.95rem; letter-spacing: 0.01em; } }

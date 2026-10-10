@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261010n)
-window.APP_BUILD = '20261010n';
+// LEADERBOARD - app.js  (v3.2 · build 20261010o)
+window.APP_BUILD = '20261010o';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -962,11 +962,11 @@ async function showHome() {
     : '--';
   const avatarEl = document.getElementById('home-hero-avatar');
   if (avatarEl) avatarEl.textContent = initials || '--';
-  const heroNameEl = document.getElementById('home-hero-name');
-  if (heroNameEl) heroNameEl.textContent = myName || 'Welcome';
   const heroSubEl = document.getElementById('home-hero-subline');
-  if (heroSubEl) heroSubEl.textContent = currentProfile?.hcp != null
-    ? `HCP ${fmtHandicap(currentProfile.hcp)}` : '';
+  if (heroSubEl) heroSubEl.textContent = [
+    myName,
+    currentProfile?.hcp != null ? `HCP ${fmtHandicap(currentProfile.hcp)}` : '',
+  ].filter(Boolean).join(' · ');
 
   const hcpEl = document.getElementById('home-stat-hcp');
   if (hcpEl) hcpEl.textContent = currentProfile?.hcp != null
@@ -4580,6 +4580,8 @@ function renderHolePanel() {
 
   const inputsEl = document.getElementById('game-inputs');
   inputsEl.innerHTML = '';
+  // 1–2 players: big Stitch-style cards. 3+: compact one-row cards so the hole fits on one screen.
+  inputsEl.classList.toggle('gi-roomy', (gameState.names?.filter(Boolean).length ?? 0) <= 2);
 
   const recordBtn  = document.getElementById('btn-record-hole');
   const backHoleBtn = document.getElementById('btn-amend-scores');
@@ -5475,10 +5477,10 @@ function makePlayerInputRow(pi, h, par) {
   const discBorder = !hasExisting ? '2px solid var(--border2)' : `2px solid ${discColor}`;
 
   const shotPill = extra > 0
-    ? `<span class="gi-pill gi-pill-shot">+${extra} shot${extra > 1 ? 's' : ''}</span>`
+    ? `<span class="gi-pill gi-pill-shot">+${extra}<span class="gi-pill-long"> shot${extra > 1 ? 's' : ''}</span></span>`
     : extra < 0
-      ? `<span class="gi-pill gi-pill-plus">Gives ${-extra}</span>`
-      : `<span class="gi-pill">No shots</span>`;
+      ? `<span class="gi-pill gi-pill-plus">−${-extra}</span>`
+      : `<span class="gi-pill gi-pill-none">No shots</span>`;
   row.classList.add('gi-card');
   row.dataset.pi    = String(pi);
   row.dataset.extra = String(extra);
@@ -5493,7 +5495,7 @@ function makePlayerInputRow(pi, h, par) {
           ${shotPill}
           ${inChair ? '<span class="gi-chair">🪑</span>' : ''}
         </div>
-        <div class="gi-hcp">${hcpLine} · Total: ${_giRunningTotal(pi)}</div>
+        <div class="gi-hcp"><span class="gi-hcp-long">${hcpLine}</span><span class="gi-hcp-short">HCP ${isIndiv ? gameState.playingHandicaps[pi] : gameState.matchHandicaps[pi]}</span> · <b>${_giRunningTotal(pi)}</b></div>
         <div class="gi-prev" id="gi-prev-${pi}">${prevLabel}</div>
       </div>
       <div class="gi-calc">
