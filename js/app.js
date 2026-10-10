@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010a)
-window.APP_BUILD = '20261010k';
+window.APP_BUILD = '20261010l';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -1167,7 +1167,7 @@ function renderDrivesGrids() {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'holes-btn' + (i === currentVal ? ' active' : '');
-      btn.style.cssText = 'min-width:2.4rem;padding:0.45rem 0.3rem;font-size:1rem;';
+      btn.style.cssText = 'padding:0.45rem 0.3rem;font-size:1rem;';
       btn.textContent = i;
       btn.addEventListener('click', () => { onSelect(i); renderDrivesGrids(); saveSetupState('screen-setup-course'); });
       grid.appendChild(btn);
