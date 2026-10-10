@@ -14,8 +14,8 @@
   <title>Leaderboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261010m">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=20261010n">
 </head>
 <body class="local-mode">
 
@@ -139,38 +139,51 @@
     <!-- Hero card -->
     <div class="home-hero">
 
-      <!-- Identity row: avatar + app title -->
+      <!-- Identity row: gold-ringed avatar + name + subline -->
       <div class="home-hero-identity">
         <div class="home-hero-avatar" id="home-hero-avatar">--</div>
-        <div class="home-hero-title">Leaderboard</div>
+        <div class="home-hero-who">
+          <div class="home-hero-name" id="home-hero-name">Leaderboard</div>
+          <div class="home-hero-subline" id="home-hero-subline"></div>
+        </div>
       </div>
+
+      <div class="home-hero-eyebrow">Clubhouse</div>
+      <div class="home-hero-title">Leaderboard</div>
 
       <!-- Setup draft reminder (only shown if a game setup is in progress) -->
       <div id="home-draft-row" style="display:none;margin-bottom:0.75rem;"></div>
-
-      <!-- Thin rule -->
-      <div class="home-hero-rule"></div>
 
       <!-- Stats band: handicap · best score · rounds -->
       <div class="home-hero-stats" id="home-hero-stats-band">
         <div class="home-hero-stat">
           <div class="home-hero-stat-label">Handicap</div>
           <div class="home-hero-stat-value" id="home-stat-hcp">—</div>
+          <div class="home-hero-stat-sub">WHS Index</div>
         </div>
         <div class="home-hero-stat">
           <div class="home-hero-stat-label">Best</div>
           <div class="home-hero-stat-value" id="home-stat-best">—</div>
+          <div class="home-hero-stat-sub">Stableford</div>
         </div>
         <div class="home-hero-stat">
           <div class="home-hero-stat-label">Rounds</div>
           <div class="home-hero-stat-value" id="home-stat-rounds">—</div>
+          <div class="home-hero-stat-sub">Played</div>
         </div>
       </div>
 
-      <!-- Active Games — solid gold primary CTA -->
-      <button id="btn-home-active-games" class="home-hero-cta">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Active Games
+      <!-- Round in progress card (opens the Active Games list) -->
+      <button id="btn-home-active-games" class="home-round-card is-idle" type="button">
+        <span class="home-round-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="21"/><path d="M6 4h11l-2.5 4L17 12H6"/></svg>
+          <span class="home-round-live"></span>
+        </span>
+        <span class="home-round-body">
+          <span class="home-round-status" id="home-round-status">No round in progress</span>
+          <span class="home-round-course" id="home-round-course">Choose a format below</span>
+        </span>
+        <span class="home-round-btn" id="home-round-btn">View <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></span>
         <span id="home-active-games-badge" class="home-hero-cta-badge" style="display:none;"></span>
       </button>
 
@@ -699,8 +712,7 @@
 <div id="screen-game" class="screen screen-game">
 
   <!-- ══ GREEN HERO HEADER (sticky) ══ -->
-  <div id="game-hero" style="
-    background: linear-gradient(160deg,#1a3a22 0%,#0e2415 100%);
+  <div id="game-hero" class="game-hero" style="
     color:#fff;
     padding: 0.85rem 1.1rem 1rem;
     flex-shrink:0;
@@ -716,10 +728,10 @@
     <!-- Course name + Through N on same line -->
     <div style="display:flex;align-items:baseline;justify-content:space-between;gap:0.5rem;margin-bottom:0.15rem;">
       <div id="game-course-name"
-        style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.35rem;
-               line-height:1;letter-spacing:0.02em;"></div>
+        style="font-family:var(--font-ui);font-weight:800;font-size:1.2rem;
+               line-height:1.1;letter-spacing:-0.01em;"></div>
       <div id="game-through"
-        style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.35rem;
+        style="font-family:var(--font-ui);font-weight:800;font-size:1rem;
                line-height:1;letter-spacing:0.02em;color:rgba(255,255,255,0.85);flex-shrink:0;"></div>
     </div>
     <div id="game-sub"
@@ -764,11 +776,18 @@
     style="flex:1;overflow-y:auto;padding-bottom:0.5rem;">
 
     <div class="hole-hdr">
-      <div>
-        <div class="hole-lbl">Current Hole</div>
+      <div class="hole-badge">
+        <div class="hole-lbl">Hole</div>
         <div class="hole-num" id="game-hole-num">1</div>
       </div>
-      <div class="hole-si-info" id="game-hole-si"></div>
+      <div class="hole-meta">
+        <div class="hole-si-info" id="game-hole-si"></div>
+        <div class="hole-sub" id="game-hole-sub"></div>
+      </div>
+      <button class="hole-pager" id="btn-hole-pager" type="button" aria-label="Choose hole">
+        <span id="game-hole-pager-text">1 / 18</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>
+      </button>
     </div>
 
     <!-- Player input rows -->
@@ -776,8 +795,8 @@
 
     <!-- Amend / Record -->
     <div class="hole-actions" style="margin-top:0.75rem;">
-      <button class="btn-back-hole" id="btn-amend-scores" disabled style="line-height:1.1;border:3px solid var(--white);font-weight:900;">Scorecard<br>Edit</button>
-      <button class="btn-record" id="btn-record-hole">RECORD HOLE →</button>
+      <button class="btn-back-hole" id="btn-amend-scores" disabled>Scorecard<br>Edit</button>
+      <button class="btn-record" id="btn-record-hole">Confirm &amp; Next →</button>
     </div>
 
     <!-- Finish early -->
@@ -1749,7 +1768,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261010f"></script>
+<script type="module" src="js/app.js?v=20261010n"></script>
 
 
 <!-- ══════════════════════════════════════════

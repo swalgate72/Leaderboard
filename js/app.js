@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261010a)
-window.APP_BUILD = '20261010m';
+// LEADERBOARD - app.js  (v3.2 · build 20261010n)
+window.APP_BUILD = '20261010n';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -962,6 +962,11 @@ async function showHome() {
     : '--';
   const avatarEl = document.getElementById('home-hero-avatar');
   if (avatarEl) avatarEl.textContent = initials || '--';
+  const heroNameEl = document.getElementById('home-hero-name');
+  if (heroNameEl) heroNameEl.textContent = myName || 'Welcome';
+  const heroSubEl = document.getElementById('home-hero-subline');
+  if (heroSubEl) heroSubEl.textContent = currentProfile?.hcp != null
+    ? `HCP ${fmtHandicap(currentProfile.hcp)}` : '';
 
   const hcpEl = document.getElementById('home-stat-hcp');
   if (hcpEl) hcpEl.textContent = currentProfile?.hcp != null
@@ -4546,7 +4551,14 @@ function renderHolePanel() {
       : '';
 
   document.getElementById('game-hole-si').innerHTML =
-    `<span class="si-big">SI ${si} · Par ${par}</span>${badgeHtml ? `<div style="margin-top:0.4rem;">${badgeHtml}</div>` : ''}`;
+    `<span class="si-big">Par ${par}</span><span class="si-pill">SI ${si}</span>`;
+  const holeSubEl = document.getElementById('game-hole-sub');
+  if (holeSubEl) {
+    const left = total - h;
+    holeSubEl.innerHTML = badgeHtml || (left === 1 ? 'Final hole' : `${left} holes to play`);
+  }
+  const pagerEl = document.getElementById('game-hole-pager-text');
+  if (pagerEl) pagerEl.textContent = `${h + 1} / ${total}`;
 
   const backBtn = document.getElementById('btn-amend-scores');
   if (backBtn) backBtn.disabled = h === 0;
@@ -4574,7 +4586,8 @@ function renderHolePanel() {
 
   if (recordBtn) {
     const isPast = h < (gameState.log?.length ?? 0);
-    recordBtn.textContent = isPast ? 'UPDATE HOLE →' : 'RECORD HOLE →';
+    recordBtn.textContent = isPast ? 'Confirm Update →'
+      : (h === total - 1 ? 'Confirm & Finish ✓' : 'Confirm & Next →');
   }
 
   if (!userIsScorer) {
@@ -5333,6 +5346,70 @@ function captureGpsPosition(onAccurate, statusElId) {
 }
 
 
+// ── Scoring card helpers (Stitch-style player cards) ─────────────
+function _giRingColor(color) {
+  // Near-black "worse than double" colour vanishes on dark surfaces — use text colour instead
+  return color === '#2a2a2a' ? 'var(--white)' : color;
+}
+
+function _giRelWord(value, par, isPickup) {
+  if (isPickup) return 'Pick up';
+  if (value === 1) return 'Ace!';
+  const d = value - par;
+  if (d <= -3) return 'Albatross';
+  if (d === -2) return 'Eagle';
+  if (d === -1) return 'Birdie';
+  if (d === 0)  return 'Par';
+  if (d === 1)  return 'Bogey';
+  if (d === 2)  return 'Double';
+  if (d === 3)  return 'Triple';
+  return `+${d}`;
+}
+
+function _giIsStablefordFmt() {
+  return ['stableford', 'best2'].includes(gameState?.format);
+}
+
+function _giRunningTotal(pi) {
+  const log = gameState?.log ?? [];
+  if (_giIsStablefordFmt()) {
+    const pts = log.reduce((t, e) => t + (e?.holePts?.[pi] ?? 0), 0);
+    return `${pts} pts`;
+  }
+  let rel = 0;
+  log.forEach((e, k) => {
+    const g = e?.grosses?.[pi];
+    if (g != null && gameState.par?.[k] != null) rel += g - gameState.par[k];
+  });
+  return rel === 0 ? 'E' : rel > 0 ? `+${rel}` : String(rel);
+}
+
+function _giUpdateCalc(pi, value, isPickup, rowEl) {
+  const row = rowEl ?? document.getElementById(`cv${pi}`)?.closest('.gi-card');
+  if (!row) return;
+  const extra = parseInt(row.dataset.extra, 10) || 0;
+  const par   = parseInt(row.dataset.par, 10);
+  const calcEl = row.querySelector(`#gi-calc-${pi}`);
+  const relEl  = row.querySelector(`#gi-rel-${pi}`);
+  if (relEl) relEl.textContent = _giRelWord(value, par, isPickup);
+  if (!calcEl) return;
+  const sb = _giIsStablefordFmt();
+  if (isPickup) {
+    calcEl.textContent = sb ? 'Pick up · 0 pts' : 'Pick up';
+    calcEl.dataset.tone = 'muted';
+    return;
+  }
+  const net = value - extra;
+  if (sb) {
+    const pts = Math.max(0, 2 + par - net);
+    calcEl.textContent = `Net ${net} (${pts} pt${pts === 1 ? '' : 's'})`;
+    calcEl.dataset.tone = pts >= 3 ? 'good' : pts === 2 ? 'ok' : 'muted';
+  } else {
+    calcEl.textContent = `Net ${net}`;
+    calcEl.dataset.tone = net < par ? 'good' : net === par ? 'ok' : 'muted';
+  }
+}
+
 function makePlayerInputRow(pi, h, par) {
   const fmt     = gameState.format;
   const isIndiv = ['stableford','stroke','best2'].includes(fmt);
@@ -5397,47 +5474,55 @@ function makePlayerInputRow(pi, h, par) {
   const discTextColor = (!hasExisting || existingGross === 1) ? 'var(--white)' : '#fff';
   const discBorder = !hasExisting ? '2px solid var(--border2)' : `2px solid ${discColor}`;
 
+  const shotPill = extra > 0
+    ? `<span class="gi-pill gi-pill-shot">+${extra} shot${extra > 1 ? 's' : ''}</span>`
+    : extra < 0
+      ? `<span class="gi-pill gi-pill-plus">Gives ${-extra}</span>`
+      : `<span class="gi-pill">No shots</span>`;
+  row.classList.add('gi-card');
+  row.dataset.pi    = String(pi);
+  row.dataset.extra = String(extra);
+  row.dataset.par   = String(par);
+
   row.innerHTML = `
-    <div style="flex:1;min-width:0;">
-      <div class="gi-name">
-        <span class="dot" style="background:${pHex(pi)};"></span>
-        ${shortName(gameState.names[pi])} ${badge}
-        ${inChair ? '<span style="font-size:1rem;margin-left:4px;">🪑</span>' : ''}
+    <div class="gi-top">
+      <div class="gi-id">
+        <div class="gi-name">
+          <span class="dot" style="background:${pHex(pi)};"></span>
+          <span class="gi-name-txt">${shortName(gameState.names[pi])}</span>
+          ${shotPill}
+          ${inChair ? '<span class="gi-chair">🪑</span>' : ''}
+        </div>
+        <div class="gi-hcp">${hcpLine} · Total: ${_giRunningTotal(pi)}</div>
+        <div class="gi-prev" id="gi-prev-${pi}">${prevLabel}</div>
       </div>
-      <div class="gi-hcp">${hcpLine}</div>
-      <div class="gi-prev" id="gi-prev-${pi}" style="font-size:0.58rem;color:var(--muted);min-height:1em;margin-top:2px;letter-spacing:0.03em;">${prevLabel}</div>
+      <div class="gi-calc">
+        <div class="gi-calc-lbl">This hole</div>
+        <div class="gi-calc-val" id="gi-calc-${pi}">—</div>
+      </div>
     </div>
-    <div class="gi-score-ctrl" style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
-      <!-- DOWN arrow -->
-      <button class="gi-arr gi-arr-dn" data-pi="${pi}"
-        style="width:40px;height:40px;border-radius:50%;border:2px solid var(--border2);
-               background:rgba(255,255,255,0.06);color:var(--white);font-size:1.4rem;
-               display:flex;align-items:center;justify-content:center;
-               touch-action:manipulation;user-select:none;cursor:pointer;">⬇</button>
-      <!-- Centre score disc — same id/class as before so recordHole reads it -->
-      <div id="cv${pi}" class="score-btn gi-score-disc" data-pi="${pi}"
-        data-value="${hasExisting ? existingGross : ''}" data-pickup="${isPickup ? '1' : '0'}"
-        style="width:52px;height:52px;border-radius:50%;
-               border:${discBorder};background:${hasExisting ? discColor : 'var(--surface3)'};
-               color:${hasExisting ? discTextColor : 'var(--muted)'};
-               font-family:'Barlow Condensed',sans-serif;font-size:${hasExisting && !isPickup ? '1.55rem' : '1rem'};font-weight:800;
-               display:flex;align-items:center;justify-content:center;flex-direction:column;
-               touch-action:manipulation;user-select:none;cursor:pointer;
-               transition:background 0.12s,border-color 0.12s;">${discText}</div>
-      <!-- UP arrow -->
-      <button class="gi-arr gi-arr-up" data-pi="${pi}"
-        style="width:40px;height:40px;border-radius:50%;border:2px solid #38a169;
-               background:rgba(56,161,105,0.15);color:#38a169;font-size:1.4rem;
-               display:flex;align-items:center;justify-content:center;
-               touch-action:manipulation;user-select:none;cursor:pointer;">⬆</button>
+    <div class="gi-score-ctrl">
+      <button class="gi-arr gi-arr-dn" data-pi="${pi}" aria-label="One less">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+      <div class="gi-disc-wrap">
+        <!-- Centre score disc — same id/class as before so recordHole reads it -->
+        <div id="cv${pi}" class="score-btn gi-score-disc${hasExisting ? ' has-score' : ''}${isPickup ? ' is-pickup' : ''}" data-pi="${pi}"
+          data-value="${hasExisting ? existingGross : ''}" data-pickup="${isPickup ? '1' : '0'}"
+          style="${hasExisting ? `--sc:${_giRingColor(discColor)};` : ''}">${discText}</div>
+        <div class="gi-rel" id="gi-rel-${pi}">${hasExisting ? _giRelWord(existingGross, par, isPickup) : 'Par'}</div>
+      </div>
+      <button class="gi-arr gi-arr-up" data-pi="${pi}" aria-label="One more">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
       <!-- Pickup button -->
-      <button class="gi-pickup-btn" data-pi="${pi}"
-        style="height:40px;padding:0 8px;border-radius:8px;border:2px solid var(--border2);
-               background:${isPickup ? 'var(--gold)' : 'rgba(255,255,255,0.04)'};
-               color:${isPickup ? '#000' : 'var(--muted)'};font-size:0.7rem;font-weight:800;
-               letter-spacing:0.04em;touch-action:manipulation;user-select:none;cursor:pointer;
-               line-height:1.2;min-width:38px;">P<br>UP</button>
+      <button class="gi-pickup-btn${isPickup ? ' is-on' : ''}" data-pi="${pi}">Pick<br>up</button>
     </div>`;
+
+  // Fill the "This hole" calc for a pre-filled (edited) hole
+  if (hasExisting) {
+    queueMicrotask(() => _giUpdateCalc(pi, existingGross, isPickup, row));
+  }
 
   // ── Wire the new inline controls ──────────────────────────────────
   // Touch model: touchstart fires immediately with e.preventDefault() to
@@ -5522,13 +5607,6 @@ function makePlayerInputRow(pi, h, par) {
       // Use existing pickup value: net double bogey
       const morePickupVal = par + extra + 2;
       _liveSetScore(morePickupVal, true);
-      // Update pickup button style immediately
-      const pbtn = row.querySelector('.gi-pickup-btn');
-      if (pbtn) {
-        pbtn.style.background = 'var(--gold)';
-        pbtn.style.color = '#000';
-        pbtn.style.borderColor = 'var(--gold)';
-      }
     }
   }, { passive: false });
   row.querySelector('.gi-pickup-btn').addEventListener('click', (e) => {
@@ -5948,6 +6026,23 @@ function setScoreValue(pi, h, par, value, isPickup) {
   if (!cvEl) return;
   cvEl.dataset.value  = String(value);
   cvEl.dataset.pickup = isPickup ? '1' : '0';
+
+  const isCard = !!cvEl.closest('.gi-card');
+  if (isCard) {
+    // Stitch-style ring disc: colour via --sc, styling in CSS
+    cvEl.classList.add('has-score');
+    cvEl.classList.toggle('is-pickup', !!isPickup);
+    if (isPickup) {
+      cvEl.style.setProperty('--sc', 'var(--gold)');
+      cvEl.innerHTML = `<span class="gi-pu-lbl">P.Up</span><span class="gi-pu-val">(${value})</span>`;
+    } else {
+      cvEl.style.setProperty('--sc', _giRingColor(scoreColorForRelToPar(value - par, value)));
+      cvEl.textContent = String(value);
+    }
+    cvEl.closest('.gi-card')?.querySelector('.gi-pickup-btn')?.classList.toggle('is-on', !!isPickup);
+    _giUpdateCalc(pi, value, isPickup);
+    return;
+  }
 
   if (isPickup) {
     cvEl.style.color       = '#fff';
@@ -6659,7 +6754,7 @@ function startAmendFromHole(holeIdx) {
 function exitAmendMode() {
   _amendMode = false; _amendFromHole = null; _amendOriginalHole = null;
   const recBtn = document.getElementById('btn-record-hole');
-  if (recBtn) { recBtn.textContent = 'RECORD HOLE →'; recBtn.style.background = ''; }
+  if (recBtn) { recBtn.textContent = 'Confirm & Next →'; recBtn.style.background = ''; }
   document.getElementById('amend-banner')?.remove();
   updateAmendBtn();
   renderScoreHeader();
@@ -7378,6 +7473,7 @@ window.jumpToHole = function(holeIdx) {
 };
 
 document.getElementById('btn-hole-nav')       ?.addEventListener('click', openHoleNav);
+document.getElementById('btn-hole-pager')     ?.addEventListener('click', openHoleNav);
 document.getElementById('btn-hole-nav-close') ?.addEventListener('click', closeHoleNav);
 document.getElementById('btn-close-scorecard')?.addEventListener('click', () => {
   document.getElementById('scorecard-overlay')?.classList.remove('open');
@@ -8058,10 +8154,10 @@ async function saveRoundState() {
   }
 
   badge?.classList.remove('hidden');  // keep badge visible — score is NOT saved
-  badge?.setAttribute('title', 'Score not saved — tap Record Hole again');
+  badge?.setAttribute('title', 'Score not saved — tap Confirm again');
   // Non-blocking error toast — alert() blocks the UI which feels broken on mobile
   const errToast = document.createElement('div');
-  errToast.textContent = '⚠️ Score not saved — poor signal. Tap Record Hole to retry.';
+  errToast.textContent = '⚠️ Score not saved — poor signal. Tap Confirm to retry.';
   errToast.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
     background:var(--red,#c0392b);color:#fff;padding:0.75rem 1.25rem;border-radius:20px;
     font-weight:800;font-size:0.85rem;z-index:9999;cursor:pointer;white-space:nowrap;
@@ -8232,8 +8328,10 @@ async function updateActiveGamesBadge() {
     const roundCount = activeRounds.length + (hasDraft ? 1 : 0);
     if (gamesBadge) {
       gamesBadge.textContent = String(roundCount);
-      gamesBadge.style.display = roundCount > 0 ? 'inline-flex' : 'none';
+      // The round card shows the latest round itself — only badge when there's more than one
+      gamesBadge.style.display = roundCount > 1 ? 'inline-flex' : 'none';
     }
+    _renderHomeRoundCard(activeRounds, hasDraft ? _draft : null);
 
     // Game Invites badge
     const gameInvites  = inviteRows.filter(r => r.round_id);
@@ -8243,6 +8341,45 @@ async function updateActiveGamesBadge() {
       invitesBadge.style.display = gameInvites.length > 0 ? 'inline-flex' : 'none';
     }
   } catch {}
+}
+
+// ── Home "Round in progress" card ───────────────────────────────
+function _renderHomeRoundCard(activeRounds, draft) {
+  const card     = document.getElementById('btn-home-active-games');
+  const statusEl = document.getElementById('home-round-status');
+  const courseEl = document.getElementById('home-round-course');
+  const btnEl    = document.getElementById('home-round-btn');
+  if (!card || !statusEl || !courseEl || !btnEl) return;
+  const chevron = btnEl.querySelector('svg')?.outerHTML ?? '';
+  const latest  = activeRounds?.[0];
+  let state = 'idle', status, course, btn;
+
+  if (latest) {
+    const gs        = latest.game_state ?? {};
+    const total     = gs.numHoles ?? 18;
+    const played    = gs.log?.length ?? 0;
+    const holeNo    = Math.min((gs.hole ?? played) + 1 + (gs.holeOffset ?? 0), total + (gs.holeOffset ?? 0));
+    const paused    = latest.status === 'paused';
+    state  = paused ? 'paused' : 'live';
+    status = `<b>${paused ? 'Round paused' : 'Round in progress'}</b><i></i>Hole ${holeNo}`;
+    const tee = latest.tee_name ? ` <em>(${latest.tee_name})</em>` : '';
+    course = `${latest.course_name ?? fmtLabel(gs.format)}${tee}`;
+    btn    = 'Resume';
+  } else if (draft) {
+    state  = 'draft';
+    status = '<b>Setup in progress</b>';
+    course = draft.courseName ?? fmtLabel(draft.scoring);
+    btn    = 'Resume';
+  } else {
+    status = 'No round in progress';
+    course = 'Choose a format below';
+    btn    = 'View';
+  }
+  card.classList.remove('is-idle', 'is-live', 'is-paused', 'is-draft');
+  card.classList.add(`is-${state}`);
+  statusEl.innerHTML = status;
+  courseEl.innerHTML = course;
+  btnEl.innerHTML    = `${btn} ${chevron}`;
 }
 
 // ── Active Games modal ───────────────────────────────────────────
