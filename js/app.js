@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261010p)
-window.APP_BUILD = '20261010p';
+// LEADERBOARD - app.js  (v3.2 · build 20261010q)
+window.APP_BUILD = '20261010q';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -792,7 +792,7 @@ async function onSignedIn(user) {
       banner.id = 'idb-warning-banner';
       banner.style.cssText = `position:fixed;top:0;left:0;right:0;z-index:99999;
         background:#b45309;color:#fff;padding:0.5rem 1rem;text-align:center;
-        font-family:'Barlow Condensed',sans-serif;font-size:0.85rem;font-weight:700;
+        font-family:'Plus Jakarta Sans',sans-serif;font-size:0.85rem;font-weight:700;
         letter-spacing:0.03em;line-height:1.4;`;
       banner.innerHTML = `⚠️ Local storage unavailable — scores will only save if connected.
         <span onclick="this.parentElement.remove()" 
@@ -1394,10 +1394,10 @@ function renderSIPreview(course, teeIdx) {
   const parSlice = tee.par.slice(offset, offset + count);
   grid.innerHTML = siSlice.map((si, i) => `
     <div style="background:var(--surface2);border-radius:3px;padding:4px 2px;text-align:center;">
-      <div style="display:flex;justify-content:space-between;font-family:'Barlow Condensed',sans-serif;font-weight:400;font-size:0.96rem;color:var(--muted2);line-height:1;">
+      <div style="display:flex;justify-content:space-between;font-family:'Plus Jakarta Sans',sans-serif;font-weight:400;font-size:0.96rem;color:var(--muted2);line-height:1;">
         <span>${offset+i+1}</span><span>SI ${si}</span>
       </div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:400;font-size:1.4rem;color:var(--white);line-height:1.3;">Par ${parSlice[i]}</div>
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:400;font-size:1.4rem;color:var(--white);line-height:1.3;">Par ${parSlice[i]}</div>
     </div>`).join('');
   show('setup-si-preview');
 }
@@ -1595,7 +1595,7 @@ function renderSetupPlayerList() {
 
     const indexPill  = `<button class="hcp-pill" data-pi="${pi}" data-src="index"
       style="${pillStyle(source==='index','var(--gold)')}
-             font-family:'Barlow Condensed',sans-serif;font-size:0.75rem;
+             font-family:'Plus Jakarta Sans',sans-serif;font-size:0.75rem;
              padding:0.2rem 0.4rem;border-radius:6px;cursor:pointer;
              display:flex;flex-direction:column;align-items:center;min-width:2.4rem;line-height:1.2;">
         <span style="font-size:0.55rem;letter-spacing:0.06em;text-transform:uppercase;">Idx</span>
@@ -1604,7 +1604,7 @@ function renderSetupPlayerList() {
 
     const coursePill = `<button class="hcp-pill" data-pi="${pi}" data-src="course"
       style="${pillStyle(source==='course','var(--gold)')}
-             font-family:'Barlow Condensed',sans-serif;font-size:0.75rem;
+             font-family:'Plus Jakarta Sans',sans-serif;font-size:0.75rem;
              padding:0.2rem 0.4rem;border-radius:6px;cursor:pointer;
              display:flex;flex-direction:column;align-items:center;min-width:2.4rem;line-height:1.2;">
         <span style="font-size:0.55rem;letter-spacing:0.06em;text-transform:uppercase;">Crs</span>
@@ -1613,7 +1613,7 @@ function renderSetupPlayerList() {
 
     const playingPill = `<button class="hcp-pill" data-pi="${pi}" data-src="playing"
       style="${pillStyle(source==='playing','var(--gold)')}
-             font-family:'Barlow Condensed',sans-serif;font-size:0.75rem;
+             font-family:'Plus Jakarta Sans',sans-serif;font-size:0.75rem;
              padding:0.2rem 0.4rem;border-radius:6px;cursor:pointer;
              display:flex;flex-direction:column;align-items:center;min-width:2.4rem;line-height:1.2;">
         <span style="font-size:0.55rem;letter-spacing:0.06em;text-transform:uppercase;">Ply</span>
@@ -1628,7 +1628,7 @@ function renderSetupPlayerList() {
           style="width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border);
                  background:var(--surface2);font-size:1.1rem;cursor:pointer;
                  display:flex;align-items:center;justify-content:center;">−</button>
-        <span style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:800;
+        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.4rem;font-weight:800;
                      color:var(--gold);min-width:2rem;text-align:center;">${gameHcp}</span>
         <button class="hcp-nudge-btn" data-pi="${pi}" data-dir="1"
           style="width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border);
@@ -1642,7 +1642,7 @@ function renderSetupPlayerList() {
       <div style="display:flex;align-items:center;gap:0.6rem;">
         <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
         <div style="flex:1;min-width:0;">
-          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
                       font-size:1.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
         </div>
         <div style="display:flex;gap:0.3rem;flex-shrink:0;">
@@ -1754,7 +1754,7 @@ function openFriendsPickerModal() {
         const bg2    = active ? 'background:rgba(184,148,42,0.08);' : '';
         return `<button class="fp-pill" data-fi="${fi}" data-key="${key}"
           style="background:transparent;${bg2}border:${border};color:${col};font-weight:${fw};
-                 font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;
+                 font-family:'Plus Jakarta Sans',sans-serif;font-size:1.4rem;
                  padding:0.35rem 0.6rem;border-radius:8px;cursor:pointer;
                  display:flex;flex-direction:column;align-items:center;min-width:3.5rem;line-height:1.2;">
           <span style="font-size:0.7rem;letter-spacing:0.06em;text-transform:uppercase;">${label}</span>
@@ -1771,7 +1771,7 @@ function openFriendsPickerModal() {
             style="width:2.8rem;height:2.8rem;border-radius:50%;border:1px solid var(--border);
                    background:var(--surface2);font-size:1.6rem;cursor:pointer;
                    display:flex;align-items:center;justify-content:center;">−</button>
-          <span style="font-family:'Barlow Condensed',sans-serif;font-size:2rem;font-weight:800;
+          <span style="font-family:'Plus Jakarta Sans',sans-serif;font-size:2rem;font-weight:800;
                        color:var(--gold);min-width:2.5rem;text-align:center;">${gameHcp}</span>
           <button class="fp-nudge" data-fi="${fi}" data-dir="1"
             style="width:2.8rem;height:2.8rem;border-radius:50%;border:1px solid var(--border);
@@ -1783,7 +1783,7 @@ function openFriendsPickerModal() {
           <button class="fp-nudge-update" data-fi="${fi}"
             style="margin-left:auto;padding:0.3rem 0.65rem;background:var(--green);color:#fff;
                    border:none;border-radius:8px;font-size:0.8rem;font-weight:700;cursor:pointer;
-                   font-family:'Barlow Condensed',sans-serif;">
+                   font-family:'Plus Jakarta Sans',sans-serif;">
             Update profile
           </button>
         </div>` : '';
@@ -1800,7 +1800,7 @@ function openFriendsPickerModal() {
           <span class="dot" style="background:${pHex(fi%8)};flex-shrink:0;"></span>
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:baseline;gap:2px;flex-wrap:wrap;">
-              <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;
+              <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.3rem;
                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameStr}</span>
               ${playBadge}
             </div>
@@ -2138,7 +2138,7 @@ function renderNewPlayerTeeTable() {
     return `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.3rem 0.5rem;
                   align-items:center;margin-bottom:0.3rem;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;
                     font-size:1rem;color:var(--white);">${t.name}</div>
         <input data-tee="${t.name}" data-type="course" class="np-tee-input"
           type="number" step="1" min="0" max="54" placeholder="--"
@@ -2585,7 +2585,7 @@ function renderSetupPairsScreen() {
                background:var(--surface2);border:1px solid var(--border);border-radius:20px;
                cursor:grab;margin:0.25rem;user-select:none;">
         <span class="dot" style="background:${pHex(pi % 8)};width:10px;height:10px;flex-shrink:0;"></span>
-        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.05rem;">${p.name}</span>
+        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.05rem;">${p.name}</span>
       </div>`;
     }).join('');
   }
@@ -2616,7 +2616,7 @@ function renderSetupPairsScreen() {
         : foursomedPairHandicap(hcp0, hcp1);
       pairHcpBadge = `
         <div style="text-align:right;flex-shrink:0;">
-          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
                       font-size:1.2rem;color:var(--white);line-height:1;">${pairHcp}</div>
           <div style="font-size:0.6rem;color:var(--muted);font-weight:700;
                       text-transform:uppercase;letter-spacing:0.05em;">Pair HCP</div>
@@ -2629,7 +2629,7 @@ function renderSetupPairsScreen() {
         <input class="sp-pair-name" data-pair="${pairIdx}"
           value="${pair.name}"
           style="flex:2;background:none;border:none;border-bottom:1px solid var(--border);
-                 color:var(--gold);font-family:'Barlow Condensed',sans-serif;
+                 color:var(--gold);font-family:'Plus Jakarta Sans',sans-serif;
                  font-weight:800;font-size:1.05rem;outline:none;padding-bottom:2px;">
         ${pairHcpBadge}
       </div>
@@ -2646,7 +2646,7 @@ function renderSetupPairsScreen() {
                    border-radius:var(--radius-sm);cursor:grab;user-select:none;">
             <span style="font-size:1rem;color:var(--muted);">⣿</span>
             <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
-            <span style="flex:1;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${p.name}</span>
+            <span style="flex:1;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;">${p.name}</span>
             ${playerHcpBoxes(p)}
             <button class="sp-remove" data-pi="${pi}" data-pair="${pairIdx}"
               style="font-size:0.85rem;color:var(--muted);background:none;border:none;cursor:pointer;padding:0 0.25rem;">✕</button>
@@ -2899,7 +2899,7 @@ function renderSetupGroupCards() {
       const isActive = opt.numGroups === selectedNumGroups;
       optionHTML += `<button class="btn b2-group-opt ${isActive ? 'holes-btn active' : 'btn-outline'}"
         data-groups="${opt.numGroups}" data-per="${opt.perGroup}"
-        style="padding:1rem;font-size:1.1rem;font-weight:800;font-family:'Barlow Condensed',sans-serif;">
+        style="padding:1rem;font-size:1.1rem;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif;">
         ${opt.numGroups} group${opt.numGroups > 1 ? 's' : ''} of ${opt.perGroup}
       </button>`;
     });
@@ -3013,7 +3013,7 @@ function renderSetupGroupCards() {
       const teamHcp = texasTeamHandicap(idxArr, setup.texasMode ?? 'average', setup.hcpPct ?? 100);
       texasHcpBadge = `
         <div style="text-align:right;flex-shrink:0;">
-          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
                       font-size:1.3rem;color:var(--gold);">${teamHcp}</div>
           <div style="font-size:0.65rem;color:var(--muted);font-weight:700;
                       text-transform:uppercase;letter-spacing:0.05em;">Team HCP</div>
@@ -3042,7 +3042,7 @@ function renderSetupGroupCards() {
                        border-radius:var(--radius-sm);">
                 <span style="font-size:1.1rem;color:var(--muted);">⣿</span>
                 <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
-                <span style="flex:1;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</span>
+                <span style="flex:1;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</span>
                 ${playerHcpBoxes(p)}
               </div>`;
             }).join('')}
@@ -3168,7 +3168,7 @@ function renderB2GroupCards(groups, namedPlayers) {
                        border-radius:var(--radius-sm);">
                 <span style="font-size:1.1rem;color:var(--muted);">⣿</span>
                 <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
-                <span style="flex:1;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</span>
+                <span style="flex:1;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</span>
                 ${playerHcpBoxes(p)}
               </div>`;
             }).join('')}
@@ -3271,7 +3271,7 @@ function renderSetupPairGroupCards() {
                        transition:background 0.1s,border-color 0.1s;">
                 <span style="font-size:1.1rem;color:var(--muted);">⣿</span>
                 <div style="flex:1;">
-                  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+                  <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
                               font-size:1.1rem;color:var(--gold);">${pair.name}</div>
                   <div style="font-size:0.82rem;color:var(--muted2);">
                     ${p0?.name ?? '?'} · HCP ${fmtHandicap(p0?.hcpIndex ?? 0)} &nbsp;
@@ -3279,7 +3279,7 @@ function renderSetupPairGroupCards() {
                   </div>
                 </div>
                 <div style="text-align:right;flex-shrink:0;">
-                  <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+                  <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
                               font-size:1.3rem;color:var(--white);">${pairHcp}</div>
                   <div style="font-size:0.65rem;color:var(--muted);font-weight:700;
                               text-transform:uppercase;letter-spacing:0.05em;">Pair HCP</div>
@@ -3642,7 +3642,7 @@ function buildSetupReview() {
       html += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
                             padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.35rem;">
-          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:var(--gold);">
+          <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;color:var(--gold);">
             🤠 Team ${g}
           </span>
           <span style="font-size:0.9rem;font-weight:700;color:var(--muted2);">Team HCP ${teamHcp}</span>
@@ -3716,7 +3716,7 @@ function buildSetupReview() {
             <!-- Header row: pair name | shots -->
             <div style="display:flex;align-items:baseline;justify-content:space-between;
                         margin-bottom:0.5rem;flex-wrap:wrap;gap:0.25rem;">
-              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
+              <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;
                           color:var(--gold);">${pair.name}</div>
               ${isSharedBall ? `
                 <span style="font-size:0.9rem;font-weight:800;color:var(--gold);">
@@ -3776,7 +3776,7 @@ function buildSetupReview() {
                       padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
             <div style="display:flex;align-items:baseline;justify-content:space-between;
                         margin-bottom:0.5rem;flex-wrap:wrap;gap:0.25rem;">
-              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;
+              <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;
                           color:var(--gold);">${pair.pairName}</div>
               <span style="font-size:0.9rem;font-weight:800;color:var(--gold);">${shotsLabel2}</span>
             </div>
@@ -4360,7 +4360,7 @@ function renderTotalsBar() {
     let rawLabel = '';
     if (fmt === 'split6' && gameState.log?.length > 0) {
       const rawTotal = gameState.log.reduce((sum, e) => sum + (e.holePts?.[i] ?? 0), 0);
-      rawLabel = `<div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;color:rgba(255,255,255,0.6);margin-top:1px;">(${rawTotal})</div>`;
+      rawLabel = `<div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.1rem;font-weight:700;color:rgba(255,255,255,0.6);margin-top:1px;">(${rawTotal})</div>`;
     }
 
     return `
@@ -4687,7 +4687,7 @@ function renderHolePanel() {
             data-value="${existGross ?? ''}"
             style="width:52px;height:52px;border-radius:50%;
                    border:${discBorder};background:${discBg};color:${discFgColor};
-                   font-family:'Barlow Condensed',sans-serif;font-size:1.55rem;font-weight:800;
+                   font-family:'Plus Jakarta Sans',sans-serif;font-size:1.55rem;font-weight:800;
                    display:flex;align-items:center;justify-content:center;flex-direction:column;
                    touch-action:manipulation;user-select:none;cursor:pointer;
                    transition:background 0.12s,border-color 0.12s;">${discText}</div>
@@ -4843,9 +4843,9 @@ function renderHolePanel() {
       const header = document.createElement('div');
       header.style.cssText = 'padding:0.65rem 0 0.35rem;border-top:1px solid var(--border);margin-top:0.25rem;display:flex;align-items:center;justify-content:space-between;';
       header.innerHTML = `
-        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.5rem;
+        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.5rem;
                      color:var(--white);">Pair ${label}</span>
-        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.5rem;
+        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.5rem;
                      color:${statusColor};">${teamStatus}</span>`;
       inputsEl.appendChild(header);
 
@@ -4887,7 +4887,7 @@ function renderHolePanel() {
             class="score-btn" data-pair="${label}"
             style="min-width:64px;min-height:52px;display:flex;align-items:center;justify-content:center;
                    border-radius:10px;
-                   font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:800;
+                   font-family:'Plus Jakarta Sans',sans-serif;font-size:1.6rem;font-weight:800;
                    cursor:pointer;user-select:none;${scoreBtnStyle}">
             ${scoreBtnVal}
           </div>
@@ -4937,11 +4937,11 @@ function renderHolePanel() {
       const header = document.createElement('div');
       header.style.cssText = 'padding:0.65rem 0 0.35rem;border-top:1px solid var(--border);margin-top:0.25rem;display:flex;align-items:center;justify-content:space-between;';
       header.innerHTML = `
-        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.5rem;
+        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.5rem;
                      color:${ms === 0 ? 'var(--white)' : teamMs > 0 ? 'var(--gold)' : 'var(--muted2)'};">
           ${teamName}
         </span>
-        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.5rem;
+        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.5rem;
                      color:${ms === 0 ? 'var(--muted2)' : teamMs > 0 ? 'var(--gold)' : 'var(--muted2)'};">
           ${teamStatus}
         </span>`;
@@ -4991,7 +4991,7 @@ function renderHolePanel() {
       const color = met ? 'var(--green)' : 'var(--red, #d64545)';
       const label = quotaTotal != null ? `${count}/${quotaTotal}` : String(count);
       return `<td style="text-align:center;padding:0.5rem 0.35rem;
-                font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.15rem;
+                font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;
                 color:${color};">${label}</td>`;
     }).join('');
 
@@ -5001,7 +5001,7 @@ function renderHolePanel() {
       const color = met ? 'var(--green)' : 'var(--red, #d64545)';
       const label = quotaPar3 != null ? `${count}/${quotaPar3}` : String(count);
       return `<td style="text-align:center;padding:0.5rem 0.35rem;
-                font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.15rem;
+                font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;
                 color:${color};">${label}</td>`;
     }).join('');
 
@@ -5068,7 +5068,7 @@ function buildLdNtpCard(holeNum, kind) {
       card.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <div>
-            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${title}</div>
+            <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;">${title}</div>
             <div style="font-size:0.9rem;font-weight:700;color:var(--muted2);margin-top:2px;">
               ${existing.playerName} — <span style="color:var(--blue);font-weight:800;">${existing.cm} cm</span>
             </div>
@@ -5079,7 +5079,7 @@ function buildLdNtpCard(holeNum, kind) {
     } else {
       card.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${title}</div>
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;">${title}</div>
           <button class="btn btn-green ld-ntp-mark" style="padding:0.55rem 1rem;font-size:0.9rem;font-weight:800;">Mark</button>
         </div>`;
       card.querySelector('.ld-ntp-mark')?.addEventListener('click', () => openLdNtpMarkModal(holeNum, 'ntp'));
@@ -5091,7 +5091,7 @@ function buildLdNtpCard(holeNum, kind) {
   // Tee position persists in gameState.ldTeePos[holeNum] across re-renders.
   const teePos    = gameState.ldTeePos?.[holeNum] ?? null;
   const teeMarked = !!teePos;
-  const titleEl   = `<div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.05rem;margin-bottom:0.65rem;">🏌️ Longest Drive</div>`;
+  const titleEl   = `<div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.05rem;margin-bottom:0.65rem;">🏌️ Longest Drive</div>`;
 
   if (existing) {
     // Fully recorded — show result + re-mark
@@ -5128,12 +5128,12 @@ function buildLdNtpCard(holeNum, kind) {
     ${titleEl}
     <div style="display:flex;gap:0.5rem;">
       <button id="ld-btn-tee" style="flex:1;padding:0.75rem 0.4rem;border-radius:var(--radius-sm);
-        font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.9rem;
+        font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.9rem;
         text-align:center;transition:all 0.2s;${teeStyle}">
         ${teeMarked ? '✓ Tee Marked' : '📍 Mark Tee Position'}
       </button>
       <button id="ld-btn-ball" ${!teeMarked ? 'disabled' : ''} style="flex:1;padding:0.75rem 0.4rem;border-radius:var(--radius-sm);
-        font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.9rem;
+        font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.9rem;
         text-align:center;transition:all 0.2s;${ballStyle}">
         🏌️ At Long Drive Ball
       </button>
@@ -5188,7 +5188,7 @@ function openLdBallModal(holeNum, teePos) {
     <button class="ld-ntp-player-btn" data-pi="${pi}"
       style="display:flex;align-items:center;gap:8px;width:100%;padding:0.65rem 0.85rem;
              background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);
-             margin-bottom:0.4rem;font-family:'Barlow Condensed',sans-serif;font-weight:700;
+             margin-bottom:0.4rem;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;
              font-size:1.05rem;text-align:left;cursor:pointer;">
       <span class="dot" style="background:${pHex(pi)};"></span>${name}
     </button>`).join('');
@@ -5272,7 +5272,7 @@ function openLdNtpMarkModal(holeNum, kind) {
     <button class="ld-ntp-player-btn" data-pi="${pi}"
       style="display:flex;align-items:center;gap:8px;width:100%;padding:0.65rem 0.85rem;
              background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);
-             margin-bottom:0.4rem;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.05rem;
+             margin-bottom:0.4rem;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1.05rem;
              text-align:left;">
       <span class="dot" style="background:${pHex(pi)};"></span>${name}
     </button>`).join('');
@@ -5660,11 +5660,11 @@ function openTexasScorePicker(h, par) {
     return `<button class="sp-num-btn" data-val="${v}"
       style="display:grid;grid-template-columns:1fr 2fr 1fr;align-items:center;
              padding:0.55rem 0.5rem;border-radius:12px;border:none;cursor:pointer;background:var(--surface2);">
-      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:var(--white);">${net}</span>
+      <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.3rem;color:var(--white);">${net}</span>
       <span style="display:flex;align-items:center;justify-content:center;width:54px;height:54px;margin:0 auto;
                     border-radius:50%;background:${circleColor};color:#fff;
-                    font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.7rem;">${v}</span>
-      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:var(--muted2);">${pts > 0 ? pts : '-'}</span>
+                    font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.7rem;">${v}</span>
+      <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.3rem;color:var(--muted2);">${pts > 0 ? pts : '-'}</span>
     </button>`;
   }).join('');
 
@@ -5775,11 +5775,11 @@ function openScorePicker(pi, h, par) {
       style="display:grid;grid-template-columns:1fr 2fr 1fr;align-items:center;gap:0.4fr;
              padding:0.55rem 0.5rem;border-radius:12px;border:none;cursor:pointer;
              background:var(--surface2);${ring}">
-      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:${v === 1 ? 'var(--gold)' : relToPar < 0 ? '#d64545' : 'var(--white)'};">${net}</span>
+      <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.3rem;color:${v === 1 ? 'var(--gold)' : relToPar < 0 ? '#d64545' : 'var(--white)'};">${net}</span>
       <span style="display:flex;align-items:center;justify-content:center;width:54px;height:54px;margin:0 auto;
                     border-radius:50%;background:${circleColor};color:${v === 1 ? '#000' : '#fff'};
-                    font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.7rem;">${v}</span>
-      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:var(--muted2);">${pts > 0 ? pts : '-'}</span>
+                    font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.7rem;">${v}</span>
+      <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.3rem;color:var(--muted2);">${pts > 0 ? pts : '-'}</span>
     </button>`;
   };
 
@@ -5914,11 +5914,11 @@ function openPairScorePicker(label, h, par, anchorPi) {
       style="display:grid;grid-template-columns:1fr 2fr 1fr;align-items:center;gap:0.4fr;
              padding:0.55rem 0.5rem;border-radius:12px;border:none;cursor:pointer;
              background:var(--surface2);${ring}">
-      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:${v === 1 ? 'var(--gold)' : relToPar < 0 ? '#d64545' : 'var(--white)'};">${net}</span>
+      <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.3rem;color:${v === 1 ? 'var(--gold)' : relToPar < 0 ? '#d64545' : 'var(--white)'};">${net}</span>
       <span style="display:flex;align-items:center;justify-content:center;width:54px;height:54px;margin:0 auto;
                     border-radius:50%;background:${circleColor};color:${v === 1 ? '#000' : '#fff'};
-                    font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.7rem;">${v}</span>
-      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.3rem;color:var(--muted2);">${pts > 0 ? pts : '-'}</span>
+                    font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.7rem;">${v}</span>
+      <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.3rem;color:var(--muted2);">${pts > 0 ? pts : '-'}</span>
     </button>`;
   };
 
@@ -6252,7 +6252,7 @@ function _renderAmendScorecard() {
     const bg = gross === 1 ? 'var(--gold)' : r < 0 ? '#d64545' : r === 0 ? 'var(--green)' : r <= 2 ? '#3a7bd5' : '#555';
     return `<div style="display:inline-flex;align-items:center;justify-content:center;
       width:${size}px;height:${size}px;border-radius:50%;background:${bg};
-      font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:${Math.round(size*0.44)}px;
+      font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:${Math.round(size*0.44)}px;
       color:${gross===1?'#000':'#fff'};flex-shrink:0;${extraStyle}">${gross}</div>`;
   };
 
@@ -6319,7 +6319,7 @@ function _renderAmendScorecard() {
       : played ? '' : 'opacity:0.38;';
 
     let cells = `<td class="asc-hole-cell" style="${rowBg}">
-      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:2rem;color:var(--white);line-height:1;">${holeNum}</span>
+      <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:2rem;color:var(--white);line-height:1;">${holeNum}</span>
       <div style="font-size:1.1rem;color:var(--muted);font-weight:600;white-space:nowrap;line-height:1.2;">P${parH} S${siH}</div>
     </td>`;
 
@@ -6363,7 +6363,7 @@ function _renderAmendScorecard() {
               <div style="display:flex;align-items:baseline;justify-content:center;gap:4px;
                           background:${discBg};border:1.5px solid ${discBorder};border-radius:20px;
                           padding:4px 14px;min-width:52px;">
-                <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;color:${discTextCol};">${scoreStr}</span>
+                <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.2rem;color:${discTextCol};">${scoreStr}</span>
                 <span style="font-size:0.74rem;font-weight:700;color:${discTextCol};opacity:0.85;">${labelStr}</span>
               </div>
             </div>`;
@@ -6402,7 +6402,7 @@ function _renderAmendScorecard() {
         cells += `<td class="asc-score-cell" data-h="${h}" data-ci="${ci}" style="${rowBg}cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0);">
           <div style="display:inline-flex;align-items:center;justify-content:center;
                       width:36px;height:36px;border-radius:50%;background:${grossCol};
-                      font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;
+                      font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.2rem;
                       color:${val.gross===1?'#000':'#fff'};">${val.gross}</div>
           ${netHtml}${ptsHtml}${chairHtml}
         </td>`;
@@ -6459,16 +6459,16 @@ function _renderAmendScorecard() {
       const ini0 = toInitials(names[p0i] ?? '');
       const ini1 = toInitials(names[p1i] ?? '');
       totalCells += `<td class="asc-score-cell" style="border-top:2px solid var(--border);text-align:center;padding:0.4rem 0.2rem;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.2rem;color:${col};margin-bottom:4px;">${txt}</div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.2rem;color:${col};margin-bottom:4px;">${txt}</div>
         <div style="display:flex;justify-content:center;gap:10px;">
           <div style="display:flex;flex-direction:column;align-items:center;">
             <span style="font-size:0.65rem;font-weight:800;color:${pc.colors[0]};">${ini0}</span>
-            <span style="font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:800;color:var(--white);">${pGross[p0i] || '–'}</span>
+            <span style="font-family:'Plus Jakarta Sans',sans-serif;font-size:0.95rem;font-weight:800;color:var(--white);">${pGross[p0i] || '–'}</span>
             <span style="font-size:0.62rem;color:var(--muted2);">${pNet[p0i] || ''} net</span>
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;">
             <span style="font-size:0.65rem;font-weight:800;color:${pc.colors[1]};">${ini1}</span>
-            <span style="font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:800;color:var(--white);">${pGross[p1i] || '–'}</span>
+            <span style="font-family:'Plus Jakarta Sans',sans-serif;font-size:0.95rem;font-weight:800;color:var(--white);">${pGross[p1i] || '–'}</span>
             <span style="font-size:0.62rem;color:var(--muted2);">${pNet[p1i] || ''} net</span>
           </div>
         </div>
@@ -6483,7 +6483,7 @@ function _renderAmendScorecard() {
       const netLine = hasNet[ci] ? `<div style="font-size:0.72rem;font-weight:700;color:var(--muted2);">Net ${grandNet[ci]}</div>` : '';
       const ptsLine = hasPts[ci] ? `<div style="font-size:0.72rem;font-weight:800;color:var(--gold);">${grandPts[ci]}pt</div>` : '';
       totalCells += `<td class="asc-score-cell" style="border-top:2px solid var(--border);">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;color:var(--white);">${grandGross[ci]}</div>
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;color:var(--white);">${grandGross[ci]}</div>
         ${netLine}${ptsLine}
       </td>`;
     });
@@ -6625,7 +6625,7 @@ function _renderAmendScorecard() {
           const leading = ci === 0 ? ms > 0 : ms < 0;
           const txt  = ms === 0 ? 'All Sq' : leading ? `${up} Up` : `${up} Dn`;
           const col  = ms === 0 ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
-          return { name: `${pc.labels[0]} & ${pc.labels[1]}`, color: pc.colors[0], scoreHtml: `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:${col};">${txt}</span>` };
+          return { name: `${pc.labels[0]} & ${pc.labels[1]}`, color: pc.colors[0], scoreHtml: `<span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.4rem;color:${col};">${txt}</span>` };
         })
       : cols.map((c, ci) => {
           let scoreHtml = '';
@@ -6635,30 +6635,30 @@ function _renderAmendScorecard() {
             const leading = ci === 0 ? ms > 0 : ms < 0;
             const txt = ms === 0 ? 'All Sq' : leading ? `${up} Up` : `${up} Dn`;
             const col = ms === 0 ? 'var(--muted)' : leading ? 'var(--gold)' : '#5ba8d8';
-            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:${col};">${txt}</span>`;
+            scoreHtml = `<span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.4rem;color:${col};">${txt}</span>`;
           } else if (isS6) {
-            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${gameState.runningPts?.[ci] ?? 0}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">pts</span>`;
+            scoreHtml = `<span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${gameState.runningPts?.[ci] ?? 0}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">pts</span>`;
           } else if (isSk) {
-            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${gameState.skins?.[ci] ?? 0}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">skins</span>`;
+            scoreHtml = `<span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${gameState.skins?.[ci] ?? 0}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">skins</span>`;
           } else if (isItc) {
-            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${gameState.pts?.[ci] ?? 0}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">pts</span>`;
+            scoreHtml = `<span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${gameState.pts?.[ci] ?? 0}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">pts</span>`;
           } else if (isTexas) {
             const isSbFmt = (gameState.texasScoringFmt ?? 'stableford') === 'stableford';
             const score   = isSbFmt ? (grandPts[ci] || 0) : (grandGross[ci] || 0);
-            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${score}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">${isSbFmt ? 'pts' : 'gross'}</span>`;
+            scoreHtml = `<span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${score}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">${isSbFmt ? 'pts' : 'gross'}</span>`;
           } else if (hasPts[ci]) {
-            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${grandPts[ci]}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">pts</span>`;
+            scoreHtml = `<span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${grandPts[ci]}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">pts</span>`;
           } else if (hasNet[ci]) {
-            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${grandNet[ci]}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">net</span>`;
+            scoreHtml = `<span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${grandNet[ci]}</span><span style="font-size:0.8rem;color:var(--muted);margin-left:3px;">net</span>`;
           } else {
-            scoreHtml = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${grandGross[ci] || '–'}</span>`;
+            scoreHtml = `<span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.4rem;color:var(--white);">${grandGross[ci] || '–'}</span>`;
           }
           return { name: shortName(c.label), color: c.color, scoreHtml };
         });
 
     namesBar.innerHTML = barCols.map(bc => `
       <div style="display:flex;flex-direction:column;gap:1px;">
-        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.6rem;color:${bc.color};line-height:1;">${bc.name}</span>
+        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.6rem;color:${bc.color};line-height:1;">${bc.name}</span>
         <div style="display:flex;align-items:baseline;gap:3px;">${bc.scoreHtml}</div>
       </div>`).join('');
   }
@@ -6749,7 +6749,7 @@ function startAmendFromHole(holeIdx) {
   document.getElementById('amend-banner')?.remove();
   const banner = document.createElement('div');
   banner.id = 'amend-banner';
-  Object.assign(banner.style, {background:'#b45309',color:'#fff',padding:'0.5rem 1rem',fontFamily:'Barlow Condensed,sans-serif',fontSize:'0.9rem',fontWeight:'800',letterSpacing:'0.04em',textAlign:'center'});
+  Object.assign(banner.style, {background:'#b45309',color:'#fff',padding:'0.5rem 1rem',fontFamily:'Plus Jakarta Sans,sans-serif',fontSize:'0.9rem',fontWeight:'800',letterSpacing:'0.04em',textAlign:'center'});
   banner.textContent = `✏️ AMEND MODE — Hole ${(gameState.holeOffset??0)+holeIdx+1} of ${gameState.log.length} · Confirm each hole to recalculate`;
   document.getElementById('screen-game')?.prepend(banner);
 
@@ -6955,13 +6955,13 @@ function renderLdNtpLeaderboardCard() {
                   padding:0.55rem 0.85rem;border-bottom:1px solid var(--border);">
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:1.1rem;">${label}</span>
-          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:0.95rem;color:var(--muted2);">
+          <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:0.95rem;color:var(--muted2);">
             Hole ${holeNum}
           </span>
         </div>
         ${r
           ? `<div style="text-align:right;">
-              <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.05rem;">${r.playerName}</span>
+              <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.05rem;">${r.playerName}</span>
               <span style="color:${kind === 'ld' ? 'var(--gold)' : 'var(--blue)'};font-weight:800;margin-left:6px;">
                 ${kind === 'ld' ? `${r.yards} yds` : `${r.cm} cm`}
               </span>
@@ -7245,7 +7245,7 @@ function buildMatchLeaderboard(state) {
   let html = `
     <div style="display:grid;grid-template-columns:${GRID};
                 align-items:center;padding:0.5rem 0.25rem 0.4rem;
-                border-bottom:1.5px solid var(--border2);font-family:'Barlow Condensed',sans-serif;
+                border-bottom:1.5px solid var(--border2);font-family:'Plus Jakarta Sans',sans-serif;
                 gap:0 0.25rem;">
       <div style="text-align:center;line-height:1.2;">
         <div style="font-size:0.55rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
@@ -7302,7 +7302,7 @@ function buildMatchLeaderboard(state) {
     const holeChip = `
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;
                   text-align:center;padding:0.2rem 0;min-width:2.6rem;">
-        <span style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:800;
+        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.3rem;font-weight:800;
                      color:var(--white);line-height:1;">${holeNum}</span>
       </div>`;
 
@@ -7340,7 +7340,7 @@ function buildMatchLeaderboard(state) {
       <div style="display:grid;grid-template-columns:${GRID};
                   align-items:center;padding:0.5rem 0.25rem;
                   border-bottom:0.5px solid var(--border);opacity:${opacity};
-                  font-family:'Barlow Condensed',sans-serif;gap:0 0.25rem;">
+                  font-family:'Plus Jakarta Sans',sans-serif;gap:0 0.25rem;">
         <div style="font-size:1.6rem;font-weight:700;color:var(--white);
                     text-align:center;line-height:1;">${netA}</div>
         <div style="display:flex;align-items:center;justify-content:flex-start;gap:2px;
@@ -7365,7 +7365,7 @@ function buildMatchLeaderboard(state) {
   html += `
     <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
                 padding:0.85rem 0.25rem 0.5rem;border-top:2px solid var(--border2);
-                margin-top:0.15rem;font-family:'Barlow Condensed',sans-serif;">
+                margin-top:0.15rem;font-family:'Plus Jakarta Sans',sans-serif;">
       <div style="font-size:1.6rem;font-weight:800;color:${colA};
                   letter-spacing:0.04em;text-align:left;">${statusA}</div>
       <div style="font-size:0.8rem;font-weight:700;color:var(--muted);
@@ -7385,13 +7385,13 @@ function buildLeaderboardTable(rows, scoreLabel) {
     <div style="display:grid;grid-template-columns:auto 1fr auto auto;
                 align-items:center;border-bottom:2px solid var(--border2);
                 padding:0.5rem 0.75rem;margin-top:1rem;">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.85rem;
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
                   color:var(--muted);letter-spacing:0.1em;width:2rem;">#</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.85rem;
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
                   color:var(--muted);letter-spacing:0.1em;">NAME</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.85rem;
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
                   color:var(--muted);letter-spacing:0.1em;text-align:right;padding-right:1.25rem;">${scoreLabel.toUpperCase()}</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:0.85rem;
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
                   color:var(--muted);letter-spacing:0.1em;text-align:right;">THRU</div>
     </div>`;
 
@@ -7402,16 +7402,16 @@ function buildLeaderboardTable(rows, scoreLabel) {
       <div style="display:grid;grid-template-columns:auto 1fr auto auto;
                   align-items:center;padding:0.9rem 0.75rem;
                   border-bottom:1px solid var(--border);${bg}">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
                     font-size:1.4rem;color:var(--muted2);width:2rem;">${r.rank}</div>
         <div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
                       font-size:1.5rem;color:${gold};line-height:1.1;">${r.label}</div>
           ${r.sub ? `<div style="font-size:0.85rem;font-weight:700;color:var(--muted2);">${r.sub}</div>` : ''}
         </div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
                     font-size:1.6rem;color:${gold};text-align:right;padding-right:1.25rem;">${r.score}</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;
                     font-size:1.2rem;color:var(--muted2);text-align:right;">${r.thru}</div>
       </div>`;
   });
@@ -7457,7 +7457,7 @@ function openHoleNav() {
     return `<button onclick="jumpToHole(${i})"
       style="display:flex;flex-direction:column;align-items:center;padding:0.5rem 0.2rem;
              border-radius:8px;border:1px solid ${border};background:${bg};cursor:pointer;gap:0.1rem;">
-      <span style="font-family:'Barlow Condensed',sans-serif;font-size:1.2rem;
+      <span style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.2rem;
                    font-weight:800;color:${col};line-height:1;">${hNum}</span>
       <span style="font-size:0.55rem;color:${isDone?'var(--muted)':'var(--muted2)'};font-weight:600;">P${parH}</span>
       ${isDone ? `<span style="font-size:0.65rem;color:var(--green);">✓</span>` : ''}
@@ -8011,7 +8011,7 @@ function renderScorecardOverlay() {
     <div class="sc-pages" id="sc-pages">
       ${groups.map((g, i) => `
         <div class="sc-page" data-idx="${i}">
-          ${groups.length > 1 ? `<div style="text-align:center;padding:0.5rem 0;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1rem;color:var(--muted2);">Group ${g.groupNumber ?? i+1}</div>` : ''}
+          ${groups.length > 1 ? `<div style="text-align:center;padding:0.5rem 0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1rem;color:var(--muted2);">Group ${g.groupNumber ?? i+1}</div>` : ''}
           ${buildVerticalScorecard(g, scState.mode)}
         </div>`).join('')}
     </div>`;
@@ -8477,7 +8477,7 @@ async function openResendInvitesModal({ roundId, isTournament, tournamentRoundId
                  padding:0.7rem 1rem;border-bottom:1px solid var(--border);background:none;border-left:none;border-right:none;border-top:none;">
           <span class="dot" style="background:${pHex(i % 8)};flex-shrink:0;"></span>
           <div style="flex:1;min-width:0;">
-            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.1rem;">${p.name}</div>
+            <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;">${p.name}</div>
             <div style="font-size:0.8rem;color:var(--muted2);font-weight:700;">Group ${p.groupNumber}</div>
           </div>
           <div style="font-size:0.8rem;font-weight:800;color:${st.color};flex-shrink:0;">${st.text}</div>
@@ -8668,7 +8668,7 @@ async function renderActiveGamesList() {
               : _agSelectMode ? `<div style="width:20px;flex-shrink:0;"></div>` : ''}
             <div style="font-size:1.5rem;flex-shrink:0;">${item.icon}</div>
             <div style="flex:1;min-width:0;">
-              <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.15rem;
+              <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;
                           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.title}</div>
               <div style="font-size:0.82rem;color:var(--muted2);font-weight:700;">${item.sub}</div>
             </div>
@@ -8875,7 +8875,7 @@ async function renderGameInvitesList() {
             : ''}
           <div style="font-size:1.3rem;flex-shrink:0;">${isSent ? '↗️' : '↘️'}</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.05rem;">
+            <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.05rem;">
               ${dir} ${who}
             </div>
             <div style="font-size:0.8rem;color:var(--muted2);font-weight:700;">
@@ -9681,21 +9681,21 @@ function showShareOptions() {
     modal.innerHTML = `
       <div style="background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-width:480px;
                   padding:1.25rem 1.25rem 1.5rem;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:800;
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.1rem;font-weight:800;
                     color:var(--white);margin-bottom:1rem;letter-spacing:0.03em;">Share Scorecard</div>
         <button id="_share-img-btn" style="width:100%;padding:0.85rem;margin-bottom:0.5rem;
-          font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:800;
+          font-family:'Plus Jakarta Sans',sans-serif;font-size:1rem;font-weight:800;
           background:var(--green);color:#fff;border:none;border-radius:10px;cursor:pointer;">
           📸 Share as Image (WhatsApp, Messages…)
         </button>
         <button id="_share-link-btn" style="width:100%;padding:0.85rem;margin-bottom:0.5rem;
-          font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:800;
+          font-family:'Plus Jakarta Sans',sans-serif;font-size:1rem;font-weight:800;
           background:var(--surface2);color:var(--white);border:1px solid var(--border);
           border-radius:10px;cursor:pointer;">
           🔗 Share as Link
         </button>
         <button id="_share-cancel-btn" style="width:100%;padding:0.65rem;
-          font-family:'Barlow Condensed',sans-serif;font-size:0.9rem;font-weight:700;
+          font-family:'Plus Jakarta Sans',sans-serif;font-size:0.9rem;font-weight:700;
           background:none;color:var(--muted);border:none;cursor:pointer;">
           Cancel
         </button>
@@ -10191,7 +10191,7 @@ function renderCourseHandicapSection() {
       const plyId = `prof-course-hcp-ply-${t.name.replace(/\s+/g,'-').toLowerCase()}`;
       return `
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.4rem 0.5rem;align-items:center;">
-          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1rem;
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;
                       color:var(--white);">${t.name}</div>
           <input id="${crsId}" data-tee="${t.name}" data-type="course"
                  class="prof-course-hcp-input"
@@ -10855,7 +10855,7 @@ function showHistoryDetail(rid, rounds) {
         <div style="font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:0.3rem;">
           ${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees · ${merged.log?.length ?? 0} holes
         </div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold);">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold);">
           ${summary.winner ?? 'Completed'}
         </div>
         ${summary.summary ? `<div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">${summary.summary}</div>` : ''}
@@ -10873,12 +10873,12 @@ function showHistoryDetail(rid, rounds) {
                             padding:0.55rem 0.85rem;border-bottom:1px solid var(--border);">
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:1.1rem;">${icon}</span>
-            <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;
+            <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;
                          font-size:0.95rem;color:var(--muted2);">Hole ${holeNum}</span>
           </div>
           ${res
             ? `<div style="text-align:right;">
-                <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.05rem;">${res.playerName}</span>
+                <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.05rem;">${res.playerName}</span>
                 <span style="color:${kind === 'ld' ? 'var(--gold)' : 'var(--blue)'};font-weight:800;margin-left:6px;">
                   ${kind === 'ld' ? `${res.yards} yds` : `${res.cm} cm`}
                 </span>
@@ -11134,7 +11134,7 @@ function renderCwizTeesList() {
   listEl.innerHTML = cwiz.tees.map((t, i) => `
     <div class="tee-block" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
       <div style="width:14px;height:14px;border-radius:50%;background:${t.color};flex-shrink:0;"></div>
-      <span style="flex:1;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">${t.name}</span>
+      <span style="flex:1;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;letter-spacing:0.08em;">${t.name}</span>
       <button class="btn btn-ghost" style="font-size:0.72rem;padding:2px 8px;" data-del="${i}">✕</button>
     </div>`).join('');
   listEl.querySelectorAll('[data-del]').forEach(btn => {
@@ -11244,7 +11244,7 @@ function renderCwizReview() {
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:3px 2px;text-align:center;cursor:pointer;"
       data-jump="${i}">
       <div style="font-size:0.42rem;color:var(--muted);">H${i+1}</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.92rem;font-weight:700;">${cwiz.tees[0]?.name ? (cwiz.holes[i].si[cwiz.tees[0].name] ?? '?') : '?'}</div>
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:0.92rem;font-weight:700;">${cwiz.tees[0]?.name ? (cwiz.holes[i].si[cwiz.tees[0].name] ?? '?') : '?'}</div>
       <div style="font-size:0.48rem;color:var(--muted);">P${h.par}</div>
     </div>`).join('');
   document.getElementById('cwiz-review-grid').querySelectorAll('[data-jump]').forEach(el => {
@@ -11301,7 +11301,7 @@ async function handleJoinFlow(token, troundId = null, groupNumber = null) {
       return;
     }
     document.getElementById('join-invite-info').innerHTML = `
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.2rem;font-weight:700;color:var(--gold);margin-bottom:0.3rem;">${invite.inviter_name ?? 'Someone'} invited you</div>
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.2rem;font-weight:700;color:var(--gold);margin-bottom:0.3rem;">${invite.inviter_name ?? 'Someone'} invited you</div>
       <div style="font-size:0.72rem;color:var(--muted);">${invite.course_name ?? ''} · ${fmtLabel(invite.game_format ?? '')}</div>
       ${troundId ? `<div style="font-size:0.72rem;color:var(--muted);margin-top:0.25rem;">Group ${groupNumber} scorer</div>` : ''}`;
     const user = await authGetUser();

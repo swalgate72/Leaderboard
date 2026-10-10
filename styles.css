@@ -68,7 +68,7 @@
 html.light {
   /* Page + surface backgrounds — warm cream hierarchy */
   --bg:        #f2ece0;   /* warm parchment page */
-  --surface:   #faf7f0;   /* cream card surface */
+  --surface:   #ffffff;   /* white card surface (Stitch refresh) */
   --surface2:  #edeae2;   /* slightly recessed cream */
   --surface3:  #e3dfd6;   /* deepest cream inset */
 
@@ -164,7 +164,7 @@ a { color: inherit; text-decoration: none; }
 
 /* ── TYPOGRAPHY ─────────────────────────────────────────────────── */
 .bc {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
 }
 
 .text-gold   { color: var(--gold); }
@@ -174,7 +174,7 @@ a { color: inherit; text-decoration: none; }
 .text-red    { color: var(--red); }
 
 .label {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 0.58rem;
   letter-spacing: 0.28em;
   text-transform: uppercase;
@@ -231,7 +231,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .sticky-header h2 {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -254,7 +254,7 @@ html.light .card {
 }
 
 .card-title {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 0.65rem;
   letter-spacing: 0.28em;
   text-transform: uppercase;
@@ -366,7 +366,7 @@ select option { background: var(--surface); }
   border: none;
   border-radius: var(--radius-sm);
   padding: 0.75rem 1rem;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -453,7 +453,7 @@ select option { background: var(--surface); }
   color: #0a160e;
   border: none;
   border-radius: var(--radius-sm);
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.2rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -514,7 +514,7 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 }
 
 .format-btn .fmt-name {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -576,7 +576,7 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 .home-nav-btn .nav-icon { font-size: 1.1rem; line-height: 1; }
 
 .home-nav-btn .nav-label {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 0.6rem;
   font-weight: 400;
   letter-spacing: 0.1em;
@@ -611,7 +611,7 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 }
 
 .resume-banner-title {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -642,7 +642,7 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 
 .badge {
   display: inline-block;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 0.58rem;
   font-weight: 700;
   padding: 1px 7px;
@@ -664,7 +664,7 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
   padding: 2px 8px;
   border-radius: 5px;
   letter-spacing: 0.04em;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
 }
 
 /* ── SYNC STATUS ────────────────────────────────────────────────── */
@@ -677,7 +677,7 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
   text-transform: uppercase;
   padding: 2px 8px;
   border-radius: 10px;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
 }
 
 .sync-badge.synced  { background: var(--green-dim); color: var(--green); }
@@ -757,7 +757,7 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
   text-align: center;
   border-radius: 6px;
   cursor: pointer;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.1rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -847,7 +847,7 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 2rem;
   font-weight: 800;
   color: #0e1a13;
@@ -855,7 +855,7 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 }
 
 .profile-name {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -869,7 +869,7 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
   border: 1px solid var(--gold-border);
   border-radius: 20px;
   padding: 0.2rem 0.85rem;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 0.9rem;
   color: var(--gold);
 }
@@ -921,7 +921,7 @@ html.light .group-block {
 }
 
 .group-label {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 0.65rem;
   letter-spacing: 0.25em;
   text-transform: uppercase;
@@ -1011,7 +1011,7 @@ html.light .player-row {
 }
 
 .game-course {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -1068,7 +1068,7 @@ html.light .player-row {
 .total-cell:last-child { border-right: none; }
 
 .tc-name {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: 0.03em;
@@ -1083,7 +1083,7 @@ html.light .player-row {
 }
 
 .tc-pts {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 2.4rem;
   font-weight: 700;
   line-height: 1;
@@ -1117,7 +1117,7 @@ html.light .player-row {
 }
 
 .mb-score {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 2.2rem;
   font-weight: 700;
   line-height: 1;
@@ -1132,7 +1132,7 @@ html.light .player-row {
 }
 
 .mb-status {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -1156,7 +1156,7 @@ html.light .player-row {
 /* Skins bar — cells now use .total-cell style */
 .skins-cell { flex:1; } /* kept for compat */
 .sk-name  { font-size: 0.5rem; }
-.sk-pts   { font-family: 'Barlow Condensed', sans-serif; font-size: 1.8rem; font-weight: 700; }
+.sk-pts   { font-family: 'Plus Jakarta Sans',sans-serif; font-size: 1.8rem; font-weight: 700; }
 .sk-label { font-size: 0.48rem; }
 
 /* Pot banner */
@@ -1171,7 +1171,7 @@ html.light .player-row {
 .pot-banner.show { display: block; }
 
 .pot-banner span {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--gold);
@@ -1190,7 +1190,7 @@ html.light .player-row {
 .itc-cell { flex:1; }
 .itc-cell.in-chair { background: rgba(212,168,67,0.1); }
 .itc-pname { font-size: 0.5rem; }
-.itc-pts   { font-family: 'Barlow Condensed', sans-serif; font-size: 1.8rem; font-weight: 700; }
+.itc-pts   { font-family: 'Plus Jakarta Sans',sans-serif; font-size: 1.8rem; font-weight: 700; }
 
 /* Result flash */
 .result-flash {
@@ -1217,7 +1217,7 @@ html.light .player-row {
 }
 
 .hole-num {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 2.8rem;
   font-weight: 800;
   line-height: 1;
@@ -1235,7 +1235,7 @@ html.light .player-row {
 .hole-si-info { text-align: right; }
 
 .si-big {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 2rem;
   font-weight: 700;
   color: var(--gold);
@@ -1280,7 +1280,7 @@ html.light .player-row {
 .gi-name {
   font-size: 1.2rem;
   font-weight: 700;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1391,7 +1391,7 @@ html.light .gi-arr-up {
   border: 1px solid var(--border);
   color: var(--muted);
   border-radius: var(--radius-sm);
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -1409,7 +1409,7 @@ html.light .gi-arr-up {
   color: #0a160e;
   border: none;
   border-radius: var(--radius-sm);
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.3rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -1456,7 +1456,7 @@ html.light .btn-record { background: #1a3a22; color: #fff; box-shadow: 0 3px 16p
 }
 
 .game-action-label {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 0.78rem;
   font-weight: 400;
   color: var(--muted);
@@ -1495,7 +1495,7 @@ html.light .c-btn {
 }
 
 .c-val {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 2rem;
   font-weight: 700;
   min-width: 2rem;
@@ -1505,7 +1505,7 @@ html.light .c-btn {
 
 /* Pair section labels */
 .pair-section-label {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 0.6rem;
   letter-spacing: 0.25em;
   text-transform: uppercase;
@@ -1589,7 +1589,7 @@ html.light .c-btn {
 }
 
 .sc-overlay-title {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -1622,7 +1622,7 @@ html.light .c-btn {
 }
 
 .er-result {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.8rem;
   font-weight: 800;
   color: var(--gold);
@@ -1653,7 +1653,7 @@ html.light .c-btn {
 }
 
 .podium-rank {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.8rem;
   font-weight: 800;
   color: rgba(255,255,255,0.1);
@@ -1675,7 +1675,7 @@ html.light .c-btn {
 .podium-detail { font-size: 0.6rem; font-weight: 300; color: var(--muted); }
 
 .podium-score {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 2.2rem;
   font-weight: 800;
   line-height: 1;
@@ -1709,7 +1709,7 @@ html.light .c-btn {
 }
 
 .hi-title {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -1739,7 +1739,7 @@ html.light .c-btn {
   border: 1px solid var(--border);
   border-radius: 15px;
   color: var(--muted);
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -1783,7 +1783,7 @@ html.light .c-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-weight: 700;
   font-size: 1.2rem;
   color: var(--gold);
@@ -1791,7 +1791,7 @@ html.light .c-btn {
 }
 
 .friend-info  { flex: 1; min-width: 0; }
-.friend-name  { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 1.35rem; line-height: 1.15; }
+.friend-name  { font-family: 'Plus Jakarta Sans',sans-serif; font-weight: 800; font-size: 1.35rem; line-height: 1.15; }
 .friend-sub   { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
 
 .friend-chip {
@@ -1854,7 +1854,7 @@ html.light .c-btn {
 }
 
 .modal-title {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--gold);
@@ -1890,7 +1890,7 @@ html.light .c-btn {
   border-radius: 6px;
   padding: 0.5rem 0;
   text-align: center;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
   border: 1.5px solid rgba(255,255,255,0.1);
@@ -1944,10 +1944,10 @@ html.light .si-btn.selected { background: var(--gold); color: #0e1a13; }
 
 .arc-icon     { font-size: 1.3rem; flex-shrink: 0; }
 .arc-body     { flex: 1; min-width: 0; }
-.arc-title    { font-family: 'Barlow Condensed', sans-serif; font-size: 1rem; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arc-title    { font-family: 'Plus Jakarta Sans',sans-serif; font-size: 1rem; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .arc-sub      { font-size: 0.62rem; color: var(--muted); margin-top: 1px; }
 .arc-progress { text-align: right; flex-shrink: 0; }
-.arc-hole     { font-family: 'Barlow Condensed', sans-serif; font-size: 1.4rem; font-weight: 700; color: var(--gold); line-height: 1; }
+.arc-hole     { font-family: 'Plus Jakarta Sans',sans-serif; font-size: 1.4rem; font-weight: 700; color: var(--gold); line-height: 1; }
 .arc-hole-lbl { font-size: 0.5rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .arc-abandon  { background: none; border: none; color: rgba(255,255,255,0.2); font-size: 0.9rem; padding: 4px; cursor: pointer; flex-shrink: 0; transition: color 0.15s; }
 .arc-abandon:hover { color: var(--red); }
@@ -2036,7 +2036,7 @@ html.light .sc-table td     { color: var(--white); }
   margin-bottom: 0.75rem;
 }
 .lb-hero-name-a {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: clamp(0.85rem, 4vw, 1.3rem);
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -2045,7 +2045,7 @@ html.light .sc-table td     { color: var(--white); }
   line-height: 1.2;
 }
 .lb-hero-name-b {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: clamp(0.85rem, 4vw, 1.3rem);
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -2077,7 +2077,7 @@ html.light .home-hero {
   text-transform: uppercase;
   color: rgba(255,255,255,0.5);
   font-weight: 400;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
 }
 .home-hero-avatar {
   width: 44px; height: 44px;
@@ -2086,7 +2086,7 @@ html.light .home-hero {
   border: 1.5px solid rgba(212,168,67,0.5);
   color: #d4a843;
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-weight: 800;
   font-size: 1.1rem;
   flex-shrink: 0;
@@ -2100,7 +2100,7 @@ html.light .home-hero {
   margin-bottom: 0.1rem;
 }
 .home-hero-title {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-weight: 800;
   font-size: 2.6rem;
   line-height: 1;
@@ -2136,10 +2136,10 @@ html.light .home-hero {
   text-transform: uppercase;
   color: rgba(255,255,255,0.48);
   margin-bottom: 0.2rem;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
 }
 .home-hero-stat-value {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-weight: 700;
   font-size: 1.65rem;
   color: #fff;
@@ -2158,7 +2158,7 @@ html.light .home-hero {
   color: #0e1a13;
   border: none;
   border-radius: var(--radius-sm);
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.1rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -2224,7 +2224,7 @@ html.light .fmt-col {
   background: transparent;
   border: none;
   border-radius: 0;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--white);
@@ -2259,7 +2259,7 @@ html.light .fmt-btn:active svg { stroke: var(--green); }
   text-transform: uppercase;
   color: var(--muted);
   font-weight: 600;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   margin: 0 0.1rem 0.5rem;
   padding-left: 0.1rem;
 }
@@ -2292,7 +2292,7 @@ html.light .home-section-label {
 }
 .mode-card-body { flex: 1; min-width: 0; }
 .mode-card-title {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-weight: 800;
   font-size: 1.9rem;
   color: var(--white);
@@ -2342,7 +2342,7 @@ html.light .home-section-label {
 }
 .home-active-body { flex: 1; min-width: 0; }
 .home-active-title {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-weight: 700;
   font-size: 1rem;
   color: rgba(255,255,255,0.95);
@@ -2407,7 +2407,7 @@ html.light .bottom-nav {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
 }
 .bottom-nav-btn.active {
   color: var(--gold);
@@ -2467,7 +2467,7 @@ html.light .bottom-nav-btn.active { color: var(--gold); }
   margin-bottom: 0.15rem;
 }
 .history-card-title {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-weight: 700;
   font-size: 1.3rem;
   color: var(--white);
@@ -2553,7 +2553,7 @@ html.light .bottom-nav-btn.active { color: var(--gold); }
 /* Toggle button groups (e.g. 18 / Front 9 / Back 9): make the selected
    option unmistakably obvious */
 .holes-btn {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-weight: 700;
   font-size: 1.05rem;
   letter-spacing: 0.04em;
@@ -2601,7 +2601,7 @@ html.light .holes-btn.active {
   border: 1px solid var(--border2);
   background: none;
   color: var(--muted2);
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-weight: 800;
   font-size: 1.05rem;
   letter-spacing: 0.04em;
@@ -2629,7 +2629,7 @@ html.light .holes-btn.active {
   border: 1.5px solid var(--border2);
   background: var(--surface2);
   color: var(--muted2);
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1rem;
   font-weight: 800;
   cursor: pointer;
@@ -2665,7 +2665,7 @@ html.light .holes-btn.active {
 .sc-table th, .sc-table td {
   text-align: center;
   padding: 0.5rem 0.35rem;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
 }
 .sc-table thead th {
   position: sticky;
@@ -2765,7 +2765,7 @@ html.light .holes-btn.active {
   top: 0;
   z-index: 3;
   border-bottom: 2px solid var(--border2);
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   padding: 0.4rem 0.25rem;
   text-align: center;
 }
@@ -2808,7 +2808,7 @@ html.light .holes-btn.active {
   max-width: 80px;
 }
 .asc-tot-score {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-size: 1.8rem;
   font-weight: 800;
   color: var(--gold);
@@ -2883,7 +2883,7 @@ html.light .holes-btn.active {
 .tourn-list-body { flex: 1; min-width: 0; }
 
 .tourn-list-name {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-weight: 800;
   font-size: 1.2rem;
   color: var(--white);
@@ -2930,7 +2930,7 @@ html.light .holes-btn.active {
   background: rgba(212,168,67,0.08);
 }
 .tourn-mode-btn-title {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-weight: 800;
   font-size: 1.05rem;
   color: var(--white);
@@ -2953,7 +2953,7 @@ html.light .holes-btn.active {
   border-radius: var(--radius-sm);
   padding: 0.5rem 0.7rem;
   color: var(--gold);
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-weight: 800;
   font-size: 1.05rem;
   margin-bottom: 0.5rem;
@@ -3015,7 +3015,7 @@ html.light .holes-btn.active {
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
 }
 .ld-ntp-hole-btn .h-num {
   font-weight: 800;
@@ -3047,7 +3047,7 @@ html.light .holes-btn.active {
   gap: 5px;
   padding: 5px 12px;
   border-radius: 20px;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   font-weight: 800;
   font-size: 0.95rem;
   letter-spacing: 0.03em;
@@ -3085,7 +3085,7 @@ body.local-mode .multiuser-only { display: none !important; }
   padding: 0.45rem 0.1rem;
   font-size: 0.65rem;
   font-weight: 800;
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Plus Jakarta Sans',sans-serif;
   letter-spacing: 0.04em;
   display: flex;
   flex-direction: column;
@@ -4256,3 +4256,181 @@ html.light .btn-back-hole {
 /* Idle round card text */
 #screen-home .home-round-card.is-idle .home-round-status { font-size: 1rem; }
 #screen-home .home-round-card.is-idle .home-round-course { font-size: 0.86rem; -webkit-line-clamp: 1; }
+
+/* ================================================================
+   STITCH STYLE — APP-WIDE (build 20261010q)
+   Carries the home/scoring look to every screen: Plus Jakarta Sans,
+   Playfair headings, white rounded cards, green+gold buttons.
+   ================================================================ */
+
+/* Uppercase labels: Jakarta is wider than the old condensed face */
+.btn, .btn-setup-next, .btn-play, .bottom-nav-label, .holes-btn, .tab-btn {
+  letter-spacing: 0.03em;
+}
+
+/* ── Screen heroes (setup, history, friends, profile, etc.) ────── */
+.home-hero-title {
+  font-family: var(--font-display);
+  letter-spacing: -0.005em;
+}
+.home-hero-club {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: #d4a843;
+}
+.home-hero-top .btn,
+.home-hero-top button {
+  border-radius: 12px;
+  font-family: var(--font-ui);
+}
+
+/* Leaderboard screen hero — same green + gold glow */
+.lb-hero {
+  background:
+    radial-gradient(110% 80% at 100% 0%, rgba(212,168,67,0.16) 0%, rgba(212,168,67,0) 55%),
+    linear-gradient(165deg, #24503a 0%, #163a28 50%, #0f2a1c 100%);
+  border-radius: 0 0 24px 24px;
+  box-shadow: 0 10px 26px rgba(15,42,28,0.28);
+}
+.lb-hero .home-hero-title { color: #fff; }
+.lb-hero-names { background: rgba(6,20,13,0.45); border-radius: 14px; margin: 0 0.75rem 0.75rem; }
+
+/* ── Cards ─────────────────────────────────────────────────────── */
+.card,
+html.light .card {
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 22px rgba(20,40,28,0.07);
+  padding: 1.1rem 1.1rem;
+}
+html.light .card { background: #fff; }
+
+.card-title,
+html.light .card-title {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--white);
+  justify-content: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+.card-title::before {
+  content: '';
+  width: 4px; height: 15px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #e2bb5e, #b8892f);
+  flex-shrink: 0;
+}
+
+/* Form labels */
+label, .form-label, .field-label {
+  font-family: var(--font-ui);
+}
+
+/* ── Inputs ────────────────────────────────────────────────────── */
+input:not([type="checkbox"]):not([type="radio"]),
+select, textarea {
+  border-radius: 14px;
+  padding: 0.75rem 0.9rem;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: 0.98rem;
+}
+html.light input:not([type="checkbox"]):not([type="radio"]),
+html.light select,
+html.light textarea {
+  background: #fff;
+  border-color: rgba(20,40,28,0.16);
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #c9993a !important;
+  box-shadow: 0 0 0 3px rgba(212,168,67,0.18);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.btn { border-radius: 14px; font-family: var(--font-ui); font-weight: 800; }
+.btn-primary {
+  background: linear-gradient(180deg, #e2bb5e, #c9993a);
+  color: #1a1206;
+  box-shadow: 0 2px 10px rgba(212,168,67,0.3);
+}
+.btn-green,
+.btn-play,
+.btn-setup-next,
+html.light .btn-setup-next,
+html.light .btn-play,
+html.light .btn-green {
+  background: linear-gradient(180deg, #24503a, #163a28);
+  color: #fff;
+  border: 1px solid rgba(212,168,67,0.45);
+  border-radius: 18px;
+  font-family: var(--font-ui);
+  font-weight: 800;
+  box-shadow: 0 0 0 3px rgba(212,168,67,0.1), 0 8px 20px rgba(22,58,40,0.28);
+}
+.btn-setup-next, .btn-play { font-size: 1.08rem; padding: 1rem; }
+.btn-outline,
+html.light .btn-outline {
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  color: var(--white);
+}
+html.light .btn-outline { background: #fff; }
+.btn-ghost { border-radius: 12px; }
+.btn-danger { border-radius: 14px; }
+
+/* ── Modals ────────────────────────────────────────────────────── */
+.modal-box {
+  border-radius: 24px;
+  border-color: var(--border);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+}
+html.light .modal-box { background: #fff; }
+.modal-box.gold-border { border-color: rgba(212,168,67,0.5); }
+.modal-title { font-family: var(--font-display); font-weight: 700; letter-spacing: 0; }
+.btn-close { border-radius: 12px; }
+
+/* ── Bottom nav ────────────────────────────────────────────────── */
+.bottom-nav { border-top: 1px solid var(--border); box-shadow: 0 -6px 20px rgba(20,40,28,0.06); }
+.bottom-nav-label { font-family: var(--font-ui); font-weight: 700; font-size: 0.66rem; }
+
+/* In-game bottom bar buttons */
+.game-bar-btn { font-family: var(--font-ui); border-radius: 14px; }
+
+/* Uniform card titles on every screen */
+#screen-friends .card-title, #screen-profile .card-title,
+#screen-setup-course .card-title, #screen-setup-review .card-title,
+.screen .card-title {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.18em;
+  font-weight: 700;
+}
+
+/* Toggle groups (18 / Front 9 / Back 9 etc.) — green selected, white others */
+.holes-btn, html.light .holes-btn { border-radius: 14px; font-family: var(--font-ui); }
+html.light .holes-btn { background: #fff; }
+.holes-btn.active,
+html.light .holes-btn.active {
+  background: linear-gradient(180deg, #24503a, #163a28);
+  border-color: rgba(212,168,67,0.55);
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(212,168,67,0.1), 0 4px 12px rgba(22,58,40,0.25);
+}
+
+/* Leaderboard table in a white card */
+#leaderboard-table:not(:empty) {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 22px rgba(20,40,28,0.07);
+  overflow: hidden;
+  padding: 0.25rem 0.35rem;
+}
+#leaderboard-table table { width: 100%; }
+#leaderboard-table:not(:empty) { margin-top: 0.85rem; }
