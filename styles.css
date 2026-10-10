@@ -3302,3 +3302,21 @@ html.light #btn-hole-nav-close {
   border-color: rgba(0,0,0,0.18);
   color: var(--muted);
 }
+
+/* ================================================================
+   SCRAMBLE SETUP POLISH — build 20261010i
+   ================================================================ */
+
+/* SVG icons inside toggle/outline buttons inherit color correctly */
+.holes-btn svg,
+.btn-outline svg {
+  display: inline-block;
+  vertical-align: middle;
+  stroke: currentColor;
+}
+
+/* Active state: star icon filled gold on Stableford button */
+.holes-btn.active svg,
+.btn-outline.scoring-mode-btn.active svg {
+  stroke: #fff;
+}
