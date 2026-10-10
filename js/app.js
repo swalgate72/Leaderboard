@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010a)
-window.APP_BUILD = '20261010e';
+window.APP_BUILD = '20261010f';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================

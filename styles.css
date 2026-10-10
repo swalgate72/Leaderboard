@@ -245,14 +245,21 @@ a { color: inherit; text-decoration: none; }
   width: 100%;
 }
 
+html.light .card {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+
 .card-title {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.62rem;
+  font-size: 0.65rem;
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--gold);
   margin-bottom: 0.85rem;
-  font-weight: 600;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .card-sub {
@@ -429,6 +436,36 @@ select option { background: var(--surface); }
 .btn-play:active {
   transform: scale(0.98);
   box-shadow: 0 1px 6px rgba(76,175,118,0.15);
+}
+
+/* Setup NEXT buttons — same weight as btn-play */
+.btn-setup-next {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 1.05rem;
+  background: var(--green);
+  color: #0a160e;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  box-shadow: var(--shadow-cta);
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+  margin-top: 0.75rem;
+}
+.btn-setup-next:active {
+  transform: scale(0.98);
+  box-shadow: 0 1px 6px rgba(76,175,118,0.15);
+}
+html.light .btn-setup-next {
+  background: #1a3a22;
+  color: #fff;
+  box-shadow: 0 3px 16px rgba(26,58,34,0.3);
 }
 
 html.light .btn-primary { background: #1a3a22 !important; color: #fff !important; }
@@ -854,11 +891,13 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
 
 .step-dot {
   flex: 1;
-  height: 3px;
+  height: 4px;
   border-radius: 2px;
   background: var(--border2);
   transition: background 0.3s;
 }
+
+html.light .step-dot { background: rgba(0,0,0,0.12); }
 
 .step-dot.done    { background: var(--green); }
 .step-dot.current { background: var(--gold); }
@@ -868,8 +907,13 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1rem;
+  padding: 1.1rem 1.1rem 0.85rem;
   margin-bottom: 0.65rem;
+}
+
+html.light .group-block {
+  border-color: var(--border2);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
 }
 
 .group-label {
@@ -885,11 +929,17 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 0.75rem 0.85rem;
+  padding: 0.85rem 1rem;
   margin-bottom: 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+html.light .player-row {
+  background: var(--surface);
+  border-color: var(--border2);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
 
 .player-row:last-child { margin-bottom: 0; }
@@ -2499,16 +2549,36 @@ html.light .bottom-nav-btn.active { color: var(--gold); }
 /* Toggle button groups (e.g. 18 / Front 9 / Back 9): make the selected
    option unmistakably obvious */
 .holes-btn {
+  font-family: 'Barlow Condensed', sans-serif;
   font-weight: 700;
   font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  padding: 0.7rem 0.5rem;
+  background: var(--surface2);
+  border: 1.5px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--muted2);
+  cursor: pointer;
   transition: all 0.15s;
+  text-align: center;
+  width: 100%;
+}
+html.light .holes-btn {
+  background: var(--surface2);
+  border-color: var(--border2);
+  color: var(--muted);
 }
 .holes-btn.active {
   background: var(--gold);
   border-color: var(--gold);
   color: #0e1a13;
   font-weight: 800;
-  box-shadow: 0 0 0 2px var(--gold-border);
+  box-shadow: 0 2px 8px rgba(212,168,67,0.3);
+}
+html.light .holes-btn.active {
+  background: var(--gold);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(122,86,16,0.25);
 }
 
 /* ── NEW VERTICAL SCORECARD ─────────────────────────────────────── */

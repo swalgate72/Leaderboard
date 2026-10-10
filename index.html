@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261010e">
+  <link rel="stylesheet" href="styles.css?v=20261010f">
 </head>
 <body class="local-mode">
 
@@ -476,8 +476,11 @@
 
     <!-- Longest Drive -->
     <div class="card">
-      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
-        <span>🏌️ Longest Drive</span>
+      <div class="card-title">
+        <span style="display:flex;align-items:center;gap:0.5rem;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;stroke:var(--gold);" aria-hidden="true"><path d="M5 3v18M5 3l7 4 7-4"/><path d="M5 10l7 4 7-4"/></svg>
+          Longest Drive
+        </span>
         <label class="lb-toggle">
           <input type="checkbox" id="ld-enabled">
           <span class="lb-toggle-track"><span class="lb-toggle-thumb"></span></span>
@@ -501,8 +504,11 @@
 
     <!-- Nearest the Pin -->
     <div class="card">
-      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
-        <span>🎯 Nearest the Pin</span>
+      <div class="card-title">
+        <span style="display:flex;align-items:center;gap:0.5rem;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;stroke:var(--gold);" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
+          Nearest the Pin
+        </span>
         <label class="lb-toggle">
           <input type="checkbox" id="ntp-enabled">
           <span class="lb-toggle-track"><span class="lb-toggle-thumb"></span></span>
@@ -570,7 +576,7 @@
       </div>
     </div>
 
-    <button class="btn btn-green btn-full" id="btn-setup-course-next">NEXT: PLAYERS →</button>
+    <button class="btn-setup-next" id="btn-setup-course-next">NEXT: PLAYERS →</button>
   </div>
   </div>
       <!-- Pencil footer -->
@@ -618,10 +624,7 @@
         </button>
       </div>
 
-      <button class="btn btn-green mt-sm" id="btn-setup-players-next"
-        style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;">
-        NEXT: ARRANGE GROUPS →
-      </button>
+      <button class="btn-setup-next" id="btn-setup-players-next">NEXT: ARRANGE GROUPS →</button>
     </div>
   </div>
       <!-- Pencil footer -->
@@ -659,10 +662,7 @@
       <!-- Drag-drop group cards — rendered by JS -->
       <div id="setup-group-cards"></div>
 
-      <button class="btn btn-green mt-md" id="btn-setup-groups-next"
-        style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;">
-        NEXT: REVIEW →
-      </button>
+      <button class="btn-setup-next" id="btn-setup-groups-next">NEXT: REVIEW →</button>
     </div>
   </div>
       <!-- Pencil footer -->
@@ -699,10 +699,7 @@
       <!-- Pair cards — rendered by JS -->
       <div id="setup-pair-cards"></div>
 
-      <button class="btn btn-green mt-md" id="btn-setup-pairs-next"
-        style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;">
-        NEXT: ARRANGE GROUPS →
-      </button>
+      <button class="btn-setup-next" id="btn-setup-pairs-next">NEXT: ARRANGE GROUPS →</button>
     </div>
   </div>
       <!-- Pencil footer -->
@@ -748,7 +745,10 @@
                color:var(--white);font-size:0.95rem;font-family:inherit;box-sizing:border-box;">
     </div>
 
-    <button class="btn btn-play" id="btn-tee-off">⛳ TEE OFF →</button>
+    <button class="btn btn-play" id="btn-tee-off" style="display:flex;align-items:center;justify-content:center;gap:0.6rem;margin-top:0.25rem;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;flex-shrink:0;" aria-hidden="true"><line x1="6" y1="3" x2="6" y2="21"/><path d="M6 3 L18 8 L6 13" fill="currentColor" stroke="none"/></svg>
+      TEE OFF →
+    </button>
 
     <button class="btn btn-outline mt-sm" id="btn-review-back">← Back</button>
   </div>
@@ -1820,7 +1820,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261010e"></script>
+<script type="module" src="js/app.js?v=20261010f"></script>
 
 
 <!-- ══════════════════════════════════════════
