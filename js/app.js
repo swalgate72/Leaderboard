@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010a)
-window.APP_BUILD = '20261010i';
+window.APP_BUILD = '20261010j';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -1133,27 +1133,14 @@ const TEAM_SCORING_FORMATS = ['foursomes','greensomes','texas'];
 function updateCourseScreenForFormat(fmt) {
   const isTeamFmt    = TEAM_SCORING_FORMATS.includes(fmt);
   const hcpField     = document.getElementById('setup-hcp-pct-field');
-  const scoringField = document.getElementById('setup-game-scoring-field');
-  const scoringHint  = document.getElementById('setup-game-scoring-hint');
+  const teamHcpField = document.getElementById('setup-team-hcp-field');
   if (hcpField)     hcpField.classList.toggle('hidden', isTeamFmt);
-  if (scoringField) scoringField.classList.toggle('hidden', !isTeamFmt);
+  if (teamHcpField) teamHcpField.classList.toggle('hidden', fmt !== 'texas');
   if (isTeamFmt) {
     setup.hcpPct = 100;
-    const mode   = setup.teamScoringMode ?? 'stableford';
-    const matchBtn = document.querySelector('.scoring-mode-btn[data-mode="match"]');
-    if (matchBtn) matchBtn.style.display = (fmt === 'texas' && (setup.texasTeamSize ?? 2) > 2) ? 'none' : '';
-    if (scoringHint) scoringHint.textContent = mode === 'match' ? '2v2 matchplay — single group only' : 'Multiple groups supported';
-    document.querySelectorAll('.scoring-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
   }
 }
 
-document.getElementById('setup-game-scoring-btns')?.addEventListener('click', e => {
-  const btn = e.target.closest('.scoring-mode-btn');
-  if (!btn) return;
-  setup.teamScoringMode = btn.dataset.mode;
-  updateCourseScreenForFormat(setup.scoring);
-  saveSetupState('screen-setup-course');
-});
 
 function showFormatPicker(category) {
   const TOURNAMENT_EXCLUDED = ['match','skins','itc','split6'];
