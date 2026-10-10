@@ -2149,13 +2149,13 @@ html.light .fmt-col {
   width: 100%;
   text-align: left;
   cursor: pointer;
-  padding: 0.85rem 0.85rem;
+  padding: 0.9rem 1rem;
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--border);
   border-radius: 0;
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--white);
   letter-spacing: 0.02em;
@@ -2172,8 +2172,8 @@ html.light .fmt-btn:hover { background: var(--surface2); }
 /* SVG icon inside format button */
 .fmt-btn svg {
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   stroke: var(--muted);
   transition: stroke 0.1s;
 }
