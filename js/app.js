@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010a)
-window.APP_BUILD = '20261010l';
+window.APP_BUILD = '20261010m';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -166,12 +166,6 @@ const setup = {
   pairs:           [],
   tournamentId:       null, // set when starting a tournament round
   tournRoundNumber:   null,
-  ldEnabled:   false,
-  ldCount:     1,
-  ldHoles:     [],   // selected hole numbers (1-18)
-  ntpEnabled:  false,
-  ntpCount:    1,
-  ntpHoles:    [],
 };
 
 let roundId    = null;
@@ -1327,17 +1321,6 @@ function startSetup() {
     renderDrivesGrids();
   }
 
-  // Reset LD/NTP state for a fresh setup
-  setup.ldEnabled = false; setup.ldCount = 1; setup.ldHoles = [];
-  setup.ntpEnabled = false; setup.ntpCount = 1; setup.ntpHoles = [];
-  document.getElementById('ld-enabled').checked = false;
-  document.getElementById('ntp-enabled').checked = false;
-  document.getElementById('ld-config')?.classList.add('hidden');
-  document.getElementById('ntp-config')?.classList.add('hidden');
-  setHoleCountBtns('ld', 1);
-  setHoleCountBtns('ntp', 1);
-  wireLdNtpToggles();
-
   populateCourseSelect();
   populateNumPlayerSelect();
   populateNumGroupSelect();
@@ -1345,95 +1328,6 @@ function startSetup() {
   showScreen('screen-setup-course');
 }
 
-// ── Longest Drive / Nearest the Pin setup wiring ───────────────────
-function setHoleCountBtns(kind, count) {
-  setup[`${kind}Count`] = count;
-  [1, 2].forEach(n => {
-    document.getElementById(`${kind}-count-${n}`)?.classList.toggle('active', n === count);
-  });
-  // Trim any over-selected holes if count was reduced
-  if (setup[`${kind}Holes`].length > count) {
-    setup[`${kind}Holes`] = setup[`${kind}Holes`].slice(0, count);
-  }
-  renderLdNtpGrid(kind);
-  updateLdNtpHint(kind);
-}
-
-function updateLdNtpHint(kind) {
-  const count    = setup[`${kind}Count`];
-  const selected = setup[`${kind}Holes`].length;
-  const hintEl   = document.getElementById(`${kind}-hint`);
-  if (!hintEl) return;
-  const unit = kind === 'ntp' ? ' · measured in cm' : '';
-  hintEl.textContent = selected >= count
-    ? `${selected} of ${count} hole${count > 1 ? 's' : ''} selected${unit}`
-    : `Choose ${count} hole${count > 1 ? 's' : ''}${unit}`;
-}
-
-function renderLdNtpGrid(kind) {
-  const grid = document.getElementById(`${kind}-hole-grid`);
-  if (!grid) return;
-  const course = allCourses.find(c => c.id === setup.courseId);
-  const tee    = course?.tees?.[setup.teeIdx];
-  if (!tee) { grid.innerHTML = '<div class="hint">Select a course and tee first</div>'; return; }
-
-  const { offset, count } = holeRange(setup.holes);
-  const parSlice = tee.par.slice(offset, offset + count);
-  // par 3s excluded from LD (need a real tee shot), par 3s ONLY for NTP (no fairway approach)
-  const isEligible = (par) => kind === 'ld' ? par !== 3 : par === 3;
-
-  grid.innerHTML = parSlice.map((par, i) => {
-    const holeNum  = offset + i + 1;
-    const eligible = isEligible(par);
-    const selected = setup[`${kind}Holes`].includes(holeNum);
-    return `<div class="ld-ntp-hole-btn${eligible ? '' : ' disabled'}${selected ? ' selected' : ''}"
-              data-hole="${holeNum}" data-kind="${kind}">
-              <span class="h-num">${holeNum}</span>
-              <span class="h-par">Par ${par}</span>
-            </div>`;
-  }).join('');
-
-  grid.querySelectorAll('.ld-ntp-hole-btn:not(.disabled)').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const holeNum = parseInt(btn.dataset.hole, 10);
-      const holes   = setup[`${kind}Holes`];
-      const idx     = holes.indexOf(holeNum);
-      if (idx >= 0) {
-        holes.splice(idx, 1);
-      } else {
-        if (holes.length >= setup[`${kind}Count`]) holes.shift(); // bump oldest if at cap
-        holes.push(holeNum);
-      }
-      renderLdNtpGrid(kind);
-      updateLdNtpHint(kind);
-    });
-  });
-}
-
-function wireLdNtpToggles() {
-  const ldToggle  = document.getElementById('ld-enabled');
-  const ntpToggle = document.getElementById('ntp-enabled');
-  if (ldToggle && !ldToggle._wired) {
-    ldToggle.addEventListener('change', () => {
-      setup.ldEnabled = ldToggle.checked;
-      document.getElementById('ld-config')?.classList.toggle('hidden', !ldToggle.checked);
-      if (ldToggle.checked) renderLdNtpGrid('ld');
-    });
-    ldToggle._wired = true;
-  }
-  if (ntpToggle && !ntpToggle._wired) {
-    ntpToggle.addEventListener('change', () => {
-      setup.ntpEnabled = ntpToggle.checked;
-      document.getElementById('ntp-config')?.classList.toggle('hidden', !ntpToggle.checked);
-      if (ntpToggle.checked) renderLdNtpGrid('ntp');
-    });
-    ntpToggle._wired = true;
-  }
-  document.getElementById('ld-count-1')?.addEventListener('click', () => setHoleCountBtns('ld', 1));
-  document.getElementById('ld-count-2')?.addEventListener('click', () => setHoleCountBtns('ld', 2));
-  document.getElementById('ntp-count-1')?.addEventListener('click', () => setHoleCountBtns('ntp', 1));
-  document.getElementById('ntp-count-2')?.addEventListener('click', () => setHoleCountBtns('ntp', 2));
-}
 
 function populateCourseSelect() {
   const sel = document.getElementById('setup-course-select');
@@ -1477,16 +1371,12 @@ function onCourseSelectChange() {
 
 document.getElementById('setup-course-select')?.addEventListener('change', () => {
   onCourseSelectChange();
-  if (setup.ldEnabled)  renderLdNtpGrid('ld');
-  if (setup.ntpEnabled) renderLdNtpGrid('ntp');
   if (setup.scoring === 'texas') renderDrivesGrids();
 });
 document.getElementById('setup-tee-select')?.addEventListener('change', e => {
   setup.teeIdx = parseInt(e.target.value, 10);
   const course = allCourses.find(c => c.id === setup.courseId);
   if (course) renderSIPreview(course, setup.teeIdx);
-  if (setup.ldEnabled)  renderLdNtpGrid('ld');
-  if (setup.ntpEnabled) renderLdNtpGrid('ntp');
   if (setup.scoring === 'texas') renderDrivesGrids();
 });
 
@@ -1515,8 +1405,6 @@ document.querySelectorAll('[data-holes]').forEach(btn => {
     const course = allCourses.find(c => c.id === setup.courseId);
     if (course) renderSIPreview(course, setup.teeIdx);
     // Hole numbers and par-3 eligibility shift with front9/back9 — re-render and clear stale selections
-    if (setup.ldEnabled)  { setup.ldHoles  = []; renderLdNtpGrid('ld');  updateLdNtpHint('ld'); }
-    if (setup.ntpEnabled) { setup.ntpHoles = []; renderLdNtpGrid('ntp'); updateLdNtpHint('ntp'); }
     if (setup.scoring === 'texas') renderDrivesGrids();
   });
 });
@@ -4099,8 +3987,8 @@ async function teeOff() {
       teeName:         tee.name,
       groupNumber:     g + 1,
       totalGroups:     setup.numGroups,
-      longestDriveHoles: setup.ldEnabled  ? setup.ldHoles  : [],
-      nearestPinHoles:   setup.ntpEnabled ? setup.ntpHoles : [],
+      longestDriveHoles: [],
+      nearestPinHoles:   [],
       teamScoringMode:   setup.teamScoringMode ?? 'match',
       texasScoringFmt:   setup.texasScoringFmt ?? 'stableford',
     });

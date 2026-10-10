@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261010l">
+  <link rel="stylesheet" href="styles.css?v=20261010m">
 </head>
 <body class="local-mode">
 
@@ -473,62 +473,6 @@
     <!-- Hidden selects kept for JS compatibility — not shown to user -->
     <select id="setup-num-players" style="display:none;"></select>
     <select id="setup-num-groups" style="display:none;"></select>
-
-    <!-- Longest Drive -->
-    <div class="card">
-      <div class="card-title">
-        <span style="display:flex;align-items:center;gap:0.5rem;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;stroke:var(--gold);" aria-hidden="true"><path d="M5 3v18M5 3l7 4 7-4"/><path d="M5 10l7 4 7-4"/></svg>
-          Longest Drive
-        </span>
-        <label class="lb-toggle">
-          <input type="checkbox" id="ld-enabled">
-          <span class="lb-toggle-track"><span class="lb-toggle-thumb"></span></span>
-        </label>
-      </div>
-      <div id="ld-config" class="hidden">
-        <div class="field">
-          <label>How many?</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
-            <button type="button" class="holes-btn active" id="ld-count-1" data-count="1">1</button>
-            <button type="button" class="holes-btn" id="ld-count-2" data-count="2">2</button>
-          </div>
-        </div>
-        <div class="field" style="margin-bottom:0;">
-          <label>Select hole(s) — par 3s excluded</label>
-          <div class="ld-ntp-grid" id="ld-hole-grid"></div>
-          <div class="hint" id="ld-hint" style="margin-top:0.4rem;">Choose 1 hole</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Nearest the Pin -->
-    <div class="card">
-      <div class="card-title">
-        <span style="display:flex;align-items:center;gap:0.5rem;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;stroke:var(--gold);" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
-          Nearest the Pin
-        </span>
-        <label class="lb-toggle">
-          <input type="checkbox" id="ntp-enabled">
-          <span class="lb-toggle-track"><span class="lb-toggle-thumb"></span></span>
-        </label>
-      </div>
-      <div id="ntp-config" class="hidden">
-        <div class="field">
-          <label>How many?</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
-            <button type="button" class="holes-btn active" id="ntp-count-1" data-count="1">1</button>
-            <button type="button" class="holes-btn" id="ntp-count-2" data-count="2">2</button>
-          </div>
-        </div>
-        <div class="field" style="margin-bottom:0;">
-          <label>Select hole(s) — par 3s only</label>
-          <div class="ld-ntp-grid" id="ntp-hole-grid"></div>
-          <div class="hint" id="ntp-hint" style="margin-top:0.4rem;">Choose 1 hole · measured in cm</div>
-        </div>
-      </div>
-    </div>
 
     <!-- Texas Scramble options — shown only for that format -->
     <div class="card hidden" id="texas-options-card">
