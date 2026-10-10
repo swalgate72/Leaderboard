@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261010j">
+  <link rel="stylesheet" href="styles.css?v=20261010k">
 </head>
 <body class="local-mode">
 
@@ -553,17 +553,15 @@
         <div class="hint mt-sm" id="texas-scoring-hint">Any number of teams</div>
         <input type="hidden" id="texas-scoring-fmt" value="stableford">
       </div>
-      <div class="two-col" style="margin-bottom:0;">
-        <div class="field" style="margin:0;">
-          <label>Total Tee Shots per Player</label>
-          <input id="texas-drives-total" type="number" min="1" max="18" step="1" placeholder="e.g. 5">
-          <div class="hint">Min. tee shots each player must use</div>
-        </div>
-        <div class="field" style="margin:0;">
-          <label>Total Par 3 Tee Shots per Player</label>
-          <input id="texas-drives-par3" type="number" min="0" max="6" step="1" placeholder="e.g. 2">
-          <div class="hint">Min. tee shots on par 3s</div>
-        </div>
+      <div class="field" style="margin-bottom:0.75rem;">
+        <label>Tee Shots per Player</label>
+        <div id="texas-drives-total-grid" style="display:flex;flex-wrap:wrap;gap:0.35rem;"></div>
+        <div class="hint mt-sm" id="texas-drives-total-hint">Min. tee shots each player must use (max = holes ÷ players)</div>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Par 3 Tee Shots per Player</label>
+        <div id="texas-drives-par3-grid" style="display:flex;flex-wrap:wrap;gap:0.35rem;"></div>
+        <div class="hint mt-sm" id="texas-drives-par3-hint">Min. tee shots on par 3s (max = par 3s ÷ players)</div>
       </div>
     </div>
 

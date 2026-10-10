@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010a)
-window.APP_BUILD = '20261010j';
+window.APP_BUILD = '20261010k';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -1142,6 +1142,52 @@ function updateCourseScreenForFormat(fmt) {
 }
 
 
+function renderDrivesGrids() {
+  const teamSize  = setup.texasTeamSize ?? 2;
+  const holesVal  = setup.holes ?? 18;
+  const numHoles  = (holesVal === 18) ? 18 : 9;
+
+  // Count par-3s from current tee
+  const course    = allCourses.find(c => c.id === setup.courseId);
+  const tee       = course?.tees?.[setup.teeIdx ?? 0];
+  let par3s       = 0;
+  if (tee?.par) {
+    const { offset, count } = holeRange(holesVal);
+    par3s = tee.par.slice(offset, offset + count).filter(p => p === 3).length;
+  }
+
+  const maxTotal = Math.floor(numHoles / teamSize);
+  const maxPar3  = Math.floor(par3s  / teamSize);
+
+  function buildGrid(containerId, max, currentVal, onSelect) {
+    const grid = document.getElementById(containerId);
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (let i = 0; i <= max; i++) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'holes-btn' + (i === currentVal ? ' active' : '');
+      btn.style.cssText = 'min-width:2.4rem;padding:0.45rem 0.3rem;font-size:1rem;';
+      btn.textContent = i;
+      btn.addEventListener('click', () => { onSelect(i); renderDrivesGrids(); saveSetupState('screen-setup-course'); });
+      grid.appendChild(btn);
+    }
+  }
+
+  buildGrid('texas-drives-total-grid', maxTotal, setup.texasDrivesTotal ?? 0,
+    v => { setup.texasDrivesTotal = v || null; });
+  buildGrid('texas-drives-par3-grid',  maxPar3,  setup.texasDrivesPar3  ?? 0,
+    v => { setup.texasDrivesPar3  = v || null; });
+
+  // Update hints with computed maxes
+  const totalHint = document.getElementById('texas-drives-total-hint');
+  const par3Hint  = document.getElementById('texas-drives-par3-hint');
+  if (totalHint) totalHint.textContent = `Min. tee shots each player must use · max ${maxTotal} (${numHoles} holes ÷ ${teamSize} players)`;
+  if (par3Hint)  par3Hint.textContent  = par3s
+    ? `Min. tee shots on par 3s · max ${maxPar3} (${par3s} par 3s ÷ ${teamSize} players)`
+    : 'Select a course to calculate par 3 max';
+}
+
 function showFormatPicker(category) {
   const TOURNAMENT_EXCLUDED = ['match','skins','itc','split6'];
   const isTournMode  = !!setup.tournamentId;
@@ -1262,6 +1308,7 @@ function startSetup() {
           setup.texasTeamSize = parseInt(btn.dataset.size);
           setup.numPlayers = setup.texasTeamSize * 2;
           updateTexasScoring();
+          renderDrivesGrids();
           saveSetupState('screen-setup-course');
         });
       });
@@ -1273,18 +1320,11 @@ function startSetup() {
       });
       document.getElementById('texas-hcp-average')?.addEventListener('click', () => setHcpMode('average'));
       document.getElementById('texas-hcp-weighted')?.addEventListener('click', () => setHcpMode('weighted'));
-      const drivesTotalEl = document.getElementById('texas-drives-total');
-      const drivesPar3El  = document.getElementById('texas-drives-par3');
-      if (drivesTotalEl) drivesTotalEl.addEventListener('input', () => { setup.texasDrivesTotal = drivesTotalEl.value ? parseInt(drivesTotalEl.value) : null; });
-      if (drivesPar3El)  drivesPar3El.addEventListener('input',  () => { setup.texasDrivesPar3  = drivesPar3El.value  ? parseInt(drivesPar3El.value)  : null; });
       if (texasCard) texasCard._wired = true;
     }
     updateTexasScoring();
     setHcpMode(setup.texasMode ?? 'average');
-    const drivesTotalEl = document.getElementById('texas-drives-total');
-    const drivesPar3El  = document.getElementById('texas-drives-par3');
-    if (drivesTotalEl) drivesTotalEl.value = setup.texasDrivesTotal ?? '';
-    if (drivesPar3El)  drivesPar3El.value  = setup.texasDrivesPar3  ?? '';
+    renderDrivesGrids();
   }
 
   // Reset LD/NTP state for a fresh setup
@@ -1439,6 +1479,7 @@ document.getElementById('setup-course-select')?.addEventListener('change', () =>
   onCourseSelectChange();
   if (setup.ldEnabled)  renderLdNtpGrid('ld');
   if (setup.ntpEnabled) renderLdNtpGrid('ntp');
+  if (setup.scoring === 'texas') renderDrivesGrids();
 });
 document.getElementById('setup-tee-select')?.addEventListener('change', e => {
   setup.teeIdx = parseInt(e.target.value, 10);
@@ -1446,6 +1487,7 @@ document.getElementById('setup-tee-select')?.addEventListener('change', e => {
   if (course) renderSIPreview(course, setup.teeIdx);
   if (setup.ldEnabled)  renderLdNtpGrid('ld');
   if (setup.ntpEnabled) renderLdNtpGrid('ntp');
+  if (setup.scoring === 'texas') renderDrivesGrids();
 });
 
 function renderSIPreview(course, teeIdx) {
@@ -1475,6 +1517,7 @@ document.querySelectorAll('[data-holes]').forEach(btn => {
     // Hole numbers and par-3 eligibility shift with front9/back9 — re-render and clear stale selections
     if (setup.ldEnabled)  { setup.ldHoles  = []; renderLdNtpGrid('ld');  updateLdNtpHint('ld'); }
     if (setup.ntpEnabled) { setup.ntpHoles = []; renderLdNtpGrid('ntp'); updateLdNtpHint('ntp'); }
+    if (setup.scoring === 'texas') renderDrivesGrids();
   });
 });
 
