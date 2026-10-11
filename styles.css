@@ -136,7 +136,7 @@ body {
   font-weight: 300;
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
-  border: 2.5px solid #1d6b3a;
+  border: 2.5px solid #145229;
   box-sizing: border-box;
 }
 
@@ -2369,16 +2369,16 @@ html.light .home-section-label {
   position: fixed;
   bottom: 0; left: 0; right: 0;
   display: flex;
-  background: #1d6b3a;
+  background: #145229;
   border-top: none;
   padding: 0.35rem 0 calc(0.35rem + env(safe-area-inset-bottom, 0px));
   z-index: 60;
-  box-shadow: 0 -4px 20px rgba(15,42,28,0.2);
+  box-shadow: 0 -4px 20px rgba(10,30,18,0.25);
 }
 html.light .bottom-nav {
-  background: #1d6b3a;
+  background: #145229;
   border-top: none;
-  box-shadow: 0 -4px 20px rgba(15,42,28,0.2);
+  box-shadow: 0 -4px 20px rgba(10,30,18,0.25);
 }
 .bottom-nav-btn {
   flex: 1;
@@ -3919,6 +3919,9 @@ html.light .btn-back-hole {
    ================================================================ */
 
 /* ── Home ──────────────────────────────────────────────────────── */
+/* Hard top edge: green strip behind status bar; wrapper restores cream */
+#screen-home { background: #0f3d22; }
+#screen-home > div { background: var(--bg); }
 #screen-home .home-hero {
   padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem 0.9rem;
   margin-bottom: 0.7rem;
