@@ -136,6 +136,8 @@ body {
   font-weight: 300;
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
+  border: 2.5px solid #1d6b3a;
+  box-sizing: border-box;
 }
 
 input, select, button, textarea {
@@ -2367,23 +2369,23 @@ html.light .home-section-label {
   position: fixed;
   bottom: 0; left: 0; right: 0;
   display: flex;
-  background: var(--surface);
-  border-top: 1.5px solid var(--border2);
+  background: #1d6b3a;
+  border-top: none;
   padding: 0.35rem 0 calc(0.35rem + env(safe-area-inset-bottom, 0px));
   z-index: 60;
-  box-shadow: 0 -2px 12px rgba(0,0,0,0.12);
+  box-shadow: 0 -4px 20px rgba(15,42,28,0.2);
 }
 html.light .bottom-nav {
-  background: var(--surface);
-  border-top-color: rgba(0,0,0,0.12);
-  box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+  background: #1d6b3a;
+  border-top: none;
+  box-shadow: 0 -4px 20px rgba(15,42,28,0.2);
 }
 .bottom-nav-btn {
   flex: 1;
   display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
   background: none; border: none; cursor: pointer;
   padding: 0.45rem 0;
-  color: var(--muted);
+  color: rgba(255,255,255,0.6);
   margin: 0;
   border-radius: 0;
   transition: color 0.15s;
@@ -2412,7 +2414,7 @@ html.light .bottom-nav {
   font-family: 'Plus Jakarta Sans',sans-serif;
 }
 .bottom-nav-btn.active {
-  color: var(--gold);
+  color: #fff;
   background: none;
   border: none;
 }
@@ -2424,8 +2426,8 @@ html.light .bottom-nav {
   background: var(--gold);
   border-radius: 0 0 3px 3px;
 }
-html.light .bottom-nav-btn { color: var(--muted); }
-html.light .bottom-nav-btn.active { color: var(--gold); }
+html.light .bottom-nav-btn { color: rgba(255,255,255,0.6); }
+html.light .bottom-nav-btn.active { color: #fff; }
 
 /* Ensure content isn't hidden behind the fixed bottom tab bar */
 #screen-history.active .page-pad,
