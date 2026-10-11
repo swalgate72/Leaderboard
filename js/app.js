@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261011h';
+window.APP_BUILD = '20261011i';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -7893,7 +7893,7 @@ function buildVerticalScorecard(state, mode) {
   if (useIndivCols) {
     const names = state.names ?? [];
     columns = names.map((_, pi) => ({
-      label:    names[pi] ?? `P${pi+1}`,
+      label:    toInitials(names[pi] ?? `P${pi+1}`),
       dotColor: pHex(pi),
       getCell: (entry, mode) => {
         if (!entry) return { text: '' };
