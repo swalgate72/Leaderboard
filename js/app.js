@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261011d';
+window.APP_BUILD = '20261011e';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -599,6 +599,9 @@ function holeRange(holes) {
 }
 
 function fmtLabel(fmt) { return FORMAT_LABELS[fmt] ?? fmt; }
+
+// Small inline cowboy hat icon for Texas Scramble labels (text-height, inline)
+const TEXAS_HAT_SMALL = `<svg viewBox="0 0 36 28" width="18" height="14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:inline-block;vertical-align:-0.15em;margin-right:3px;"><ellipse cx="18" cy="22" rx="16" ry="4.5" fill="currentColor" opacity="0.18"/><path d="M4 22c0 0 2-1 14-1s14 1 14 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 22V14c0-5 2.5-9 8-9s8 4 8 9v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 14H4.5C3 14 2 15.2 2 16.5c0 2 1.5 4 3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M26 14h5.5c1.5 0 2.5 1.2 2.5 2.5c0 2-1.5 4-3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 10c0-1 0.5-2.5 4-2.5s4 1.5 4 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 function shortName(fullName) {
   if (!fullName) return '';
   const parts = fullName.trim().split(' ').filter(Boolean);
@@ -1829,14 +1832,9 @@ function openFriendsPickerModal() {
         const f  = friends[fi];
         const idx2 = _friendsPickerSelected.findIndex(s=>s.profileId===f.profileId);
         if (idx2 === -1) {
-          // Match play cap: max 2 players total (already-added + newly selected)
-          if (setup.scoring === 'match') {
-            const alreadyAdded = setup.players.filter(p => p.name).length;
-            if (alreadyAdded + _friendsPickerSelected.length >= 2) {
-              alert('Match play is 1 vs 1 — only 2 players allowed.');
-              return;
-            }
-          }
+          // Check format player cap (already-added + currently selected + this one)
+          const capMsg = playerCapAlert(_friendsPickerSelected.length + 1);
+          if (capMsg) { alert(capMsg); return; }
           f._pickerVals = f._pickerVals ?? initVals(f);
           f._pickerSrc  = f._pickerSrc  ?? 'course';
           _friendsPickerSelected.push(f);
@@ -2166,12 +2164,20 @@ function renderNewPlayerTeeTable() {
 
 document.getElementById('game-manual-course-select')?.addEventListener('change', renderNewPlayerTeeTable);
 
+// Returns an alert string if adding `adding` more players would exceed the format cap, else null.
+function playerCapAlert(adding = 1) {
+  const current = setup.players.filter(p => p.name).length;
+  const after   = current + adding;
+  if (setup.scoring === 'match'  && after > 2) return 'Match play is 1 vs 1 — only 2 players allowed.';
+  if (setup.scoring === 'split6' && after > 3) return 'Split 6 needs exactly 3 players — no more can be added.';
+  if (setup.scoring === 'texas'  && after > (setup.texasTeamSize ?? 4)) return `Texas Scramble team size is set to ${setup.texasTeamSize ?? 4} — can't add more players.`;
+  if (after > 4) return 'Maximum 4 players per game.';
+  return null;
+}
+
 document.getElementById('btn-setup-add-new-player')?.addEventListener('click', () => {
-  // Match play cap: max 2 players total
-  if (setup.scoring === 'match' && setup.players.filter(p => p.name).length >= 2) {
-    alert('Match play is 1 vs 1 — only 2 players allowed.');
-    return;
-  }
+  const capMsg = playerCapAlert(1);
+  if (capMsg) { alert(capMsg); return; }
   // Pre-fill course/playing HCP from tee data if available
   const tee = (() => {
     try {
@@ -2240,11 +2246,8 @@ document.getElementById('modal-add-game-player-close')?.addEventListener('click'
 
 // From Friends button → open friends picker
 document.getElementById('btn-setup-add-from-friends')?.addEventListener('click', () => {
-  // Match play cap: max 2 players total
-  if (setup.scoring === 'match' && setup.players.filter(p => p.name).length >= 2) {
-    alert('Match play is 1 vs 1 — only 2 players allowed.');
-    return;
-  }
+  const capMsg = playerCapAlert(1);
+  if (capMsg) { alert(capMsg); return; }
   openFriendsPickerModal();
 });
 
@@ -3661,7 +3664,7 @@ function buildSetupReview() {
                             padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.35rem;">
           <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;color:var(--gold);">
-            🤠 Team ${g}
+            ${TEXAS_HAT_SMALL} Team ${g}
           </span>
           <span style="font-size:0.9rem;font-weight:700;color:var(--muted2);">Team HCP ${teamHcp}</span>
         </div>
@@ -4414,7 +4417,7 @@ function renderTexasScoreBar() {
   bar.style.gridTemplateColumns = '1fr';
   bar.innerHTML = `
     <div class="total-cell" style="grid-column:1/-1;">
-      <div class="tc-name" style="font-size:0.7rem;letter-spacing:0.12em;">🤠 ${teamName.toUpperCase()} · HCP ${teamHcp}</div>
+      <div class="tc-name" style="font-size:0.7rem;letter-spacing:0.12em;">${TEXAS_HAT_SMALL} ${teamName.toUpperCase()} · HCP ${teamHcp}</div>
       <div style="display:flex;align-items:baseline;justify-content:center;gap:4px;">
         <div class="tc-pts" style="color:var(--gold);font-size:3rem;">${score}</div>
         <span style="font-size:1rem;font-weight:600;color:var(--gold);">${label}</span>
@@ -4692,7 +4695,7 @@ function renderHolePanel() {
     row.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div style="flex:1;min-width:0;">
-          <div class="gi-name" style="font-size:1.35rem;">🤠 ${teamName}</div>
+          <div class="gi-name" style="font-size:1.35rem;">${TEXAS_HAT_SMALL} ${teamName}</div>
           <div class="gi-hcp" style="font-size:1rem;font-weight:800;">Team HCP ${teamHcp}${teamExtra > 0 ? ` · +${teamExtra} this hole` : ''}</div>
         </div>
         <div class="gi-score-ctrl" style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
