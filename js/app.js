@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261011e';
+window.APP_BUILD = '20261011f';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -1833,7 +1833,7 @@ function openFriendsPickerModal() {
         const idx2 = _friendsPickerSelected.findIndex(s=>s.profileId===f.profileId);
         if (idx2 === -1) {
           // Check format player cap (already-added + currently selected + this one)
-          const capMsg = playerCapAlert(_friendsPickerSelected.length + 1);
+          const capMsg = playerCapAlert(1, _friendsPickerSelected.length);
           if (capMsg) { alert(capMsg); return; }
           f._pickerVals = f._pickerVals ?? initVals(f);
           f._pickerSrc  = f._pickerSrc  ?? 'course';
@@ -2165,9 +2165,10 @@ function renderNewPlayerTeeTable() {
 document.getElementById('game-manual-course-select')?.addEventListener('change', renderNewPlayerTeeTable);
 
 // Returns an alert string if adding `adding` more players would exceed the format cap, else null.
-function playerCapAlert(adding = 1) {
+// `pending` = friends already ticked in the picker but not yet in setup.players
+function playerCapAlert(adding = 1, pending = 0) {
   const current = setup.players.filter(p => p.name).length;
-  const after   = current + adding;
+  const after   = current + pending + adding;
   if (setup.scoring === 'match'  && after > 2) return 'Match play is 1 vs 1 — only 2 players allowed.';
   if (setup.scoring === 'split6' && after > 3) return 'Split 6 needs exactly 3 players — no more can be added.';
   if (setup.scoring === 'texas'  && after > (setup.texasTeamSize ?? 4)) return `Texas Scramble team size is set to ${setup.texasTeamSize ?? 4} — can't add more players.`;
@@ -2300,6 +2301,8 @@ document.getElementById('btn-add-guest-friend')?.addEventListener('click', () =>
 
 // Add Selected Friends button
 document.getElementById('btn-add-selected-friends')?.addEventListener('click', async () => {
+  const capMsg = playerCapAlert(_friendsPickerSelected.length);
+  if (capMsg) { alert(capMsg); return; }
   const selected = [..._friendsPickerSelected];
   for (const f of selected) {
     const fv   = f._pickerVals ?? {};
