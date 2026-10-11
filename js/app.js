@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261011c';
+window.APP_BUILD = '20261011d';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -1829,6 +1829,14 @@ function openFriendsPickerModal() {
         const f  = friends[fi];
         const idx2 = _friendsPickerSelected.findIndex(s=>s.profileId===f.profileId);
         if (idx2 === -1) {
+          // Match play cap: max 2 players total (already-added + newly selected)
+          if (setup.scoring === 'match') {
+            const alreadyAdded = setup.players.filter(p => p.name).length;
+            if (alreadyAdded + _friendsPickerSelected.length >= 2) {
+              alert('Match play is 1 vs 1 — only 2 players allowed.');
+              return;
+            }
+          }
           f._pickerVals = f._pickerVals ?? initVals(f);
           f._pickerSrc  = f._pickerSrc  ?? 'course';
           _friendsPickerSelected.push(f);
@@ -2159,6 +2167,11 @@ function renderNewPlayerTeeTable() {
 document.getElementById('game-manual-course-select')?.addEventListener('change', renderNewPlayerTeeTable);
 
 document.getElementById('btn-setup-add-new-player')?.addEventListener('click', () => {
+  // Match play cap: max 2 players total
+  if (setup.scoring === 'match' && setup.players.filter(p => p.name).length >= 2) {
+    alert('Match play is 1 vs 1 — only 2 players allowed.');
+    return;
+  }
   // Pre-fill course/playing HCP from tee data if available
   const tee = (() => {
     try {
@@ -2227,6 +2240,11 @@ document.getElementById('modal-add-game-player-close')?.addEventListener('click'
 
 // From Friends button → open friends picker
 document.getElementById('btn-setup-add-from-friends')?.addEventListener('click', () => {
+  // Match play cap: max 2 players total
+  if (setup.scoring === 'match' && setup.players.filter(p => p.name).length >= 2) {
+    alert('Match play is 1 vs 1 — only 2 players allowed.');
+    return;
+  }
   openFriendsPickerModal();
 });
 
@@ -6301,7 +6319,12 @@ function _renderAmendScorecard() {
     });
   } else {
     cols.forEach((c, ci) => {
-      headerCells += `<th style="min-width:${colW}px;width:${colW}px;padding:0.3rem 0.2rem;font-size:1.5rem;font-weight:800;color:${c.color};text-align:center;" data-hdr-ci="${ci}">${shortName(c.label)}</th>`;
+      const sn = shortName(c.label);
+      const snParts = sn.split(' ');
+      const snHtml = snParts.length >= 2
+        ? `<div style="line-height:1.1;">${snParts[0]}</div><div style="line-height:1.1;">${snParts.slice(1).join(' ')}</div>`
+        : `<div>${sn}</div>`;
+      headerCells += `<th style="min-width:${colW}px;width:${colW}px;padding:0.3rem 0.2rem;font-size:1.3rem;font-weight:800;color:${c.color};text-align:center;" data-hdr-ci="${ci}">${snHtml}</th>`;
     });
   }
 
