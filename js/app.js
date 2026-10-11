@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261011g';
+window.APP_BUILD = '20261011h';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -7386,25 +7386,93 @@ function buildMatchLeaderboard(state) {
   const ms      = state.matchScore ?? 0;
   const up      = Math.abs(ms);
   const left    = total - log.length;
-  const statusA = ms > 0 ? `${up} UP` : ms < 0 ? `${Math.abs(ms)} DOWN` : 'ALL SQ';
-  const statusB = ms < 0 ? `${up} UP` : ms > 0 ? `${Math.abs(ms)} DOWN` : 'ALL SQ';
-  const colA    = ms > 0 ? 'var(--gold)' : ms < 0 ? 'var(--muted)' : 'var(--muted)';
-  const colB    = ms < 0 ? '#5ba8d8'     : ms > 0 ? 'var(--muted)' : 'var(--muted)';
+  // Determine if match is concluded: won if margin > holes remaining, or dormie, or no holes left
+  const matchWon    = up > 0 && up > left;
+  const matchDormie = up > 0 && up === left && left > 0;
+  const matchDone   = left === 0;
 
-  html += `
-    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
-                padding:0.85rem 0.25rem 0.5rem;border-top:2px solid var(--border2);
-                margin-top:0.15rem;font-family:'Plus Jakarta Sans',sans-serif;">
-      <div style="font-size:1.6rem;font-weight:800;color:${colA};
-                  letter-spacing:0.04em;text-align:left;">${statusA}</div>
-      <div style="font-size:0.8rem;font-weight:700;color:var(--muted);
-                  letter-spacing:0.08em;text-align:center;text-transform:uppercase;
-                  padding:0 0.5rem;">${left} to play</div>
-      <div style="font-size:1.6rem;font-weight:800;color:${colB};
-                  text-align:right;letter-spacing:0.02em;">${statusB}</div>
-    </div>`;
+  let footerHtml;
+  if (matchWon) {
+    // e.g. "4&3" — winner leads by `up` with `left` holes remaining
+    const scoreStr = `${up}&${left}`;
+    const winnerName = ms > 0 ? nameA : nameB;
+    const winCol  = ms > 0 ? 'var(--gold)' : '#5ba8d8';
+    const loseCol = 'var(--muted)';
+    footerHtml = `
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+                  padding:0.85rem 0.25rem 0.5rem;border-top:2px solid var(--border2);
+                  margin-top:0.15rem;font-family:'Plus Jakarta Sans',sans-serif;">
+        <div style="font-size:1.6rem;font-weight:800;color:${ms > 0 ? winCol : loseCol};
+                    letter-spacing:0.04em;text-align:left;">${ms > 0 ? 'WON' : ''}</div>
+        <div style="font-size:2rem;font-weight:900;color:var(--white);
+                    letter-spacing:0.04em;text-align:center;padding:0 0.5rem;">${scoreStr}</div>
+        <div style="font-size:1.6rem;font-weight:800;color:${ms < 0 ? winCol : loseCol};
+                    text-align:right;letter-spacing:0.02em;">${ms < 0 ? 'WON' : ''}</div>
+      </div>`;
+  } else if (matchDormie) {
+    const dormieCol = ms > 0 ? 'var(--gold)' : '#5ba8d8';
+    const dormieStr = `${up} UP (Dormie ${left})`;
+    const dormieStrB = `${up} UP (Dormie ${left})`;
+    footerHtml = `
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+                  padding:0.85rem 0.25rem 0.5rem;border-top:2px solid var(--border2);
+                  margin-top:0.15rem;font-family:'Plus Jakarta Sans',sans-serif;">
+        <div style="font-size:1.1rem;font-weight:800;color:${ms > 0 ? dormieCol : 'var(--muted)'};
+                    letter-spacing:0.02em;text-align:left;">${ms > 0 ? dormieStr : ''}</div>
+        <div style="font-size:0.8rem;font-weight:700;color:var(--muted);
+                    letter-spacing:0.08em;text-align:center;text-transform:uppercase;
+                    padding:0 0.5rem;">${left} to play</div>
+        <div style="font-size:1.1rem;font-weight:800;color:${ms < 0 ? dormieCol : 'var(--muted)'};
+                    text-align:right;letter-spacing:0.02em;">${ms < 0 ? dormieStrB : ''}</div>
+      </div>`;
+  } else {
+    const statusA = ms > 0 ? `${up} UP` : ms < 0 ? `${Math.abs(ms)} DOWN` : 'ALL SQ';
+    const statusB = ms < 0 ? `${up} UP` : ms > 0 ? `${Math.abs(ms)} DOWN` : 'ALL SQ';
+    const colA    = ms > 0 ? 'var(--gold)' : ms < 0 ? 'var(--muted)' : 'var(--muted)';
+    const colB    = ms < 0 ? '#5ba8d8'     : ms > 0 ? 'var(--muted)' : 'var(--muted)';
+    const midTxt  = matchDone ? 'FINAL' : `${left} to play`;
+    footerHtml = `
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+                  padding:0.85rem 0.25rem 0.5rem;border-top:2px solid var(--border2);
+                  margin-top:0.15rem;font-family:'Plus Jakarta Sans',sans-serif;">
+        <div style="font-size:1.6rem;font-weight:800;color:${colA};
+                    letter-spacing:0.04em;text-align:left;">${statusA}</div>
+        <div style="font-size:0.8rem;font-weight:700;color:var(--muted);
+                    letter-spacing:0.08em;text-align:center;text-transform:uppercase;
+                    padding:0 0.5rem;">${midTxt}</div>
+        <div style="font-size:1.6rem;font-weight:800;color:${colB};
+                    text-align:right;letter-spacing:0.02em;">${statusB}</div>
+      </div>`;
+  }
 
-  return html;
+  html += footerHtml;
+
+  // Final score banner at top for concluded matches
+  let topBanner = '';
+  if (matchWon) {
+    const scoreStr = `${up}&${left}`;
+    const winnerName = ms > 0 ? nameA : nameB;
+    topBanner = `
+      <div style="background:var(--surface2);border:1.5px solid var(--border2);border-radius:var(--radius-sm);
+                  padding:0.6rem 0.85rem;margin-bottom:0.5rem;text-align:center;
+                  font-family:'Plus Jakarta Sans',sans-serif;">
+        <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
+                    color:var(--muted);margin-bottom:2px;">FINAL RESULT</div>
+        <div style="font-size:1.8rem;font-weight:900;color:var(--gold);letter-spacing:0.04em;">${scoreStr}</div>
+        <div style="font-size:0.85rem;font-weight:700;color:var(--white);">${winnerName} wins</div>
+      </div>`;
+  } else if (matchDone && ms === 0) {
+    topBanner = `
+      <div style="background:var(--surface2);border:1.5px solid var(--border2);border-radius:var(--radius-sm);
+                  padding:0.6rem 0.85rem;margin-bottom:0.5rem;text-align:center;
+                  font-family:'Plus Jakarta Sans',sans-serif;">
+        <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
+                    color:var(--muted);margin-bottom:2px;">FINAL RESULT</div>
+        <div style="font-size:1.6rem;font-weight:900;color:var(--white);">All Square</div>
+      </div>`;
+  }
+
+  return topBanner + html;
 }
 
 function buildLeaderboardTable(rows, scoreLabel) {
@@ -7427,6 +7495,23 @@ function buildLeaderboardTable(rows, scoreLabel) {
   rows.forEach(r => {
     const gold = r.isLead ? 'var(--gold)' : 'var(--white)';
     const bg   = r.isLead ? 'background:rgba(212,168,67,0.06);' : '';
+
+    // playerScores: [{initials, score, scoreColor?}] — show individual player columns under name
+    let playerScoreHtml = '';
+    if (r.playerScores?.length) {
+      playerScoreHtml = `
+        <div style="display:flex;gap:1rem;margin-top:0.3rem;">
+          ${r.playerScores.map(ps => `
+            <div style="text-align:center;min-width:2.5rem;">
+              <div style="font-size:0.7rem;font-weight:700;color:var(--muted2);
+                          letter-spacing:0.05em;text-transform:uppercase;">${ps.initials}</div>
+              <div style="font-size:1rem;font-weight:800;color:${ps.scoreColor ?? 'var(--white)'};">
+                ${ps.score ?? '-'}
+              </div>
+            </div>`).join('')}
+        </div>`;
+    }
+
     html += `
       <div style="display:grid;grid-template-columns:auto 1fr auto auto;
                   align-items:center;padding:0.9rem 0.75rem;
@@ -7437,6 +7522,7 @@ function buildLeaderboardTable(rows, scoreLabel) {
           <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
                       font-size:1.5rem;color:${gold};line-height:1.1;">${r.label}</div>
           ${r.sub ? `<div style="font-size:0.85rem;font-weight:700;color:var(--muted2);">${r.sub}</div>` : ''}
+          ${playerScoreHtml}
         </div>
         <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
                     font-size:1.6rem;color:${gold};text-align:right;padding-right:1.25rem;">${r.score}</div>
@@ -7630,7 +7716,8 @@ function scorecardModesFor(fmt) {
   // betterball, csm, best2: own-ball formats — add Players tab for individual scores
   if (['betterball','csm','best2'].includes(fmt)) return ['points','strokes','detail','players'];
   if (['stableford','split6','texas'].includes(fmt)) return ['points','strokes','detail'];
-  // match, skins, itc, foursomes, greensomes, stroke — detail shows gross+shots+net
+  // match, foursomes, greensomes: add players tab to see individual shots
+  if (['match','foursomes','greensomes'].includes(fmt)) return ['strokes','detail','players'];
   return ['strokes','detail'];
 }
 
@@ -7799,7 +7886,7 @@ function buildVerticalScorecard(state, mode) {
   log.forEach(e => { byHole[e.hIdx] = e; });
 
   // Players mode: show every player's individual gross score regardless of format
-  const INDIV_FORMATS = ['betterball','csm','best2'];
+  const INDIV_FORMATS = ['betterball','csm','best2','match','foursomes','greensomes'];
   const useIndivCols = mode === 'players' && INDIV_FORMATS.includes(state.format);
 
   let columns;
@@ -10958,12 +11045,32 @@ function showHistoryDetail(rid, rounds) {
         // Non-match pairs (best2, texas) — summary table
         const rows = allStates.filter(s => s?.names).map((s, i) => {
           const teamName  = s.teamName ?? `Team ${s.groupNumber ?? i + 1}`;
-          const members   = s.names.join(', ');
           const holesPlayed = s.log?.length ?? 0;
           let score;
           if (isTexas)      score = texasSbFmt ? (s.texasPts ?? 0) : (s.grossTotal ?? 0);
           else if (isBest2) score = s.groupTotal ?? 0;
-          return { rank: i + 1, label: teamName, sub: members, score, thru: holesPlayed, isLead: i === 0 };
+          // Build per-player score breakdown for display
+          const playerScores = (s.names ?? []).map((nm, pi) => {
+            let playerScore;
+            if (isTexas) {
+              // Texas: no per-player score — show names only
+              playerScore = null;
+            } else if (isBest2) {
+              // best2: sum of net scores per player across played holes
+              let netSum = 0;
+              (s.log ?? []).forEach(entry => {
+                const gross = entry.grosses?.[pi];
+                if (gross != null) {
+                  const hcp   = s.playingHandicaps?.[pi] ?? 0;
+                  const shots = indivStrokesOnHole(hcp, entry.si);
+                  netSum += gross - shots;
+                }
+              });
+              playerScore = holesPlayed > 0 ? netSum : null;
+            }
+            return { initials: toInitials(nm), score: playerScore };
+          });
+          return { rank: i + 1, label: teamName, sub: null, score, thru: holesPlayed, isLead: i === 0, playerScores };
         });
         const numRows = rows.filter(r => typeof r.score === 'number');
         const strRows = rows.filter(r => typeof r.score !== 'number');
@@ -11009,9 +11116,13 @@ function showHistoryDetail(rid, rounds) {
     if (modes.length > 1) {
       modeRow.classList.remove('hidden');
       modeRow.querySelectorAll('.hd-sc-mode-btn').forEach(btn => {
+        const inModes = modes.includes(btn.dataset.mode);
+        btn.style.display = inModes ? '' : 'none';
+        if (!inModes) return;
         btn.onclick = () => {
           hdScMode = btn.dataset.mode;
           modeRow.querySelectorAll('.hd-sc-mode-btn').forEach(b => {
+            if (!modes.includes(b.dataset.mode)) return;
             const active = b.dataset.mode === hdScMode;
             b.classList.toggle('active', active);
             b.style.background   = active ? 'var(--gold)'    : 'var(--surface2)';

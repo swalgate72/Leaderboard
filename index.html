@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261011g">
+  <link rel="stylesheet" href="styles.css?v=20261011h">
 </head>
 <body class="local-mode">
 
@@ -1566,11 +1566,15 @@
     <div id="hd-tab-scorecard" style="display:none;">
       <!-- Points/Strokes mode toggle (shown for relevant formats) -->
       <div id="hd-sc-mode-row" class="hidden"
-        style="display:flex;gap:0.4rem;margin-bottom:0.75rem;">
+        style="display:flex;gap:0.4rem;margin-bottom:0.75rem;flex-wrap:wrap;">
         <button class="hd-sc-mode-btn active" data-mode="points"
           style="flex:1;padding:0.5rem;font-weight:800;font-size:0.9rem;">Points</button>
         <button class="hd-sc-mode-btn" data-mode="strokes"
           style="flex:1;padding:0.5rem;font-weight:800;font-size:0.9rem;">Strokes</button>
+        <button class="hd-sc-mode-btn" data-mode="detail"
+          style="flex:1;padding:0.5rem;font-weight:800;font-size:0.9rem;">Detail</button>
+        <button class="hd-sc-mode-btn" data-mode="players"
+          style="flex:1;padding:0.5rem;font-weight:800;font-size:0.9rem;">Players</button>
       </div>
       <!-- Group pager (multi-group rounds) -->
       <div id="hd-sc-groups" class="hidden" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.75rem;"></div>
@@ -1760,7 +1764,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261011g"></script>
+<script type="module" src="js/app.js?v=20261011h"></script>
 
 
 <!-- ══════════════════════════════════════════
