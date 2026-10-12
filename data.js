@@ -546,13 +546,14 @@ export async function friendsLoad(userId) {
 
   // Fetch play counts safely — empty array would break .in() query
   const countMap = {};
+  let sharedRoundIds = [];
   try {
     const { data: myRounds } = await sb
       .from('round_players').select('round_id').eq('profile_id', userId);
-    const roundIds = (myRounds ?? []).map(x => x.round_id);
-    if (roundIds.length > 0) {
+    sharedRoundIds = (myRounds ?? []).map(x => x.round_id);
+    if (sharedRoundIds.length > 0) {
       const { data: playCounts } = await sb
-        .from('round_players').select('profile_id').in('round_id', roundIds);
+        .from('round_players').select('profile_id').in('round_id', sharedRoundIds);
       (playCounts ?? []).forEach(row => {
         if (row.profile_id !== userId)
           countMap[row.profile_id] = (countMap[row.profile_id] ?? 0) + 1;
@@ -607,6 +608,20 @@ export async function friendsLoad(userId) {
       .from('guest_friends')
       .select('id, first_name, last_name, hcp, home_course_id, home_course_handicaps')
       .eq('owner_id', userId);
+
+    // Guest play counts — reuse already-fetched round list
+    const guestIds = (guests ?? []).map(g => g.id);
+    if (guestIds.length > 0 && sharedRoundIds.length > 0) {
+      try {
+        const { data: guestCounts } = await sb
+          .from('round_players').select('profile_id')
+          .in('round_id', sharedRoundIds).in('profile_id', guestIds);
+        (guestCounts ?? []).forEach(row => {
+          countMap[row.profile_id] = (countMap[row.profile_id] ?? 0) + 1;
+        });
+      } catch (e) { /* non-critical */ }
+    }
+
     (guests ?? []).forEach(g => {
       friends.push({
         friendshipId:           `guest_${g.id}`,
@@ -615,7 +630,7 @@ export async function friendsLoad(userId) {
         hcp:                    g.hcp ?? 0,
         home_course_id:         g.home_course_id ?? null,
         home_course_handicaps:  g.home_course_handicaps ?? {},
-        playCount:              0,
+        playCount:              countMap[g.id] ?? 0,
         is_guest:               true,
         email:                  null,
         isGuestTable:           true, // flag so delete uses correct table

@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261011i';
+window.APP_BUILD = '20261012a';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -10569,6 +10569,7 @@ async function renderFriendsList() {
     const init = displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
     const details = [];
     if (f.hcp != null) details.push(`HCP ${fmtHandicap(f.hcp)}`);
+    if (f.playCount > 0) details.push(`${f.playCount} round${f.playCount === 1 ? '' : 's'}`);
     if (f.email && (f.friends_see_email !== false)) details.push(f.email);
     if (f.username) details.unshift(`@${f.username}`);
     const friendId = f.is_guest ? (f.profileId || '') : (f.userId || '');
