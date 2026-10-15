@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261012a';
+window.APP_BUILD = '20261015a';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -1588,10 +1588,12 @@ function renderSetupPlayerList() {
   listEl.innerHTML = setup.players.filter(p => p.name).map((p, i) => {
     const pi     = setup.players.indexOf(p);
     const vals   = playerHcpValues(p);
+    // Normalise legacy 'playing' source → 'course'
+    if (p.hcpSource === 'playing') { p.hcpSource = 'course'; p.gameHandicap = null; }
     const source = p.hcpSource ?? 'course';
     const gameHcp = p.gameHandicap ?? Math.round(vals[source] ?? vals.course);
 
-    // Three pill buttons: Index / Course / Playing
+    // Two pill buttons: Index / Course
     const pillStyle = (active, col) => active
       ? `background:transparent;border:2px solid ${col};color:${col};font-weight:800;`
       : `background:transparent;border:1px solid var(--border);color:var(--muted);font-weight:600;`;
@@ -1599,32 +1601,23 @@ function renderSetupPlayerList() {
     const indexPill  = `<button class="hcp-pill" data-pi="${pi}" data-src="index"
       style="${pillStyle(source==='index','var(--gold)')}
              font-family:'Plus Jakarta Sans',sans-serif;font-size:0.75rem;
-             padding:0.2rem 0.4rem;border-radius:6px;cursor:pointer;
-             display:flex;flex-direction:column;align-items:center;min-width:2.4rem;line-height:1.2;">
-        <span style="font-size:0.55rem;letter-spacing:0.06em;text-transform:uppercase;">Idx</span>
+             padding:0.2rem 0.55rem;border-radius:6px;cursor:pointer;
+             display:flex;flex-direction:column;align-items:center;min-width:3.2rem;line-height:1.2;">
+        <span style="font-size:0.55rem;letter-spacing:0.06em;text-transform:uppercase;">Index</span>
         <span>${fmtHandicap(vals.index)}</span>
       </button>`;
 
     const coursePill = `<button class="hcp-pill" data-pi="${pi}" data-src="course"
       style="${pillStyle(source==='course','var(--gold)')}
              font-family:'Plus Jakarta Sans',sans-serif;font-size:0.75rem;
-             padding:0.2rem 0.4rem;border-radius:6px;cursor:pointer;
-             display:flex;flex-direction:column;align-items:center;min-width:2.4rem;line-height:1.2;">
-        <span style="font-size:0.55rem;letter-spacing:0.06em;text-transform:uppercase;">Crs</span>
+             padding:0.2rem 0.55rem;border-radius:6px;cursor:pointer;
+             display:flex;flex-direction:column;align-items:center;min-width:3.2rem;line-height:1.2;">
+        <span style="font-size:0.55rem;letter-spacing:0.06em;text-transform:uppercase;">Course</span>
         <span>${fmtHandicap(vals.course)}</span>
       </button>`;
 
-    const playingPill = `<button class="hcp-pill" data-pi="${pi}" data-src="playing"
-      style="${pillStyle(source==='playing','var(--gold)')}
-             font-family:'Plus Jakarta Sans',sans-serif;font-size:0.75rem;
-             padding:0.2rem 0.4rem;border-radius:6px;cursor:pointer;
-             display:flex;flex-direction:column;align-items:center;min-width:2.4rem;line-height:1.2;">
-        <span style="font-size:0.55rem;letter-spacing:0.06em;text-transform:uppercase;">Ply</span>
-        <span>${fmtHandicap(vals.playing)}</span>
-      </button>`;
-
-    // Nudge controls — shown when source is course or playing and user taps again
-    const showNudge = (source === 'course' || source === 'playing') && p._hcpNudgeOpen;
+    // Nudge controls — shown when source is course and user taps again
+    const showNudge = source === 'course' && p._hcpNudgeOpen;
     const nudgeHtml = showNudge ? `
       <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.4rem;" class="hcp-nudge" data-pi="${pi}">
         <button class="hcp-nudge-btn" data-pi="${pi}" data-dir="-1"
@@ -1649,7 +1642,7 @@ function renderSetupPlayerList() {
                       font-size:1.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
         </div>
         <div style="display:flex;gap:0.3rem;flex-shrink:0;">
-          ${indexPill}${coursePill}${playingPill}
+          ${indexPill}${coursePill}
         </div>
         ${pi > 0 ? `<button class="btn btn-ghost" data-remove="${pi}"
           style="font-size:0.85rem;color:var(--red);padding:0.2rem 0.4rem;flex-shrink:0;">✕</button>` : ''}
@@ -1737,15 +1730,16 @@ function openFriendsPickerModal() {
   }
 
   const initVals = (f) => f._pickerVals ?? {
-    index:   Math.round(f.hcp ?? 0),
-    course:  Math.round(f.hcp ?? 0),
-    playing: Math.round((f.hcp ?? 0) * (setup.hcpPct ?? 100) / 100),
+    index:  Math.round(f.hcp ?? 0),
+    course: Math.round(f.hcp ?? 0),
   };
 
   const renderFriendsList = () => {
     listEl.innerHTML = friends.map((f, fi) => {
       const isSelected = _friendsPickerSelected.some(s => s.profileId === f.profileId);
       const vals  = f._pickerVals ?? initVals(f);
+      // Normalise legacy 'playing' source → 'course'
+      if (f._pickerSrc === 'playing') f._pickerSrc = 'course';
       const src   = f._pickerSrc ?? 'course';
       const gameHcp = vals[src] ?? vals.course;
 
@@ -1781,7 +1775,7 @@ function openFriendsPickerModal() {
                    background:var(--surface2);font-size:1.6rem;cursor:pointer;
                    display:flex;align-items:center;justify-content:center;">+</button>
           <span style="font-size:0.85rem;color:var(--muted);margin-left:2px;">
-            ${src === 'playing' ? 'Playing' : 'Course'} HCP
+            Course HCP
           </span>
           <button class="fp-nudge-update" data-fi="${fi}"
             style="margin-left:auto;padding:0.3rem 0.65rem;background:var(--green);color:#fff;
@@ -1810,7 +1804,7 @@ function openFriendsPickerModal() {
             ${f.hcp != null ? `<div style="font-size:0.75rem;color:var(--muted);">Index ${fmtHandicap(f.hcp)}</div>` : ''}
           </div>
           <div style="display:flex;gap:0.3rem;flex-shrink:0;">
-            ${pill('Idx','index')}${pill('Crs','course')}${pill('Ply','playing')}
+            ${pill('Index','index')}${pill('Course','course')}
           </div>
         </div>
         ${nudgeHtml}
@@ -1932,7 +1926,7 @@ function openFriendsPickerModal() {
         const myName = currentProfile
           ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
           : 'Your playing partner';
-        const label = src2 === 'playing' ? 'Playing HCP' : 'Course HCP';
+        const label = 'Course HCP';
 
         // Send push notification to friend asking if they want to update
         if (f.profileId) {
@@ -2011,29 +2005,29 @@ function openPlayerHcpPicker(pi) {
   // source, start the counter at their previously-adjusted value; otherwise use
   // the profile default so the counter starts at the right place.
   _hcpAdjusted = {
-    index:   (p.hcpSource === 'index'   && p.gameHandicap != null) ? p.gameHandicap : Math.round(vals.index),
-    course:  (p.hcpSource === 'course'  && p.gameHandicap != null) ? p.gameHandicap : Math.round(vals.course),
-    playing: (p.hcpSource === 'playing' && p.gameHandicap != null) ? p.gameHandicap : Math.round(vals.playing),
+    index:  (p.hcpSource === 'index'  && p.gameHandicap != null) ? p.gameHandicap : Math.round(vals.index),
+    course: (p.hcpSource === 'course' && p.gameHandicap != null) ? p.gameHandicap : Math.round(vals.course),
   };
 
-  _hcpPickerSource = p.hcpSource ?? 'course';
+  // Normalise legacy 'playing' → 'course'
+  _hcpPickerSource = (p.hcpSource === 'playing' || !p.hcpSource) ? 'course' : p.hcpSource;
 
   // Fill profile-default labels under each row title
   document.getElementById('hcp-index-profile').textContent   = `Profile: ${fmtHandicap(vals.index)}`;
   document.getElementById('hcp-course-profile').textContent  = `Profile: ${fmtHandicap(vals.course)}`;
-  document.getElementById('hcp-playing-profile').textContent = `Profile: ${fmtHandicap(vals.playing)}`;
 
   _renderHcpPickerRows();
   document.getElementById('modal-player-hcp').classList.add('open');
 }
 
 function _renderHcpPickerRows() {
-  ['index','course','playing'].forEach(src => {
+  ['index','course'].forEach(src => {
     const row       = document.getElementById(`hcp-row-${src}`);
     const counter   = document.getElementById(`hcp-counter-${src}`);
     const preview   = document.getElementById(`hcp-preview-${src}`);
     const valSpan   = document.getElementById(`hcp-val-${src}`);
     const isActive  = src === _hcpPickerSource;
+    if (!row) return;
 
     // Row styling
     row.style.borderColor  = isActive ? 'var(--gold)'               : 'var(--border)';
@@ -2109,9 +2103,7 @@ document.getElementById('btn-player-hcp-confirm')?.addEventListener('click', () 
       if (!q.hcpSource || q.hcpSource === 'course') {
         q.hcpSource = source;
         const qv = playerHcpValues(q);
-        q.gameHandicap = source === 'index'   ? Math.round(qv.index)
-                       : source === 'playing' ? Math.round(qv.playing)
-                       :                        Math.round(qv.course);
+        q.gameHandicap = source === 'index' ? Math.round(qv.index) : Math.round(qv.course);
       }
     });
   }
@@ -2331,13 +2323,11 @@ document.getElementById('btn-add-selected-friends')?.addEventListener('click', a
       if (teeName) {
         const savedTee = f.home_course_handicaps?.[teeName] ?? {};
         const savedCrs = typeof savedTee === 'object' ? (savedTee.course ?? null) : savedTee;
-        const savedPly = typeof savedTee === 'object' ? (savedTee.playing ?? null) : null;
         const hcpChanged = Math.round(idx) !== Math.round(f.hcp ?? 0);
         const crsChanged = Math.round(chcp) !== Math.round(savedCrs ?? 0);
-        const plyChanged = Math.round(ply)  !== Math.round(savedPly ?? 0);
-        if (hcpChanged || crsChanged || plyChanged) {
+        if (hcpChanged || crsChanged) {
           try {
-            const updatedHcps = { ...(f.home_course_handicaps ?? {}), [teeName]: { course: Math.round(chcp), playing: Math.round(ply) } };
+            const updatedHcps = { ...(f.home_course_handicaps ?? {}), [teeName]: { course: Math.round(chcp) } };
             if (MULTI_USER) {
               // Supabase path: update remote profile directly
               await sb.from('profiles').update({ hcp: idx, home_course_handicaps: updatedHcps }).eq('id', f.profileId);
@@ -2500,8 +2490,7 @@ document.getElementById('btn-game-confirm-player')?.addEventListener('click', as
       addedP.home_course_id        = homeCourseId;
       addedP.home_course_handicaps = homeCourseHcps;
       addedP.isGuest               = !!guestProfileId; // guest if we just created one
-      if (phcp != null) { addedP.hcpSource = 'playing'; addedP.gameHandicap = phcp; }
-      else if (chcp != null) { addedP.hcpSource = 'course'; addedP.gameHandicap = chcp; }
+      if (chcp != null) { addedP.hcpSource = 'course'; addedP.gameHandicap = chcp; }
     }
 
   }
@@ -2520,10 +2509,8 @@ function addSetupPlayer(name, hcpIndex, courseHandicap, profileId) {
   };
 
   // Compute gameHandicap based on inherited source
-  const vals = { index: Math.round(hcpIndex ?? 0), course: Math.round(courseHandicap ?? hcpIndex ?? 0), playing: Math.round((courseHandicap ?? hcpIndex ?? 0) * (setup.hcpPct ?? 100) / 100) };
-  newPlayer.gameHandicap = inheritedSource === 'index'  ? vals.index
-                         : inheritedSource === 'playing' ? vals.playing
-                         : vals.course;
+  const vals = { index: Math.round(hcpIndex ?? 0), course: Math.round(courseHandicap ?? hcpIndex ?? 0) };
+  newPlayer.gameHandicap = inheritedSource === 'index' ? vals.index : vals.course;
 
   const emptyIdx = setup.players.findIndex(p => !p.name);
   if (emptyIdx === -1) {
@@ -10246,6 +10233,7 @@ function showProfile() {
   const hcpEl = document.getElementById('profile-hcp');
   if (hcpEl) hcpEl.textContent = p.hcp != null ? fmtHandicap(p.hcp) : '--';
 
+  _profileTeeRows = []; // seed fresh from saved data
   populateProfileCourseSelect();
   renderCourseHandicapSection();
   renderLogos();
@@ -10264,11 +10252,13 @@ function populateProfileCourseSelect() {
   });
 }
 
-// Show / build the per-tee course handicap inputs for the selected home club
+// Show / build the per-tee course handicap inputs for the selected home course
+// Tee rows are user-chosen (not derived from course.tees). Persisted in _profileTeeRows session state.
+let _profileTeeRows = []; // array of tee names currently shown in the profile editor
+
 function renderCourseHandicapSection() {
   const section  = document.getElementById('prof-course-hcp-section');
   const teesWrap = document.getElementById('prof-course-hcp-tees');
-  const idxEl    = document.getElementById('prof-course-hcp-index');
   if (!section || !teesWrap) return;
 
   const courseId = document.getElementById('prof-course-select')?.value || null;
@@ -10277,63 +10267,159 @@ function renderCourseHandicapSection() {
   if (!course) {
     section.classList.add('hidden');
     teesWrap.innerHTML = '';
+    _profileTeeRows = [];
     return;
   }
 
   section.classList.remove('hidden');
 
-  // Handicap Index — mirrors the main Handicap Index field
-  const hcpVal = currentProfile?.hcp ?? '';
-  if (idxEl) idxEl.value = hcpVal;
-
   const saved = currentProfile?.home_course_handicaps ?? {};
 
-  // Table header
-  teesWrap.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.4rem 0.5rem;
-                align-items:center;margin-bottom:0.25rem;">
-      <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;
-                  text-transform:uppercase;color:var(--muted);">Tee</div>
-      <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;
-                  text-transform:uppercase;color:var(--muted);text-align:center;">Course</div>
-      <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;
-                  text-transform:uppercase;color:var(--muted);text-align:center;">Playing</div>
-    </div>
-    ${(course.tees ?? []).map(t => {
-      const saved2    = (typeof saved[t.name] === 'object' && saved[t.name] !== null)
-                       ? saved[t.name]
-                       : { course: saved[t.name] ?? '', playing: '' };
-      const crsId = `prof-course-hcp-crs-${t.name.replace(/\s+/g,'-').toLowerCase()}`;
-      const plyId = `prof-course-hcp-ply-${t.name.replace(/\s+/g,'-').toLowerCase()}`;
-      return `
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.4rem 0.5rem;align-items:center;">
-          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;
-                      color:var(--white);">${t.name}</div>
-          <input id="${crsId}" data-tee="${t.name}" data-type="course"
-                 class="prof-course-hcp-input"
-                 type="number" step="1" min="0" max="54"
-                 placeholder="--"
-                 value="${saved2.course ?? ''}"
-                 style="text-align:center;padding:0.4rem;border-radius:6px;
-                        border:1px solid var(--border);background:var(--surface2);
-                        color:var(--white);font-size:0.95rem;width:100%;">
-          <input id="${plyId}" data-tee="${t.name}" data-type="playing"
-                 class="prof-course-hcp-input"
-                 type="number" step="1" min="0" max="54"
-                 placeholder="--"
-                 value="${saved2.playing ?? ''}"
-                 style="text-align:center;padding:0.4rem;border-radius:6px;
-                        border:1px solid var(--border);background:var(--surface2);
-                        color:var(--white);font-size:0.95rem;width:100%;">
-        </div>`;
-    }).join('')}`;
+  // Seed _profileTeeRows on first load from saved data (only if empty / course changed)
+  if (_profileTeeRows.length === 0) {
+    const savedTees = Object.keys(saved);
+    if (savedTees.length) {
+      _profileTeeRows = savedTees;
+    }
+  }
+
+  rebuildTeeRows(teesWrap, saved);
 }
 
-document.getElementById('prof-course-select')?.addEventListener('change', renderCourseHandicapSection);
+function rebuildTeeRows(teesWrap, saved) {
+  if (!teesWrap) return;
+  if (!saved) saved = currentProfile?.home_course_handicaps ?? {};
 
-document.getElementById('prof-hcp')?.addEventListener('input', e => {
-  const idxEl = document.getElementById('prof-course-hcp-index');
-  if (idxEl) idxEl.value = e.target.value;
+  if (_profileTeeRows.length === 0) {
+    teesWrap.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;padding:0.25rem 0;">
+      Tap ＋ to add a tee colour</div>`;
+    return;
+  }
+
+  teesWrap.innerHTML = _profileTeeRows.map((teeName, idx) => {
+    const savedObj = saved[teeName];
+    const savedVal = (typeof savedObj === 'object' && savedObj !== null)
+      ? (savedObj.course ?? '')
+      : (savedObj ?? '');
+    const crsId = `prof-course-hcp-crs-${teeName.replace(/\s+/g,'-').toLowerCase()}`;
+    return `
+      <div style="display:grid;grid-template-columns:1fr auto auto;gap:0.4rem 0.5rem;align-items:center;">
+        <input class="prof-course-hcp-tee-name" data-idx="${idx}"
+               type="text" placeholder="Tee colour (e.g. Yellow)"
+               value="${teeName}"
+               style="padding:0.4rem 0.5rem;border-radius:6px;border:1px solid var(--border);
+                      background:var(--surface2);color:var(--white);font-size:0.95rem;">
+        <input id="${crsId}" data-tee="${teeName}" data-type="course" data-idx="${idx}"
+               class="prof-course-hcp-input"
+               type="number" step="1" min="0" max="54"
+               placeholder="--"
+               value="${savedVal}"
+               style="text-align:center;padding:0.4rem;border-radius:6px;width:3.5rem;
+                      border:1px solid var(--border);background:var(--surface2);
+                      color:var(--white);font-size:0.95rem;">
+        <button class="prof-tee-remove" data-idx="${idx}"
+          style="width:2rem;height:2rem;border-radius:50%;border:none;cursor:pointer;
+                 background:var(--surface2);color:var(--red);font-size:1rem;flex-shrink:0;">✕</button>
+      </div>`;
+  }).join('');
+
+  // Sync tee name changes back to _profileTeeRows
+  teesWrap.querySelectorAll('.prof-course-hcp-tee-name').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const idx = parseInt(inp.dataset.idx);
+      _profileTeeRows[idx] = inp.value;
+      // also update data-tee on sibling input so save picks it up
+      const row = inp.closest('div');
+      const hcpInp = row?.querySelector('.prof-course-hcp-input');
+      if (hcpInp) hcpInp.dataset.tee = inp.value;
+    });
+  });
+
+  // Remove row buttons
+  teesWrap.querySelectorAll('.prof-tee-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      _profileTeeRows.splice(idx, 1);
+      const saved2 = currentProfile?.home_course_handicaps ?? {};
+      rebuildTeeRows(teesWrap, saved2);
+    });
+  });
+}
+
+document.getElementById('prof-course-select')?.addEventListener('change', () => {
+  _profileTeeRows = []; // reset when course changes so we seed from saved data
+  renderCourseHandicapSection();
+});
+
+// Add tee row
+document.getElementById('prof-add-tee-btn')?.addEventListener('click', () => {
+  _profileTeeRows.push('');
+  const teesWrap = document.getElementById('prof-course-hcp-tees');
+  const saved = currentProfile?.home_course_handicaps ?? {};
+  rebuildTeeRows(teesWrap, saved);
+  // Focus the newly added name input
+  const inputs = teesWrap?.querySelectorAll('.prof-course-hcp-tee-name');
+  if (inputs?.length) inputs[inputs.length - 1].focus();
+});
+
+// All Courses button
+document.getElementById('prof-all-courses-btn')?.addEventListener('click', () => {
+  const modal   = document.getElementById('modal-all-courses');
+  const listEl  = document.getElementById('all-courses-list');
+  if (!modal || !listEl) return;
+
+  if (!allCourses.length) {
+    listEl.innerHTML = `<div style="padding:1.5rem;text-align:center;color:var(--muted);">
+      No saved courses yet.</div>`;
+  } else {
+    listEl.innerHTML = allCourses.map(c => `
+      <div style="display:flex;align-items:center;gap:0.5rem;padding:0.65rem 0.75rem;
+                  background:var(--surface);border:1px solid var(--border);border-radius:10px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;
+                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</div>
+          ${c.tees?.length ? `<div style="font-size:0.75rem;color:var(--muted);">${c.tees.map(t=>t.name).join(' · ')}</div>` : ''}
+        </div>
+        <button class="btn btn-ghost ac-edit" data-id="${c.id}"
+          style="font-size:0.8rem;padding:0.3rem 0.6rem;">Edit</button>
+        <button class="btn btn-ghost ac-delete" data-id="${c.id}" data-name="${c.name}"
+          style="font-size:0.8rem;padding:0.3rem 0.6rem;color:var(--red);">Delete</button>
+      </div>`).join('');
+  }
+
+  modal.classList.add('open');
+
+  listEl.querySelectorAll('.ac-edit').forEach(btn => {
+    btn.addEventListener('click', () => {
+      modal.classList.remove('open');
+      openCourseWizard(btn.dataset.id);
+    });
+  });
+
+  listEl.querySelectorAll('.ac-delete').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(`Delete "${btn.dataset.name}"? This cannot be undone.`)) return;
+      try {
+        await courseDelete(btn.dataset.id);
+        allCourses = allCourses.filter(c => c.id !== btn.dataset.id);
+        populateProfileCourseSelect();
+        // Remove from home course if it was selected
+        const sel = document.getElementById('prof-course-select');
+        if (sel?.value === btn.dataset.id) {
+          sel.value = '';
+          renderCourseHandicapSection();
+        }
+        // Re-render the modal list
+        document.getElementById('prof-all-courses-btn')?.click();
+      } catch(err) {
+        alert('Could not delete course: ' + err.message);
+      }
+    });
+  });
+});
+
+document.getElementById('all-courses-close')?.addEventListener('click', () => {
+  document.getElementById('modal-all-courses')?.classList.remove('open');
 });
 
 document.getElementById('btn-save-profile')?.addEventListener('click', async () => {
@@ -10356,18 +10442,17 @@ document.getElementById('btn-save-profile')?.addEventListener('click', async () 
     home_course_id: document.getElementById('prof-course-select').value || null,
     email:          currentUser?.email ?? null,
     home_course_handicaps: (() => {
-      const result = { ...(currentProfile?.home_course_handicaps ?? {}) };
+      // Only persist the tee rows currently shown (user-chosen tees, course HCP only)
+      const result = {};
       document.querySelectorAll('.prof-course-hcp-input').forEach(input => {
-        const tee  = input.dataset.tee;
-        const type = input.dataset.type ?? 'course'; // 'course' or 'playing'
-        const v    = parseFloat(input.value);
-        if (!result[tee] || typeof result[tee] !== 'object') {
-          result[tee] = {};
-        }
-        if (input.value.trim() === '') delete result[tee][type];
-        else result[tee][type] = v;
-        // Clean up if empty
-        if (!Object.keys(result[tee]).length) delete result[tee];
+        if (input.dataset.type !== 'course') return;
+        // tee name comes from the sibling text input if available, else data-tee
+        const row = input.closest('div');
+        const nameInp = row?.querySelector('.prof-course-hcp-tee-name');
+        const tee = (nameInp?.value.trim()) || input.dataset.tee;
+        if (!tee) return;
+        const v = parseFloat(input.value);
+        if (!isNaN(v)) result[tee] = { course: v };
       });
       return result;
     })(),

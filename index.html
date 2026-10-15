@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261012a">
+  <link rel="stylesheet" href="styles.css?v=20261015a">
 </head>
 <body class="local-mode">
 
@@ -1053,23 +1053,26 @@
     </div>
 
     <div class="card">
-      <div class="card-title">Home Club</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+        <div class="card-title" style="margin:0;">My Courses</div>
+        <button class="btn btn-ghost" id="prof-all-courses-btn"
+          style="font-size:0.8rem;padding:0.3rem 0.65rem;color:var(--muted);">All Courses ›</button>
+      </div>
       <div class="field">
-        <label>Select from saved courses</label>
+        <label>Home Course</label>
         <div class="flex gap-sm">
           <select id="prof-course-select" style="flex:1;font-size:1.05rem;"></select>
           <button class="btn btn-ghost" id="prof-add-course-btn">＋</button>
         </div>
       </div>
 
-      <!-- Course handicaps for the selected home club -->
+      <!-- Course handicaps for the selected home course -->
       <div id="prof-course-hcp-section" class="hidden mt-md">
-        <div class="field" style="margin-bottom:0.75rem;">
-          <label>Handicap Index</label>
-          <input id="prof-course-hcp-index" type="number" step="0.1" min="0" max="54" placeholder="12.4" disabled
-            style="opacity:0.7;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+          <label style="margin:0;">Course Handicap by Tee</label>
+          <button class="btn btn-ghost" id="prof-add-tee-btn"
+            style="font-size:1.2rem;padding:0.1rem 0.5rem;line-height:1;">＋</button>
         </div>
-        <label style="display:block;margin-bottom:0.5rem;">Course Handicap by Tee</label>
         <div id="prof-course-hcp-tees" style="display:grid;gap:0.6rem;"></div>
       </div>
     </div>
@@ -1287,33 +1290,6 @@
         </div>
       </div>
 
-      <!-- Playing Index row -->
-      <div class="hcp-src-row" id="hcp-row-playing" data-src="playing"
-        style="border:2px solid var(--border);border-radius:var(--radius-sm);
-               padding:0.65rem 0.85rem;cursor:pointer;transition:all 0.15s;">
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div>
-            <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.1em;
-                        text-transform:uppercase;color:var(--muted2);margin-bottom:2px;">Playing Index</div>
-            <div id="hcp-playing-profile" style="font-size:0.8rem;color:var(--muted);font-weight:600;"></div>
-          </div>
-          <div class="hcp-counter" id="hcp-counter-playing"
-            style="display:none;align-items:center;gap:0.4rem;">
-            <button class="hcp-adj-btn" data-src="playing" data-dir="-1"
-              style="width:36px;height:36px;border-radius:50%;font-size:1.3rem;font-weight:800;
-                     background:rgba(0,0,0,0.25);border:none;color:inherit;cursor:pointer;">−</button>
-            <span id="hcp-val-playing"
-              style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
-                     font-size:2rem;min-width:2.5rem;text-align:center;line-height:1;"></span>
-            <button class="hcp-adj-btn" data-src="playing" data-dir="1"
-              style="width:36px;height:36px;border-radius:50%;font-size:1.3rem;font-weight:800;
-                     background:rgba(0,0,0,0.25);border:none;color:inherit;cursor:pointer;">+</button>
-          </div>
-          <span id="hcp-preview-playing"
-            style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.8rem;
-                   color:var(--muted2);"></span>
-        </div>
-      </div>
 
     </div>
 
@@ -1764,7 +1740,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261012a"></script>
+<script type="module" src="js/app.js?v=20261015a"></script>
 
 
 <!-- ══════════════════════════════════════════
@@ -2141,6 +2117,17 @@
         style="font-size:0.85rem;font-weight:800;padding:0.4rem 0.8rem;" disabled>Delete Selected</button>
     </div>
     <div id="game-invites-list" style="padding:0.5rem 0;"></div>
+  </div>
+</div>
+
+<!-- ══ ALL COURSES MODAL ══ -->
+<div class="modal-overlay" id="modal-all-courses">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">All Courses</div>
+      <button class="btn-close" id="all-courses-close">✕</button>
+    </div>
+    <div id="all-courses-list" style="display:grid;gap:0.5rem;max-height:60vh;overflow-y:auto;"></div>
   </div>
 </div>
 
