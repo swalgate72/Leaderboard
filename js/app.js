@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261015b';
+window.APP_BUILD = '20261015c';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -160,7 +160,7 @@ const setup = {
   numPlayers:      2,
   numGroups:       1,
   playersPerGroup: null,
-  hcpPct:          100,
+  gameDate:        null,
   weather:         '',
   players:         [],
   pairs:           [],
@@ -429,7 +429,7 @@ async function tryRestoreSetupState() {
       populateCourseSelect();
       populateNumPlayerSelect();
       populateNumGroupSelect();
-      document.getElementById('setup-hcp-pct').value = setup.hcpPct ?? 100;
+      if (setup.gameDate) document.getElementById('setup-game-date').value = setup.gameDate;
       // Re-select the saved course/tee
       if (setup.courseId) {
         document.getElementById('setup-course-select').value = setup.courseId;
@@ -469,7 +469,7 @@ async function _restoreSetupFromDraft(draft) {
       populateCourseSelect();
       populateNumPlayerSelect();
       populateNumGroupSelect();
-      document.getElementById('setup-hcp-pct').value = setup.hcpPct ?? 100;
+      if (setup.gameDate) document.getElementById('setup-game-date').value = setup.gameDate;
       if (setup.courseId) {
         document.getElementById('setup-course-select').value = setup.courseId;
         onCourseSelectChange();
@@ -1078,7 +1078,7 @@ document.querySelectorAll('.fmt-btn').forEach(btn => {
     setup.tournRoundNumber = null;
     setup.scoring  = fmt;
     setup.courseId = null; setup.teeIdx = 0; setup.holes = 18;
-    setup.hcpPct   = 100; setup.pairs  = []; setup.players = [];
+    setup.gameDate = null; setup.pairs  = []; setup.players = [];
     setup.texasMode        = 'average';
     setup.texasScoringFmt  = 'stableford';
     setup.texasTeamSize    = 2;
@@ -1133,14 +1133,8 @@ const TEAM_FORMATS = [
 const TEAM_SCORING_FORMATS = ['foursomes','greensomes','texas'];
 
 function updateCourseScreenForFormat(fmt) {
-  const isTeamFmt    = TEAM_SCORING_FORMATS.includes(fmt);
-  const hcpField     = document.getElementById('setup-hcp-pct-field');
   const teamHcpField = document.getElementById('setup-team-hcp-field');
-  if (hcpField)     hcpField.classList.toggle('hidden', isTeamFmt);
   if (teamHcpField) teamHcpField.classList.toggle('hidden', fmt !== 'texas');
-  if (isTeamFmt) {
-    setup.hcpPct = 100;
-  }
 }
 
 
@@ -1234,7 +1228,7 @@ function showFormatPicker(category) {
       const fmt = card.dataset.fmt;
       setup.scoring  = fmt;
       setup.courseId = null; setup.teeIdx = 0; setup.holes = 18;
-      setup.hcpPct   = 100; setup.pairs = [];
+      setup.gameDate = null; setup.pairs = [];
       // Only clear players and tournament context if NOT in tournament mode
       if (!setup.tournamentId) {
         setup.players = [];
@@ -1332,7 +1326,11 @@ function startSetup() {
   populateCourseSelect();
   populateNumPlayerSelect();
   populateNumGroupSelect();
-  document.getElementById('setup-hcp-pct').value = 100;
+  // Default date to today if not already set
+  const datePicker = document.getElementById('setup-game-date');
+  if (datePicker && !datePicker.value) {
+    datePicker.value = new Date().toISOString().slice(0, 10);
+  }
   showScreen('screen-setup-course');
 }
 
@@ -1543,7 +1541,7 @@ document.getElementById('setup-home-review')?.addEventListener('click', () => se
 
 document.getElementById('btn-setup-course-next')?.addEventListener('click', () => {
   if (!setup.courseId) { alert('Please select a course.'); return; }
-  setup.hcpPct    = parseInt(document.getElementById('setup-hcp-pct').value, 10) || 100;
+  setup.gameDate  = document.getElementById('setup-game-date').value || new Date().toISOString().slice(0, 10);
   setup.numGroups = 1; // will be set on the groups screen
 
   // Only initialise setup.players if starting fresh (not returning from players screen)
@@ -1971,22 +1969,19 @@ function playerHcpValues(p) {
   if (homeCourseId && gameCourseId && homeCourseId === gameCourseId && teeName && homeHcps[teeName]) {
     const teeData = homeHcps[teeName];
     const crs = typeof teeData === 'object' ? (teeData.course  ?? Math.round(idx)) : Number(teeData);
-    const ply = typeof teeData === 'object' ? (teeData.playing ?? Math.round(crs * (setup.hcpPct ?? 100) / 100))
-                                             : Math.round(crs * (setup.hcpPct ?? 100) / 100);
-    return { index: idx, course: crs, playing: ply };
+    return { index: idx, course: crs };
   }
 
   // Different course — calculate from slope/rating if available, else round index
   if (tee?.courseRating && tee?.slopeRating) {
-    const par     = tee.par?.reduce((a,b)=>a+b,0) ?? 72;
-    const crs     = Math.max(0, Math.round(idx * tee.slopeRating / 113 + (tee.courseRating - par)));
-    const playing = Math.max(0, Math.round(crs * (setup.hcpPct ?? 100) / 100));
-    return { index: idx, course: crs, playing };
+    const par = tee.par?.reduce((a,b)=>a+b,0) ?? 72;
+    const crs = Math.max(0, Math.round(idx * tee.slopeRating / 113 + (tee.courseRating - par)));
+    return { index: idx, course: crs };
   }
 
   // Fallback — use stored courseHandicap or round index
   const crs = p.courseHandicap ?? Math.round(idx);
-  return { index: idx, course: crs, playing: Math.max(0, Math.round(crs * (setup.hcpPct ?? 100) / 100)) };
+  return { index: idx, course: crs };
 }
 
 let _hcpPickerSource  = 'course'; // currently selected source
@@ -2207,7 +2202,7 @@ document.getElementById('game-manual-hcp')?.addEventListener('input', function()
   const cr     = tee?.courseRating ?? 72;
   const sr     = tee?.slopeRating  ?? 113;
   const chcp   = Math.round(idx * sr / 113 + (cr - (tee?.par ?? 72)));
-  const phcp   = Math.round(chcp * (setup.hcpPct ?? 100) / 100);
+  const phcp   = Math.round(chcp);
   const chcpEl = document.getElementById('game-manual-chcp');
   const phcpEl = document.getElementById('game-manual-phcp');
   if (chcpEl && !chcpEl.value) chcpEl.value = Math.max(0, chcp);
@@ -3015,7 +3010,7 @@ function renderSetupGroupCards() {
     let texasHcpBadge = '';
     if (isTexasFmt && groupPlayers.length > 0) {
       const idxArr = groupPlayers.map(p => p.courseHandicap ?? p.hcpIndex ?? 0);
-      const teamHcp = texasTeamHandicap(idxArr, setup.texasMode ?? 'average', setup.hcpPct ?? 100);
+      const teamHcp = texasTeamHandicap(idxArr, setup.texasMode ?? 'average', 100);
       texasHcpBadge = `
         <div style="text-align:right;flex-shrink:0;">
           <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
@@ -3577,7 +3572,7 @@ function buildSetupReview() {
   const named    = setup.players.filter(p => p.name);
   // Use gameHandicap (picker-adjusted) if set, otherwise fall back to hcpIndex
   const hcpArr   = named.map(p => p.gameHandicap ?? p.hcpIndex ?? 0);
-  const hcpObj   = calcHandicaps(hcpArr, setup.hcpPct);
+  const hcpObj   = calcHandicaps(hcpArr, 100);
 
   // Formats where match handicap (scratch reduction) is meaningful
   const showScratch = ['match','betterball','csm','foursomes','greensomes','split6','skins','itc'].includes(setup.scoring);
@@ -3611,7 +3606,7 @@ function buildSetupReview() {
     const result = {};
     for (let g = 1; g <= numGroups; g++) {
       const gPlayers = named.filter(p => (p.groupNumber ?? 1) === g);
-      result[g] = texasTeamHandicap(gPlayers.map(p => p.hcpIndex || 0), setup.texasMode ?? 'average', setup.hcpPct);
+      result[g] = texasTeamHandicap(gPlayers.map(p => p.hcpIndex || 0), setup.texasMode ?? 'average', 100);
     }
     return result;
   })() : {};
@@ -3634,7 +3629,6 @@ function buildSetupReview() {
       ` : ''}
       ` : ''}
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Holes</span><span>${count === 18 ? '18' : count === 9 && offset === 0 ? 'Front 9' : 'Back 9'}</span></div>
-      ${!isTeamFmt2 ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">HCP Allowance</span><span>${setup.hcpPct}%</span></div>` : ''}
     </div>
     <div style="border-top:1px solid var(--border);padding-top:0.75rem;">`;
 
@@ -3941,7 +3935,7 @@ async function teeOff() {
     : p.courseHandicap != null ? p.courseHandicap
     : p.hcpIndex ?? 0
   );
-  const hcpObj = calcHandicaps(hcpArr, setup.hcpPct);
+  const hcpObj = calcHandicaps(hcpArr, 100);
 
   // For foursomes/greensomes override pair handicaps using official rules
   // We still store individual handicaps but the processHole function handles the pair calculation
@@ -3974,7 +3968,7 @@ async function teeOff() {
       : p.courseHandicap != null ? p.courseHandicap
       : p.hcpIndex ?? 0
     );
-    const gHcpObj = calcHandicaps(gHcpArr, setup.hcpPct);
+    const gHcpObj = calcHandicaps(gHcpArr, 100);
     // For foursomes/greensomes: pass playing HCPs so engine computes raw pair HCPs
     const isFoursomeFmt = ['foursomes','greensomes'].includes(fmt);
     const gMatchHcps    = isFoursomeFmt
@@ -3988,7 +3982,7 @@ async function teeOff() {
       handicapIndexes: gHcpArr,
       playingHandicaps: gHcpObj.map(h => h.playingHandicap),
       matchHandicaps:   gMatchHcps,
-      allowancePct:    setup.hcpPct,
+      allowancePct:    100,
       si:              siSlice,
       par:             parSlice,
       numHoles:        count,
@@ -4023,7 +4017,7 @@ async function teeOff() {
         gs.matchHandicaps = [rawA - minH, rawB - minH];
         gs.matchScore     = 0;
       } else {
-        gs.teamHcp         = texasTeamHandicap(gHcpArr, setup.texasMode ?? 'average', setup.hcpPct);
+        gs.teamHcp         = texasTeamHandicap(gHcpArr, setup.texasMode ?? 'average', 100);
         gs.grossTotal      = 0;
         gs.texasPts        = 0;
         gs.driverUsage     = { par3: [], par4: [], par5: [] };
@@ -4079,7 +4073,8 @@ async function teeOff() {
       teeName:      tee.name,
       gameFormat:   fmt,
       scoringMethod: setup.scoring,
-      hcpAllowance: setup.hcpPct,
+      hcpAllowance: 100,
+      gameDate:     setup.gameDate ?? new Date().toISOString().slice(0, 10),
       si:           siSlice,
       par:          parSlice,
       numHoles:     count,
@@ -10953,8 +10948,9 @@ async function loadHistory() {
     countEl.textContent = `${filtered.length} round${filtered.length !== 1 ? 's' : ''}`;
     if (!filtered.length) { listEl.innerHTML = '<div class="history-empty">No rounds found.</div>'; return; }
     listEl.innerHTML = filtered.map(r => {
-      const date = r.completed_at
-        ? new Date(r.completed_at).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' })
+      const dateStr = r.played_at ?? r.completed_at ?? r.started_at;
+      const date = dateStr
+        ? new Date(dateStr).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' })
         : '--';
       let state = r.game_state;
       if (typeof state === 'string') { try { state = JSON.parse(state); } catch { state = null; } }

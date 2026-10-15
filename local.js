@@ -279,7 +279,7 @@ export async function coursesEnsureDefaults(userId) {
 
 export async function roundCreate({
   organiserId, courseName, teeName, gameFormat,
-  hcpAllowance, si, par, numHoles, holeOffset,
+  hcpAllowance, gameDate, si, par, numHoles, holeOffset,
   playerNames, gameState, weather,
 }) {
   const id = crypto.randomUUID();
@@ -295,6 +295,7 @@ export async function roundCreate({
     teeName:      teeName     ?? null,
     gameFormat:   gameFormat  ?? null,
     hcpAllowance: hcpAllowance ?? 100,
+    playedAt:     gameDate ? `${gameDate}T12:00:00.000Z` : now(),
     si:           si  ?? [],
     par:          par ?? [],
     numHoles:     numHoles   ?? 18,

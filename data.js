@@ -287,7 +287,8 @@ export async function coursesEnsureDefaults(userId) {
 // ================================================================
 
 export async function roundCreate({ organiserId, courseName, teeName, gameFormat,
-  hcpAllowance, si, par, numHoles, holeOffset, playerNames, gameState, weather }) {
+  hcpAllowance, gameDate, si, par, numHoles, holeOffset, playerNames, gameState, weather }) {
+  const now = new Date().toISOString();
   const { data, error } = await sb
     .from('rounds')
     .insert({
@@ -295,15 +296,16 @@ export async function roundCreate({ organiserId, courseName, teeName, gameFormat
       course_name:   courseName,
       tee_name:      teeName,
       game_format:   gameFormat,
-      hcp_allowance: hcpAllowance,
+      hcp_allowance: hcpAllowance ?? 100,
       si,
       par,
       status:        'active',
-      started_at:    new Date().toISOString(),
+      started_at:    now,
+      played_at:     gameDate ? `${gameDate}T12:00:00.000Z` : now,
       player_names:  playerNames,
       game_state:    gameState,
       weather:       weather ?? null,
-      updated_at:    new Date().toISOString(),
+      updated_at:    now,
     })
     .select('id')
     .single();
