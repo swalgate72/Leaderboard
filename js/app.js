@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261015a';
+window.APP_BUILD = '20261015b';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -2132,9 +2132,8 @@ function renderNewPlayerTeeTable() {
   section.classList.remove('hidden');
 
   rowsEl.innerHTML = (course.tees ?? []).map(t => {
-    const safeId = t.name.replace(/\s+/g, '-').toLowerCase();
     return `
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.3rem 0.5rem;
+      <div style="display:grid;grid-template-columns:1fr auto;gap:0.3rem 0.5rem;
                   align-items:center;margin-bottom:0.3rem;">
         <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;
                     font-size:1rem;color:var(--white);">${t.name}</div>
@@ -2142,12 +2141,7 @@ function renderNewPlayerTeeTable() {
           type="number" step="1" min="0" max="54" placeholder="--"
           style="text-align:center;padding:0.4rem;border-radius:6px;
                  border:1px solid var(--border);background:var(--surface2);
-                 color:var(--white);font-size:0.95rem;width:100%;">
-        <input data-tee="${t.name}" data-type="playing" class="np-tee-input"
-          type="number" step="1" min="0" max="54" placeholder="--"
-          style="text-align:center;padding:0.4rem;border-radius:6px;
-                 border:1px solid var(--border);background:var(--surface2);
-                 color:var(--white);font-size:0.95rem;width:100%;">
+                 color:var(--white);font-size:0.95rem;width:3.5rem;">
       </div>`;
   }).join('');
 
@@ -10736,9 +10730,7 @@ function openEditGuestModal(f) {
     setTimeout(() => {
       Object.entries(f.home_course_handicaps).forEach(([teeName, vals]) => {
         const crsEl = document.querySelector(`.np-tee-input[data-tee="${teeName}"][data-type="course"]`);
-        const plyEl = document.querySelector(`.np-tee-input[data-tee="${teeName}"][data-type="playing"]`);
         if (crsEl && vals?.course != null) crsEl.value = vals.course;
-        if (plyEl && vals?.playing != null) plyEl.value = vals.playing;
       });
     }, 50);
   }
