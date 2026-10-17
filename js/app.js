@@ -2552,35 +2552,32 @@ function updateShareQRButtonVisibility() {
   btn.style.display = setup.courseId ? 'block' : 'none';
 }
 
-// Build the QR payload object from the current setup
+// Build the QR payload object from the current setup.
+// Keep payload small — only include the selected tee to reduce QR density.
 function buildQRPayload(competitionRec) {
   const course = allCourses.find(c => c.id === setup.courseId) ?? null;
   const tee    = course?.tees?.[setup.teeIdx] ?? null;
 
-  // Include all tees so the receiver can match by full course data,
-  // but do NOT include any player data.
   const coursePayload = course ? {
     name:     course.name,
     location: course.location ?? null,
-    tees:     (course.tees ?? []).map(t => {
-      const obj = {
-        name:  t.name,
-        color: t.color ?? null,
-        si:    t.si,
-        par:   t.par,
-      };
-      if (t.courseRating != null) obj.courseRating = t.courseRating;
-      if (t.slopeRating  != null) obj.slopeRating  = t.slopeRating;
-      return obj;
-    }),
+    // Only the selected tee — keeps QR small and scannable
+    tees: tee ? [{
+      name:         tee.name,
+      color:        tee.color ?? null,
+      si:           tee.si,
+      par:          tee.par,
+      ...(tee.courseRating != null ? { courseRating: tee.courseRating } : {}),
+      ...(tee.slopeRating  != null ? { slopeRating:  tee.slopeRating  } : {}),
+    }] : [],
   } : null;
 
   return {
-    v:      1,                              // payload version
-    cid:    competitionRec.competitionId,   // shared UUID
-    cn:     competitionRec.name,            // competition name
-    course: coursePayload,                  // full course data
-    ti:     setup.teeIdx,                   // which tee was selected
+    v:      1,
+    cid:    competitionRec.competitionId,
+    cn:     competitionRec.name,
+    course: coursePayload,
+    ti:     0,   // always 0 — only selected tee is included
   };
 }
 
@@ -2793,10 +2790,13 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
             const codes = await detector.detect(video);
             raw = codes[0]?.rawValue ?? null;
           } else if (window.jsQR && canvas && ctx) {
-            canvas.width  = video.videoWidth  || 640;
-            canvas.height = video.videoHeight || 480;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            // Use native video resolution for best decode accuracy
+            const vw = video.videoWidth  || 1280;
+            const vh = video.videoHeight || 720;
+            canvas.width  = vw;
+            canvas.height = vh;
+            ctx.drawImage(video, 0, 0, vw, vh);
+            const imgData = ctx.getImageData(0, 0, vw, vh);
             const result  = window.jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'attemptBoth' });
             raw = result?.data ?? null;
           }
