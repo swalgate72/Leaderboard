@@ -2768,6 +2768,13 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
       const canvas    = document.getElementById('qr-scanner-canvas');
       const ctx       = canvas ? canvas.getContext('2d', { willReadFrequently: true }) : null;
 
+      // Show which decoder is active
+      if (status) status.textContent = useNative
+        ? 'Point your camera at the QR code (native)'
+        : window.jsQR
+          ? 'Point your camera at the QR code (jsQR)'
+          : 'Point your camera at the QR code (no decoder — reload app)';
+
       function extractJoinParam(raw) {
         if (!raw) return null;
         if (raw.includes('?join=')) {
@@ -2777,6 +2784,7 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
         return null;
       }
 
+      let scanCount = 0;
       scanInterval = setInterval(async () => {
         if (!scanStream || video.readyState < 2) return;
         try {
@@ -2785,21 +2793,35 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
             const codes = await detector.detect(video);
             raw = codes[0]?.rawValue ?? null;
           } else if (window.jsQR && canvas && ctx) {
-            canvas.width  = video.videoWidth;
-            canvas.height = video.videoHeight;
+            canvas.width  = video.videoWidth  || 640;
+            canvas.height = video.videoHeight || 480;
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const result  = window.jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'dontInvert' });
+            const result  = window.jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'attemptBoth' });
             raw = result?.data ?? null;
           }
+
+          // Debug: show scan activity every 3 seconds
+          scanCount++;
+          if (scanCount % 10 === 0 && status) {
+            status.textContent = raw
+              ? `Detected: ${raw.slice(0, 40)}…`
+              : `Scanning… (${useNative ? 'native' : 'jsQR'}) frame ${scanCount}`;
+          }
+
           const joinParam = extractJoinParam(raw);
           if (!joinParam) return;
           const payload = decodeJoinPayload(joinParam);
-          if (!payload) return;
+          if (!payload) {
+            if (status) status.textContent = `QR found but payload invalid: ${(raw||'').slice(0,60)}`;
+            return;
+          }
           stopScanner();
           closeScannerModal();
           showJoinConfirm(payload);
-        } catch { /* keep trying */ }
+        } catch (e) {
+          if (status && scanCount % 20 === 0) status.textContent = `Scan error: ${e.message}`;
+        }
       }, 300);
 
     }).catch(err => {
@@ -2896,10 +2918,7 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
   }
 
   // ── Wire up buttons ────────────────────────────────────────────
-  document.getElementById('btn-join-competition-qr')?.addEventListener('click', () => {
-    alert('Join button tapped ✓');
-    openScannerModal();
-  });
+  document.getElementById('btn-join-competition-qr')?.addEventListener('click', openScannerModal);
   document.getElementById('btn-modal-scanner-close')?.addEventListener('click', closeScannerModal);
   document.getElementById('modal-qr-scanner')?.addEventListener('click', e => {
     if (e.target === e.currentTarget) closeScannerModal();
