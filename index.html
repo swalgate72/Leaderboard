@@ -378,6 +378,12 @@
           </svg>
           Join Competition
         </button>
+        <button class="fmt-btn" id="btn-combine-results">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+          </svg>
+          Combine Results
+        </button>
       </div>
 
     </div>
@@ -1102,10 +1108,56 @@
     <button class="btn btn-primary btn-full" id="btn-confirm-end">
       ✓ SAVE &amp; FINISH
     </button>
+
+    <!-- Export group result for combining on organiser's device -->
+    <button id="btn-export-group-result"
+      style="width:100%;padding:0.65rem;margin-top:0.6rem;
+             background:none;border:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.75);
+             border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:0.9rem;
+             font-weight:700;cursor:pointer;">
+      📤 Export group result
+    </button>
+
     <button class="btn btn-outline mt-sm" id="btn-back-to-game">
       ← Back to Scoring
     </button>
 
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     COMBINE RESULTS MODAL
+     ══════════════════════════════════════════ -->
+<div id="modal-combine-results" class="modal-overlay" role="dialog" aria-modal="true">
+  <div class="modal-box" style="max-width:420px;width:95%;">
+    <div class="modal-header">
+      <span class="modal-title">🏆 Combine Group Results</span>
+      <button id="btn-modal-combine-close" class="btn btn-ghost"
+        style="margin-left:auto;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:1.2rem;line-height:1;padding:0.3rem 0.6rem;"
+        aria-label="Close">✕</button>
+    </div>
+    <div style="padding:1rem;">
+      <p style="font-size:0.85rem;opacity:0.7;margin:0 0 1rem;">
+        Paste the exported code from each group's device, one at a time.
+      </p>
+      <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem;">
+        <input id="combine-paste-input" type="text" placeholder="Paste group result code…"
+          style="flex:1;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid rgba(255,255,255,0.25);
+                 background:rgba(255,255,255,0.08);color:#fff;font-size:0.85rem;outline:none;" />
+        <button id="btn-combine-add"
+          style="padding:0.5rem 0.75rem;border-radius:8px;border:none;background:var(--accent,#b8963e);
+                 color:#fff;font-size:0.85rem;cursor:pointer;white-space:nowrap;">
+          Add →
+        </button>
+      </div>
+      <div id="combine-groups-list" style="margin-bottom:1rem;"></div>
+      <button id="btn-combine-show" style="display:none;width:100%;padding:0.75rem;
+        background:var(--green,#48bb78);color:#fff;border:none;border-radius:10px;
+        font-family:'Plus Jakarta Sans',sans-serif;font-size:1rem;font-weight:800;cursor:pointer;">
+        Show Combined Leaderboard
+      </button>
+      <div id="combine-leaderboard" style="margin-top:1rem;"></div>
+    </div>
   </div>
 </div>
 
@@ -1868,7 +1920,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261017g"></script>
+<script type="module" src="js/app.js?v=20261017h"></script>
 
 
 <!-- ══════════════════════════════════════════

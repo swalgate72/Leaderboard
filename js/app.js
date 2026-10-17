@@ -9777,6 +9777,189 @@ document.getElementById('btn-back-to-game')?.addEventListener('click', () => {
   showScreen('screen-game'); renderScoreHeader(); renderHolePanel();
 });
 
+// ================================================================
+// GROUP RESULT EXPORT / COMBINE
+// ================================================================
+
+function buildGroupExportCode(state) {
+  // Strip to essentials needed for leaderboard rendering
+  const { allGroupStates: _, ...s } = state;
+  const payload = {
+    v: 1,
+    format:           s.format,
+    courseName:       s.courseName    ?? '',
+    teeName:          s.teeName       ?? '',
+    names:            s.names         ?? [],
+    playingHandicaps: s.playingHandicaps ?? [],
+    matchHandicaps:   s.matchHandicaps   ?? [],
+    totals:           s.totals           ?? [],
+    par:              s.par              ?? [],
+    si:               s.si               ?? [],
+    holeOffset:       s.holeOffset       ?? 0,
+    numHoles:         s.numHoles         ?? 18,
+    groupNumber:      s.groupNumber      ?? 1,
+    log: (s.log ?? []).map(e => ({
+      grosses:  e.grosses  ?? [],
+      extras:   e.extras   ?? [],
+      holePts:  e.holePts  ?? [],
+      result:   e.result   ?? null,
+    })),
+  };
+  const json   = JSON.stringify(payload);
+  const b64url = btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return b64url;
+}
+
+function decodeGroupExportCode(raw) {
+  try {
+    const trimmed = (raw || '').trim();
+    const b64 = trimmed.replace(/-/g, '+').replace(/_/g, '/');
+    const pad  = (4 - (b64.length % 4)) % 4;
+    const obj  = JSON.parse(atob(b64 + '='.repeat(pad)));
+    if (obj.v !== 1 || !obj.format || !obj.names?.length) return null;
+    return obj;
+  } catch { return null; }
+}
+
+// Export button on end-round screen
+document.getElementById('btn-export-group-result')?.addEventListener('click', async () => {
+  const btn = document.getElementById('btn-export-group-result');
+  try {
+    const code = buildGroupExportCode(gameState);
+    await navigator.clipboard.writeText(code);
+    btn.textContent = '✅ Code copied! Paste it on the organiser\'s device.';
+    setTimeout(() => { btn.textContent = '📤 Export group result'; }, 3000);
+  } catch {
+    const code = buildGroupExportCode(gameState);
+    prompt('Copy this result code:', code);
+  }
+});
+
+// Combine results modal
+(function wireCombineModal() {
+  const addedGroups = []; // array of decoded group states
+
+  function renderGroupsList() {
+    const listEl  = document.getElementById('combine-groups-list');
+    const showBtn = document.getElementById('btn-combine-show');
+    if (!listEl) return;
+    if (!addedGroups.length) {
+      listEl.innerHTML = '<p style="font-size:0.8rem;opacity:0.5;margin:0;">No groups added yet.</p>';
+      if (showBtn) showBtn.style.display = 'none';
+      return;
+    }
+    listEl.innerHTML = addedGroups.map((g, i) => `
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:0.5rem 0.6rem;border-radius:8px;background:rgba(255,255,255,0.06);
+                  margin-bottom:0.35rem;font-size:0.85rem;">
+        <span>Group ${g.groupNumber} — ${g.names.join(', ')}</span>
+        <button onclick="removeGroup(${i})"
+          style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0 0.25rem;">✕</button>
+      </div>`).join('');
+    if (showBtn) showBtn.style.display = addedGroups.length > 1 ? 'block' : 'none';
+  }
+
+  window.removeGroup = (i) => {
+    addedGroups.splice(i, 1);
+    renderGroupsList();
+    document.getElementById('combine-leaderboard').innerHTML = '';
+  };
+
+  function addGroupCode(raw) {
+    const group = decodeGroupExportCode(raw);
+    if (!group) { alert('Could not read that code. Please copy it again.'); return; }
+    // Prevent duplicates by groupNumber
+    const idx = addedGroups.findIndex(g => g.groupNumber === group.groupNumber);
+    if (idx >= 0) addedGroups[idx] = group; else addedGroups.push(group);
+    // Sort by groupNumber
+    addedGroups.sort((a, b) => (a.groupNumber ?? 0) - (b.groupNumber ?? 0));
+    const inp = document.getElementById('combine-paste-input');
+    if (inp) inp.value = '';
+    renderGroupsList();
+  }
+
+  document.getElementById('btn-combine-add')?.addEventListener('click', () => {
+    addGroupCode(document.getElementById('combine-paste-input')?.value);
+  });
+  document.getElementById('combine-paste-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') addGroupCode(e.target.value);
+  });
+
+  document.getElementById('btn-combine-show')?.addEventListener('click', () => {
+    const lbEl = document.getElementById('combine-leaderboard');
+    if (!lbEl || addedGroups.length < 2) return;
+    const merged = mergeGroupStates(addedGroups);
+    const summary = getResultSummary(merged);
+    const fmt = merged.format;
+    const isStroke = fmt === 'stroke';
+    const scoreLabel = isStroke ? 'Net' : 'Pts';
+
+    let html = `<div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;
+                             color:var(--muted);font-weight:700;margin-bottom:0.75rem;">
+                  Combined — ${merged.courseName}
+                </div>`;
+
+    if (summary.scores?.length) {
+      html += summary.scores.map((s, rank) => {
+        const medals = ['🥇','🥈','🥉'];
+        return `<div style="display:flex;align-items:center;justify-content:space-between;
+                            padding:0.6rem 0.75rem;border-radius:10px;margin-bottom:0.35rem;
+                            background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);">
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span style="font-size:1.1rem;">${medals[rank] ?? `${rank+1}.`}</span>
+            <span style="font-weight:700;">${s.nm}</span>
+          </div>
+          <span style="font-weight:800;color:var(--accent,#b8963e);">${s.score} ${scoreLabel}</span>
+        </div>`;
+      }).join('');
+    } else if (summary.winner) {
+      html += `<div style="text-align:center;font-weight:800;color:var(--gold);font-size:1.1rem;padding:0.75rem 0;">
+                 🏆 ${summary.winner}
+               </div>`;
+    }
+
+    // Share button
+    html += `<button id="btn-share-combined"
+      style="width:100%;margin-top:0.75rem;padding:0.65rem;background:var(--green,#48bb78);
+             color:#fff;border:none;border-radius:10px;font-family:'Plus Jakarta Sans',sans-serif;
+             font-size:0.9rem;font-weight:800;cursor:pointer;">
+      📤 Share combined result
+    </button>`;
+
+    lbEl.innerHTML = html;
+
+    // Wire share button
+    document.getElementById('btn-share-combined')?.addEventListener('click', async () => {
+      const text = summary.scores
+        ? summary.scores.map((s,i) => `${i+1}. ${s.nm} — ${s.score} ${scoreLabel}`).join('\n')
+        : summary.winner ?? 'Result';
+      const shareText = `${fmtLabel(fmt)} · ${merged.courseName}\n\n${text}`;
+      if (navigator.share) {
+        try { await navigator.share({ title: 'Combined Leaderboard', text: shareText }); } catch {}
+      } else {
+        await navigator.clipboard.writeText(shareText);
+        document.getElementById('btn-share-combined').textContent = '✅ Copied!';
+      }
+    });
+  });
+
+  document.getElementById('btn-combine-results')?.addEventListener('click', () => {
+    addedGroups.length = 0;
+    document.getElementById('combine-leaderboard').innerHTML = '';
+    renderGroupsList();
+    document.getElementById('modal-combine-results')?.classList.add('open');
+  });
+
+  document.getElementById('btn-modal-combine-close')?.addEventListener('click', () => {
+    document.getElementById('modal-combine-results')?.classList.remove('open');
+  });
+  document.getElementById('modal-combine-results')?.addEventListener('click', e => {
+    if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+  });
+
+  renderGroupsList();
+})();
+
 document.getElementById('btn-confirm-end')?.addEventListener('click', async () => {
   const btn = document.getElementById('btn-confirm-end');
   btn.disabled = true; btn.textContent = 'Saving…';
