@@ -2730,13 +2730,25 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
 
   // ── Open scanner ───────────────────────────────────────────────
   async function openScannerModal() {
+    console.log('[JoinQR] openScannerModal called');
     const modal  = document.getElementById('modal-qr-scanner');
     const status = document.getElementById('qr-scanner-status');
     const video  = document.getElementById('qr-scanner-video');
-    if (!modal || !video) return;
+    console.log('[JoinQR] modal:', modal, 'video:', video);
+    if (!modal || !video) {
+      console.error('[JoinQR] Missing modal or video element — aborting');
+      return;
+    }
 
     modal.classList.add('open');
     if (status) status.textContent = 'Starting camera…';
+
+    // navigator.mediaDevices may be undefined in non-HTTPS or some PWA contexts
+    if (!navigator.mediaDevices?.getUserMedia) {
+      if (status) status.textContent = 'Camera not available. Make sure you\'re using HTTPS and allow camera access.';
+      console.error('[JoinQR] navigator.mediaDevices.getUserMedia not available');
+      return;
+    }
 
     try {
       scanStream = await navigator.mediaDevices.getUserMedia({
@@ -2745,7 +2757,8 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
       video.srcObject = scanStream;
       await video.play();
     } catch (err) {
-      if (status) status.textContent = 'Camera access denied. Please allow camera access and try again.';
+      console.error('[JoinQR] getUserMedia error:', err);
+      if (status) status.textContent = `Camera error: ${err.message || 'access denied'}. Please allow camera access and try again.`;
       return;
     }
 
@@ -2884,7 +2897,9 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
   }
 
   // ── Wire up buttons ────────────────────────────────────────────
-  document.getElementById('btn-join-competition-qr')?.addEventListener('click', openScannerModal);
+  const joinBtn = document.getElementById('btn-join-competition-qr');
+  console.log('[JoinQR] wiring btn-join-competition-qr:', joinBtn);
+  joinBtn?.addEventListener('click', openScannerModal);
   document.getElementById('btn-modal-scanner-close')?.addEventListener('click', closeScannerModal);
   document.getElementById('modal-qr-scanner')?.addEventListener('click', e => {
     if (e.target === e.currentTarget) closeScannerModal();
