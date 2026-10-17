@@ -15,12 +15,13 @@
 // ================================================================
 
 const DB_NAME    = 'leaderboard_local';
-const DB_VERSION = 2;          // bumped from 1 to add new stores
-const STORE_ACTIVE  = 'active_rounds';
-const STORE_PLAYERS = 'players';
-const STORE_COURSES = 'courses';
-const STORE_ROUNDS  = 'rounds';
-const STORE_SETTINGS = 'settings';
+const DB_VERSION = 3;          // v3: adds competitions store
+const STORE_ACTIVE       = 'active_rounds';
+const STORE_PLAYERS      = 'players';
+const STORE_COURSES      = 'courses';
+const STORE_ROUNDS       = 'rounds';
+const STORE_SETTINGS     = 'settings';
+const STORE_COMPETITIONS = 'competitions';
 
 // ── Internal: open (or reuse) the database ──────────────────────
 let _db = null;
@@ -58,6 +59,15 @@ function openDB() {
         }
         if (!db.objectStoreNames.contains(STORE_SETTINGS)) {
           db.createObjectStore(STORE_SETTINGS, { keyPath: 'key' });
+        }
+      }
+
+      // Version 3 store — competitions
+      if (oldVer < 3) {
+        if (!db.objectStoreNames.contains(STORE_COMPETITIONS)) {
+          const comp = db.createObjectStore(STORE_COMPETITIONS, { keyPath: 'id' });
+          comp.createIndex('competitionId', 'competitionId', { unique: false });
+          comp.createIndex('createdAt',     'createdAt',     { unique: false });
         }
       }
     };
@@ -258,4 +268,19 @@ export const settings = {
   getAll: ()     => idbGetAll(STORE_SETTINGS),
   clear:  ()     => idbClearStore(STORE_SETTINGS),
   putMany: records => idbPutMany(STORE_SETTINGS, records),
+};
+
+// ================================================================
+// COMPETITIONS store
+// ================================================================
+
+export const competitions = {
+  get:    id      => idbGet(STORE_COMPETITIONS, id),
+  getAll: ()      => idbGetAll(STORE_COMPETITIONS),
+  put:    record  => idbPut(STORE_COMPETITIONS, record),
+  delete: id      => idbDelete(STORE_COMPETITIONS, id),
+  clear:  ()      => idbClearStore(STORE_COMPETITIONS),
+  putMany: records => idbPutMany(STORE_COMPETITIONS, records),
+  getByCompetitionId: competitionId =>
+    idbGetByIndex(STORE_COMPETITIONS, 'competitionId', competitionId),
 };
