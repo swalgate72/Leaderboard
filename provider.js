@@ -147,6 +147,15 @@ export const roundTeamsCreate        = (...a) => provider.roundTeamsCreate(...a)
 export const roundTeamsLoad          = (...a) => provider.roundTeamsLoad(...a);
 export const roundTeamUpdate         = (...a) => provider.roundTeamUpdate(...a);
 
+// Competitions (local only — no Supabase equivalent)
+export const competitionCreate         = (...a) => localProvider.competitionCreate(...a);
+export const competitionLoadById       = (...a) => localProvider.competitionLoadById(...a);
+export const competitionFindBySharedId = (...a) => localProvider.competitionFindBySharedId(...a);
+export const competitionUpdate         = (...a) => localProvider.competitionUpdate(...a);
+export const competitionComplete       = (...a) => localProvider.competitionComplete(...a);
+export const competitionsLoadAll       = (...a) => localProvider.competitionsLoadAll(...a);
+export const competitionDelete         = (...a) => localProvider.competitionDelete(...a);
+
 // Backup / restore (local only — not delegated to Supabase provider)
 export const exportBackup        = (...a) => localProvider.exportBackup(...a);
 export const importBackup        = (...a) => localProvider.importBackup(...a);
