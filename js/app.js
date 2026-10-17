@@ -2729,70 +2729,82 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
   }
 
   // ── Open scanner ───────────────────────────────────────────────
-  async function openScannerModal() {
+  // iOS PWA: getUserMedia must be called synchronously within the click handler
+  // (before any await) to count as a user gesture. We start the Promise
+  // immediately then handle it via .then() — never use async/await here.
+  function openScannerModal() {
     const modal  = document.getElementById('modal-qr-scanner');
     const status = document.getElementById('qr-scanner-status');
     const video  = document.getElementById('qr-scanner-video');
-    if (!modal || !video) return;
 
-    modal.classList.add('open');
+    // Show modal immediately — before camera starts
+    if (modal) modal.classList.add('open');
     if (status) status.textContent = 'Starting camera…';
 
-    try {
-      scanStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
-      video.srcObject = scanStream;
-      await video.play();
-    } catch (err) {
-      if (status) status.textContent = 'Camera access denied. Please allow camera access and try again.';
+    if (!modal || !video) {
+      if (status) status.textContent = 'Error: scanner UI not found. Please reload.';
       return;
     }
 
-    if (status) status.textContent = 'Point your camera at the QR code';
-
-    // Use BarcodeDetector if available (Chrome, Safari 17.4+), fall back to jsQR
-    const useNative = ('BarcodeDetector' in window);
-    const detector  = useNative ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
-    const canvas    = document.getElementById('qr-scanner-canvas');
-    const ctx       = canvas ? canvas.getContext('2d', { willReadFrequently: true }) : null;
-
-    function extractJoinParam(raw) {
-      if (!raw) return null;
-      if (raw.includes('?join=')) {
-        try { return new URL(raw).searchParams.get('join'); } catch { return null; }
-      }
-      if (/^[A-Za-z0-9_-]{20,}$/.test(raw)) return raw;
-      return null;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      if (status) status.textContent = 'Camera not available. Open in Safari directly (not from home screen).';
+      return;
     }
 
-    // Poll every 300ms
-    scanInterval = setInterval(async () => {
-      if (!scanStream || video.readyState < 2) return;
-      try {
-        let raw = null;
-        if (useNative) {
-          const codes = await detector.detect(video);
-          raw = codes[0]?.rawValue ?? null;
-        } else if (window.jsQR && canvas && ctx) {
-          // jsQR fallback: draw frame to canvas and decode
-          canvas.width  = video.videoWidth;
-          canvas.height = video.videoHeight;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const result  = window.jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'dontInvert' });
-          raw = result?.data ?? null;
+    // Start getUserMedia synchronously within the gesture handler (iOS requirement)
+    const streamPromise = navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+    });
+
+    streamPromise.then(async stream => {
+      scanStream = stream;
+      video.srcObject = stream;
+      try { await video.play(); } catch { /* stream still works */ }
+
+      if (status) status.textContent = 'Point your camera at the QR code';
+
+      const useNative = ('BarcodeDetector' in window);
+      const detector  = useNative ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
+      const canvas    = document.getElementById('qr-scanner-canvas');
+      const ctx       = canvas ? canvas.getContext('2d', { willReadFrequently: true }) : null;
+
+      function extractJoinParam(raw) {
+        if (!raw) return null;
+        if (raw.includes('?join=')) {
+          try { return new URL(raw).searchParams.get('join'); } catch { return null; }
         }
-        const joinParam = extractJoinParam(raw);
-        if (!joinParam) return;
-        const payload = decodeJoinPayload(joinParam);
-        if (!payload) return;
-        // Valid payload — stop scanning and show confirmation
-        stopScanner();
-        closeScannerModal();
-        showJoinConfirm(payload);
-      } catch { /* keep trying */ }
-    }, 300);
+        if (/^[A-Za-z0-9_-]{20,}$/.test(raw)) return raw;
+        return null;
+      }
+
+      scanInterval = setInterval(async () => {
+        if (!scanStream || video.readyState < 2) return;
+        try {
+          let raw = null;
+          if (useNative) {
+            const codes = await detector.detect(video);
+            raw = codes[0]?.rawValue ?? null;
+          } else if (window.jsQR && canvas && ctx) {
+            canvas.width  = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const result  = window.jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'dontInvert' });
+            raw = result?.data ?? null;
+          }
+          const joinParam = extractJoinParam(raw);
+          if (!joinParam) return;
+          const payload = decodeJoinPayload(joinParam);
+          if (!payload) return;
+          stopScanner();
+          closeScannerModal();
+          showJoinConfirm(payload);
+        } catch { /* keep trying */ }
+      }, 300);
+
+    }).catch(err => {
+      if (status) status.textContent = `Camera error: ${err.name} — ${err.message}. Please allow camera access.`;
+    });
   }
 
   // ── Show join confirmation ──────────────────────────────────────
@@ -2884,7 +2896,10 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
   }
 
   // ── Wire up buttons ────────────────────────────────────────────
-  document.getElementById('btn-join-competition-qr')?.addEventListener('click', openScannerModal);
+  document.getElementById('btn-join-competition-qr')?.addEventListener('click', () => {
+    alert('Join button tapped ✓');
+    openScannerModal();
+  });
   document.getElementById('btn-modal-scanner-close')?.addEventListener('click', closeScannerModal);
   document.getElementById('modal-qr-scanner')?.addEventListener('click', e => {
     if (e.target === e.currentTarget) closeScannerModal();
