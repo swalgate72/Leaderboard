@@ -951,6 +951,8 @@ async function showHome() {
   showScreen('screen-home');
   renderLogos();
   setActiveBottomNav('nav-play');
+  // Signal that the app is ready (used by the ?join= URL handler)
+  window.dispatchEvent(new Event('lb-app-ready'));
 
   // Ryder Cup button — only visible to the authorised developer account
   const RC_AUTHORISED_USER = '52e987a2-ce84-4b47-a2a8-e5a2910e8593';
@@ -2687,6 +2689,220 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
     e.currentTarget.classList.remove('open');
   }
 });
+
+// ================================================================
+// STAGE C — JOIN COMPETITION VIA QR SCAN
+// ================================================================
+
+(function () {
+  // ── State ──────────────────────────────────────────────────────
+  let scanStream   = null;   // active MediaStream
+  let scanInterval = null;   // polling interval id
+  let pendingJoin  = null;   // decoded payload waiting for confirmation
+
+  // ── Helpers ────────────────────────────────────────────────────
+  function b64urlDecode(str) {
+    const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+    const pad  = (4 - (b64.length % 4)) % 4;
+    return atob(b64 + '='.repeat(pad));
+  }
+
+  function decodeJoinPayload(raw) {
+    try {
+      const json = b64urlDecode(raw);
+      const obj  = JSON.parse(json);
+      if (obj.v !== 1 || !obj.cid || !obj.cn || !obj.course) return null;
+      return obj;
+    } catch { return null; }
+  }
+
+  function stopScanner() {
+    if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+    if (scanStream)   { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+    const video = document.getElementById('qr-scanner-video');
+    if (video) video.srcObject = null;
+  }
+
+  function closeScannerModal() {
+    stopScanner();
+    document.getElementById('modal-qr-scanner')?.classList.remove('open');
+  }
+
+  // ── Open scanner ───────────────────────────────────────────────
+  async function openScannerModal() {
+    const modal  = document.getElementById('modal-qr-scanner');
+    const status = document.getElementById('qr-scanner-status');
+    const video  = document.getElementById('qr-scanner-video');
+    if (!modal || !video) return;
+
+    // Check BarcodeDetector support
+    if (!('BarcodeDetector' in window)) {
+      alert('QR scanning is not supported on this browser.\n\nAsk the organiser to share the URL directly instead.');
+      return;
+    }
+
+    modal.classList.add('open');
+    if (status) status.textContent = 'Starting camera…';
+
+    try {
+      scanStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+      });
+      video.srcObject = scanStream;
+      await video.play();
+    } catch (err) {
+      if (status) status.textContent = 'Camera access denied. Please allow camera access and try again.';
+      return;
+    }
+
+    if (status) status.textContent = 'Point your camera at the QR code';
+
+    const detector = new BarcodeDetector({ formats: ['qr_code'] });
+
+    // Poll every 300ms
+    scanInterval = setInterval(async () => {
+      if (!scanStream || video.readyState < 2) return;
+      try {
+        const codes = await detector.detect(video);
+        for (const code of codes) {
+          const raw = code.rawValue ?? '';
+          // Accept either the full URL or just the ?join= param value
+          let joinParam = null;
+          if (raw.includes('?join=')) {
+            joinParam = new URL(raw).searchParams.get('join');
+          } else if (raw.match(/^[A-Za-z0-9_-]{20,}/)) {
+            joinParam = raw; // bare base64url
+          }
+          if (!joinParam) continue;
+          const payload = decodeJoinPayload(joinParam);
+          if (!payload) continue;
+          // Valid payload — stop scanning and show confirmation
+          stopScanner();
+          closeScannerModal();
+          showJoinConfirm(payload);
+          return;
+        }
+      } catch { /* detector error — keep trying */ }
+    }, 300);
+  }
+
+  // ── Show join confirmation ──────────────────────────────────────
+  function showJoinConfirm(payload) {
+    pendingJoin = payload;
+    const modal      = document.getElementById('modal-join-confirm');
+    const nameEl     = document.getElementById('modal-join-comp-name');
+    const courseEl   = document.getElementById('modal-join-course-name');
+    const noticeEl   = document.getElementById('modal-join-course-notice');
+    if (!modal) return;
+
+    if (nameEl)   nameEl.textContent   = payload.cn;
+    if (courseEl) courseEl.textContent = payload.course?.name ?? '';
+
+    // Check if we already have this course locally
+    const existing = allCourses.find(c =>
+      c.name?.trim().toLowerCase() === payload.course?.name?.trim().toLowerCase()
+    );
+    if (noticeEl) {
+      if (existing) {
+        noticeEl.style.display = 'none';
+      } else {
+        noticeEl.style.display = 'block';
+        noticeEl.textContent   = `"${payload.course.name}" will be saved to your courses.`;
+      }
+    }
+
+    modal.classList.add('open');
+  }
+
+  // ── Confirm join: save course if needed, pre-fill setup ─────────
+  async function confirmJoin() {
+    if (!pendingJoin) return;
+    const payload = pendingJoin;
+    pendingJoin   = null;
+    document.getElementById('modal-join-confirm')?.classList.remove('open');
+
+    const { cid, cn, course: cp, ti } = payload;
+
+    // Find or save course
+    let courseRec = allCourses.find(c =>
+      c.name?.trim().toLowerCase() === cp?.name?.trim().toLowerCase()
+    );
+
+    if (!courseRec && cp) {
+      // Build a course record from the payload snapshot
+      const newCourse = {
+        name:     cp.name,
+        location: cp.location ?? '',
+        tees:     (cp.tees ?? []).map(t => ({
+          name:         t.name,
+          color:        t.color ?? '',
+          par:          t.par,
+          si:           t.si,
+          courseRating: t.courseRating ?? null,
+          slopeRating:  t.slopeRating  ?? null,
+        })),
+      };
+      try {
+        courseRec = await courseSave(newCourse);
+        allCourses = await coursesLoadAll(); // refresh local list
+      } catch (err) {
+        console.error('[Join] courseSave failed:', err);
+        alert('Could not save course. Please try again.');
+        return;
+      }
+    }
+
+    if (!courseRec) {
+      alert('Could not find or save the course. Please try again.');
+      return;
+    }
+
+    // Pre-fill setup — use stableford as default scoring format
+    setup.category  = 'solo';
+    setup.scoring   = 'stableford';
+    setup.courseId  = courseRec.id;
+    setup.teeIdx    = (typeof ti === 'number' && ti >= 0 && ti < (courseRec.tees?.length ?? 0)) ? ti : 0;
+    setup.holes     = 18;
+    setup.numPlayers = 1;
+    setup.players   = [];
+    setup.pairs     = [];
+    setup.tournamentId = null;
+
+    // Store the competition join info so the round can be linked
+    try { localStorage.setItem('lb-comp-qr-id', cid); } catch {}
+
+    showScreen('screen-setup-players');
+  }
+
+  // ── Wire up buttons ────────────────────────────────────────────
+  document.getElementById('btn-join-competition-qr')?.addEventListener('click', openScannerModal);
+  document.getElementById('btn-modal-scanner-close')?.addEventListener('click', closeScannerModal);
+  document.getElementById('modal-qr-scanner')?.addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeScannerModal();
+  });
+  document.getElementById('btn-modal-join-close')?.addEventListener('click', () => {
+    pendingJoin = null;
+    document.getElementById('modal-join-confirm')?.classList.remove('open');
+  });
+  document.getElementById('modal-join-confirm')?.addEventListener('click', e => {
+    if (e.target === e.currentTarget) {
+      pendingJoin = null;
+      e.currentTarget.classList.remove('open');
+    }
+  });
+  document.getElementById('btn-join-confirm')?.addEventListener('click', confirmJoin);
+
+  // ── Handle ?join= in URL on page load ─────────────────────────
+  // Allows sharing the URL directly (e.g. via iMessage) as well as QR
+  const urlJoin = new URLSearchParams(window.location.search).get('join');
+  if (urlJoin) {
+    const payload = decodeJoinPayload(urlJoin);
+    if (payload) {
+      // Wait for app to finish initialising before showing the modal
+      window.addEventListener('lb-app-ready', () => showJoinConfirm(payload), { once: true });
+    }
+  }
+})();
 
 // ================================================================
 // SETUP -- PAIRS SCREEN (for betterball/csm/foursomes/greensomes)

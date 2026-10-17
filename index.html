@@ -359,9 +359,81 @@
         </div>
 
       </div><!-- /fmt-grid -->
+
+      <!-- Join Competition via QR scan -->
+      <div style="padding:0.75rem 0 0;">
+        <button id="btn-join-competition-qr"
+          style="width:100%;padding:0.85rem;font-size:0.95rem;font-weight:700;
+                 background:transparent;border:1.5px solid rgba(255,255,255,0.18);
+                 border-radius:0.75rem;color:rgba(255,255,255,0.7);cursor:pointer;
+                 display:flex;align-items:center;justify-content:center;gap:0.5rem;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+            <rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none"/>
+            <rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none"/>
+            <rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none"/>
+            <line x1="14" y1="14" x2="14" y2="14" stroke-width="3"/>
+            <line x1="17" y1="14" x2="21" y2="14"/><line x1="21" y1="14" x2="21" y2="17"/>
+            <line x1="14" y1="17" x2="17" y2="17"/><line x1="17" y1="17" x2="17" y2="21"/>
+            <line x1="14" y1="21" x2="21" y2="21"/>
+          </svg>
+          Join Competition
+        </button>
+      </div>
+
     </div>
   </div>
 
+</div>
+
+<!-- QR Scanner modal -->
+<div id="modal-qr-scanner" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-scanner-title">
+  <div class="modal-box" style="max-width:380px;width:95%;text-align:center;">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-scanner-title">Scan Competition QR</span>
+      <button id="btn-modal-scanner-close" class="btn btn-ghost"
+        style="margin-left:auto;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:1.2rem;line-height:1;padding:0.3rem 0.6rem;"
+        aria-label="Close">✕</button>
+    </div>
+    <div style="padding:1rem;">
+      <div id="qr-scanner-video-wrap" style="position:relative;border-radius:0.5rem;overflow:hidden;background:#000;aspect-ratio:1;max-width:320px;margin:0 auto;">
+        <video id="qr-scanner-video" autoplay playsinline muted
+          style="width:100%;height:100%;object-fit:cover;display:block;"></video>
+        <!-- Viewfinder overlay -->
+        <div style="position:absolute;inset:0;pointer-events:none;">
+          <div style="position:absolute;inset:20%;border:2px solid rgba(255,255,255,0.6);border-radius:0.5rem;
+                      box-shadow:0 0 0 9999px rgba(0,0,0,0.45);"></div>
+        </div>
+      </div>
+      <p id="qr-scanner-status" style="margin:0.75rem 0 0;font-size:0.85rem;opacity:0.7;">
+        Point your camera at the QR code
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Join Competition confirmation modal -->
+<div id="modal-join-confirm" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-join-title">
+  <div class="modal-box" style="max-width:360px;width:92%;">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-join-title">Join Competition</span>
+      <button id="btn-modal-join-close" class="btn btn-ghost"
+        style="margin-left:auto;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:1.2rem;line-height:1;padding:0.3rem 0.6rem;"
+        aria-label="Close">✕</button>
+    </div>
+    <div style="padding:1rem 1rem 1.25rem;">
+      <p id="modal-join-comp-name" style="font-weight:700;font-size:1.05rem;margin:0 0 0.25rem;"></p>
+      <p id="modal-join-course-name" style="font-size:0.9rem;opacity:0.7;margin:0 0 1rem;"></p>
+      <div id="modal-join-course-notice" style="display:none;background:rgba(66,153,225,0.12);border:1px solid rgba(66,153,225,0.3);border-radius:0.5rem;padding:0.65rem 0.85rem;margin-bottom:1rem;font-size:0.85rem;color:var(--blue,#4299e1);"></div>
+      <button id="btn-join-confirm"
+        style="width:100%;padding:0.85rem;font-size:1rem;font-weight:800;
+               background:var(--accent,#d4a843);border:none;border-radius:0.6rem;
+               color:#000;cursor:pointer;">
+        Set Up My Round →
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- Bottom tab bar (persistent on home + key screens) -->
