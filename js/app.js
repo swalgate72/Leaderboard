@@ -2695,6 +2695,9 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
 // ================================================================
 
 (function () {
+  // ── Confirm IIFE is running ────────────────────────────────────
+  console.log('[JoinQR] IIFE running');
+
   // ── State ──────────────────────────────────────────────────────
   let scanStream   = null;   // active MediaStream
   let scanInterval = null;   // polling interval id
