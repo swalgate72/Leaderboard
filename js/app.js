@@ -2553,31 +2553,50 @@ function updateShareQRButtonVisibility() {
 }
 
 // Build the QR payload object from the current setup.
-// Keep payload small — only include the selected tee to reduce QR density.
+// Uses short keys and compressed arrays to keep QR as small as possible.
 function buildQRPayload(competitionRec) {
   const course = allCourses.find(c => c.id === setup.courseId) ?? null;
   const tee    = course?.tees?.[setup.teeIdx] ?? null;
 
-  const coursePayload = course ? {
-    name:     course.name,
-    location: course.location ?? null,
-    // Only the selected tee — keeps QR small and scannable
-    tees: tee ? [{
-      name:         tee.name,
-      color:        tee.color ?? null,
-      si:           tee.si,
-      par:          tee.par,
-      ...(tee.courseRating != null ? { courseRating: tee.courseRating } : {}),
-      ...(tee.slopeRating  != null ? { slopeRating:  tee.slopeRating  } : {}),
-    }] : [],
+  // Compress tee data: si and par as comma-joined strings, short keys
+  const teePayload = tee ? {
+    n:  tee.name,
+    si: (tee.si  ?? []).join(','),
+    p:  (tee.par ?? []).join(','),
+    ...(tee.courseRating != null ? { cr: tee.courseRating } : {}),
+    ...(tee.slopeRating  != null ? { sr: tee.slopeRating  } : {}),
   } : null;
 
   return {
-    v:      1,
-    cid:    competitionRec.competitionId,
-    cn:     competitionRec.name,
-    course: coursePayload,
-    ti:     0,   // always 0 — only selected tee is included
+    v:   1,
+    cid: competitionRec.competitionId,
+    cn:  competitionRec.name,
+    c:   course ? { n: course.name, t: teePayload } : null,
+  };
+}
+
+// Expand a compressed v2-style payload back to the full shape decodeJoinPayload expects
+function expandQRPayload(obj) {
+  if (obj.course) return obj; // already full format (v1 legacy)
+  if (!obj.c) return null;
+  const t = obj.c.t;
+  return {
+    v:      obj.v,
+    cid:    obj.cid,
+    cn:     obj.cn,
+    course: {
+      name:  obj.c.n,
+      location: null,
+      tees: t ? [{
+        name:         t.n,
+        color:        null,
+        si:           (t.si || '').split(',').map(Number),
+        par:          (t.p  || '').split(',').map(Number),
+        ...(t.cr != null ? { courseRating: t.cr } : {}),
+        ...(t.sr != null ? { slopeRating:  t.sr } : {}),
+      }] : [],
+    },
+    ti: 0,
   };
 }
 
@@ -2708,8 +2727,11 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
     try {
       const json = b64urlDecode(raw);
       const obj  = JSON.parse(json);
-      if (obj.v !== 1 || !obj.cid || !obj.cn || !obj.course) return null;
-      return obj;
+      if (obj.v !== 1 || !obj.cid || !obj.cn) return null;
+      // Expand compressed payload (short keys) to full shape
+      const full = expandQRPayload(obj);
+      if (!full || !full.course) return null;
+      return full;
     } catch { return null; }
   }
 
@@ -2919,6 +2941,19 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
 
   // ── Wire up buttons ────────────────────────────────────────────
   document.getElementById('btn-join-competition-qr')?.addEventListener('click', openScannerModal);
+  document.getElementById('btn-manual-join-entry')?.addEventListener('click', () => {
+    stopScanner();
+    document.getElementById('modal-qr-scanner')?.classList.remove('open');
+    const url = prompt('Paste the competition join link:');
+    if (!url) return;
+    const param = url.includes('?join=')
+      ? (() => { try { return new URL(url).searchParams.get('join'); } catch { return null; } })()
+      : url.trim();
+    if (!param) { alert('Invalid link. Please copy the full join link.'); return; }
+    const payload = decodeJoinPayload(param);
+    if (!payload) { alert('Could not read competition data from that link.'); return; }
+    showJoinConfirm(payload);
+  });
   document.getElementById('btn-modal-scanner-close')?.addEventListener('click', closeScannerModal);
   document.getElementById('modal-qr-scanner')?.addEventListener('click', e => {
     if (e.target === e.currentTarget) closeScannerModal();
