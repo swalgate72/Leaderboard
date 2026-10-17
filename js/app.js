@@ -1077,9 +1077,9 @@ function setActiveBottomNav(activeId) {
 document.querySelectorAll('.fmt-btn').forEach(btn => {
   // Use touchstart for instant response on iOS — prevents ghost-click issues
   const handleFmtSelect = (e) => {
-    e.preventDefault(); // suppress subsequent click
     const fmt = btn.dataset.fmt;
-    if (!fmt) return;
+    if (!fmt) return;  // not a format button — let click fire normally
+    e.preventDefault(); // suppress subsequent click (format buttons only)
     setup.tournamentId     = null;
     setup.tournRoundNumber = null;
     setup.scoring  = fmt;
