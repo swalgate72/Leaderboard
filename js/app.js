@@ -24,6 +24,7 @@ import {
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
   exportBackup, importBackup, exportFromSupabase,
+  competitionCreate, competitionFindBySharedId,
   MULTI_USER,
 } from '../provider.js';
 
@@ -325,6 +326,9 @@ function showScreen(id) {
 
   const bottomNav = document.getElementById('bottom-nav');
   if (bottomNav) bottomNav.style.display = BOTTOM_NAV_SCREENS.includes(id) ? 'flex' : 'none';
+
+  // Update Share QR button visibility when the Add Players screen is shown
+  if (id === 'screen-setup-players') updateShareQRButtonVisibility();
 
   // Persist setup-flow screens so backgrounding the app doesn't lose progress
   if (SETUP_SCREENS.includes(id)) {
@@ -2523,6 +2527,164 @@ document.getElementById('btn-setup-players-next')?.addEventListener('click', () 
   } else {
     renderSetupGroupCards();
     showScreen('screen-setup-groups');
+  }
+});
+
+// ================================================================
+// SHARE COMPETITION QR — button on Add Players screen
+// ================================================================
+
+// Lazy-loaded QR module (avoids importing the 25kB library until needed)
+let _qrMod = null;
+async function getQRMod() {
+  if (!_qrMod) _qrMod = (await import('./qr.js')).default;
+  return _qrMod;
+}
+
+const APP_BASE_URL = 'https://leaderboard-ten-wheat.vercel.app/';
+
+// Show / hide the Share QR button — visible whenever a course has been selected
+function updateShareQRButtonVisibility() {
+  const btn = document.getElementById('btn-share-competition-qr');
+  if (!btn) return;
+  btn.style.display = setup.courseId ? 'block' : 'none';
+}
+
+// Build the QR payload object from the current setup
+function buildQRPayload(competitionRec) {
+  const course = allCourses.find(c => c.id === setup.courseId) ?? null;
+  const tee    = course?.tees?.[setup.teeIdx] ?? null;
+
+  // Include all tees so the receiver can match by full course data,
+  // but do NOT include any player data.
+  const coursePayload = course ? {
+    name:     course.name,
+    location: course.location ?? null,
+    tees:     (course.tees ?? []).map(t => {
+      const obj = {
+        name:  t.name,
+        color: t.color ?? null,
+        si:    t.si,
+        par:   t.par,
+      };
+      if (t.courseRating != null) obj.courseRating = t.courseRating;
+      if (t.slopeRating  != null) obj.slopeRating  = t.slopeRating;
+      return obj;
+    }),
+  } : null;
+
+  return {
+    v:      1,                              // payload version
+    cid:    competitionRec.competitionId,   // shared UUID
+    cn:     competitionRec.name,            // competition name
+    course: coursePayload,                  // full course data
+    ti:     setup.teeIdx,                   // which tee was selected
+  };
+}
+
+// Encode payload as base64url and append to the app URL
+function buildQRURL(payload) {
+  const json    = JSON.stringify(payload);
+  const b64url  = btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return APP_BASE_URL + '?join=' + b64url;
+}
+
+// Open the QR modal and render the code
+async function openQRShareModal(competitionRec) {
+  const modal = document.getElementById('modal-qr-share');
+  if (!modal) return;
+
+  // Update modal text
+  const nameEl   = document.getElementById('modal-qr-comp-name');
+  const courseEl = document.getElementById('modal-qr-course-name');
+  const svgEl    = document.getElementById('modal-qr-svg');
+  if (nameEl)   nameEl.textContent   = competitionRec.name ?? 'Competition';
+  if (courseEl) {
+    const course = allCourses.find(c => c.id === setup.courseId);
+    const tee    = course?.tees?.[setup.teeIdx];
+    courseEl.textContent = [course?.name, tee?.name].filter(Boolean).join(' — ');
+  }
+
+  // Show spinner while generating
+  if (svgEl) svgEl.innerHTML = '<span style="opacity:0.5">Generating QR…</span>';
+  modal.classList.add('open');
+  // Preserve setup state so closing and re-opening works
+  saveSetupState('screen-setup-players');
+
+  try {
+    const payload = buildQRPayload(competitionRec);
+    const url     = buildQRURL(payload);
+    console.log('[QR] URL length:', url.length);
+
+    const qr  = await getQRMod();
+    const svg = await qr.toSVG(url, {
+      errorCorrectionLevel: 'M',
+      width: 280,
+      margin: 2,
+    });
+    if (svgEl) svgEl.innerHTML = svg;
+  } catch (err) {
+    console.error('[QR] generation failed:', err);
+    if (svgEl) svgEl.innerHTML = '<span style="color:var(--error,#e53e3e)">QR generation failed</span>';
+  }
+}
+
+// Button click: get-or-create competition record, then show QR
+document.getElementById('btn-share-competition-qr')?.addEventListener('click', async () => {
+  if (!setup.courseId) return;
+
+  const btn = document.getElementById('btn-share-competition-qr');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating…'; }
+
+  try {
+    // Stable competition UUID for this setup session.
+    // We store it in localStorage alongside the setup draft so that
+    // re-opening the Add Players screen reuses the same UUID.
+    // Key: lb-comp-qr-id (one per device — a new round setup replaces it)
+    const COMP_QR_KEY = 'lb-comp-qr-id';
+    let sharedId = null;
+    try { sharedId = localStorage.getItem(COMP_QR_KEY); } catch {}
+
+    // Get-or-create a competition record for this shared UUID.
+    let compRec = null;
+    if (sharedId) {
+      const existing = await competitionFindBySharedId(sharedId);
+      compRec = existing?.[0] ?? null;
+    }
+
+    if (!compRec) {
+      // First time (or no matching record): generate a new UUID and create.
+      sharedId = crypto.randomUUID();
+      try { localStorage.setItem(COMP_QR_KEY, sharedId); } catch {}
+      const course = allCourses.find(c => c.id === setup.courseId);
+      const tee    = course?.tees?.[setup.teeIdx];
+      compRec = await competitionCreate({
+        competitionId:  sharedId,
+        name:           'Competition',
+        courseId:       setup.courseId,
+        courseName:     course?.name ?? null,
+        teeName:        tee?.name ?? null,
+        courseSnapshot: tee ?? null,
+        isOrganiser:    true,
+      });
+    }
+
+    await openQRShareModal(compRec);
+  } catch (err) {
+    console.error('[QR] error:', err);
+    alert('Could not generate QR code. Please try again.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📲 Share Competition QR'; }
+  }
+});
+
+// Close QR modal
+document.getElementById('btn-modal-qr-close')?.addEventListener('click', () => {
+  document.getElementById('modal-qr-share')?.classList.remove('open');
+});
+document.getElementById('modal-qr-share')?.addEventListener('click', e => {
+  if (e.target === e.currentTarget) {
+    e.currentTarget.classList.remove('open');
   }
 });
 
