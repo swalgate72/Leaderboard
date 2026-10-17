@@ -562,6 +562,14 @@
         </button>
       </div>
 
+      <!-- Share Competition QR button — only shown when a tournamentId is set -->
+      <button class="btn btn-outline" id="btn-share-competition-qr"
+        style="display:none;width:100%;padding:0.9rem;font-size:1rem;font-weight:800;
+               margin-bottom:0.75rem;border-color:var(--blue-border,#4299e1);
+               color:var(--blue,#4299e1);">
+        📲 Share Competition QR
+      </button>
+
       <button class="btn-setup-next" id="btn-setup-players-next">NEXT: ARRANGE GROUPS →</button>
     </div>
   </div>
@@ -569,7 +577,31 @@
       <div class="screen-pencil-footer">
         <div class="logo-wrap screen-pencil"></div>
       </div>
-  
+
+</div>
+
+<!-- ══════════════════════════════════════════
+     QR SHARE MODAL
+     ══════════════════════════════════════════ -->
+<div id="modal-qr-share" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-qr-title">
+  <div class="modal-box" style="max-width:360px;width:92%;text-align:center;">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-qr-title">Share Competition QR</span>
+      <button id="btn-modal-qr-close" class="btn btn-ghost"
+        style="margin-left:auto;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:1.2rem;line-height:1;padding:0.3rem 0.6rem;"
+        aria-label="Close">✕</button>
+    </div>
+    <div style="padding:1rem 1rem 0.5rem;">
+      <p id="modal-qr-comp-name" style="font-weight:700;font-size:1rem;margin:0 0 0.25rem;"></p>
+      <p id="modal-qr-course-name" style="font-size:0.85rem;opacity:0.7;margin:0 0 1rem;"></p>
+      <div id="modal-qr-svg" style="display:flex;justify-content:center;align-items:center;min-height:220px;">
+        <span style="opacity:0.5;">Generating QR…</span>
+      </div>
+      <p style="font-size:0.75rem;opacity:0.6;margin:0.75rem 0 0;">
+        Scan with a phone camera to join this competition
+      </p>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════
