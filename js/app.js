@@ -707,7 +707,24 @@ async function boot() {
   const groupParam  = params.get('group');
 
   if (tournViewId) { await handleTournamentViewLink(tournViewId); return; }
-  if (joinToken)   { await handleJoinFlow(joinToken, troundParam, groupParam); return; }
+  if (joinToken) {
+    // Competition QR payloads are base64url-encoded JSON with v:1
+    // SMS invite tokens are short UUIDs — route them differently
+    let isCompPayload = false;
+    try {
+      const b64 = joinToken.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = (4 - (b64.length % 4)) % 4;
+      const obj = JSON.parse(atob(b64 + '='.repeat(pad)));
+      if (obj && obj.v === 1 && obj.cid) isCompPayload = true;
+    } catch {}
+
+    if (!isCompPayload) {
+      await handleJoinFlow(joinToken, troundParam, groupParam);
+      return;
+    }
+    // Competition payload is handled by the competition join handler below (line ~2995)
+    // — fall through to normal app init so showHome() fires lb-app-ready
+  }
 
   // Register service worker for push notifications (non-blocking)
   registerServiceWorker().catch(() => {});
