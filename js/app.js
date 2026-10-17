@@ -2884,7 +2884,10 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
   }
 
   // ── Wire up buttons ────────────────────────────────────────────
-  document.getElementById('btn-join-competition-qr')?.addEventListener('click', openScannerModal);
+  document.getElementById('btn-join-competition-qr')?.addEventListener('click', () => {
+    alert('Join Competition tapped — handler running');
+    openScannerModal();
+  });
   document.getElementById('btn-modal-scanner-close')?.addEventListener('click', closeScannerModal);
   document.getElementById('modal-qr-scanner')?.addEventListener('click', e => {
     if (e.target === e.currentTarget) closeScannerModal();
