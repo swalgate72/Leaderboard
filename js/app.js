@@ -2634,6 +2634,20 @@ async function openQRShareModal(competitionRec) {
     const url     = buildQRURL(payload);
     console.log('[QR] URL length:', url.length);
 
+    // Wire up copy button
+    const copyBtn = document.getElementById('btn-copy-join-link');
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+          copyBtn.textContent = '✅ Copied!';
+          setTimeout(() => { copyBtn.textContent = '📋 Copy join link'; }, 2000);
+        } catch {
+          prompt('Copy this link:', url);
+        }
+      };
+    }
+
     const qr  = await getQRMod();
     const svg = await qr.toSVG(url, {
       errorCorrectionLevel: 'M',
