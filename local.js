@@ -14,7 +14,8 @@
 // ================================================================
 
 import { players as playersStore, courses as coursesStore,
-         rounds as roundsStore, settings as settingsStore } from './db.js';
+         rounds as roundsStore, settings as settingsStore,
+         competitions as competitionsStore } from './db.js';
 
 // ── Local owner ID ───────────────────────────────────────────────
 // A stable UUID generated once on first run and persisted in settings.
@@ -594,6 +595,90 @@ export async function roundTeamsLoad()                 { return []; }
 export async function roundTeamUpdate()                {}
 
 // ================================================================
+// COMPETITIONS — local competition records
+//
+// A competition record stores the shared identity that links rounds
+// from different scoring groups. The organiser creates it; other
+// scorers receive the same competitionId via QR and create their own
+// local record pointing to the same UUID.
+//
+// Schema:
+//   id              — local record UUID (this device's record)
+//   competitionId   — shared competition UUID (same on every device)
+//   name            — competition name
+//   courseId        — local course ID used for this competition
+//   courseName      — course name snapshot
+//   teeName         — tee name snapshot
+//   courseSnapshot  — full tee data at time of joining (for QR share)
+//   status          — 'active' | 'completed'
+//   isOrganiser     — true if this device created the competition
+//   createdAt       — ISO timestamp
+//   updatedAt       — ISO timestamp
+// ================================================================
+
+export async function competitionCreate({
+  competitionId,   // shared UUID — pass one for QR join, omit to auto-generate
+  name,
+  courseId,
+  courseName,
+  teeName,
+  courseSnapshot,  // full tee object from the course record
+  isOrganiser = true,
+}) {
+  const id = crypto.randomUUID();
+  const sharedId = competitionId ?? crypto.randomUUID();
+  const rec = {
+    id,
+    competitionId: sharedId,
+    name:           name ?? 'Competition',
+    courseId:       courseId ?? null,
+    courseName:     courseName ?? null,
+    teeName:        teeName ?? null,
+    courseSnapshot: courseSnapshot ?? null,
+    status:         'active',
+    isOrganiser:    isOrganiser,
+    createdAt:      now(),
+    updatedAt:      now(),
+  };
+  await competitionsStore.put(rec);
+  return rec;
+}
+
+export async function competitionLoadById(id) {
+  return competitionsStore.get(id);
+}
+
+export async function competitionFindBySharedId(competitionId) {
+  // Returns array — should be 0 or 1 record on any given device
+  return competitionsStore.getByCompetitionId(competitionId);
+}
+
+export async function competitionUpdate(id, fields) {
+  const existing = await competitionsStore.get(id);
+  if (!existing) throw new Error('Competition not found: ' + id);
+  await competitionsStore.put({
+    ...existing,
+    ...fields,
+    id,                   // never overwrite primary key
+    competitionId: existing.competitionId, // never overwrite shared UUID
+    updatedAt: now(),
+  });
+}
+
+export async function competitionComplete(id) {
+  return competitionUpdate(id, { status: 'completed' });
+}
+
+export async function competitionsLoadAll() {
+  const all = await competitionsStore.getAll();
+  return all.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+export async function competitionDelete(id) {
+  await competitionsStore.delete(id);
+}
+
+// ================================================================
 // BACKUP / RESTORE — export and import all local data
 // ================================================================
 
@@ -602,23 +687,25 @@ export async function roundTeamUpdate()                {}
 const BACKUP_SCHEMA_VERSION = 1;
 
 export async function exportBackup() {
-  const [owner, allPlayers, allCourses, allRounds, allSettings] = await Promise.all([
+  const [owner, allPlayers, allCourses, allRounds, allSettings, allCompetitions] = await Promise.all([
     settingsStore.get('owner'),
     playersStore.getAll(),
     coursesStore.getAll(),
     roundsStore.getAll(),
     settingsStore.getAll(),
+    competitionsStore.getAll(),
   ]);
 
   const payload = {
-    schema:     BACKUP_SCHEMA_VERSION,
-    appVersion: '3.2',
-    exportedAt: now(),
-    owner:      owner ?? null,
-    players:    allPlayers,
-    courses:    allCourses,
-    rounds:     allRounds,
-    settings:   allSettings.filter(s => s.key !== 'owner'), // owner stored separately
+    schema:       BACKUP_SCHEMA_VERSION,
+    appVersion:   '3.2',
+    exportedAt:   now(),
+    owner:        owner ?? null,
+    players:      allPlayers,
+    courses:      allCourses,
+    rounds:       allRounds,
+    competitions: allCompetitions,
+    settings:     allSettings.filter(s => s.key !== 'owner'), // owner stored separately
   };
 
   // Compute checksum over the payload (Web Crypto SHA-256)
@@ -665,13 +752,15 @@ export async function importBackup(jsonString) {
     coursesStore.clear(),
     roundsStore.clear(),
     settingsStore.clear(),
+    competitionsStore.clear(),
   ]);
 
   await Promise.all([
-    backup.players?.length  ? playersStore.putMany(backup.players)  : Promise.resolve(),
-    backup.courses?.length  ? coursesStore.putMany(backup.courses)  : Promise.resolve(),
-    backup.rounds?.length   ? roundsStore.putMany(backup.rounds)    : Promise.resolve(),
-    backup.settings?.length ? settingsStore.putMany(backup.settings): Promise.resolve(),
+    backup.players?.length      ? playersStore.putMany(backup.players)           : Promise.resolve(),
+    backup.courses?.length      ? coursesStore.putMany(backup.courses)           : Promise.resolve(),
+    backup.rounds?.length       ? roundsStore.putMany(backup.rounds)             : Promise.resolve(),
+    backup.settings?.length     ? settingsStore.putMany(backup.settings)         : Promise.resolve(),
+    backup.competitions?.length ? competitionsStore.putMany(backup.competitions) : Promise.resolve(),
   ]);
 
   // Restore owner separately
