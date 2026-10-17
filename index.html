@@ -409,11 +409,19 @@
       <p id="qr-scanner-status" style="margin:0.75rem 0 0;font-size:0.85rem;opacity:0.7;">
         Point your camera at the QR code
       </p>
-      <p style="margin:0.5rem 0 0;">
-        <button id="btn-manual-join-entry" style="background:none;border:none;color:var(--accent,#b8963e);font-size:0.82rem;text-decoration:underline;cursor:pointer;padding:0;">
-          Can't scan? Enter link manually
-        </button>
-      </p>
+      <div id="qr-paste-section" style="margin:0.75rem 0 0;">
+        <p style="font-size:0.8rem;opacity:0.6;margin:0 0 0.4rem;">Or paste a competition code:</p>
+        <div style="display:flex;gap:0.4rem;">
+          <input id="qr-paste-input" type="text" placeholder="Paste code here…"
+            style="flex:1;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid rgba(255,255,255,0.25);
+                   background:rgba(255,255,255,0.08);color:#fff;font-size:0.85rem;outline:none;" />
+          <button id="btn-paste-join"
+            style="padding:0.5rem 0.75rem;border-radius:8px;border:none;background:var(--accent,#b8963e);
+                   color:#fff;font-size:0.85rem;cursor:pointer;white-space:nowrap;">
+            Join →
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -677,11 +685,19 @@
       <p style="font-size:0.75rem;opacity:0.6;margin:0.75rem 0 0;">
         Scan with a phone camera to join this competition
       </p>
-      <button id="btn-copy-join-link"
+      <button id="btn-share-join-link"
         style="margin:0.75rem 0 0.25rem;background:none;border:1px solid var(--accent,#b8963e);color:var(--accent,#b8963e);
                border-radius:8px;padding:0.5rem 1rem;font-size:0.85rem;cursor:pointer;width:100%;">
         📤 Share join link
       </button>
+      <button id="btn-copy-join-code"
+        style="margin:0.25rem 0 0.25rem;background:none;border:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.7);
+               border-radius:8px;padding:0.5rem 1rem;font-size:0.85rem;cursor:pointer;width:100%;">
+        📋 Copy competition code
+      </button>
+      <p style="font-size:0.72rem;opacity:0.5;margin:0.25rem 0 0.5rem;">
+        Paste the code into Join Competition on the other device
+      </p>
     </div>
   </div>
 </div>
@@ -1852,7 +1868,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261017f"></script>
+<script type="module" src="js/app.js?v=20261017g"></script>
 
 
 <!-- ══════════════════════════════════════════

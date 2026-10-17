@@ -2651,22 +2651,35 @@ async function openQRShareModal(competitionRec) {
     const url     = buildQRURL(payload);
     console.log('[QR] URL length:', url.length);
 
-    // Wire up share/copy button
-    const copyBtn = document.getElementById('btn-copy-join-link');
-    if (copyBtn) {
-      copyBtn.onclick = async () => {
+    // Extract the base64url code (everything after ?join=)
+    const joinCode = url.split('?join=')[1] ?? '';
+
+    // Share join link button
+    const shareBtn = document.getElementById('btn-share-join-link');
+    if (shareBtn) {
+      shareBtn.onclick = async () => {
         if (navigator.share) {
-          try {
-            await navigator.share({ title: 'Join competition', url });
-          } catch {}
+          try { await navigator.share({ title: 'Join competition', url }); } catch {}
         } else {
           try {
             await navigator.clipboard.writeText(url);
-            copyBtn.textContent = '✅ Copied!';
-            setTimeout(() => { copyBtn.textContent = '📤 Share join link'; }, 2000);
-          } catch {
-            prompt('Copy this link:', url);
-          }
+            shareBtn.textContent = '✅ Copied!';
+            setTimeout(() => { shareBtn.textContent = '📤 Share join link'; }, 2000);
+          } catch { prompt('Copy this link:', url); }
+        }
+      };
+    }
+
+    // Copy competition code button (just the base64url payload — for paste into Join field)
+    const codeBtn = document.getElementById('btn-copy-join-code');
+    if (codeBtn) {
+      codeBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(joinCode);
+          codeBtn.textContent = '✅ Code copied!';
+          setTimeout(() => { codeBtn.textContent = '📋 Copy competition code'; }, 2000);
+        } catch {
+          prompt('Copy this code:', joinCode);
         }
       };
     }
@@ -2978,18 +2991,28 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
 
   // ── Wire up buttons ────────────────────────────────────────────
   document.getElementById('btn-join-competition-qr')?.addEventListener('click', openScannerModal);
-  document.getElementById('btn-manual-join-entry')?.addEventListener('click', () => {
-    stopScanner();
-    document.getElementById('modal-qr-scanner')?.classList.remove('open');
-    const url = prompt('Paste the competition join link:');
-    if (!url) return;
-    const param = url.includes('?join=')
-      ? (() => { try { return new URL(url).searchParams.get('join'); } catch { return null; } })()
-      : url.trim();
-    if (!param) { alert('Invalid link. Please copy the full join link.'); return; }
+  // Paste field — accept either a raw code or a full ?join= URL
+  function tryJoinFromCode(raw) {
+    const trimmed = (raw || '').trim();
+    if (!trimmed) return;
+    const param = trimmed.includes('?join=')
+      ? (() => { try { return new URL(trimmed).searchParams.get('join'); } catch { return null; } })()
+      : trimmed;
+    if (!param) { alert('Invalid code. Please copy again from the competition screen.'); return; }
     const payload = decodeJoinPayload(param);
-    if (!payload) { alert('Could not read competition data from that link.'); return; }
+    if (!payload) { alert('Could not read competition data from that code.'); return; }
+    stopScanner();
+    closeScannerModal();
     showJoinConfirm(payload);
+  }
+
+  document.getElementById('btn-paste-join')?.addEventListener('click', () => {
+    const input = document.getElementById('qr-paste-input');
+    tryJoinFromCode(input?.value);
+  });
+
+  document.getElementById('qr-paste-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') tryJoinFromCode(e.target.value);
   });
   document.getElementById('btn-modal-scanner-close')?.addEventListener('click', closeScannerModal);
   document.getElementById('modal-qr-scanner')?.addEventListener('click', e => {
