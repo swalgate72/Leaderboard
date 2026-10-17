@@ -9836,129 +9836,175 @@ document.getElementById('btn-export-group-result')?.addEventListener('click', as
 });
 
 // Combine results modal
-(function wireCombineModal() {
-  const addedGroups = []; // array of decoded group states
+// openCombineModal(organiserState, roundId, rounds) pre-loads the organiser's group
+// and lets them paste in other groups' export codes.
+let _combineRoundId  = null;
+let _combineRounds   = null;
+const _combineGroups = []; // mutable list of decoded group states
 
-  function renderGroupsList() {
-    const listEl  = document.getElementById('combine-groups-list');
-    const showBtn = document.getElementById('btn-combine-show');
-    if (!listEl) return;
-    if (!addedGroups.length) {
-      listEl.innerHTML = '<p style="font-size:0.8rem;opacity:0.5;margin:0;">No groups added yet.</p>';
-      if (showBtn) showBtn.style.display = 'none';
-      return;
-    }
-    listEl.innerHTML = addedGroups.map((g, i) => `
+function _combineRenderGroups() {
+  const listEl  = document.getElementById('combine-groups-list');
+  const showBtn = document.getElementById('btn-combine-show');
+  if (!listEl) return;
+  if (!_combineGroups.length) {
+    listEl.innerHTML = '<p style="font-size:0.8rem;opacity:0.5;margin:0;">No groups added yet.</p>';
+    if (showBtn) showBtn.style.display = 'none';
+    return;
+  }
+  listEl.innerHTML = _combineGroups.map((g, i) => {
+    const isOrganiser = i === 0; // first entry is always the organiser's own group
+    return `
       <div style="display:flex;align-items:center;justify-content:space-between;
                   padding:0.5rem 0.6rem;border-radius:8px;background:rgba(255,255,255,0.06);
                   margin-bottom:0.35rem;font-size:0.85rem;">
-        <span>Group ${g.groupNumber} — ${g.names.join(', ')}</span>
-        <button onclick="removeGroup(${i})"
-          style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0 0.25rem;">✕</button>
-      </div>`).join('');
-    if (showBtn) showBtn.style.display = addedGroups.length > 1 ? 'block' : 'none';
+        <span>${isOrganiser ? '📱 ' : ''}Group ${g.groupNumber} — ${(g.names ?? []).join(', ')}</span>
+        ${isOrganiser ? '' : `<button onclick="_combineRemoveGroup(${i})"
+          style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0 0.25rem;">✕</button>`}
+      </div>`;
+  }).join('');
+  if (showBtn) showBtn.style.display = _combineGroups.length > 1 ? 'block' : 'none';
+}
+
+window._combineRemoveGroup = (i) => {
+  _combineGroups.splice(i, 1);
+  _combineRenderGroups();
+  document.getElementById('combine-leaderboard').innerHTML = '';
+};
+
+function _combineAddCode(raw) {
+  const group = decodeGroupExportCode(raw);
+  if (!group) { alert('Could not read that code. Please copy it again from the other device.'); return; }
+  const idx = _combineGroups.findIndex(g => g.groupNumber === group.groupNumber);
+  if (idx >= 0) _combineGroups[idx] = group; else _combineGroups.push(group);
+  _combineGroups.sort((a, b) => (a.groupNumber ?? 0) - (b.groupNumber ?? 0));
+  const inp = document.getElementById('combine-paste-input');
+  if (inp) inp.value = '';
+  document.getElementById('combine-leaderboard').innerHTML = '';
+  _combineRenderGroups();
+}
+
+function openCombineModal(organiserState, roundId, rounds) {
+  // Reset
+  _combineGroups.length = 0;
+  _combineRoundId = roundId;
+  _combineRounds  = rounds;
+  document.getElementById('combine-leaderboard').innerHTML = '';
+
+  // Pre-load organiser's own group(s)
+  const ownGroups = organiserState.allGroupStates?.length > 1
+    ? organiserState.allGroupStates
+    : [{ ...organiserState, groupNumber: organiserState.groupNumber ?? 1 }];
+  ownGroups.forEach(g => _combineGroups.push({ ...g, groupNumber: g.groupNumber ?? 1 }));
+  _combineGroups.sort((a, b) => (a.groupNumber ?? 0) - (b.groupNumber ?? 0));
+
+  _combineRenderGroups();
+  document.getElementById('modal-combine-results')?.classList.add('open');
+}
+
+document.getElementById('btn-combine-add')?.addEventListener('click', () => {
+  _combineAddCode(document.getElementById('combine-paste-input')?.value);
+});
+document.getElementById('combine-paste-input')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') _combineAddCode(e.target.value);
+});
+
+document.getElementById('btn-combine-show')?.addEventListener('click', async () => {
+  const lbEl = document.getElementById('combine-leaderboard');
+  if (!lbEl || _combineGroups.length < 2) return;
+
+  const merged  = mergeGroupStates(_combineGroups);
+  const summary = getResultSummary(merged);
+  const fmt     = merged.format;
+  const scoreLabel = fmt === 'stroke' ? 'Net' : 'Pts';
+
+  let html = `<div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;
+                           color:var(--muted);font-weight:700;margin-bottom:0.75rem;">
+                Combined — ${merged.courseName}
+              </div>`;
+
+  if (summary.scores?.length) {
+    html += summary.scores.map((s, rank) => {
+      const medals = ['🥇','🥈','🥉'];
+      return `<div style="display:flex;align-items:center;justify-content:space-between;
+                          padding:0.6rem 0.75rem;border-radius:10px;margin-bottom:0.35rem;
+                          background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <span style="font-size:1.1rem;">${medals[rank] ?? `${rank+1}.`}</span>
+          <span style="font-weight:700;">${s.nm}</span>
+        </div>
+        <span style="font-weight:800;color:var(--accent,#b8963e);">${s.score} ${scoreLabel}</span>
+      </div>`;
+    }).join('');
+  } else if (summary.winner) {
+    html += `<div style="text-align:center;font-weight:800;color:var(--gold);font-size:1.1rem;padding:0.75rem 0;">
+               🏆 ${summary.winner}
+             </div>`;
   }
 
-  window.removeGroup = (i) => {
-    addedGroups.splice(i, 1);
-    renderGroupsList();
-    document.getElementById('combine-leaderboard').innerHTML = '';
-  };
-
-  function addGroupCode(raw) {
-    const group = decodeGroupExportCode(raw);
-    if (!group) { alert('Could not read that code. Please copy it again.'); return; }
-    // Prevent duplicates by groupNumber
-    const idx = addedGroups.findIndex(g => g.groupNumber === group.groupNumber);
-    if (idx >= 0) addedGroups[idx] = group; else addedGroups.push(group);
-    // Sort by groupNumber
-    addedGroups.sort((a, b) => (a.groupNumber ?? 0) - (b.groupNumber ?? 0));
-    const inp = document.getElementById('combine-paste-input');
-    if (inp) inp.value = '';
-    renderGroupsList();
-  }
-
-  document.getElementById('btn-combine-add')?.addEventListener('click', () => {
-    addGroupCode(document.getElementById('combine-paste-input')?.value);
-  });
-  document.getElementById('combine-paste-input')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') addGroupCode(e.target.value);
-  });
-
-  document.getElementById('btn-combine-show')?.addEventListener('click', () => {
-    const lbEl = document.getElementById('combine-leaderboard');
-    if (!lbEl || addedGroups.length < 2) return;
-    const merged = mergeGroupStates(addedGroups);
-    const summary = getResultSummary(merged);
-    const fmt = merged.format;
-    const isStroke = fmt === 'stroke';
-    const scoreLabel = isStroke ? 'Net' : 'Pts';
-
-    let html = `<div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;
-                             color:var(--muted);font-weight:700;margin-bottom:0.75rem;">
-                  Combined — ${merged.courseName}
-                </div>`;
-
-    if (summary.scores?.length) {
-      html += summary.scores.map((s, rank) => {
-        const medals = ['🥇','🥈','🥉'];
-        return `<div style="display:flex;align-items:center;justify-content:space-between;
-                            padding:0.6rem 0.75rem;border-radius:10px;margin-bottom:0.35rem;
-                            background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);">
-          <div style="display:flex;align-items:center;gap:0.5rem;">
-            <span style="font-size:1.1rem;">${medals[rank] ?? `${rank+1}.`}</span>
-            <span style="font-weight:700;">${s.nm}</span>
-          </div>
-          <span style="font-weight:800;color:var(--accent,#b8963e);">${s.score} ${scoreLabel}</span>
-        </div>`;
-      }).join('');
-    } else if (summary.winner) {
-      html += `<div style="text-align:center;font-weight:800;color:var(--gold);font-size:1.1rem;padding:0.75rem 0;">
-                 🏆 ${summary.winner}
-               </div>`;
-    }
-
-    // Share button
-    html += `<button id="btn-share-combined"
-      style="width:100%;margin-top:0.75rem;padding:0.65rem;background:var(--green,#48bb78);
+  // Save + Share buttons
+  html += `
+    <button id="btn-save-combined"
+      style="width:100%;margin-top:0.75rem;padding:0.65rem;background:var(--accent,#b8963e);
+             color:#fff;border:none;border-radius:10px;font-family:'Plus Jakarta Sans',sans-serif;
+             font-size:0.9rem;font-weight:800;cursor:pointer;">
+      💾 Save combined result
+    </button>
+    <button id="btn-share-combined"
+      style="width:100%;margin-top:0.4rem;padding:0.65rem;background:var(--green,#48bb78);
              color:#fff;border:none;border-radius:10px;font-family:'Plus Jakarta Sans',sans-serif;
              font-size:0.9rem;font-weight:800;cursor:pointer;">
       📤 Share combined result
     </button>`;
 
-    lbEl.innerHTML = html;
+  lbEl.innerHTML = html;
 
-    // Wire share button
-    document.getElementById('btn-share-combined')?.addEventListener('click', async () => {
-      const text = summary.scores
-        ? summary.scores.map((s,i) => `${i+1}. ${s.nm} — ${s.score} ${scoreLabel}`).join('\n')
-        : summary.winner ?? 'Result';
-      const shareText = `${fmtLabel(fmt)} · ${merged.courseName}\n\n${text}`;
-      if (navigator.share) {
-        try { await navigator.share({ title: 'Combined Leaderboard', text: shareText }); } catch {}
-      } else {
-        await navigator.clipboard.writeText(shareText);
-        document.getElementById('btn-share-combined').textContent = '✅ Copied!';
-      }
-    });
+  // Save: write allGroupStates back to the round in IndexedDB
+  document.getElementById('btn-save-combined')?.addEventListener('click', async () => {
+    const saveBtn = document.getElementById('btn-save-combined');
+    saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+    try {
+      const round = _combineRounds?.find(x => x.id === _combineRoundId);
+      if (!round) throw new Error('Round not found');
+      let state = round.game_state;
+      if (typeof state === 'string') state = JSON.parse(state);
+      // Embed combined groups into state
+      const updatedState = {
+        ...state,
+        allGroupStates: _combineGroups.map(g => { const {allGroupStates:_, ...s} = g; return s; }),
+        combinedGroups: _combineGroups.length,
+      };
+      await idbSave(_combineRoundId, updatedState, false);
+      // Update in-memory rounds list so history refreshes correctly
+      round.game_state = updatedState;
+      saveBtn.textContent = '✅ Saved!';
+      setTimeout(() => { saveBtn.disabled = false; saveBtn.textContent = '💾 Save combined result'; }, 2000);
+    } catch (err) {
+      saveBtn.disabled = false;
+      alert('Could not save: ' + err.message);
+    }
   });
 
-  document.getElementById('btn-combine-results')?.addEventListener('click', () => {
-    addedGroups.length = 0;
-    document.getElementById('combine-leaderboard').innerHTML = '';
-    renderGroupsList();
-    document.getElementById('modal-combine-results')?.classList.add('open');
+  // Share as text
+  document.getElementById('btn-share-combined')?.addEventListener('click', async () => {
+    const text = summary.scores
+      ? summary.scores.map((s, i) => `${i+1}. ${s.nm} — ${s.score} ${scoreLabel}`).join('\n')
+      : summary.winner ?? 'Result';
+    const shareText = `${fmtLabel(fmt)} · ${merged.courseName}\n\n${text}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Combined Leaderboard', text: shareText }); } catch {}
+    } else {
+      await navigator.clipboard.writeText(shareText);
+      document.getElementById('btn-share-combined').textContent = '✅ Copied!';
+    }
   });
+});
 
-  document.getElementById('btn-modal-combine-close')?.addEventListener('click', () => {
-    document.getElementById('modal-combine-results')?.classList.remove('open');
-  });
-  document.getElementById('modal-combine-results')?.addEventListener('click', e => {
-    if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
-  });
-
-  renderGroupsList();
-})();
+document.getElementById('btn-modal-combine-close')?.addEventListener('click', () => {
+  document.getElementById('modal-combine-results')?.classList.remove('open');
+});
+document.getElementById('modal-combine-results')?.addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
 
 document.getElementById('btn-confirm-end')?.addEventListener('click', async () => {
   const btn = document.getElementById('btn-confirm-end');
@@ -11653,13 +11699,15 @@ async function loadHistory() {
         : '--';
       let state = r.game_state;
       if (typeof state === 'string') { try { state = JSON.parse(state); } catch { state = null; } }
-      const summary = state ? getResultSummary(state) : null;
+      const summary  = state ? getResultSummary(state) : null;
+      const numGroups = state?.allGroupStates?.length ?? (state?.combinedGroups ?? 0);
+      const multiGroup = numGroups > 1;
       return `
         <div class="history-card" data-rid="${r.id}">
-          <div class="history-card-icon">⛳</div>
+          <div class="history-card-icon">${multiGroup ? '👥' : '⛳'}</div>
           <div class="history-card-body">
             <div class="history-card-date">${date}</div>
-            <div class="history-card-title">${r.course_name ?? '--'}</div>
+            <div class="history-card-title">${r.course_name ?? '--'}${multiGroup ? ` <span style="font-size:0.72rem;color:var(--accent,#b8963e);font-weight:700;">${numGroups} groups</span>` : ''}</div>
             <div class="history-card-winner">${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees${summary?.winner ? ` · 🏆 ${summary.winner}` : ''}</div>
           </div>
           <div class="history-card-chevron">›</div>
@@ -11977,6 +12025,12 @@ function showHistoryDetail(rid, rounds) {
         alert('Could not delete round: ' + err.message);
       }
     };
+  }
+
+  // ── Add group results button ───────────────────────────────────────
+  const addGroupBtn = document.getElementById('btn-add-group-results');
+  if (addGroupBtn && state) {
+    addGroupBtn.onclick = () => openCombineModal(state, r.id, rounds);
   }
 
   const hShareBtn = document.getElementById('hd-share-btn');

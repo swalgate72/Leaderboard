@@ -378,12 +378,6 @@
           </svg>
           Join Competition
         </button>
-        <button class="fmt-btn" id="btn-combine-results">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
-          </svg>
-          Combine Results
-        </button>
       </div>
 
     </div>
@@ -1738,7 +1732,13 @@
       <div id="hd-scorecard" style="overflow-x:auto;"></div>
     </div>
 
-    <div style="margin-top:1.5rem;">
+    <div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:0.6rem;">
+      <button id="btn-add-group-results"
+        style="width:100%;padding:0.65rem;background:none;border:1px solid var(--accent,#b8963e);
+               color:var(--accent,#b8963e);border-radius:10px;font-family:'Plus Jakarta Sans',sans-serif;
+               font-size:0.9rem;font-weight:700;cursor:pointer;">
+        👥 Add other group results
+      </button>
       <button class="btn btn-danger" id="btn-delete-round" style="width:100%;">🗑 Delete Round</button>
     </div>
   </div>
@@ -1920,7 +1920,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261017h"></script>
+<script type="module" src="js/app.js?v=20261017i"></script>
 
 
 <!-- ══════════════════════════════════════════
