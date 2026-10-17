@@ -2735,12 +2735,6 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
     const video  = document.getElementById('qr-scanner-video');
     if (!modal || !video) return;
 
-    // Check BarcodeDetector support
-    if (!('BarcodeDetector' in window)) {
-      alert('QR scanning is not supported on this browser.\n\nAsk the organiser to share the URL directly instead.');
-      return;
-    }
-
     modal.classList.add('open');
     if (status) status.textContent = 'Starting camera…';
 
@@ -2757,32 +2751,47 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
 
     if (status) status.textContent = 'Point your camera at the QR code';
 
-    const detector = new BarcodeDetector({ formats: ['qr_code'] });
+    // Use BarcodeDetector if available (Chrome, Safari 17.4+), fall back to jsQR
+    const useNative = ('BarcodeDetector' in window);
+    const detector  = useNative ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
+    const canvas    = document.getElementById('qr-scanner-canvas');
+    const ctx       = canvas ? canvas.getContext('2d', { willReadFrequently: true }) : null;
+
+    function extractJoinParam(raw) {
+      if (!raw) return null;
+      if (raw.includes('?join=')) {
+        try { return new URL(raw).searchParams.get('join'); } catch { return null; }
+      }
+      if (/^[A-Za-z0-9_-]{20,}$/.test(raw)) return raw;
+      return null;
+    }
 
     // Poll every 300ms
     scanInterval = setInterval(async () => {
       if (!scanStream || video.readyState < 2) return;
       try {
-        const codes = await detector.detect(video);
-        for (const code of codes) {
-          const raw = code.rawValue ?? '';
-          // Accept either the full URL or just the ?join= param value
-          let joinParam = null;
-          if (raw.includes('?join=')) {
-            joinParam = new URL(raw).searchParams.get('join');
-          } else if (raw.match(/^[A-Za-z0-9_-]{20,}/)) {
-            joinParam = raw; // bare base64url
-          }
-          if (!joinParam) continue;
-          const payload = decodeJoinPayload(joinParam);
-          if (!payload) continue;
-          // Valid payload — stop scanning and show confirmation
-          stopScanner();
-          closeScannerModal();
-          showJoinConfirm(payload);
-          return;
+        let raw = null;
+        if (useNative) {
+          const codes = await detector.detect(video);
+          raw = codes[0]?.rawValue ?? null;
+        } else if (window.jsQR && canvas && ctx) {
+          // jsQR fallback: draw frame to canvas and decode
+          canvas.width  = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const result  = window.jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'dontInvert' });
+          raw = result?.data ?? null;
         }
-      } catch { /* detector error — keep trying */ }
+        const joinParam = extractJoinParam(raw);
+        if (!joinParam) return;
+        const payload = decodeJoinPayload(joinParam);
+        if (!payload) return;
+        // Valid payload — stop scanning and show confirmation
+        stopScanner();
+        closeScannerModal();
+        showJoinConfirm(payload);
+      } catch { /* keep trying */ }
     }, 300);
   }
 
