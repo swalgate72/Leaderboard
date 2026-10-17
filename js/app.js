@@ -2634,16 +2634,22 @@ async function openQRShareModal(competitionRec) {
     const url     = buildQRURL(payload);
     console.log('[QR] URL length:', url.length);
 
-    // Wire up copy button
+    // Wire up share/copy button
     const copyBtn = document.getElementById('btn-copy-join-link');
     if (copyBtn) {
       copyBtn.onclick = async () => {
-        try {
-          await navigator.clipboard.writeText(url);
-          copyBtn.textContent = '✅ Copied!';
-          setTimeout(() => { copyBtn.textContent = '📋 Copy join link'; }, 2000);
-        } catch {
-          prompt('Copy this link:', url);
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: 'Join competition', url });
+          } catch {}
+        } else {
+          try {
+            await navigator.clipboard.writeText(url);
+            copyBtn.textContent = '✅ Copied!';
+            setTimeout(() => { copyBtn.textContent = '📤 Share join link'; }, 2000);
+          } catch {
+            prompt('Copy this link:', url);
+          }
         }
       };
     }
