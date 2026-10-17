@@ -9912,10 +9912,29 @@ document.getElementById('btn-combine-show')?.addEventListener('click', async () 
   const lbEl = document.getElementById('combine-leaderboard');
   if (!lbEl || _combineGroups.length < 2) return;
 
-  const merged  = mergeGroupStates(_combineGroups);
+  // Ensure each group has totals — recompute from log if missing or all-zero
+  const groupsWithTotals = _combineGroups.map(g => {
+    const hasTotals = g.totals?.some(t => t != null && t !== 0);
+    if (hasTotals) return g;
+    // Recompute: sum holePts per player across all holes
+    const n = (g.names ?? []).length;
+    const totals = new Array(n).fill(0);
+    (g.log ?? []).forEach(entry => {
+      for (let pi = 0; pi < n; pi++) {
+        const pts = entry.holePts?.[pi];
+        if (pts != null) totals[pi] += pts;
+      }
+    });
+    return { ...g, totals };
+  });
+
+  console.log('[combine] groups:', groupsWithTotals.map(g => ({ grp: g.groupNumber, names: g.names, totals: g.totals })));
+
+  const merged  = mergeGroupStates(groupsWithTotals);
   const summary = getResultSummary(merged);
   const fmt     = merged.format;
   const scoreLabel = fmt === 'stroke' ? 'Net' : 'Pts';
+  console.log('[combine] merged totals:', merged.totals, 'summary:', summary);
 
   let html = `<div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;
                            color:var(--muted);font-weight:700;margin-bottom:0.75rem;">
