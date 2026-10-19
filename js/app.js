@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261019q';
+window.APP_BUILD = '20261019r';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -11392,23 +11392,40 @@ async function shareBackupFile() {
   const dateStr = new Date().toISOString().slice(0, 10);
   const fname   = `leaderboard-backup-${dateStr}.json`;
   const blob    = new Blob([json], { type: 'application/json' });
-  const file    = new File([blob], fname, { type: 'application/json' });
 
-  // Web Share API level 2 — lets iOS show "Save to Files" (iCloud/Google Drive)
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    await navigator.share({
-      files: [file],
-      title: 'Leaderboard Backup',
-      text:  `Leaderboard backup ${dateStr}`,
-    });
-  } else {
-    // Fallback: plain download (desktop / unsupported browsers)
-    const url = URL.createObjectURL(blob);
-    const a   = document.createElement('a');
-    a.href = url; a.download = fname;
-    document.body.appendChild(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  // 1. File System Access API — opens a proper "Save As" dialog (iCloud Drive,
+  //    Google Drive, On My iPhone, etc.) without the Share sheet clutter.
+  //    Supported on iOS 17.4+ Safari and modern desktop browsers.
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fname,
+        types: [{ description: 'Leaderboard Backup', accept: { 'application/json': ['.json'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') throw err; // user cancelled — propagate
+      // showSaveFilePicker failed for another reason — fall through to Share API
+    }
   }
+
+  // 2. Web Share API — iOS share sheet (includes "Save to Files" but also shows
+  //    AirDrop, WhatsApp etc. — used as fallback when showSaveFilePicker unavailable)
+  const file = new File([blob], fname, { type: 'application/json' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    await navigator.share({ files: [file], title: 'Leaderboard Backup', text: `Leaderboard backup ${dateStr}` });
+    return;
+  }
+
+  // 3. Plain download — desktop fallback
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href = url; a.download = fname;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
 }
 
 // ── Backup prompt — shown after round complete and after course save ──
