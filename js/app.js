@@ -2957,8 +2957,6 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
 
 (function () {
   // ── State ──────────────────────────────────────────────────────
-  let scanStream   = null;   // active MediaStream
-  let scanInterval = null;   // polling interval id
   let pendingJoin  = null;   // decoded payload waiting for confirmation
 
   // ── Helpers ────────────────────────────────────────────────────
@@ -2980,130 +2978,93 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
     } catch { return null; }
   }
 
-  function stopScanner() {
-    if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
-    if (scanStream)   { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
-    const video = document.getElementById('qr-scanner-video');
-    if (video) video.srcObject = null;
-  }
-
   function closeScannerModal() {
-    stopScanner();
     document.getElementById('modal-qr-scanner')?.classList.remove('open');
+    // Reset file input so same file can be re-selected
+    const fi = document.getElementById('qr-file-input');
+    if (fi) fi.value = '';
   }
 
-  // ── Open scanner ───────────────────────────────────────────────
-  // iOS PWA: getUserMedia must be called synchronously within the click handler
-  // (before any await) to count as a user gesture. We start the Promise
-  // immediately then handle it via .then() — never use async/await here.
+  // ── Extract join param from raw QR value ───────────────────────
+  function extractJoinParam(raw) {
+    if (!raw) return null;
+    if (raw.includes('?join=')) {
+      try { return new URL(raw).searchParams.get('join'); } catch { return null; }
+    }
+    if (/^[A-Za-z0-9_-]{20,}$/.test(raw)) return raw;
+    return null;
+  }
+
+  // ── Process a decoded QR string ────────────────────────────────
+  function handleDecodedQR(raw, status) {
+    if (!raw) return false;
+    // Course info QR (v:2)
+    const courseData = decodeCourseQRPayload(raw);
+    if (courseData) {
+      closeScannerModal();
+      showCourseConfirm(raw, courseData);
+      return true;
+    }
+    // Game setup QR (v:1)
+    const joinParam = extractJoinParam(raw);
+    if (joinParam) {
+      const payload = decodeJoinPayload(joinParam);
+      if (payload) {
+        closeScannerModal();
+        showJoinConfirm(payload);
+        return true;
+      } else {
+        if (status) status.textContent = `QR found but payload invalid.`;
+        return false;
+      }
+    }
+    if (status) status.textContent = `QR decoded but not recognised. Try pasting manually.`;
+    return false;
+  }
+
+  // ── Open scanner modal (photo-capture approach) ─────────────────
+  // Instead of live video (unreliable on iOS/Safari), the user taps a
+  // button that opens the native camera app. The resulting photo is
+  // decoded by jsQR — still images decode far more reliably than video.
   function openScannerModal() {
     const modal  = document.getElementById('modal-qr-scanner');
     const status = document.getElementById('qr-scanner-status');
-    const video  = document.getElementById('qr-scanner-video');
-
-    // Show modal immediately — before camera starts
     if (modal) modal.classList.add('open');
-    if (status) status.textContent = 'Starting camera…';
+    if (status) status.textContent = 'Tap the button above to take a photo of the QR code.';
 
-    if (!modal || !video) {
-      if (status) status.textContent = 'Error: scanner UI not found. Please reload.';
-      return;
-    }
+    // Wire up file input each time we open (re-attach to clear previous state)
+    const fileInput = document.getElementById('qr-file-input');
+    if (fileInput) {
+      // Clone to remove old listeners
+      const fresh = fileInput.cloneNode(true);
+      fileInput.parentNode.replaceChild(fresh, fileInput);
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      if (status) status.textContent = 'Camera not available. Open in Safari directly (not from home screen).';
-      return;
-    }
-
-    // Start getUserMedia synchronously within the gesture handler (iOS requirement)
-    const streamPromise = navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-    });
-
-    streamPromise.then(async stream => {
-      scanStream = stream;
-      video.srcObject = stream;
-      try { await video.play(); } catch { /* stream still works */ }
-
-      if (status) status.textContent = 'Point your camera at the QR code';
-
-      const useNative = ('BarcodeDetector' in window);
-      const detector  = useNative ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
-      const canvas    = document.getElementById('qr-scanner-canvas');
-      const ctx       = canvas ? canvas.getContext('2d', { willReadFrequently: true }) : null;
-
-      // Show which decoder is active
-      if (status) status.textContent = useNative
-        ? 'Point your camera at the QR code (native)'
-        : window.jsQR
-          ? 'Point your camera at the QR code (jsQR)'
-          : 'Point your camera at the QR code (no decoder — reload app)';
-
-      function extractJoinParam(raw) {
-        if (!raw) return null;
-        if (raw.includes('?join=')) {
-          try { return new URL(raw).searchParams.get('join'); } catch { return null; }
-        }
-        if (/^[A-Za-z0-9_-]{20,}$/.test(raw)) return raw;
-        return null;
-      }
-
-      let scanCount = 0;
-      scanInterval = setInterval(async () => {
-        if (!scanStream || video.readyState < 2) return;
+      fresh.addEventListener('change', async () => {
+        const file = fresh.files?.[0];
+        if (!file) return;
+        if (status) status.textContent = 'Reading image…';
         try {
-          let raw = null;
-          if (useNative) {
-            const codes = await detector.detect(video);
-            raw = codes[0]?.rawValue ?? null;
-          } else if (window.jsQR && canvas && ctx) {
-            const vw = video.videoWidth;
-            const vh = video.videoHeight;
-            if (vw && vh) {
-              canvas.width  = vw;
-              canvas.height = vh;
-              ctx.drawImage(video, 0, 0, vw, vh);
-              const imgData = ctx.getImageData(0, 0, vw, vh);
-              const result  = window.jsQR(imgData.data, vw, vh, { inversionAttempts: 'attemptBoth' });
-              raw = result?.data ?? null;
-            }
-          }
-
-          scanCount++;
-          if (status) {
-            const vw = video.videoWidth, vh = video.videoHeight;
-            status.textContent = raw
-              ? `✅ Detected: ${raw.slice(0, 50)}…`
-              : `Scanning… jsQR frame ${scanCount} | video ${vw}×${vh} ready:${video.readyState}`;
-          }
-
-          // Check for course-info QR first
-          const courseData = decodeCourseQRPayload(raw);
-          if (courseData) {
-            stopScanner();
-            closeScannerModal();
-            showCourseConfirm(raw, courseData);
+          const bitmap = await createImageBitmap(file);
+          const canvas = document.getElementById('qr-scanner-canvas');
+          if (!canvas) { if (status) status.textContent = 'Canvas not found.'; return; }
+          canvas.width  = bitmap.width;
+          canvas.height = bitmap.height;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(bitmap, 0, 0);
+          const imgData = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+          if (!window.jsQR) { if (status) status.textContent = 'jsQR not loaded — reload app.'; return; }
+          const result = window.jsQR(imgData.data, bitmap.width, bitmap.height, { inversionAttempts: 'attemptBoth' });
+          if (!result?.data) {
+            if (status) status.textContent = '❌ No QR code found in photo. Try again — ensure good lighting and the full QR is visible.';
             return;
           }
-
-          const joinParam = extractJoinParam(raw);
-          if (!joinParam) return;
-          const payload = decodeJoinPayload(joinParam);
-          if (!payload) {
-            if (status) status.textContent = `QR found but payload invalid: ${(raw||'').slice(0,60)}`;
-            return;
-          }
-          stopScanner();
-          closeScannerModal();
-          showJoinConfirm(payload);
+          if (status) status.textContent = '✅ QR detected!';
+          handleDecodedQR(result.data, status);
         } catch (e) {
-          if (status && scanCount % 20 === 0) status.textContent = `Scan error: ${e.message}`;
+          if (status) status.textContent = `Error reading image: ${e.message}`;
         }
-      }, 150);
-
-    }).catch(err => {
-      if (status) status.textContent = `Camera error: ${err.name} — ${err.message}. Please allow camera access.`;
-    });
+      });
+    }
   }
 
   // ── Show join confirmation ──────────────────────────────────────
@@ -3219,7 +3180,6 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
     // Check if it's a course-info code first
     const courseData = decodeCourseQRPayload(trimmed);
     if (courseData) {
-      stopScanner();
       closeScannerModal();
       showCourseConfirm(trimmed, courseData);
       return;
@@ -3230,7 +3190,6 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
     if (!param) { alert('Invalid code. Please copy again from the competition screen.'); return; }
     const payload = decodeJoinPayload(param);
     if (!payload) { alert('Could not read competition data from that code.'); return; }
-    stopScanner();
     closeScannerModal();
     showJoinConfirm(payload);
   }

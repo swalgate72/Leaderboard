@@ -395,20 +395,20 @@
         aria-label="Close">✕</button>
     </div>
     <div style="padding:1rem;">
-      <div id="qr-scanner-video-wrap" style="position:relative;border-radius:0.5rem;overflow:hidden;background:#000;aspect-ratio:1;max-width:320px;margin:0 auto;">
-        <video id="qr-scanner-video" autoplay playsinline muted
-          style="width:100%;height:100%;object-fit:cover;display:block;"></video>
-        <!-- Viewfinder overlay -->
-        <div style="position:absolute;inset:0;pointer-events:none;">
-          <div style="position:absolute;inset:20%;border:2px solid rgba(255,255,255,0.6);border-radius:0.5rem;
-                      box-shadow:0 0 0 9999px rgba(0,0,0,0.45);"></div>
-        </div>
+      <!-- Photo capture approach: take a photo of the QR, decode from still image -->
+      <div style="text-align:center;margin-bottom:0.75rem;">
+        <label id="btn-qr-photo" for="qr-file-input"
+          style="display:inline-block;padding:0.85rem 1.5rem;border-radius:12px;
+                 background:var(--accent,#b8963e);color:#fff;font-size:1rem;
+                 font-weight:600;cursor:pointer;letter-spacing:0.02em;">
+          📷 Scan QR Code
+        </label>
+        <input id="qr-file-input" type="file" accept="image/*" capture="environment"
+          style="display:none;" />
       </div>
-      <!-- Hidden canvas used by jsQR fallback -->
+      <!-- Hidden canvas used by jsQR to decode the photo -->
       <canvas id="qr-scanner-canvas" style="display:none;"></canvas>
-      <p id="qr-scanner-status" style="margin:0.75rem 0 0;font-size:0.85rem;opacity:0.7;">
-        Point your camera at the QR code
-      </p>
+      <p id="qr-scanner-status" style="margin:0.5rem 0 0;font-size:0.85rem;opacity:0.7;min-height:1.2em;"></p>
       <div id="qr-paste-section" style="margin:0.75rem 0 0;">
         <p style="font-size:0.8rem;opacity:0.6;margin:0 0 0.4rem;">Or paste a code (course or competition):</p>
         <div style="display:flex;gap:0.4rem;">
@@ -1989,7 +1989,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261019g"></script>
+<script type="module" src="js/app.js?v=20261019h"></script>
 
 
 <!-- ══════════════════════════════════════════
