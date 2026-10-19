@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261019r';
+window.APP_BUILD = '20261019s';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -11392,35 +11392,44 @@ async function shareBackupFile() {
   const dateStr = new Date().toISOString().slice(0, 10);
   const fname   = `leaderboard-backup-${dateStr}.json`;
   const blob    = new Blob([json], { type: 'application/json' });
+  const file    = new File([blob], fname, { type: 'application/json' });
 
-  // 1. File System Access API — opens a proper "Save As" dialog (iCloud Drive,
-  //    Google Drive, On My iPhone, etc.) without the Share sheet clutter.
-  //    Supported on iOS 17.4+ Safari and modern desktop browsers.
-  if (window.showSaveFilePicker) {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: fname,
-        types: [{ description: 'Leaderboard Backup', accept: { 'application/json': ['.json'] } }],
-      });
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      return;
-    } catch (err) {
-      if (err.name === 'AbortError') throw err; // user cancelled — propagate
-      // showSaveFilePicker failed for another reason — fall through to Share API
-    }
-  }
-
-  // 2. Web Share API — iOS share sheet (includes "Save to Files" but also shows
-  //    AirDrop, WhatsApp etc. — used as fallback when showSaveFilePicker unavailable)
-  const file = new File([blob], fname, { type: 'application/json' });
+  // iOS has no clean "Save As" API — Web Share is the only route.
+  // Show a brief instruction overlay so the user knows to tap "Save to Files".
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    await new Promise(resolve => {
+      const tip = document.createElement('div');
+      tip.style.cssText = `
+        position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;
+        background:rgba(0,0,0,0.72);display:flex;align-items:flex-end;
+        justify-content:center;padding-bottom:2rem;`;
+      tip.innerHTML = `
+        <div style="background:var(--surface,#1a2535);border-radius:1rem;padding:1.25rem 1.5rem;
+                    max-width:320px;width:90%;text-align:center;border:1px solid var(--gold-border,rgba(212,168,67,0.35));">
+          <div style="font-size:1.5rem;margin-bottom:0.5rem;">📁</div>
+          <div style="font-weight:700;margin-bottom:0.4rem;">Save to iCloud Drive</div>
+          <div style="font-size:0.85rem;color:#a0aec0;line-height:1.5;margin-bottom:1rem;">
+            In the sheet that appears, scroll down and tap<br>
+            <strong style="color:#f0f4f8;">"Save to Files"</strong> → choose
+            <strong style="color:#f0f4f8;">iCloud Drive</strong> or
+            <strong style="color:#f0f4f8;">Google Drive</strong>
+          </div>
+          <button id="_backup-tip-ok" style="background:var(--gold,#d4a843);color:#000;font-weight:700;
+            border:none;border-radius:0.5rem;padding:0.65rem 2rem;font-size:0.95rem;cursor:pointer;width:100%;">
+            OK, Got It →
+          </button>
+        </div>`;
+      document.body.appendChild(tip);
+      document.getElementById('_backup-tip-ok').addEventListener('click', () => {
+        tip.remove();
+        resolve();
+      });
+    });
     await navigator.share({ files: [file], title: 'Leaderboard Backup', text: `Leaderboard backup ${dateStr}` });
     return;
   }
 
-  // 3. Plain download — desktop fallback
+  // Desktop fallback — plain download
   const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');
   a.href = url; a.download = fname;
