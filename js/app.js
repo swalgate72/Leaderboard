@@ -3057,18 +3057,21 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
             const codes = await detector.detect(video);
             raw = codes[0]?.rawValue ?? null;
           } else if (window.jsQR && canvas && ctx) {
-            // Use native video resolution for best decode accuracy
             const vw = video.videoWidth  || 1280;
             const vh = video.videoHeight || 720;
-            canvas.width  = vw;
-            canvas.height = vh;
-            ctx.drawImage(video, 0, 0, vw, vh);
-            const imgData = ctx.getImageData(0, 0, vw, vh);
+            // Crop to centre 60% square — where the viewfinder box is.
+            // Reduces pixels jsQR must process by ~64%, greatly improving speed & reliability.
+            const cropSize = Math.round(Math.min(vw, vh) * 0.8);
+            const cx = Math.round((vw - cropSize) / 2);
+            const cy = Math.round((vh - cropSize) / 2);
+            canvas.width  = cropSize;
+            canvas.height = cropSize;
+            ctx.drawImage(video, cx, cy, cropSize, cropSize, 0, 0, cropSize, cropSize);
+            const imgData = ctx.getImageData(0, 0, cropSize, cropSize);
             const result  = window.jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'attemptBoth' });
             raw = result?.data ?? null;
           }
 
-          // Debug: show scan activity every 3 seconds
           scanCount++;
           if (scanCount % 10 === 0 && status) {
             status.textContent = raw
@@ -3098,7 +3101,7 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
         } catch (e) {
           if (status && scanCount % 20 === 0) status.textContent = `Scan error: ${e.message}`;
         }
-      }, 300);
+      }, 150);
 
     }).catch(err => {
       if (status) status.textContent = `Camera error: ${err.name} — ${err.message}. Please allow camera access.`;
