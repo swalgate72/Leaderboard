@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261015c';
+window.APP_BUILD = '20261019n';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -3014,6 +3014,33 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
 
   // ── Show course QR confirmation ─────────────────────────────────
   let _pendingCourseRaw = null;
+  // ── Safari→PWA bridge prompt ───────────────────────────────────
+  // Shown after saving a course in Safari (not the installed PWA).
+  // Replaces the page content with a clear instruction to open the app.
+  function _showOpenAppPrompt() {
+    document.body.innerHTML = `
+      <div style="
+        min-height:100dvh; display:flex; flex-direction:column;
+        align-items:center; justify-content:center; gap:1.5rem;
+        padding:2rem; text-align:center;
+        background:var(--bg,#0f1923); color:var(--text,#f0f4f8);
+        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      ">
+        <div style="font-size:3rem">⛳</div>
+        <h2 style="font-size:1.4rem; font-weight:700; margin:0">Course saved!</h2>
+        <p style="font-size:1rem; color:var(--text-muted,#a0aec0); margin:0; max-width:280px; line-height:1.5">
+          Now open the <strong>Leaderboard</strong> app from your home screen — the course will be there waiting.
+        </p>
+        <div style="
+          background:var(--surface,#1a2535); border-radius:1rem;
+          padding:1.25rem 1.5rem; max-width:300px; line-height:1.6;
+          font-size:0.9rem; color:var(--text-muted,#a0aec0);
+        ">
+          Look for the Leaderboard icon on your home screen and tap it to continue.
+        </div>
+      </div>`;
+  }
+
   function showCourseConfirm(raw, courseData) {
     _pendingCourseRaw = raw;
     const modal    = document.getElementById('modal-course-confirm');
@@ -3113,6 +3140,15 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
     if (!raw) return;
     closeCourseConfirmModal();
     await importCourseFromCode(raw);
+
+    // If running in Safari (not the installed PWA), show a prompt to open the app.
+    // navigator.standalone is true only inside an installed iOS PWA.
+    const isStandalone = window.navigator.standalone === true
+      || window.matchMedia('(display-mode: standalone)').matches;
+    const fromQR = new URLSearchParams(window.location.search).has('qr');
+    if (!isStandalone && fromQR) {
+      _showOpenAppPrompt();
+    }
   });
 
   // ── Handle ?join= in URL on page load ─────────────────────────
@@ -12208,30 +12244,45 @@ function renderCwizTeesList() {
   }
   listEl.innerHTML = cwiz.tees.map((t, i) => `
     <div class="tee-block" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
-      <div style="width:14px;height:14px;border-radius:50%;background:${t.color};flex-shrink:0;"></div>
-      <span style="flex:1;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;letter-spacing:0.08em;">${t.name}</span>
+      <input type="color" value="${t.color}" data-color="${i}"
+        style="width:28px;height:28px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none;flex-shrink:0;">
+      <input type="text" value="${t.name}" data-name="${i}" placeholder="e.g. Yellow, Red, White…"
+        style="flex:1;background:var(--surface2,#1a2535);border:1px solid var(--border,rgba(255,255,255,0.12));
+               border-radius:0.4rem;padding:0.35rem 0.6rem;color:var(--text,#f0f4f8);font-size:0.9rem;">
       <button class="btn btn-ghost" style="font-size:0.72rem;padding:2px 8px;" data-del="${i}">✕</button>
     </div>`).join('');
   listEl.querySelectorAll('[data-del]').forEach(btn => {
     btn.addEventListener('click', () => { cwiz.tees.splice(parseInt(btn.dataset.del), 1); renderCwizTeesList(); updateCwizStartBtn(); });
   });
+  listEl.querySelectorAll('[data-name]').forEach(inp => {
+    inp.addEventListener('input', e => { cwiz.tees[parseInt(e.target.dataset.name)].name = e.target.value.trim(); updateCwizStartBtn(); });
+  });
+  listEl.querySelectorAll('[data-color]').forEach(inp => {
+    inp.addEventListener('input', e => { cwiz.tees[parseInt(e.target.dataset.color)].color = e.target.value; });
+  });
 }
 
 function updateCwizStartBtn() {
-  const btn  = document.getElementById('cwiz-start-holes-btn');
-  const name = document.getElementById('cwiz-name')?.value.trim();
-  if (btn) { btn.disabled = !name || !cwiz.tees.length; btn.style.opacity = (!name || !cwiz.tees.length) ? '0.4' : '1'; }
+  const btn       = document.getElementById('cwiz-start-holes-btn');
+  const name      = document.getElementById('cwiz-name')?.value.trim();
+  const teesOk    = cwiz.tees.length > 0 && cwiz.tees.every(t => t.name.trim().length > 0);
+  const disabled  = !name || !teesOk;
+  if (btn) { btn.disabled = disabled; btn.style.opacity = disabled ? '0.4' : '1'; }
 }
 
 document.getElementById('cwiz-name')?.addEventListener('input', e => { cwiz.name = e.target.value.trim(); updateCwizStartBtn(); });
 document.getElementById('cwiz-location')?.addEventListener('input', e => { cwiz.location = e.target.value.trim(); });
 
 document.getElementById('cwiz-add-tee-btn')?.addEventListener('click', () => {
-  const presets = [{name:'Yellow',color:'#f5c518'},{name:'White',color:'#e8e8e8'},{name:'Red',color:'#e53e3e'},{name:'Blue',color:'#4299e1'},{name:'Black',color:'#2d3748'},{name:'Gold',color:'#d4a843'}];
-  const used    = new Set(cwiz.tees.map(t => t.name));
-  const preset  = presets.find(p => !used.has(p.name)) || { name: 'Custom', color: '#a0aec0' };
-  cwiz.tees.push({ name: preset.name, color: preset.color });
+  // Pick a default colour that hasn't been used yet
+  const defaultColors = ['#f5c518','#e8e8e8','#e53e3e','#4299e1','#2d3748','#d4a843','#a0aec0'];
+  const usedColors    = new Set(cwiz.tees.map(t => t.color));
+  const color         = defaultColors.find(c => !usedColors.has(c)) ?? '#a0aec0';
+  cwiz.tees.push({ name: '', color });
   renderCwizTeesList(); updateCwizStartBtn();
+  // Focus the new name input
+  const inputs = document.querySelectorAll('#cwiz-tees-list [data-name]');
+  inputs[inputs.length - 1]?.focus();
 });
 
 document.getElementById('cwiz-start-holes-btn')?.addEventListener('click', () => {
@@ -12264,7 +12315,7 @@ function renderCwizHole() {
     });
   });
 
-  const siSec = document.getElementById('cwiz-tee-si-sections');
+  const siSec = document.getElementById('cwiz-si-sections');
   siSec.innerHTML = cwiz.tees.map(t => `
     <div style="margin-bottom:0.85rem;">
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
