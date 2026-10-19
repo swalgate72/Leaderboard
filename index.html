@@ -561,6 +561,31 @@
       </div>
     </div>
 
+    <!-- Import course from QR/code -->
+    <div class="card" style="margin-top:0.75rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;"
+           id="import-course-toggle">
+        <span style="font-size:0.85rem;opacity:0.7;">📲 Import course from another device</span>
+        <span id="import-course-chevron" style="font-size:1rem;opacity:0.5;transition:transform 0.2s;">›</span>
+      </div>
+      <div id="import-course-section" style="display:none;margin-top:0.75rem;">
+        <p style="font-size:0.8rem;opacity:0.6;margin:0 0 0.5rem;">
+          Scan the Course Info QR code, or paste a course code here:
+        </p>
+        <div style="display:flex;gap:0.4rem;">
+          <input id="import-course-input" type="text" placeholder="Paste course code…"
+            style="flex:1;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid rgba(255,255,255,0.3);
+                   background:#1a1a2e;color:#f0f0f0;font-size:0.85rem;outline:none;caret-color:#f0f0f0;" />
+          <button id="btn-import-course"
+            style="padding:0.5rem 0.75rem;border-radius:8px;border:none;background:var(--green,#48bb78);
+                   color:#fff;font-size:0.85rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+            Import →
+          </button>
+        </div>
+        <p id="import-course-status" style="font-size:0.8rem;margin:0.4rem 0 0;min-height:1.2em;"></p>
+      </div>
+    </div>
+
     <!-- Hidden selects kept for JS compatibility — not shown to user -->
     <select id="setup-num-players" style="display:none;"></select>
     <select id="setup-num-groups" style="display:none;"></select>
@@ -599,6 +624,12 @@
         <div class="hint mt-sm" id="texas-drives-par3-hint">Min. tee shots on par 3s (max = par 3s ÷ players)</div>
       </div>
     </div>
+
+    <button class="btn btn-outline" id="btn-share-course-qr"
+      style="display:none;width:100%;padding:0.9rem;font-size:1rem;font-weight:800;
+             margin-bottom:0.75rem;border-color:var(--green,#48bb78);color:var(--green,#48bb78);">
+      📋 Share Course Info
+    </button>
 
     <button class="btn-setup-next" id="btn-setup-course-next">NEXT: PLAYERS →</button>
   </div>
@@ -698,6 +729,36 @@
       </button>
       <p style="font-size:0.72rem;opacity:0.5;margin:0.25rem 0 0.5rem;">
         Paste the code into Join Competition on the other device
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Course Info QR modal -->
+<div id="modal-course-qr" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-course-qr-title">
+  <div class="modal-box" style="max-width:360px;width:92%;text-align:center;">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-course-qr-title">Share Course Info</span>
+      <button id="btn-modal-course-qr-close" class="btn btn-ghost"
+        style="margin-left:auto;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:1.2rem;line-height:1;padding:0.3rem 0.6rem;"
+        aria-label="Close">✕</button>
+    </div>
+    <div style="padding:1rem 1rem 0.75rem;">
+      <p id="modal-course-qr-name" style="font-weight:700;font-size:1rem;margin:0 0 0.15rem;"></p>
+      <p id="modal-course-qr-tee"  style="font-size:0.85rem;opacity:0.7;margin:0 0 0.75rem;"></p>
+      <div id="modal-course-qr-svg" style="display:flex;justify-content:center;align-items:center;min-height:220px;">
+        <span style="opacity:0.5;">Generating QR…</span>
+      </div>
+      <p style="font-size:0.75rem;opacity:0.6;margin:0.75rem 0 0.5rem;">
+        Scan to copy course &amp; hole data onto another device
+      </p>
+      <button id="btn-copy-course-code"
+        style="margin:0 0 0.25rem;background:none;border:1px solid var(--green,#48bb78);color:var(--green,#48bb78);
+               border-radius:8px;padding:0.5rem 1rem;font-size:0.85rem;cursor:pointer;width:100%;">
+        📋 Copy course code
+      </button>
+      <p style="font-size:0.72rem;opacity:0.5;margin:0.15rem 0 0;">
+        Or paste into "Import Course" on the other device
       </p>
     </div>
   </div>
@@ -1922,7 +1983,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261017k"></script>
+<script type="module" src="js/app.js?v=20261019a"></script>
 
 
 <!-- ══════════════════════════════════════════

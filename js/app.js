@@ -2567,7 +2567,175 @@ function updateShareQRButtonVisibility() {
   const btn = document.getElementById('btn-share-competition-qr');
   if (!btn) return;
   btn.style.display = setup.courseId ? 'block' : 'none';
+  const courseBtn = document.getElementById('btn-share-course-qr');
+  if (courseBtn) courseBtn.style.display = setup.courseId && setup.teeIdx != null ? 'block' : 'none';
 }
+
+// ── Course Info QR ─────────────────────────────────────────────────────────
+
+function buildCourseQRPayload() {
+  const course = allCourses.find(c => c.id === setup.courseId) ?? null;
+  const tee    = course?.tees?.[setup.teeIdx] ?? null;
+  if (!course || !tee) return null;
+  return {
+    v:    2,
+    type: 'course',
+    cn:   course.name,
+    t: {
+      n:  tee.name,
+      si: (tee.si  ?? []).join(','),
+      p:  (tee.par ?? []).join(','),
+      ...(tee.courseRating != null ? { cr: tee.courseRating } : {}),
+      ...(tee.slopeRating  != null ? { sr: tee.slopeRating  } : {}),
+    },
+  };
+}
+
+function decodeCourseQRPayload(raw) {
+  try {
+    const trimmed = (raw || '').trim();
+    const b64 = trimmed.replace(/-/g, '+').replace(/_/g, '/');
+    const pad  = (4 - (b64.length % 4)) % 4;
+    const obj  = JSON.parse(atob(b64 + '='.repeat(pad)));
+    if (obj.v !== 2 || obj.type !== 'course' || !obj.cn || !obj.t) return null;
+    return {
+      courseName: obj.cn,
+      tee: {
+        name:         obj.t.n ?? '',
+        si:           (obj.t.si || '').split(',').map(Number).filter(n => !isNaN(n)),
+        par:          (obj.t.p  || '').split(',').map(Number).filter(n => !isNaN(n)),
+        ...(obj.t.cr != null ? { courseRating: obj.t.cr } : {}),
+        ...(obj.t.sr != null ? { slopeRating:  obj.t.sr } : {}),
+      },
+    };
+  } catch { return null; }
+}
+
+async function openCourseQRModal() {
+  const modal  = document.getElementById('modal-course-qr');
+  if (!modal) return;
+  const payload = buildCourseQRPayload();
+  if (!payload) return;
+
+  const course = allCourses.find(c => c.id === setup.courseId);
+  const tee    = course?.tees?.[setup.teeIdx];
+  const nameEl = document.getElementById('modal-course-qr-name');
+  const teeEl  = document.getElementById('modal-course-qr-tee');
+  const svgEl  = document.getElementById('modal-course-qr-svg');
+
+  if (nameEl) nameEl.textContent = course?.name ?? '';
+  if (teeEl)  teeEl.textContent  = tee?.name ? `Tee: ${tee.name}  ·  ${(tee.par ?? []).length} holes` : '';
+  if (svgEl)  svgEl.innerHTML = '<span style="opacity:0.5">Generating QR…</span>';
+  modal.classList.add('open');
+
+  const json    = JSON.stringify(payload);
+  const b64url  = btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  // Wire copy button
+  const copyBtn = document.getElementById('btn-copy-course-code');
+  if (copyBtn) {
+    copyBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(b64url);
+        copyBtn.textContent = '✅ Copied!';
+        setTimeout(() => { copyBtn.textContent = '📋 Copy course code'; }, 2000);
+      } catch { prompt('Copy this course code:', b64url); }
+    };
+  }
+
+  try {
+    const qr  = await getQRMod();
+    const svg = await qr.toSVG(b64url, {
+      errorCorrectionLevel: 'M',
+      width: 280,
+      margin: 2,
+    });
+    if (svgEl) svgEl.innerHTML = svg;
+  } catch (err) {
+    if (svgEl) svgEl.innerHTML = '<span style="color:var(--error,#e53e3e)">QR generation failed</span>';
+  }
+}
+
+document.getElementById('btn-share-course-qr')?.addEventListener('click', openCourseQRModal);
+document.getElementById('btn-modal-course-qr-close')?.addEventListener('click', () => {
+  document.getElementById('modal-course-qr')?.classList.remove('open');
+});
+document.getElementById('modal-course-qr')?.addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+
+// Import course toggle
+document.getElementById('import-course-toggle')?.addEventListener('click', () => {
+  const section  = document.getElementById('import-course-section');
+  const chevron  = document.getElementById('import-course-chevron');
+  if (!section) return;
+  const open = section.style.display !== 'none';
+  section.style.display = open ? 'none' : 'block';
+  if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+});
+
+function importCourseFromCode(raw) {
+  const statusEl = document.getElementById('import-course-status');
+  const data = decodeCourseQRPayload(raw);
+  if (!data) {
+    if (statusEl) { statusEl.textContent = '❌ Could not read that code.'; statusEl.style.color = 'var(--error,#e53e3e)'; }
+    return;
+  }
+
+  // Check if course already exists (by name, case-insensitive)
+  const existing = allCourses.find(c => c.name.toLowerCase() === data.courseName.toLowerCase());
+  if (existing) {
+    // Just select it and pick the matching tee
+    const teeIdx = existing.tees?.findIndex(t => t.name.toLowerCase() === data.tee.name.toLowerCase()) ?? -1;
+    setup.courseId = existing.id;
+    setup.teeIdx   = teeIdx >= 0 ? teeIdx : 0;
+    const sel = document.getElementById('setup-course-select');
+    if (sel) sel.value = existing.id;
+    populateCourseSelect();
+    const teeSel = document.getElementById('setup-tee-select');
+    if (teeSel) teeSel.value = String(setup.teeIdx);
+    if (statusEl) { statusEl.textContent = `✅ Selected: ${existing.name}`; statusEl.style.color = 'var(--green,#48bb78)'; }
+    const inp = document.getElementById('import-course-input');
+    if (inp) inp.value = '';
+    updateShareQRButtonVisibility();
+    return;
+  }
+
+  // Save as new course via courseSave (async)
+  const newCourse = {
+    name: data.courseName,
+    tees: [{
+      name:         data.tee.name,
+      si:           data.tee.si,
+      par:          data.tee.par,
+      ...(data.tee.courseRating != null ? { courseRating: data.tee.courseRating } : {}),
+      ...(data.tee.slopeRating  != null ? { slopeRating:  data.tee.slopeRating  } : {}),
+    }],
+  };
+  courseSave(newCourse).then(async saved => {
+    allCourses = await coursesLoadAll();
+    setup.courseId = saved.id;
+    setup.teeIdx   = 0;
+    const sel = document.getElementById('setup-course-select');
+    if (sel) sel.value = saved.id;
+    populateCourseSelect();
+    const teeSel = document.getElementById('setup-tee-select');
+    if (teeSel) teeSel.value = '0';
+    if (statusEl) { statusEl.textContent = `✅ Imported: ${data.courseName}`; statusEl.style.color = 'var(--green,#48bb78)'; }
+    const inp = document.getElementById('import-course-input');
+    if (inp) inp.value = '';
+    updateShareQRButtonVisibility();
+  }).catch(err => {
+    if (statusEl) { statusEl.textContent = `❌ Save failed: ${err.message}`; statusEl.style.color = 'var(--error,#e53e3e)'; }
+  });
+}
+
+document.getElementById('btn-import-course')?.addEventListener('click', () => {
+  importCourseFromCode(document.getElementById('import-course-input')?.value);
+});
+document.getElementById('import-course-input')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') importCourseFromCode(e.target.value);
+});
 
 // Build the QR payload object from the current setup.
 // Uses short keys and compressed arrays to keep QR as small as possible.
@@ -2881,6 +3049,17 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
               : `Scanning… (${useNative ? 'native' : 'jsQR'}) frame ${scanCount}`;
           }
 
+          // Check for course-info QR first
+          const courseData = decodeCourseQRPayload(raw);
+          if (courseData) {
+            stopScanner();
+            closeScannerModal();
+            importCourseFromCode(raw);
+            // Navigate to setup-course screen so user can see it was applied
+            showScreen('screen-setup-course');
+            return;
+          }
+
           const joinParam = extractJoinParam(raw);
           if (!joinParam) return;
           const payload = decodeJoinPayload(joinParam);
@@ -2995,6 +3174,15 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
   function tryJoinFromCode(raw) {
     const trimmed = (raw || '').trim();
     if (!trimmed) return;
+    // Check if it's a course-info code first
+    const courseData = decodeCourseQRPayload(trimmed);
+    if (courseData) {
+      stopScanner();
+      closeScannerModal();
+      importCourseFromCode(trimmed);
+      showScreen('screen-setup-course');
+      return;
+    }
     const param = trimmed.includes('?join=')
       ? (() => { try { return new URL(trimmed).searchParams.get('join'); } catch { return null; } })()
       : trimmed;
