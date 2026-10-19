@@ -327,8 +327,8 @@ function showScreen(id) {
   const bottomNav = document.getElementById('bottom-nav');
   if (bottomNav) bottomNav.style.display = BOTTOM_NAV_SCREENS.includes(id) ? 'flex' : 'none';
 
-  // Update Share QR button visibility when the Add Players screen is shown
-  if (id === 'screen-setup-players') updateShareQRButtonVisibility();
+  // Update Share QR button visibility on course and players screens
+  if (id === 'screen-setup-course' || id === 'screen-setup-players') updateShareQRButtonVisibility();
 
   // Persist setup-flow screens so backgrounding the app doesn't lose progress
   if (SETUP_SCREENS.includes(id)) {

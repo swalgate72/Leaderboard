@@ -591,30 +591,6 @@
       </div>
     </div>
 
-    <!-- Import course from QR/code -->
-    <div class="card" style="margin-top:0.75rem;">
-      <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;"
-           id="import-course-toggle">
-        <span style="font-size:0.85rem;opacity:0.7;">📲 Import course from another device</span>
-        <span id="import-course-chevron" style="font-size:1rem;opacity:0.5;transition:transform 0.2s;">›</span>
-      </div>
-      <div id="import-course-section" style="display:none;margin-top:0.75rem;">
-        <p style="font-size:0.8rem;opacity:0.6;margin:0 0 0.5rem;">
-          Scan the Course Info QR code, or paste a course code here:
-        </p>
-        <div style="display:flex;gap:0.4rem;">
-          <input id="import-course-input" type="text" placeholder="Paste course code…"
-            style="flex:1;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid rgba(255,255,255,0.3);
-                   background:#1a1a2e;color:#f0f0f0;font-size:0.85rem;outline:none;caret-color:#f0f0f0;" />
-          <button id="btn-import-course"
-            style="padding:0.5rem 0.75rem;border-radius:8px;border:none;background:var(--green,#48bb78);
-                   color:#fff;font-size:0.85rem;font-weight:700;cursor:pointer;white-space:nowrap;">
-            Import →
-          </button>
-        </div>
-        <p id="import-course-status" style="font-size:0.8rem;margin:0.4rem 0 0;min-height:1.2em;"></p>
-      </div>
-    </div>
 
     <!-- Hidden selects kept for JS compatibility — not shown to user -->
     <select id="setup-num-players" style="display:none;"></select>
@@ -2013,7 +1989,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261019c"></script>
+<script type="module" src="js/app.js?v=20261019d"></script>
 
 
 <!-- ══════════════════════════════════════════
