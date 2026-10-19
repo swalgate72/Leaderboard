@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261019n';
+window.APP_BUILD = '20261019p';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -12238,27 +12238,54 @@ function openCourseWizard(courseId) {
 }
 
 function renderCwizTeesList() {
+  const TEE_PALETTE = [
+    { name:'Yellow', color:'#f5c518' },
+    { name:'White',  color:'#e8e8e8' },
+    { name:'Red',    color:'#e53e3e' },
+    { name:'Blue',   color:'#4299e1' },
+    { name:'Black',  color:'#2d3748' },
+    { name:'Gold',   color:'#d4a843' },
+    { name:'Green',  color:'#48bb78' },
+    { name:'Orange', color:'#ed8936' },
+    { name:'Purple', color:'#9f7aea' },
+    { name:'Silver', color:'#a0aec0' },
+  ];
+
   const listEl = document.getElementById('cwiz-tees-list');
   if (!cwiz.tees.length) {
     listEl.innerHTML = '<div style="font-size:0.72rem;color:var(--muted);">Add at least one tee box</div>'; return;
   }
   listEl.innerHTML = cwiz.tees.map((t, i) => `
-    <div class="tee-block" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
-      <input type="color" value="${t.color}" data-color="${i}"
-        style="width:28px;height:28px;border:none;border-radius:50%;cursor:pointer;padding:0;background:none;flex-shrink:0;">
-      <input type="text" value="${t.name}" data-name="${i}" placeholder="e.g. Yellow, Red, White…"
-        style="flex:1;background:var(--surface2,#1a2535);border:1px solid var(--border,rgba(255,255,255,0.12));
-               border-radius:0.4rem;padding:0.35rem 0.6rem;color:var(--text,#f0f4f8);font-size:0.9rem;">
-      <button class="btn btn-ghost" style="font-size:0.72rem;padding:2px 8px;" data-del="${i}">✕</button>
+    <div class="tee-block" style="margin-bottom:0.85rem;background:var(--surface2,#1a2535);border:1px solid var(--border,rgba(255,255,255,0.12));border-radius:0.6rem;padding:0.6rem 0.7rem;">
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+        <div style="width:16px;height:16px;border-radius:50%;background:${t.color};flex-shrink:0;border:2px solid rgba(255,255,255,0.3);"></div>
+        <input type="text" value="${t.name}" data-name="${i}" placeholder="Tee name (e.g. Yellow, Red…)"
+          style="flex:1;background:#fff;border:1px solid #ccc;border-radius:0.4rem;
+                 padding:0.35rem 0.6rem;color:#111;font-size:0.9rem;">
+        <button class="btn btn-ghost" style="font-size:0.72rem;padding:2px 8px;flex-shrink:0;" data-del="${i}">✕</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;" data-palette="${i}">
+        ${TEE_PALETTE.map(p => `
+          <button data-swatch="${i}" data-swcolor="${p.color}" data-swname="${p.name}" title="${p.name}"
+            style="width:28px;height:28px;border-radius:50%;background:${p.color};border:3px solid ${t.color===p.color ? '#fff' : 'transparent'};cursor:pointer;flex-shrink:0;"></button>
+        `).join('')}
+      </div>
     </div>`).join('');
+
   listEl.querySelectorAll('[data-del]').forEach(btn => {
     btn.addEventListener('click', () => { cwiz.tees.splice(parseInt(btn.dataset.del), 1); renderCwizTeesList(); updateCwizStartBtn(); });
   });
   listEl.querySelectorAll('[data-name]').forEach(inp => {
-    inp.addEventListener('input', e => { cwiz.tees[parseInt(e.target.dataset.name)].name = e.target.value.trim(); updateCwizStartBtn(); });
+    inp.addEventListener('input', e => { cwiz.tees[parseInt(e.target.dataset.name)].name = e.target.value; updateCwizStartBtn(); });
   });
-  listEl.querySelectorAll('[data-color]').forEach(inp => {
-    inp.addEventListener('input', e => { cwiz.tees[parseInt(e.target.dataset.color)].color = e.target.value; });
+  listEl.querySelectorAll('[data-swatch]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = parseInt(btn.dataset.swatch);
+      cwiz.tees[i].color = btn.dataset.swcolor;
+      // Auto-fill name if still empty
+      if (!cwiz.tees[i].name) cwiz.tees[i].name = btn.dataset.swname;
+      renderCwizTeesList(); updateCwizStartBtn();
+    });
   });
 }
 
