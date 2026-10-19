@@ -3018,7 +3018,7 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
         return false;
       }
     }
-    if (status) status.textContent = `QR decoded but not recognised. Try pasting manually.`;
+    if (status) status.textContent = `QR decoded but not recognised. Try again.`;
     return false;
   }
 
@@ -3042,20 +3042,43 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
       fresh.addEventListener('change', async () => {
         const file = fresh.files?.[0];
         if (!file) return;
-        if (status) status.textContent = 'Reading image…';
+        if (status) status.textContent = 'Decoding…';
         try {
+          if (!window.jsQR) { if (status) status.textContent = 'jsQR not loaded — reload app.'; return; }
           const bitmap = await createImageBitmap(file);
           const canvas = document.getElementById('qr-scanner-canvas');
           if (!canvas) { if (status) status.textContent = 'Canvas not found.'; return; }
-          canvas.width  = bitmap.width;
-          canvas.height = bitmap.height;
           const ctx = canvas.getContext('2d', { willReadFrequently: true });
-          ctx.drawImage(bitmap, 0, 0);
-          const imgData = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-          if (!window.jsQR) { if (status) status.textContent = 'jsQR not loaded — reload app.'; return; }
-          const result = window.jsQR(imgData.data, bitmap.width, bitmap.height, { inversionAttempts: 'attemptBoth' });
+
+          // Try multiple scales — jsQR works better when QR fills more of the image.
+          // iPad photos are huge (e.g. 4032×3024); the QR may be a small region.
+          // We try original, then progressively smaller (more zoomed-in crops aren't
+          // possible without knowing where the QR is, but smaller = faster passes).
+          // Also try a contrast-boosted version.
+          const attempts = [1, 0.5, 0.25, 2];
+          let result = null;
+          for (const scale of attempts) {
+            const w = Math.round(bitmap.width  * scale);
+            const h = Math.round(bitmap.height * scale);
+            canvas.width  = w;
+            canvas.height = h;
+            ctx.drawImage(bitmap, 0, 0, w, h);
+            // Normal attempt
+            let imgData = ctx.getImageData(0, 0, w, h);
+            result = window.jsQR(imgData.data, w, h, { inversionAttempts: 'attemptBoth' });
+            if (result?.data) break;
+            // High-contrast attempt at same scale
+            ctx.drawImage(bitmap, 0, 0, w, h);
+            ctx.filter = 'contrast(2) brightness(1.1)';
+            ctx.drawImage(bitmap, 0, 0, w, h);
+            ctx.filter = 'none';
+            imgData = ctx.getImageData(0, 0, w, h);
+            result = window.jsQR(imgData.data, w, h, { inversionAttempts: 'attemptBoth' });
+            if (result?.data) break;
+          }
+
           if (!result?.data) {
-            if (status) status.textContent = '❌ No QR code found in photo. Try again — ensure good lighting and the full QR is visible.';
+            if (status) status.textContent = '❌ No QR found. Try holding the camera closer so the QR fills the frame, then retake.';
             return;
           }
           if (status) status.textContent = '✅ QR detected!';
