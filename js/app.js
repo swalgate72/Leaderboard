@@ -2712,7 +2712,7 @@ function importCourseFromCode(raw) {
       ...(data.tee.slopeRating  != null ? { slopeRating:  data.tee.slopeRating  } : {}),
     }],
   };
-  courseSave(newCourse).then(async saved => {
+  return courseSave(newCourse).then(async saved => {
     allCourses = await coursesLoadAll();
     setup.courseId = saved.id;
     setup.teeIdx   = 0;
@@ -3054,9 +3054,7 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
           if (courseData) {
             stopScanner();
             closeScannerModal();
-            importCourseFromCode(raw);
-            // Navigate to setup-course screen so user can see it was applied
-            showScreen('screen-setup-course');
+            showCourseConfirm(raw, courseData);
             return;
           }
 
@@ -3086,29 +3084,67 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
     const modal      = document.getElementById('modal-join-confirm');
     const nameEl     = document.getElementById('modal-join-comp-name');
     const courseEl   = document.getElementById('modal-join-course-name');
-    const noticeEl   = document.getElementById('modal-join-course-notice');
+    const errorEl    = document.getElementById('modal-join-course-error');
+    const confirmBtn = document.getElementById('btn-join-confirm');
     if (!modal) return;
 
     if (nameEl)   nameEl.textContent   = payload.cn;
     if (courseEl) courseEl.textContent = payload.course?.name ?? '';
 
-    // Check if we already have this course locally
+    // Hard-check: course must already be on this device
     const existing = allCourses.find(c =>
       c.name?.trim().toLowerCase() === payload.course?.name?.trim().toLowerCase()
     );
-    if (noticeEl) {
+    if (errorEl && confirmBtn) {
       if (existing) {
-        noticeEl.style.display = 'none';
+        errorEl.style.display = 'none';
+        confirmBtn.style.display = 'block';
       } else {
-        noticeEl.style.display = 'block';
-        noticeEl.textContent   = `"${payload.course.name}" will be saved to your courses.`;
+        const courseName = payload.course?.name ?? 'this course';
+        errorEl.style.display = 'block';
+        errorEl.innerHTML = `⚠️ Course <strong>"${courseName}"</strong> not found on this device.<br><br>Ask the organiser to share the <em>Course Info QR</em> first, then scan that before joining.`;
+        confirmBtn.style.display = 'none';
       }
     }
 
     modal.classList.add('open');
   }
 
-  // ── Confirm join: save course if needed, pre-fill setup ─────────
+  // ── Show course QR confirmation ─────────────────────────────────
+  let _pendingCourseRaw = null;
+  function showCourseConfirm(raw, courseData) {
+    _pendingCourseRaw = raw;
+    const modal    = document.getElementById('modal-course-confirm');
+    const nameEl   = document.getElementById('modal-course-confirm-name');
+    const teeEl    = document.getElementById('modal-course-confirm-tee');
+    const holesEl  = document.getElementById('modal-course-confirm-holes');
+    const noticeEl = document.getElementById('modal-course-confirm-existing');
+    const saveBtn  = document.getElementById('btn-course-confirm-save');
+    if (!modal) return;
+
+    if (nameEl)  nameEl.textContent  = courseData.courseName;
+    if (teeEl)   teeEl.textContent   = `Tee: ${courseData.tee.name}`;
+    if (holesEl) holesEl.textContent = `${courseData.tee.par?.length ?? 18} holes`;
+
+    // Check if course already exists
+    const existing = allCourses.find(c =>
+      c.name?.trim().toLowerCase() === courseData.courseName?.trim().toLowerCase()
+    );
+    if (noticeEl) {
+      if (existing) {
+        noticeEl.style.display = 'block';
+        noticeEl.textContent   = 'This course is already saved on your device.';
+        if (saveBtn) saveBtn.textContent = '✅ Already Saved';
+      } else {
+        noticeEl.style.display = 'none';
+        if (saveBtn) saveBtn.textContent = '💾 Save to My Courses';
+      }
+    }
+
+    modal.classList.add('open');
+  }
+
+  // ── Confirm join: pre-fill setup (course must already exist) ────
   async function confirmJoin() {
     if (!pendingJoin) return;
     const payload = pendingJoin;
@@ -3117,55 +3153,33 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
 
     const { cid, cn, course: cp, ti } = payload;
 
-    // Find or save course
-    let courseRec = allCourses.find(c =>
+    // Course must already be on device (checked in showJoinConfirm)
+    const courseRec = allCourses.find(c =>
       c.name?.trim().toLowerCase() === cp?.name?.trim().toLowerCase()
     );
-
-    if (!courseRec && cp) {
-      // Build a course record from the payload snapshot
-      const newCourse = {
-        name:     cp.name,
-        location: cp.location ?? '',
-        tees:     (cp.tees ?? []).map(t => ({
-          name:         t.name,
-          color:        t.color ?? '',
-          par:          t.par,
-          si:           t.si,
-          courseRating: t.courseRating ?? null,
-          slopeRating:  t.slopeRating  ?? null,
-        })),
-      };
-      try {
-        courseRec = await courseSave(newCourse);
-        allCourses = await coursesLoadAll(); // refresh local list
-      } catch (err) {
-        console.error('[Join] courseSave failed:', err);
-        alert('Could not save course. Please try again.');
-        return;
-      }
-    }
-
     if (!courseRec) {
-      alert('Could not find or save the course. Please try again.');
+      alert('Course not found. Please scan the Course Info QR first.');
       return;
     }
 
     // Pre-fill setup — use stableford as default scoring format
-    setup.category  = 'solo';
-    setup.scoring   = 'stableford';
-    setup.courseId  = courseRec.id;
-    setup.teeIdx    = (typeof ti === 'number' && ti >= 0 && ti < (courseRec.tees?.length ?? 0)) ? ti : 0;
-    setup.holes     = 18;
+    setup.category   = 'solo';
+    setup.scoring    = 'stableford';
+    setup.courseId   = courseRec.id;
+    setup.teeIdx     = (typeof ti === 'number' && ti >= 0 && ti < (courseRec.tees?.length ?? 0)) ? ti : 0;
+    setup.holes      = 18;
     setup.numPlayers = 1;
-    setup.players   = [];
-    setup.pairs     = [];
+    setup.players    = [];
+    setup.pairs      = [];
     setup.tournamentId = null;
 
     // Store the competition join info so the round can be linked
     try { localStorage.setItem('lb-comp-qr-id', cid); } catch {}
 
-    showScreen('screen-setup-players');
+    // Go to setup-course so user can confirm course/tee, then add players
+    showScreen('screen-setup-course');
+    populateCourseSelect?.();
+    updateShareQRButtonVisibility?.();
   }
 
   // ── Wire up buttons ────────────────────────────────────────────
@@ -3179,8 +3193,7 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
     if (courseData) {
       stopScanner();
       closeScannerModal();
-      importCourseFromCode(trimmed);
-      showScreen('screen-setup-course');
+      showCourseConfirm(trimmed, courseData);
       return;
     }
     const param = trimmed.includes('?join=')
@@ -3217,6 +3230,23 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
     }
   });
   document.getElementById('btn-join-confirm')?.addEventListener('click', confirmJoin);
+
+  // ── Course confirm modal ────────────────────────────────────────
+  function closeCourseConfirmModal() {
+    _pendingCourseRaw = null;
+    document.getElementById('modal-course-confirm')?.classList.remove('open');
+  }
+  document.getElementById('btn-modal-course-confirm-close')?.addEventListener('click', closeCourseConfirmModal);
+  document.getElementById('modal-course-confirm')?.addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeCourseConfirmModal();
+  });
+  document.getElementById('btn-course-confirm-dismiss')?.addEventListener('click', closeCourseConfirmModal);
+  document.getElementById('btn-course-confirm-save')?.addEventListener('click', async () => {
+    const raw = _pendingCourseRaw;
+    if (!raw) return;
+    closeCourseConfirmModal();
+    await importCourseFromCode(raw);
+  });
 
   // ── Handle ?join= in URL on page load ─────────────────────────
   // Allows sharing the URL directly (e.g. via iMessage) as well as QR
@@ -9125,7 +9155,6 @@ async function updateActiveGamesBadge() {
     // Active Games badge = active/paused rounds + any saved setup draft
     const _draft = readSetupDraft();
     const hasDraft = !!(_draft?.screen);
-    console.log('[updateActiveGamesBadge] hasDraft:', hasDraft, '| draft screen:', _draft?.screen ?? 'none', '| hasSetup:', !!_draft?.setup);
     const gamesBadge = document.getElementById('home-active-games-badge');
     const roundCount = activeRounds.length + (hasDraft ? 1 : 0);
     if (gamesBadge) {
@@ -9357,9 +9386,6 @@ async function renderActiveGamesList() {
   const listEl = document.getElementById('active-games-list');
   // Read draft FIRST — before any async calls — so a network failure can never hide it
   const savedDraft = readSetupDraft();
-  const _rawDraft = localStorage.getItem('lb-setup-draft');
-  console.log('[renderActiveGamesList] raw lb-setup-draft:', _rawDraft ? _rawDraft.slice(0,120) : 'NULL');
-  console.log('[renderActiveGamesList] parsed:', savedDraft ? `screen=${savedDraft.screen} hasSetup=${!!savedDraft.setup} scoring=${savedDraft.setup?.scoring ?? savedDraft.scoring}` : 'null');
   try {
     // Load active rounds + any pending game invites
     const [rounds, inviteRows] = await Promise.all([
@@ -10116,13 +10142,10 @@ document.getElementById('btn-combine-show')?.addEventListener('click', async () 
     return { ...g, totals };
   });
 
-  console.log('[combine] groups:', groupsWithTotals.map(g => ({ grp: g.groupNumber, names: g.names, totals: g.totals })));
-
   const merged  = mergeGroupStates(groupsWithTotals);
   const summary = getResultSummary(merged);
   const fmt     = merged.format;
   const scoreLabel = fmt === 'stroke' ? 'Net' : 'Pts';
-  console.log('[combine] merged totals:', merged.totals, 'summary:', summary);
 
   let html = `<div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;
                            color:var(--muted);font-weight:700;margin-bottom:0.75rem;">

@@ -376,7 +376,7 @@
             <line x1="14" y1="17" x2="17" y2="17"/><line x1="17" y1="17" x2="17" y2="21"/>
             <line x1="14" y1="21" x2="21" y2="21"/>
           </svg>
-          Join Competition
+          Read QR
         </button>
       </div>
 
@@ -389,7 +389,7 @@
 <div id="modal-qr-scanner" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-scanner-title">
   <div class="modal-box" style="max-width:380px;width:95%;text-align:center;">
     <div class="modal-header">
-      <span class="modal-title" id="modal-scanner-title">Scan Competition QR</span>
+      <span class="modal-title" id="modal-scanner-title">Scan QR Code</span>
       <button id="btn-modal-scanner-close" class="btn btn-ghost"
         style="margin-left:auto;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:1.2rem;line-height:1;padding:0.3rem 0.6rem;"
         aria-label="Close">✕</button>
@@ -410,7 +410,7 @@
         Point your camera at the QR code
       </p>
       <div id="qr-paste-section" style="margin:0.75rem 0 0;">
-        <p style="font-size:0.8rem;opacity:0.6;margin:0 0 0.4rem;">Or paste a competition code:</p>
+        <p style="font-size:0.8rem;opacity:0.6;margin:0 0 0.4rem;">Or paste a code (course or competition):</p>
         <div style="display:flex;gap:0.4rem;">
           <input id="qr-paste-input" type="text" placeholder="Paste code here…"
             style="flex:1;padding:0.5rem 0.6rem;border-radius:8px;border:1px solid rgba(255,255,255,0.3);
@@ -419,7 +419,7 @@
           <button id="btn-paste-join"
             style="padding:0.5rem 0.75rem;border-radius:8px;border:none;background:var(--accent,#b8963e);
                    color:#fff;font-size:0.85rem;cursor:pointer;white-space:nowrap;">
-            Join →
+            Read →
           </button>
         </div>
       </div>
@@ -439,12 +439,42 @@
     <div style="padding:1rem 1rem 1.25rem;">
       <p id="modal-join-comp-name" style="font-weight:700;font-size:1.05rem;margin:0 0 0.25rem;"></p>
       <p id="modal-join-course-name" style="font-size:0.9rem;opacity:0.7;margin:0 0 1rem;"></p>
-      <div id="modal-join-course-notice" style="display:none;background:rgba(66,153,225,0.12);border:1px solid rgba(66,153,225,0.3);border-radius:0.5rem;padding:0.65rem 0.85rem;margin-bottom:1rem;font-size:0.85rem;color:var(--blue,#4299e1);"></div>
+      <div id="modal-join-course-error" style="display:none;background:rgba(245,101,101,0.12);border:1px solid rgba(245,101,101,0.4);border-radius:0.5rem;padding:0.65rem 0.85rem;margin-bottom:1rem;font-size:0.9rem;color:#fc8181;"></div>
       <button id="btn-join-confirm"
         style="width:100%;padding:0.85rem;font-size:1rem;font-weight:800;
                background:var(--accent,#d4a843);border:none;border-radius:0.6rem;
                color:#000;cursor:pointer;">
-        Set Up My Round →
+        Enter Competition →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Course QR confirmation modal -->
+<div id="modal-course-confirm" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-course-confirm-title">
+  <div class="modal-box" style="max-width:360px;width:92%;">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-course-confirm-title">Course Info</span>
+      <button id="btn-modal-course-confirm-close" class="btn btn-ghost"
+        style="margin-left:auto;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:1.2rem;line-height:1;padding:0.3rem 0.6rem;"
+        aria-label="Close">✕</button>
+    </div>
+    <div style="padding:1rem 1rem 1.25rem;">
+      <p id="modal-course-confirm-name" style="font-weight:700;font-size:1.05rem;margin:0 0 0.25rem;"></p>
+      <p id="modal-course-confirm-tee" style="font-size:0.9rem;opacity:0.7;margin:0 0 0.75rem;"></p>
+      <p id="modal-course-confirm-holes" style="font-size:0.85rem;opacity:0.6;margin:0 0 1rem;"></p>
+      <div id="modal-course-confirm-existing" style="display:none;background:rgba(66,153,225,0.12);border:1px solid rgba(66,153,225,0.3);border-radius:0.5rem;padding:0.65rem 0.85rem;margin-bottom:1rem;font-size:0.85rem;color:var(--blue,#4299e1);"></div>
+      <button id="btn-course-confirm-save"
+        style="width:100%;padding:0.85rem;font-size:1rem;font-weight:800;
+               background:var(--green,#48bb78);border:none;border-radius:0.6rem;
+               color:#000;cursor:pointer;margin-bottom:0.5rem;">
+        💾 Save to My Courses
+      </button>
+      <button id="btn-course-confirm-dismiss"
+        style="width:100%;padding:0.6rem;font-size:0.9rem;font-weight:600;
+               background:transparent;border:1px solid rgba(255,255,255,0.2);border-radius:0.6rem;
+               color:rgba(255,255,255,0.6);cursor:pointer;">
+        Dismiss
       </button>
     </div>
   </div>
@@ -1983,7 +2013,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261019a"></script>
+<script type="module" src="js/app.js?v=20261019b"></script>
 
 
 <!-- ══════════════════════════════════════════
