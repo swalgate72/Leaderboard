@@ -2573,18 +2573,34 @@ function updateShareQRButtonVisibility() {
 
 // ── Course Info QR ─────────────────────────────────────────────────────────
 
+// ── Compact SI encoding: store as 18-char base-36 string ──────────
+// siArr[i] = SI rank of hole i+1. We invert: rank->hole, encode each hole as base36 char.
+// e.g. SI [1,3,5,...] -> inv=[hole with SI1, hole with SI2,...] -> '1a2b...'
+// This saves ~26 chars vs comma-separated, shrinking the QR from version 14 to 8.
+function _encodeSI(siArr) {
+  const holes = siArr.length;
+  const inv   = new Array(holes);
+  siArr.forEach((rank, holeIdx) => { inv[rank - 1] = holeIdx + 1; });
+  return inv.map(h => h.toString(36)).join('');
+}
+function _decodeSI(s, holes) {
+  const inv   = s.split('').map(c => parseInt(c, 36));
+  const siArr = new Array(holes);
+  inv.forEach((hole, rankIdx) => { if (hole >= 1 && hole <= holes) siArr[hole - 1] = rankIdx + 1; });
+  return siArr;
+}
+
 function buildCourseQRPayload() {
   const course = allCourses.find(c => c.id === setup.courseId) ?? null;
   const tee    = course?.tees?.[setup.teeIdx] ?? null;
   if (!course || !tee) return null;
   return {
-    v:    2,
-    type: 'course',
-    cn:   course.name,
+    v:  2,
+    cn: course.name,
     t: {
-      n:  tee.name,
-      si: (tee.si  ?? []).join(','),
-      p:  (tee.par ?? []).join(','),
+      n: tee.name,
+      s: _encodeSI(tee.si  ?? []),   // compact SI
+      p: (tee.par ?? []).join(''),    // compact par: '443443354...' no commas
       ...(tee.courseRating != null ? { cr: tee.courseRating } : {}),
       ...(tee.slopeRating  != null ? { sr: tee.slopeRating  } : {}),
     },
@@ -2597,13 +2613,24 @@ function decodeCourseQRPayload(raw) {
     const b64 = trimmed.replace(/-/g, '+').replace(/_/g, '/');
     const pad  = (4 - (b64.length % 4)) % 4;
     const obj  = JSON.parse(atob(b64 + '='.repeat(pad)));
-    if (obj.v !== 2 || obj.type !== 'course' || !obj.cn || !obj.t) return null;
+    if (obj.v !== 2 || !obj.cn || !obj.t) return null;
+    // Support both compact (t.s / t.p as strings) and legacy (t.si / t.p as comma strings)
+    let par, si;
+    if (obj.t.s != null) {
+      // Compact format: p is digit string '443...', s is base36 SI
+      par = (obj.t.p || '').split('').map(Number).filter(n => n >= 3 && n <= 6);
+      si  = _decodeSI(obj.t.s, par.length || 18);
+    } else {
+      // Legacy comma-separated format
+      par = (obj.t.p  || '').split(',').map(Number).filter(n => !isNaN(n));
+      si  = (obj.t.si || '').split(',').map(Number).filter(n => !isNaN(n));
+    }
     return {
       courseName: obj.cn,
       tee: {
-        name:         obj.t.n ?? '',
-        si:           (obj.t.si || '').split(',').map(Number).filter(n => !isNaN(n)),
-        par:          (obj.t.p  || '').split(',').map(Number).filter(n => !isNaN(n)),
+        name: obj.t.n ?? '',
+        si,
+        par,
         ...(obj.t.cr != null ? { courseRating: obj.t.cr } : {}),
         ...(obj.t.sr != null ? { slopeRating:  obj.t.sr } : {}),
       },
