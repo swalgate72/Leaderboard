@@ -3073,9 +3073,9 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
           }
 
           scanCount++;
-          if (scanCount % 10 === 0 && status) {
+          if (status) {
             status.textContent = raw
-              ? `Detected: ${raw.slice(0, 40)}…`
+              ? `✅ Detected: ${raw.slice(0, 50)}…`
               : `Scanning… (${useNative ? 'native' : 'jsQR'}) frame ${scanCount}`;
           }
 
