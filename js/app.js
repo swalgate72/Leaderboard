@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261019p';
+window.APP_BUILD = '20261019q';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -964,12 +964,26 @@ document.getElementById('btn-sign-out')?.addEventListener('click', async () => {
 // ================================================================
 // HOME SCREEN
 // ================================================================
+// Track whether we've shown the first-launch restore prompt this session
+let _firstLaunchRestoreShown = false;
+
 async function showHome() {
   showScreen('screen-home');
   renderLogos();
   setActiveBottomNav('nav-play');
   // Signal that the app is ready (used by the ?join= URL handler)
   window.dispatchEvent(new Event('lb-app-ready'));
+
+  // First-launch restore prompt — show once per session if no user courses exist
+  if (!_firstLaunchRestoreShown) {
+    _firstLaunchRestoreShown = true;
+    const hasUserCourses = allCourses.some(c => !c.isDefault);
+    const hasSeenPrompt  = (() => { try { return !!localStorage.getItem('lb-restore-prompted'); } catch { return false; } })();
+    if (!hasUserCourses && !hasSeenPrompt) {
+      try { localStorage.setItem('lb-restore-prompted', '1'); } catch {}
+      _promptRestore();
+    }
+  }
 
   // Ryder Cup button — only visible to the authorised developer account
   const RC_AUTHORISED_USER = '52e987a2-ce84-4b47-a2a8-e5a2910e8593';
@@ -10185,6 +10199,8 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     } else {
       await showHome();
     }
+    // Prompt to back up after every completed round
+    _promptBackup('Round saved! Back up your data to iCloud Drive or Google Drive?');
   } catch (err) {
     alert('Could not save round: ' + err.message);
     btn.disabled = false; btn.textContent = '✓ SAVE & FINISH';
@@ -11369,24 +11385,105 @@ document.getElementById('btn-profile-home')?.addEventListener('click', () => sho
 // BACKUP / RESTORE
 // ================================================================
 
+// ── Shared backup helper — uses Web Share API (iCloud/GDrive sheet on iOS)
+// with fallback to plain download. Call from any user-gesture context.
+async function shareBackupFile() {
+  const json    = await exportBackup();
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const fname   = `leaderboard-backup-${dateStr}.json`;
+  const blob    = new Blob([json], { type: 'application/json' });
+  const file    = new File([blob], fname, { type: 'application/json' });
+
+  // Web Share API level 2 — lets iOS show "Save to Files" (iCloud/Google Drive)
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    await navigator.share({
+      files: [file],
+      title: 'Leaderboard Backup',
+      text:  `Leaderboard backup ${dateStr}`,
+    });
+  } else {
+    // Fallback: plain download (desktop / unsupported browsers)
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  }
+}
+
+// ── Backup prompt — shown after round complete and after course save ──
+// Uses a non-blocking modal so it doesn't interrupt the app flow.
+function _promptBackup(message) {
+  // Don't stack prompts
+  if (document.getElementById('modal-backup-prompt')) return;
+
+  const modal = document.createElement('div');
+  modal.id = 'modal-backup-prompt';
+  modal.style.cssText = `
+    position:fixed;bottom:0;left:0;right:0;z-index:9999;
+    background:var(--surface,#1a2535);border-top:1px solid var(--gold-border,rgba(212,168,67,0.35));
+    padding:1rem 1.25rem 1.5rem;display:flex;flex-direction:column;gap:0.6rem;
+    animation:slideUp 0.25s ease;
+  `;
+  modal.innerHTML = `
+    <style>@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}</style>
+    <div style="font-size:0.9rem;color:var(--text,#f0f4f8);line-height:1.4;">☁️ <strong>${message}</strong></div>
+    <div style="display:flex;gap:0.5rem;">
+      <button id="bkp-prompt-yes" class="btn btn-green" style="flex:1;">Back Up Now</button>
+      <button id="bkp-prompt-no"  class="btn btn-ghost" style="flex:0 0 auto;padding:0.5rem 1rem;">Not Now</button>
+    </div>`;
+  document.body.appendChild(modal);
+
+  const dismiss = () => modal.remove();
+  document.getElementById('bkp-prompt-no').addEventListener('click', dismiss);
+  document.getElementById('bkp-prompt-yes').addEventListener('click', async () => {
+    dismiss();
+    try { await shareBackupFile(); }
+    catch (err) { if (err.name !== 'AbortError') alert('Backup failed: ' + (err.message ?? err)); }
+  });
+  // Auto-dismiss after 12 seconds if ignored
+  setTimeout(dismiss, 12000);
+}
+
+// ── First-launch restore prompt ────────────────────────────────────
+function _promptRestore() {
+  if (document.getElementById('modal-restore-prompt')) return;
+  const modal = document.createElement('div');
+  modal.id = 'modal-restore-prompt';
+  modal.style.cssText = `
+    position:fixed;bottom:0;left:0;right:0;z-index:9999;
+    background:var(--surface,#1a2535);border-top:1px solid var(--gold-border,rgba(212,168,67,0.35));
+    padding:1rem 1.25rem 1.5rem;display:flex;flex-direction:column;gap:0.6rem;
+    animation:slideUp 0.25s ease;
+  `;
+  modal.innerHTML = `
+    <div style="font-size:0.9rem;color:var(--text,#f0f4f8);line-height:1.4;">
+      ☁️ <strong>Restore from backup?</strong><br>
+      <span style="font-size:0.82rem;color:var(--muted,#a0aec0);">No courses found. If you have a backup file in iCloud Drive or Google Drive, you can restore it now.</span>
+    </div>
+    <div style="display:flex;gap:0.5rem;">
+      <button id="rstr-prompt-yes" class="btn btn-green" style="flex:1;">Restore Backup</button>
+      <button id="rstr-prompt-no"  class="btn btn-ghost" style="flex:0 0 auto;padding:0.5rem 1rem;">Start Fresh</button>
+    </div>`;
+  document.body.appendChild(modal);
+
+  const dismiss = () => modal.remove();
+  document.getElementById('rstr-prompt-no').addEventListener('click', dismiss);
+  document.getElementById('rstr-prompt-yes').addEventListener('click', () => {
+    dismiss();
+    document.getElementById('backup-import-file')?.click();
+  });
+}
+
 document.getElementById('btn-backup-export')?.addEventListener('click', async () => {
   const btn = document.getElementById('btn-backup-export');
-  if (btn) { btn.disabled = true; btn.textContent = 'Exporting…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
   try {
-    const json     = await exportBackup();
-    const blob     = new Blob([json], { type: 'application/json' });
-    const url      = URL.createObjectURL(blob);
-    const a        = document.createElement('a');
-    const dateStr  = new Date().toISOString().slice(0, 10);
-    a.href         = url;
-    a.download     = `leaderboard-backup-${dateStr}.json`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+    await shareBackupFile();
   } catch (err) {
-    alert('Export failed: ' + (err.message ?? err));
+    if (err.name !== 'AbortError') alert('Export failed: ' + (err.message ?? err));
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '⬇️ Export Backup'; }
+    if (btn) { btn.disabled = false; btn.textContent = '☁️ Backup to Files'; }
   }
 });
 
@@ -12435,6 +12532,8 @@ document.getElementById('cwiz-save-btn')?.addEventListener('click', async () => 
     } else if (cwiz.returnTo === 'profile') {
       populateProfileCourseSelect();
     }
+    // Prompt to back up after adding a course — key moment for cross-device sync
+    _promptBackup('Course saved! Back up now so it\'s available on your other devices?');
   } catch (err) { alert('Could not save course: ' + err.message); }
   finally { btn.disabled = false; btn.textContent = '✅ SAVE COURSE'; }
 });
