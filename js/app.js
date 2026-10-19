@@ -2657,22 +2657,24 @@ async function openCourseQRModal() {
 
   const json    = JSON.stringify(payload);
   const b64url  = btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  // Encode as a full URL so native iOS camera can scan it directly
+  const qrUrl   = APP_BASE_URL + '?qr=' + b64url;
 
-  // Wire copy button
+  // Wire copy button — copies the full URL for sharing via iMessage/AirDrop
   const copyBtn = document.getElementById('btn-copy-course-code');
   if (copyBtn) {
     copyBtn.onclick = async () => {
       try {
-        await navigator.clipboard.writeText(b64url);
+        await navigator.clipboard.writeText(qrUrl);
         copyBtn.textContent = '✅ Copied!';
-        setTimeout(() => { copyBtn.textContent = '📋 Copy course code'; }, 2000);
-      } catch { prompt('Copy this course code:', b64url); }
+        setTimeout(() => { copyBtn.textContent = '📋 Copy course link'; }, 2000);
+      } catch { prompt('Copy this course link:', qrUrl); }
     };
   }
 
   try {
     const qr  = await getQRMod();
-    const svg = await qr.toSVG(b64url, {
+    const svg = await qr.toSVG(qrUrl, {
       errorCorrectionLevel: 'M',
       width: 280,
       margin: 2,
@@ -2978,118 +2980,6 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
     } catch { return null; }
   }
 
-  function closeScannerModal() {
-    document.getElementById('modal-qr-scanner')?.classList.remove('open');
-    // Reset file input so same file can be re-selected
-    const fi = document.getElementById('qr-file-input');
-    if (fi) fi.value = '';
-  }
-
-  // ── Extract join param from raw QR value ───────────────────────
-  function extractJoinParam(raw) {
-    if (!raw) return null;
-    if (raw.includes('?join=')) {
-      try { return new URL(raw).searchParams.get('join'); } catch { return null; }
-    }
-    if (/^[A-Za-z0-9_-]{20,}$/.test(raw)) return raw;
-    return null;
-  }
-
-  // ── Process a decoded QR string ────────────────────────────────
-  function handleDecodedQR(raw, status) {
-    if (!raw) return false;
-    // Course info QR (v:2)
-    const courseData = decodeCourseQRPayload(raw);
-    if (courseData) {
-      closeScannerModal();
-      showCourseConfirm(raw, courseData);
-      return true;
-    }
-    // Game setup QR (v:1)
-    const joinParam = extractJoinParam(raw);
-    if (joinParam) {
-      const payload = decodeJoinPayload(joinParam);
-      if (payload) {
-        closeScannerModal();
-        showJoinConfirm(payload);
-        return true;
-      } else {
-        if (status) status.textContent = `QR found but payload invalid.`;
-        return false;
-      }
-    }
-    if (status) status.textContent = `QR decoded but not recognised. Try again.`;
-    return false;
-  }
-
-  // ── Open scanner modal (photo-capture approach) ─────────────────
-  // Instead of live video (unreliable on iOS/Safari), the user taps a
-  // button that opens the native camera app. The resulting photo is
-  // decoded by jsQR — still images decode far more reliably than video.
-  function openScannerModal() {
-    const modal  = document.getElementById('modal-qr-scanner');
-    const status = document.getElementById('qr-scanner-status');
-    if (modal) modal.classList.add('open');
-    if (status) status.textContent = 'Tap the button above to take a photo of the QR code.';
-
-    // Wire up file input each time we open (re-attach to clear previous state)
-    const fileInput = document.getElementById('qr-file-input');
-    if (fileInput) {
-      // Clone to remove old listeners
-      const fresh = fileInput.cloneNode(true);
-      fileInput.parentNode.replaceChild(fresh, fileInput);
-
-      fresh.addEventListener('change', async () => {
-        const file = fresh.files?.[0];
-        if (!file) return;
-        if (status) status.textContent = 'Decoding…';
-        try {
-          if (!window.jsQR) { if (status) status.textContent = 'jsQR not loaded — reload app.'; return; }
-          const bitmap = await createImageBitmap(file);
-          const canvas = document.getElementById('qr-scanner-canvas');
-          if (!canvas) { if (status) status.textContent = 'Canvas not found.'; return; }
-          const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-          // Try multiple scales — jsQR works better when QR fills more of the image.
-          // iPad photos are huge (e.g. 4032×3024); the QR may be a small region.
-          // We try original, then progressively smaller (more zoomed-in crops aren't
-          // possible without knowing where the QR is, but smaller = faster passes).
-          // Also try a contrast-boosted version.
-          const attempts = [1, 0.5, 0.25, 2];
-          let result = null;
-          for (const scale of attempts) {
-            const w = Math.round(bitmap.width  * scale);
-            const h = Math.round(bitmap.height * scale);
-            canvas.width  = w;
-            canvas.height = h;
-            ctx.drawImage(bitmap, 0, 0, w, h);
-            // Normal attempt
-            let imgData = ctx.getImageData(0, 0, w, h);
-            result = window.jsQR(imgData.data, w, h, { inversionAttempts: 'attemptBoth' });
-            if (result?.data) break;
-            // High-contrast attempt at same scale
-            ctx.drawImage(bitmap, 0, 0, w, h);
-            ctx.filter = 'contrast(2) brightness(1.1)';
-            ctx.drawImage(bitmap, 0, 0, w, h);
-            ctx.filter = 'none';
-            imgData = ctx.getImageData(0, 0, w, h);
-            result = window.jsQR(imgData.data, w, h, { inversionAttempts: 'attemptBoth' });
-            if (result?.data) break;
-          }
-
-          if (!result?.data) {
-            if (status) status.textContent = '❌ No QR found. Try holding the camera closer so the QR fills the frame, then retake.';
-            return;
-          }
-          if (status) status.textContent = '✅ QR detected!';
-          handleDecodedQR(result.data, status);
-        } catch (e) {
-          if (status) status.textContent = `Error reading image: ${e.message}`;
-        }
-      });
-    }
-  }
-
   // ── Show join confirmation ──────────────────────────────────────
   function showJoinConfirm(payload) {
     pendingJoin = payload;
@@ -3195,40 +3085,7 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
   }
 
   // ── Wire up buttons ────────────────────────────────────────────
-  document.getElementById('btn-join-competition-qr')?.addEventListener('click', openScannerModal);
   // Paste field — accept either a raw code or a full ?join= URL
-  function tryJoinFromCode(raw) {
-    const trimmed = (raw || '').trim();
-    if (!trimmed) return;
-    // Check if it's a course-info code first
-    const courseData = decodeCourseQRPayload(trimmed);
-    if (courseData) {
-      closeScannerModal();
-      showCourseConfirm(trimmed, courseData);
-      return;
-    }
-    const param = trimmed.includes('?join=')
-      ? (() => { try { return new URL(trimmed).searchParams.get('join'); } catch { return null; } })()
-      : trimmed;
-    if (!param) { alert('Invalid code. Please copy again from the competition screen.'); return; }
-    const payload = decodeJoinPayload(param);
-    if (!payload) { alert('Could not read competition data from that code.'); return; }
-    closeScannerModal();
-    showJoinConfirm(payload);
-  }
-
-  document.getElementById('btn-paste-join')?.addEventListener('click', () => {
-    const input = document.getElementById('qr-paste-input');
-    tryJoinFromCode(input?.value);
-  });
-
-  document.getElementById('qr-paste-input')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') tryJoinFromCode(e.target.value);
-  });
-  document.getElementById('btn-modal-scanner-close')?.addEventListener('click', closeScannerModal);
-  document.getElementById('modal-qr-scanner')?.addEventListener('click', e => {
-    if (e.target === e.currentTarget) closeScannerModal();
-  });
   document.getElementById('btn-modal-join-close')?.addEventListener('click', () => {
     pendingJoin = null;
     document.getElementById('modal-join-confirm')?.classList.remove('open');
@@ -3266,6 +3123,17 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
     if (payload) {
       // Wait for app to finish initialising before showing the modal
       window.addEventListener('lb-app-ready', () => showJoinConfirm(payload), { once: true });
+    }
+  }
+
+  // ── Handle ?qr= in URL on page load ───────────────────────────
+  // Course info QR encodes as a full URL with ?qr= so native iOS
+  // camera scans it directly. On open, decode and show course modal.
+  const urlQR = new URLSearchParams(window.location.search).get('qr');
+  if (urlQR) {
+    const courseData = decodeCourseQRPayload(urlQR);
+    if (courseData) {
+      window.addEventListener('lb-app-ready', () => showCourseConfirm(urlQR, courseData), { once: true });
     }
   }
 })();

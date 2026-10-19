@@ -362,23 +362,6 @@
 
       </div><!-- /fmt-grid -->
 
-      <!-- Join Competition via QR scan -->
-      <div class="home-section-label" style="margin-top:1rem;">Competition</div>
-      <div class="fmt-col">
-        <button class="fmt-btn" id="btn-join-competition-qr">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-            <rect x="3" y="14" width="7" height="7" rx="1"/>
-            <rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none"/>
-            <rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none"/>
-            <rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none"/>
-            <line x1="14" y1="14" x2="17" y2="14"/><line x1="21" y1="14" x2="21" y2="17"/>
-            <line x1="14" y1="17" x2="17" y2="17"/><line x1="17" y1="17" x2="17" y2="21"/>
-            <line x1="14" y1="21" x2="21" y2="21"/>
-          </svg>
-          Read QR
-        </button>
-      </div>
 
     </div>
   </div>
@@ -386,33 +369,6 @@
 </div>
 
 <!-- QR Scanner modal -->
-<div id="modal-qr-scanner" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-scanner-title">
-  <div class="modal-box" style="max-width:380px;width:95%;text-align:center;">
-    <div class="modal-header">
-      <span class="modal-title" id="modal-scanner-title">Scan QR Code</span>
-      <button id="btn-modal-scanner-close" class="btn btn-ghost"
-        style="margin-left:auto;background:rgba(255,255,255,0.1);border:none;color:#fff;font-size:1.2rem;line-height:1;padding:0.3rem 0.6rem;"
-        aria-label="Close">✕</button>
-    </div>
-    <div style="padding:1rem;">
-      <!-- Photo capture approach: take a photo of the QR, decode from still image -->
-      <div style="text-align:center;margin-bottom:0.75rem;">
-        <label id="btn-qr-photo" for="qr-file-input"
-          style="display:inline-block;padding:0.85rem 1.5rem;border-radius:12px;
-                 background:var(--accent,#b8963e);color:#fff;font-size:1rem;
-                 font-weight:600;cursor:pointer;letter-spacing:0.02em;">
-          📷 Scan QR Code
-        </label>
-        <input id="qr-file-input" type="file" accept="image/*" capture="environment"
-          style="display:none;" />
-      </div>
-      <!-- Hidden canvas used by jsQR to decode the photo -->
-      <canvas id="qr-scanner-canvas" style="display:none;"></canvas>
-      <p id="qr-scanner-status" style="margin:0.5rem 0 0;font-size:0.85rem;opacity:0.7;min-height:1.2em;"></p>
-    </div>
-  </div>
-</div>
-
 <!-- Join Competition confirmation modal -->
 <div id="modal-join-confirm" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-join-title">
   <div class="modal-box" style="max-width:360px;width:92%;">
@@ -742,7 +698,7 @@
         <span style="opacity:0.5;">Generating QR…</span>
       </div>
       <p style="font-size:0.75rem;opacity:0.6;margin:0.75rem 0 0.5rem;">
-        Scan to copy course &amp; hole data onto another device
+        Point the other device's camera at this QR to save this course
       </p>
       <button id="btn-copy-course-code"
         style="margin:0 0 0.25rem;background:none;border:1px solid var(--green,#48bb78);color:var(--green,#48bb78);
@@ -1975,7 +1931,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261019j"></script>
+<script type="module" src="js/app.js?v=20261019k"></script>
 
 
 <!-- ══════════════════════════════════════════
