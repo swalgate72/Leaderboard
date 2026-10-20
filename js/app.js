@@ -12801,6 +12801,37 @@ function showHistoryDetail(rid, rounds) {
     addGroupBtn.onclick = () => openCombineModal(state, r.id, rounds);
   }
 
+  // ── View Live Leaderboard button ───────────────────────────────────
+  const liveBtn = document.getElementById('btn-view-live-leaderboard');
+  if (liveBtn) {
+    // Try cached code from localStorage (set when this game was started/joined)
+    let cachedCode = null;
+    try { cachedCode = localStorage.getItem('lb-game-code'); } catch {}
+
+    liveBtn.style.display = '';
+    liveBtn.textContent = '📊 View Live Leaderboard';
+
+    liveBtn.onclick = () => {
+      const code = cachedCode;
+      if (code) {
+        const url = location.origin + '/live?code=' + code;
+        const a = document.createElement('a');
+        a.href = url; a.target = '_blank'; a.rel = 'noreferrer';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      } else {
+        // Prompt for code inline
+        const entered = prompt('Enter the 6-character game code:');
+        if (!entered) return;
+        const clean = entered.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+        if (clean.length < 4) { alert('Invalid code.'); return; }
+        const url = location.origin + '/live?code=' + clean;
+        const a = document.createElement('a');
+        a.href = url; a.target = '_blank'; a.rel = 'noreferrer';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      }
+    };
+  }
+
   const hShareBtn = document.getElementById('hd-share-btn');
   if (hShareBtn) {
     const shareUrl  = `${location.origin}/view?r=${r.id}`;
