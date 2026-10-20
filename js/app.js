@@ -3126,6 +3126,7 @@ document.getElementById('btn-setup-players-next')?.addEventListener('click', () 
   } else {
     // All other formats (stableford, stroke, skins, etc.) — skip straight to review
     renderSetupGroupCards(); // ensure group data is initialised
+    buildSetupReview();
     showScreen('screen-setup-review');
   }
 });
