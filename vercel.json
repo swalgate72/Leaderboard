@@ -1,4 +1,7 @@
 {
+  "rewrites": [
+    { "source": "/live", "destination": "/live.html" }
+  ],
   "functions": {
     "api/send-push.js": {
       "memory": 128,
