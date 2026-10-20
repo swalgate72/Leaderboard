@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261020b';
+window.APP_BUILD = '20261020c';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -263,11 +263,11 @@ async function importGameRecord(rec) {
     t => t.name.toLowerCase() === (courseData.tees?.[0]?.name ?? '').toLowerCase()
   ) ?? 0;
 
-  setup.courseId   = course.id;
-  setup.teeIdx     = teeIdx >= 0 ? teeIdx : 0;
-  setup.format     = rec.format?.type      ?? 'stableford';
-  setup.groups     = rec.format?.groups    ?? 1;
-  setup.holesCount = rec.format?.holesCount ?? 18;
+  setup.courseId = course.id;
+  setup.teeIdx   = teeIdx >= 0 ? teeIdx : 0;
+  setup.scoring  = rec.format?.type      ?? 'stableford';
+  setup.numGroups = rec.format?.groups    ?? 1;
+  setup.holes    = rec.format?.holesCount ?? 18;
 
   // Pre-fill players if provided and slots are empty
   if (rec.players?.length > 0 && (!setup.players || setup.players.every(p => !p.name))) {
@@ -435,11 +435,12 @@ function openJoinGameModal() {
         </p>
         <input id="join-game-input" maxlength="6" autocomplete="off" spellcheck="false"
           placeholder="e.g. X7K2AB"
-          style="display:block;width:100%;background:var(--surface2,#243045);
-            border:1px solid var(--gold-border,rgba(212,168,67,0.35));
-            color:var(--text,#f0f4f8);border-radius:0.5rem;padding:0.65rem 0.75rem;
+          style="display:block;width:100%;background:#1a2535 !important;
+            border:1px solid rgba(212,168,67,0.5);
+            color:#f0f4f8 !important;border-radius:0.5rem;padding:0.65rem 0.75rem;
             font-size:1.4rem;font-weight:700;letter-spacing:0.2em;text-align:center;
-            text-transform:uppercase;margin-bottom:0.75rem;outline:none;">
+            text-transform:uppercase;margin-bottom:0.75rem;outline:none;
+            -webkit-text-fill-color:#f0f4f8 !important;">
         <div id="join-game-status" style="font-size:0.82rem;color:var(--text-muted,#a0aec0);
           min-height:1.2em;margin-bottom:0.75rem;"></div>
         <div style="display:flex;gap:0.5rem;">

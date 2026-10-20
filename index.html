@@ -187,6 +187,18 @@
         <span id="home-active-games-badge" class="home-hero-cta-badge" style="display:none;"></span>
       </button>
 
+      <!-- Join Game by code -->
+      <button id="btn-home-join-game" class="home-round-card" type="button"
+        onclick="openJoinGameModal()"
+        style="margin-top:0.5rem;display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;">
+        <span style="font-size:1.3rem;" aria-hidden="true">🏌️</span>
+        <span style="flex:1;text-align:left;">
+          <span style="display:block;font-weight:600;font-size:0.95rem;">Join a Game</span>
+          <span style="display:block;font-size:0.78rem;opacity:0.7;">Enter a code from the organiser</span>
+        </span>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>
+      </button>
+
       <!-- Hidden for JS back-compat -->
       <button id="btn-home-game-invites" style="display:none;"></button>
       <span id="home-game-invites-badge" style="display:none;"></span>
