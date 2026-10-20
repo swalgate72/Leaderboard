@@ -5885,7 +5885,8 @@ function renderHolePanel() {
 
     if (recordBtn)   recordBtn.style.display   = 'none';
     if (backHoleBtn) backHoleBtn.style.display  = 'none';
-    toggle('btn-finish-early', false);
+    const _ar = document.getElementById('game-action-row');
+    if (_ar) { _ar.style.display = 'none'; _ar.classList.add('hidden'); }
     return;
   }
 
@@ -6207,17 +6208,17 @@ function renderHolePanel() {
     });
   }
 
-  toggle('btn-finish-early', (gameState.log?.length ?? 0) > 0);
-
-  // Show push-scores button whenever holes have been played
+  // Show/hide the action row (finish early + push scores) together
+  const holesPlayed = (gameState.log?.length ?? 0) > 0;
+  const actionRow = document.getElementById('game-action-row');
+  if (actionRow) {
+    actionRow.style.display = holesPlayed ? 'grid' : 'none';
+    actionRow.classList.toggle('hidden', !holesPlayed);
+  }
   const pushGameBtn = document.getElementById('btn-push-scores-game');
-  if (pushGameBtn) {
-    const show = (gameState.log?.length ?? 0) > 0;
-    toggle('btn-push-scores-game', show);
-    if (show && !pushGameBtn._wired) {
-      pushGameBtn._wired = true;
-      pushGameBtn.addEventListener('click', () => pushScoresToCloud(pushGameBtn));
-    }
+  if (pushGameBtn && !pushGameBtn._wired) {
+    pushGameBtn._wired = true;
+    pushGameBtn.addEventListener('click', () => pushScoresToCloud(pushGameBtn));
   }
 
   // Texas Scramble: show running driver usage tally
