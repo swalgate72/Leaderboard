@@ -291,6 +291,7 @@
 <div class="status-bar stale" id="status-bar" style="display:none">
   <span class="dot"></span>
   Updated <span id="last-updated">–</span> · auto-refresh in <span id="countdown">60</span>s
+  <span id="through-holes" style="display:none;margin-left:0.6rem;padding-left:0.6rem;border-left:1px solid rgba(255,255,255,0.15);font-weight:600;color:var(--text);"></span>
 </div>
 
 <main id="main">
@@ -572,6 +573,22 @@ function render() {
   const updAt = scores?.updatedAt;
   qs('#last-updated').textContent = fmtRelTime(updAt);
   sb.className = 'status-bar' + (updAt ? '' : ' stale');
+
+  // "Through X holes" — max holes played across all players in the active round
+  const throughEl = qs('#through-holes');
+  if (throughEl) {
+    let maxHoles = 0;
+    if (scores?.rounds) {
+      for (const grp of scores.rounds.filter(r => r.round === activeRound)) {
+        for (const p of (grp.players ?? [])) {
+          const h = p.scores?.length ?? 0;
+          if (h > maxHoles) maxHoles = h;
+        }
+      }
+    }
+    throughEl.textContent = maxHoles > 0 ? `Through ${maxHoles}` : '';
+    throughEl.style.display = maxHoles > 0 ? '' : 'none';
+  }
 
   // Main content
   const main = qs('#main');
