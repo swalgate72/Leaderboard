@@ -10421,6 +10421,7 @@ async function doAbandon(shouldDelete) {
   realtimeUnsubscribe(realtimeCh); realtimeCh = null;
   roundId = null; gameState = null;
   try { localStorage.removeItem('lb-active-round'); } catch {}
+  try { localStorage.removeItem('lb-game-code'); } catch {}
   clearSetupState();
   clearSetupDraft();
   setup.tournamentId     = null;
@@ -10891,6 +10892,8 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     const wasTournament = !!gameState.tournamentId;
     const tournId = gameState.tournamentId;
     gameState = null;
+    // Clear game code so a new game never pushes scores to this completed game
+    try { localStorage.removeItem('lb-game-code'); } catch {}
     if (wasTournament) {
       await showHome();
     } else {
