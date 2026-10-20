@@ -321,7 +321,8 @@ async function pushScoresToCloud(btn) {
   let code = null;
   try { code = localStorage.getItem('lb-game-code'); } catch {}
   if (!code) {
-    if (btn) { btn.textContent = '✗ No game code'; setTimeout(() => restorePushBtn(btn), 2000); }
+    // No game code yet — open the share modal so they can generate one, then push
+    openShareGameModal().catch(() => {});
     return;
   }
   if (btn) { btn.textContent = '⏳ Pushing…'; btn.disabled = true; }
@@ -371,7 +372,7 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
         </p>
         <div id="share-game-code" style="font-size:2.5rem;font-weight:800;letter-spacing:0.2em;
           color:var(--gold,#d4a843);margin:0.5rem 0 0.25rem;"></div>
-        <div id="share-game-expiry" style="font-size:0.75rem;color:var(--text-muted,#a0aec0);
+        <div id="share-game-expiry" style="font-size:0.75rem;color:var(--text,#1a202c);
           margin-bottom:1rem;"></div>
         <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem;">
           <button id="share-game-copy-code" class="btn btn-gold" style="width:100%;">📋 Copy Code</button>
@@ -6143,12 +6144,10 @@ function renderHolePanel() {
 
   toggle('btn-finish-early', (gameState.log?.length ?? 0) > 0);
 
-  // Show push-scores button when a game code exists and holes have been played
+  // Show push-scores button whenever holes have been played
   const pushGameBtn = document.getElementById('btn-push-scores-game');
   if (pushGameBtn) {
-    let code = null;
-    try { code = localStorage.getItem('lb-game-code'); } catch {}
-    const show = !!code && (gameState.log?.length ?? 0) > 0;
+    const show = (gameState.log?.length ?? 0) > 0;
     toggle('btn-push-scores-game', show);
     if (show && !pushGameBtn._wired) {
       pushGameBtn._wired = true;
