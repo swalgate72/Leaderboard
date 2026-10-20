@@ -12889,6 +12889,87 @@ function showHistoryDetail(rid, rounds) {
     };
   }
 
+  // ── Import All Group Scores button ────────────────────────────────
+  const importBtn = document.getElementById('btn-import-group-scores');
+  if (importBtn) {
+    const importCode = state?.gameCode ?? null;
+    if (importCode) {
+      importBtn.style.display = '';
+      importBtn.textContent = `📥 Import All Group Scores · ${importCode}`;
+      importBtn.onclick = async () => {
+        importBtn.disabled = true;
+        importBtn.textContent = '⏳ Importing…';
+        try {
+          const WORKER = 'https://leaderboardsync.sw-77d.workers.dev';
+          const resp = await fetch(`${WORKER}/scores/${importCode}`);
+          if (!resp.ok) {
+            const body = await resp.json().catch(() => ({}));
+            throw new Error(body.error ?? `HTTP ${resp.status}`);
+          }
+          const data = await resp.json();
+          const fetchedRounds = data.rounds ?? [];
+          if (!fetchedRounds.length) {
+            alert('No scores found online for this game code.');
+            importBtn.disabled = false;
+            importBtn.textContent = `📥 Import All Group Scores · ${importCode}`;
+            return;
+          }
+
+          // Convert each worker round into a minimal game-state compatible object
+          // worker round: { round, group, players: [{name, hcp, scores, nets, grossTotal, netTotal, pts, total}] }
+          const isStroke = (state?.format ?? state?.scoring ?? '') === 'stroke';
+          const newAllGroupStates = fetchedRounds.map((wr, gi) => {
+            const players = wr.players ?? [];
+            const names  = players.map(p => p.name);
+            const hdcps  = players.map(p => p.hcp ?? 0);
+            // Rebuild a minimal log from per-hole scores
+            const holeCount = players[0]?.scores?.length ?? 0;
+            const log = [];
+            for (let h = 0; h < holeCount; h++) {
+              const grosses = players.map(p => p.scores?.[h] ?? 0);
+              const nets    = players.map((p, pi) => p.nets?.[h] ?? grosses[pi] ?? 0);
+              log.push({ grosses, nets, holePts: players.map(() => 0) });
+            }
+            return {
+              names,
+              hdcps,
+              log,
+              groupNumber: gi + 1,
+              format:  state?.format  ?? state?.scoring ?? '',
+              scoring: state?.scoring ?? state?.format  ?? '',
+              gameCode: importCode,
+              _imported: true,
+              _groupId: wr.group,
+            };
+          });
+
+          // Merge into current state: update allGroupStates
+          const updatedState = {
+            ...(state ?? {}),
+            allGroupStates: newAllGroupStates,
+            gameCode: importCode,
+          };
+
+          // Save back via roundSaveState — preserves status, just updates game_state
+          await roundSaveState(r.id, updatedState);
+
+          // Re-fetch rounds and re-render detail
+          const freshRounds = await roundsLoadHistory(currentUser?.id ?? null);
+          importBtn.disabled = false;
+          showHistoryDetail(r.id, freshRounds);
+          alert(`✅ Imported ${newAllGroupStates.length} group(s) from online leaderboard.`);
+        } catch (e) {
+          console.error('[import-scores]', e);
+          alert('Import failed: ' + (e.message ?? e));
+          importBtn.disabled = false;
+          importBtn.textContent = `📥 Import All Group Scores · ${importCode}`;
+        }
+      };
+    } else {
+      importBtn.style.display = 'none';
+    }
+  }
+
   const hShareBtn = document.getElementById('hd-share-btn');
   if (hShareBtn) {
     const shareUrl  = `${location.origin}/view?r=${r.id}`;
