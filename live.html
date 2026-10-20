@@ -563,7 +563,8 @@ function render() {
   // Header
   qs('#hdr').style.display = '';
   qs('#hdr-title').textContent = game.name || game.course?.name || 'Leaderboard';
-  qs('#hdr-sub').textContent   = game.organiser ? `Organised by ${game.organiser}` : '';
+  qs('#hdr-sub').innerHTML = (game.organiser ? `Organised by ${game.organiser} · ` : '') +
+    `<span style="font-weight:800;letter-spacing:0.1em;color:var(--gold,#d4a843);">${currentCode}</span>`;
 
   // Status bar
   const sb = qs('#status-bar');

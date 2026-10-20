@@ -325,6 +325,8 @@ async function pushScoresToCloud(btn) {
     openShareGameModal().catch(() => {});
     return;
   }
+  // Embed code in gameState so it persists in history
+  if (gameState) gameState.gameCode = code;
   if (btn) { btn.textContent = '⏳ Pushing…'; btn.disabled = true; }
   try {
     const allStates = gameState.allGroupStates?.length > 1 ? gameState.allGroupStates : [gameState];
@@ -433,8 +435,9 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
     expiryEl.textContent = `Expires ${exp.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}`;
     statusEl.textContent = 'Share this code with your group';
 
-    // Store for score upload later
+    // Store for score upload later, and embed in gameState for history
     try { localStorage.setItem('lb-game-code', code); } catch {}
+    if (gameState) gameState.gameCode = code;
 
     copyCode.onclick = async () => {
       try { await navigator.clipboard.writeText(code); }
@@ -513,8 +516,9 @@ function openJoinGameModal() {
         const rec = await fetchGameByCode(code);
         await importGameRecord(rec);
 
-        // Store for later score upload
+        // Store for later score upload, and embed in gameState for history
         try { localStorage.setItem('lb-game-code', code); } catch {}
+        if (gameState) gameState.gameCode = code;
 
         status.textContent = `✅ Joined: ${rec.course?.name ?? 'game'}`;
         modal.classList.remove('open');
@@ -12554,10 +12558,14 @@ function showHistoryDetail(rid, rounds) {
     const summary   = getResultSummary(merged);
 
     // ── Result summary ───────────────────────────────────────────────
+    const histGameCode = state.gameCode ?? null;
     document.getElementById('hd-result').innerHTML = `
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;">
-        <div style="font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:0.3rem;">
-          ${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees · ${merged.log?.length ?? 0} holes
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.3rem;">
+          <div style="font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);">
+            ${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees · ${merged.log?.length ?? 0} holes
+          </div>
+          ${histGameCode ? `<span style="font-family:var(--font-ui,'Plus Jakarta Sans',sans-serif);font-size:0.68rem;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#fff;background:rgba(72,187,120,0.25);border:1px solid rgba(72,187,120,0.5);border-radius:0.3rem;padding:0.15rem 0.4rem;">${histGameCode}</span>` : ''}
         </div>
         <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold);">
           ${summary.winner ?? 'Completed'}
@@ -12803,12 +12811,12 @@ function showHistoryDetail(rid, rounds) {
   // ── View Live Leaderboard button ───────────────────────────────────
   const liveBtn = document.getElementById('btn-view-live-leaderboard');
   if (liveBtn) {
-    // Try cached code from localStorage (set when this game was started/joined)
-    let cachedCode = null;
-    try { cachedCode = localStorage.getItem('lb-game-code'); } catch {}
+    // Prefer code stored in game_state (persists to history), fall back to localStorage
+    let cachedCode = state?.gameCode ?? null;
+    if (!cachedCode) { try { cachedCode = localStorage.getItem('lb-game-code'); } catch {} }
 
     liveBtn.style.display = '';
-    liveBtn.textContent = '📊 View Live Leaderboard';
+    liveBtn.textContent = cachedCode ? `📊 Live Leaderboard · ${cachedCode}` : '📊 View Live Leaderboard';
 
     liveBtn.onclick = () => {
       const code = cachedCode;
