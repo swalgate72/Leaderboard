@@ -211,10 +211,10 @@ async function shareGameSetup({ ttlHours = 48, expiresAt = null, name = null } =
                slopeRating:  tee.slopeRating  ?? null }],
     },
     format: {
-      type:       setup.format      ?? 'stableford',
+      type:       setup.scoring     ?? setup.format ?? 'stableford',
       teeIdx:     0,
-      groups:     setup.groups      ?? 1,
-      holesCount: setup.holesCount  ?? 18,
+      groups:     setup.numGroups   ?? setup.groups ?? 1,
+      holesCount: setup.holes       ?? setup.holesCount ?? 18,
     },
     players:   (setup.players ?? []).map(p => ({
       name:      p.name,

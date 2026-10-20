@@ -555,7 +555,13 @@ function render() {
   qs('#hdr-title').textContent = game.course?.name || game.name || 'Leaderboard';
   const fmtType = game.format?.type ?? 'stableford';
   const fmtTee  = game.format?.tee  ?? '';
-  const fmtLabel = [fmtType.charAt(0).toUpperCase() + fmtType.slice(1), fmtTee && `${fmtTee} tees`].filter(Boolean).join(' · ');
+  const FORMAT_LABELS = {
+    stableford: 'Stableford', stroke: 'Stroke Play', match: 'Match Play',
+    betterball: 'Better Ball', split6: 'Split 6', skins: 'Skins',
+    itc: 'In The Chair', foursomes: 'Foursomes', greensomes: 'Greensomes',
+    texas: 'Texas Scramble', csm: 'Combined Stableford/Match',
+  };
+  const fmtLabel = [FORMAT_LABELS[fmtType] ?? (fmtType.charAt(0).toUpperCase() + fmtType.slice(1)), fmtTee && `${fmtTee} tees`].filter(Boolean).join(' · ');
   qs('#hdr-format').textContent = fmtLabel;
   const dateStr = (() => {
     const d = game.playedAt ?? game.createdAt;
