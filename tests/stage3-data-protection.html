@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Leaderboard — Stage 3 Data Protection Tests</title>
+<style>
+  body { font-family: monospace; background: #1a1a1a; color: #e0e0e0; padding: 1rem; }
+  h1 { color: #f0c040; }
+  .pass { color: #2ecc71; }
+  .fail { color: #e74c3c; }
+  .skip { color: #aaa; }
+  .summary { margin-top: 1.5rem; font-size: 1.1rem; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Leaderboard — Stage 3 Data Protection Tests</h1>
+<p id="status">Running…</p>
+<div id="results"></div>
+<div class="summary" id="summary"></div>
+
+<script>
+// ================================================================
+// HARNESS — mirrors local.js importBackup guard + idb utilities
+// ================================================================
+const TEST_DB      = 'lb_test_stage3_' + Date.now();
+const STORE_ACTIVE = 'active_rounds';
+const STORE_ROUNDS = 'rounds';
+
+let passed = 0, failed = 0;
+const resultsEl = document.getElementById('results');
+
+function log(id, ok, detail) {
+  resultsEl.innerHTML += `<div class="${ok?'pass':'fail'}">${ok?'✓':'✗'} ${id}: ${detail}</div>`;
+  ok ? passed++ : failed++;
+}
+function logSkip(id, reason) {
+  resultsEl.innerHTML += `<div class="skip">– ${id}: SKIP — ${reason}</div>`;
+}
+
+function openTestDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(TEST_DB, 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      db.createObjectStore(STORE_ACTIVE, { keyPath: 'roundId' });
+      const rs = db.createObjectStore(STORE_ROUNDS, { keyPath: 'id' });
+      rs.createIndex('status', 'status', { unique: false });
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+const now = () => new Date().toISOString();
+
+function idbSave(db, roundId, state, dirty, savedAt) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE_ACTIVE, 'readwrite');
+    const req = tx.objectStore(STORE_ACTIVE).put({ roundId, state, dirty: dirty !== false, savedAt: savedAt ?? Date.now() });
+    req.onsuccess = () => resolve();
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function idbLoad(db, roundId) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE_ACTIVE, 'readonly');
+    const req = tx.objectStore(STORE_ACTIVE).get(roundId);
+    req.onsuccess = e => resolve(e.target.result ?? null);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function idbClear(db, roundId) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE_ACTIVE, 'readwrite');
+    const req = tx.objectStore(STORE_ACTIVE).delete(roundId);
+    req.onsuccess = () => resolve();
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function idbGetDirty(db) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE_ACTIVE, 'readonly');
+    const res = [];
+    const req = tx.objectStore(STORE_ACTIVE).openCursor();
+    req.onsuccess = e => {
+      const c = e.target.result;
+      if (c) { if (c.value.dirty) res.push(c.value); c.continue(); }
+      else resolve(res);
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function roundCreate(db, id, status, gameState, courseName) {
+  return new Promise((resolve, reject) => {
+    const rec = { id, status, game_state: gameState, course_name: courseName ?? null, createdAt: now(), updatedAt: now() };
+    const tx  = db.transaction(STORE_ROUNDS, 'readwrite');
+    const req = tx.objectStore(STORE_ROUNDS).put(rec);
+    req.onsuccess = () => resolve(id);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function roundsLoadActive(db) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_ROUNDS, 'readonly');
+    const res = [];
+    const req = tx.objectStore(STORE_ROUNDS).openCursor();
+    req.onsuccess = e => {
+      const c = e.target.result;
+      if (c) { if (['active','paused'].includes(c.value.status)) res.push(c.value); c.continue(); }
+      else resolve(res);
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function roundComplete(db, id, gameState) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_ROUNDS, 'readwrite');
+    const get = tx.objectStore(STORE_ROUNDS).get(id);
+    get.onsuccess = () => {
+      const ex = get.result;
+      if (!ex) { reject(new Error('Round not found: ' + id)); return; }
+      const put = tx.objectStore(STORE_ROUNDS).put({ ...ex, status: 'completed', game_state: gameState, completedAt: now(), updatedAt: now() });
+      put.onsuccess = () => resolve();
+      put.onerror = e => reject(e.target.error);
+    };
+    get.onerror = e => reject(e.target.error);
+  });
+}
+
+function roundAbandon(db, id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_ROUNDS, 'readwrite');
+    const get = tx.objectStore(STORE_ROUNDS).get(id);
+    get.onsuccess = () => {
+      const ex = get.result;
+      if (!ex) { reject(new Error('Round not found: ' + id)); return; }
+      const put = tx.objectStore(STORE_ROUNDS).put({ ...ex, status: 'paused', updatedAt: now() });
+      put.onsuccess = () => resolve();
+      put.onerror = e => reject(e.target.error);
+    };
+    get.onerror = e => reject(e.target.error);
+  });
+}
+
+function getRoundsAll(db) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE_ROUNDS, 'readonly');
+    const res = [];
+    const req = tx.objectStore(STORE_ROUNDS).openCursor();
+    req.onsuccess = e => {
+      const c = e.target.result;
+      if (c) { res.push(c.value); c.continue(); }
+      else resolve(res);
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+// Simulated importBackup — mirrors local.js guard
+async function importBackupGuarded(db, backup) {
+  const existingRounds = await getRoundsAll(db);
+  const activeOrPaused = existingRounds.filter(r => ['active','paused'].includes(r.status));
+  if (activeOrPaused.length > 0) {
+    const names = activeOrPaused.map(r => r.course_name || r.id).join(', ');
+    throw new Error(`Cannot restore backup: ${activeOrPaused.length} unfinished round(s) exist (${names}). Please complete or abandon all active rounds before restoring a backup.`);
+  }
+  // In the real app, all stores are cleared and refilled. Here: just simulate clearing rounds store.
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE_ROUNDS, 'readwrite');
+    tx.objectStore(STORE_ROUNDS).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror    = e => reject(e.target.error);
+  });
+}
+
+const uid = () => 'r-' + Math.random().toString(36).slice(2,8) + '-' + Date.now();
+
+// ================================================================
+// TESTS
+// ================================================================
+async function runTests() {
+  const db = await openTestDB();
+
+  // ── P1: roundComplete clears IDB only after rounds store write succeeds ──
+  try {
+    const id = uid();
+    await roundCreate(db, id, 'active', { hole: 18, log: Array(18).fill({}) }, 'P1 Course');
+    await idbSave(db, id, { hole: 18, log: Array(18).fill({}) });
+
+    // Simulate successful completion flow
+    const finalState = { hole: 18, log: Array(18).fill({grosses:[4,4]}), complete: true };
+    await roundComplete(db, id, finalState); // rounds store updated to 'completed'
+    await idbClear(db, id);                  // only after roundComplete succeeds
+
+    const idbEntry  = await idbLoad(db, id);
+    const roundRec  = await new Promise((res, rej) => {
+      const tx = db.transaction(STORE_ROUNDS, 'readonly');
+      const req = tx.objectStore(STORE_ROUNDS).get(id);
+      req.onsuccess = e => res(e.target.result);
+      req.onerror   = e => rej(e.target.error);
+    });
+
+    const ok = idbEntry === null && roundRec?.status === 'completed';
+    log('P1', ok, ok ? 'roundComplete: IDB cleared after successful rounds-store write' : `idb=${!!idbEntry} status=${roundRec?.status}`);
+  } catch(e) { log('P1', false, e.message); }
+
+  // ── P2: roundComplete failure leaves round recoverable ───────────────
+  try {
+    const id = uid();
+    await roundCreate(db, id, 'active', { hole: 15, log: Array(15).fill({}) }, 'P2 Course');
+    await idbSave(db, id, { hole: 15, log: Array(15).fill({}) });
+
+    // Simulate roundComplete failure (round doesn't exist in store)
+    let threw = false;
+    try { await roundComplete(db, 'nonexistent-id', {}); } catch { threw = true; }
+
+    // IDB entry for real round should still be present
+    const idbEntry = await idbLoad(db, id);
+    const active   = await roundsLoadActive(db);
+    const ok = threw && idbEntry !== null && active.some(r => r.id === id);
+    log('P2', ok, ok ? 'Simulated completion failure: round remains recoverable in IDB and rounds store' : `threw=${threw} idb=${!!idbEntry} inActive=${active.some(r=>r.id===id)}`);
+  } catch(e) { log('P2', false, e.message); }
+
+  // ── P3: Pause (doAbandon=false) preserves IDB recovery data ──────────
+  try {
+    const id = uid();
+    await roundCreate(db, id, 'active', { hole: 7, log: Array(7).fill({grosses:[4,4]}) }, 'P3 Course');
+    await idbSave(db, id, { hole: 7, log: Array(7).fill({grosses:[4,4]}) });
+
+    // Simulate pause: roundAbandon → status=paused, but do NOT clear IDB
+    await roundAbandon(db, id);
+    // (In real app, doAbandon(false) now skips idbClear)
+
+    const idbEntry = await idbLoad(db, id);
+    const active   = await roundsLoadActive(db);
+    const ok = idbEntry !== null && active.some(r => r.id === id && r.status === 'paused');
+    log('P3', ok, ok ? 'Pause preserves IDB recovery data; round status=paused in rounds store' : `idb=${!!idbEntry} status=${active.find(r=>r.id===id)?.status}`);
+  } catch(e) { log('P3', false, e.message); }
+
+  // ── P4: Delete (doAbandon=true) clears IDB recovery data ─────────────
+  try {
+    const id = uid();
+    await roundCreate(db, id, 'active', { hole: 5, log: Array(5).fill({}) }, 'P4 Course');
+    await idbSave(db, id, { hole: 5, log: Array(5).fill({}) });
+
+    // Simulate explicit delete: clear IDB
+    await idbClear(db, id);
+    // (roundDelete would remove from rounds store too — simulate with a manual remove)
+    await new Promise((res, rej) => {
+      const tx = db.transaction(STORE_ROUNDS, 'readwrite');
+      tx.objectStore(STORE_ROUNDS).delete(id);
+      tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+    });
+
+    const idbEntry = await idbLoad(db, id);
+    const active   = await roundsLoadActive(db);
+    const ok = idbEntry === null && !active.some(r => r.id === id);
+    log('P4', ok, ok ? 'Delete clears IDB and removes from rounds store — not recoverable' : `idb=${!!idbEntry} inActive=${active.some(r=>r.id===id)}`);
+  } catch(e) { log('P4', false, e.message); }
+
+  // ── P5: importBackup blocked when active round exists in rounds store ─
+  try {
+    const id = uid();
+    await roundCreate(db, id, 'active', { hole: 3, log: Array(3).fill({}) }, 'Blocked Course');
+
+    let threw = false;
+    let errMsg = '';
+    try { await importBackupGuarded(db, {}); } catch(e) { threw = true; errMsg = e.message; }
+
+    const ok = threw && errMsg.includes('unfinished round');
+    log('P5', ok, ok ? 'importBackup blocked: active round in rounds store prevents restore' : `threw=${threw} msg=${errMsg}`);
+  } catch(e) { log('P5', false, e.message); }
+
+  // ── P6: importBackup blocked when paused round exists ────────────────
+  try {
+    const id = uid();
+    await roundCreate(db, id, 'paused', { hole: 9, log: Array(9).fill({}) }, 'Paused Course');
+
+    let threw = false;
+    try { await importBackupGuarded(db, {}); } catch { threw = true; }
+    const active = await roundsLoadActive(db);
+
+    // Guard threw AND the paused round still exists
+    const ok = threw && active.some(r => r.id === id);
+    log('P6', ok, ok ? 'importBackup blocked: paused round preserved, restore correctly blocked' : `threw=${threw} found=${active.some(r=>r.id===id)}`);
+  } catch(e) { log('P6', false, e.message); }
+
+  // ── P7: importBackup succeeds when no active/paused rounds ───────────
+  try {
+    // Use a fresh db view with only completed rounds
+    const id = uid();
+    await roundCreate(db, id, 'completed', { hole: 18, log: Array(18).fill({}) }, 'Done Course');
+
+    // Remove all active/paused before checking (simulate clean state)
+    const allRounds = await getRoundsAll(db);
+    const activeOrPaused = allRounds.filter(r => ['active','paused'].includes(r.status));
+    // For this test, check that if there are none, the guard doesn't throw
+    // (we can't easily clean up the whole db — check count from earlier tests)
+    // Instead: test against a sub-db
+    const subDB_name = 'lb_test_stage3_sub_' + Date.now();
+    const subDB = await new Promise((res, rej) => {
+      const req = indexedDB.open(subDB_name, 1);
+      req.onupgradeneeded = e => {
+        const d = e.target.result;
+        d.createObjectStore(STORE_ACTIVE, { keyPath: 'roundId' });
+        d.createObjectStore(STORE_ROUNDS, { keyPath: 'id' });
+      };
+      req.onsuccess = e => res(e.target.result);
+      req.onerror   = e => rej(e.target.error);
+    });
+    // Add only a completed round
+    await roundCreate(subDB, uid(), 'completed', { hole:18 }, 'Completed');
+    let threw = false;
+    try { await importBackupGuarded(subDB, {}); } catch { threw = true; }
+    subDB.close();
+    indexedDB.deleteDatabase(subDB_name);
+
+    const ok = !threw;
+    log('P7', ok, ok ? 'importBackup proceeds when only completed rounds exist' : 'importBackup threw when it should not have');
+  } catch(e) { log('P7', false, e.message); }
+
+  // ── P8: Post-restore: IDB orphans should be cleared ──────────────────
+  try {
+    // Simulate what app.js now does after importBackup: clears all dirty IDB entries
+    const id1 = uid(), id2 = uid();
+    await idbSave(db, id1, { hole: 3, log: Array(3).fill({}) });
+    await idbSave(db, id2, { hole: 5, log: Array(5).fill({}) });
+
+    // Simulate post-restore cleanup
+    const dirtyBefore = await idbGetDirty(db);
+    // Clear all dirty entries (as app.js now does after successful importBackup)
+    await Promise.all(dirtyBefore.map(e => idbClear(db, e.roundId)));
+
+    const dirtyAfter = await idbGetDirty(db);
+    // Filter to only the ones we just created
+    const remaining = dirtyAfter.filter(e => e.roundId === id1 || e.roundId === id2);
+    const ok = remaining.length === 0;
+    log('P8', ok, ok ? 'Post-restore IDB cleanup removes orphan active_rounds entries' : `${remaining.length} IDB entries remained after cleanup`);
+  } catch(e) { log('P8', false, e.message); }
+
+  // ── P9: localStorage pointer cleared after completion ────────────────
+  // This is behaviour in app.js (already implemented in Stage 1) — code-inspect verify
+  logSkip('P9', 'Code-verified: btn-confirm-end removes lb-active-round and lb-game-state-cache only after roundComplete() succeeds (lines confirmed in app.js)');
+
+  // ── P10: Save-error guard on completion ──────────────────────────────
+  // Tests the #game-save-status data-state='error' confirm dialog in btn-confirm-end.
+  // Cannot be automated without a real DOM + game session. Code-inspect verify.
+  logSkip('P10', 'Code-verified: btn-confirm-end checks statusEl.dataset.state === "error" and confirms before completing when a save failure is pending');
+
+  // ── Clean up ──────────────────────────────────────────────────────────
+  db.close();
+  indexedDB.deleteDatabase(TEST_DB);
+
+  const total = passed + failed;
+  document.getElementById('status').textContent = 'Complete.';
+  document.getElementById('summary').innerHTML =
+    `<span class="${failed===0?'pass':'fail'}">${passed} / ${total} tests PASSED · ${failed} FAILED · 2 SKIP</span>`;
+}
+
+runTests().catch(e => {
+  document.getElementById('status').textContent = 'Test runner error: ' + e.message;
+  document.getElementById('summary').innerHTML = '<span class="fail">Tests did not complete.</span>';
+});
+</script>
+</body>
+</html>

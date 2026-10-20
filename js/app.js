@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261020at)
-window.APP_BUILD = '20261020at';
+// LEADERBOARD - app.js  (v3.2 · build 20261020au)
+window.APP_BUILD = '20261020au';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -39,7 +39,7 @@ import {
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
 } from '../game.js?v=20260704l';
-import { idbSave, idbSaveSeq, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20261020at';
+import { idbSave, idbSaveSeq, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20261020au';
 
 
 // ================================================================
@@ -10573,17 +10573,28 @@ async function doAbandon(shouldDelete) {
   }
 
   stopSyncLoop();
-  // Flush any unsynced local scores to Supabase before leaving
   if (targetRoundId) {
-    try {
-      const local = await idbLoad(targetRoundId);
-      if (local?.dirty) await flushToSupabase();
-    } catch {}
-    idbClear(targetRoundId).catch(() => {});
+    if (shouldDelete) {
+      // Explicit delete — clear all recovery data for this round
+      idbClear(targetRoundId).catch(() => {});
+      try { localStorage.removeItem('lb-active-round'); } catch {}
+      try { localStorage.removeItem('lb-game-state-cache'); } catch {}
+    } else {
+      // Pause/abandon — keep IDB recovery data so the round can be resumed.
+      // Only flush any unsynced dirty state to rounds store before leaving.
+      try {
+        const local = await idbLoad(targetRoundId);
+        if (local?.dirty) await flushToSupabase();
+      } catch {}
+      // Keep lb-active-round pointer for recovery on next open.
+      // Do NOT clear active_rounds IDB entry — it is the recovery record.
+    }
   }
   realtimeUnsubscribe(realtimeCh); realtimeCh = null;
   roundId = null; gameState = null;
-  try { localStorage.removeItem('lb-active-round'); } catch {}
+  if (shouldDelete) {
+    try { localStorage.removeItem('lb-active-round'); } catch {}
+  }
   try { localStorage.removeItem('lb-game-code'); } catch {}
   clearSetupState();
   clearSetupDraft();
@@ -11027,6 +11038,19 @@ document.getElementById('modal-combine-results')?.addEventListener('click', e =>
 
 document.getElementById('btn-confirm-end')?.addEventListener('click', async () => {
   const btn = document.getElementById('btn-confirm-end');
+
+  // Stage 3: If there is a pending save failure, warn before completing.
+  // The golfer may have unconfirmed scores not yet safely stored.
+  const statusEl = document.getElementById('game-save-status');
+  if (statusEl && statusEl.dataset.state === 'error') {
+    const proceed = confirm(
+      '⚠️ Last save failed — some scores may not be safely stored.\n\n' +
+      'Completing the round now may lose the most recent hole scores.\n\n' +
+      'Tap Cancel to retry the save, or OK to complete anyway.'
+    );
+    if (!proceed) return;
+  }
+
   btn.disabled = true; btn.textContent = 'Saving…';
   // Safety: re-enable button after 15s so the user is never permanently stuck
   const saveTimeout = setTimeout(() => {
@@ -12423,6 +12447,22 @@ document.getElementById('backup-import-file')?.addEventListener('change', async 
   const courseCount = backup.courses?.length ?? 0;
   const roundCount  = backup.rounds?.length  ?? 0;
 
+  // Stage 3: Check for any recoverable active rounds before allowing restore.
+  // importBackup() itself guards the rounds store, but we also check active_rounds IDB
+  // so an IDB-only orphan doesn't silently survive (or confuse recovery after restore).
+  let activeWarning = '';
+  try {
+    const recoverableRounds = currentUser?.id
+      ? await _collectRecoverableRounds(currentUser.id).catch(() => [])
+      : [];
+    if (recoverableRounds.length > 0) {
+      const names = recoverableRounds
+        .map(r => r.course_name ?? r.game_state?.courseName ?? r.id)
+        .join(', ');
+      activeWarning = `\n\n⛔ WARNING: ${recoverableRounds.length} unfinished round(s) detected (${names}).\nRestoring will permanently delete this recovery data.`;
+    }
+  } catch {}
+
   const confirmed = confirm(
     `Restore this backup?
 
@@ -12435,14 +12475,24 @@ document.getElementById('backup-import-file')?.addEventListener('change', async 
     `⚠️ Your current players, courses, rounds and settings will be REPLACED by the contents of this backup.
 
 ` +
-    `This cannot be undone. Continue?`
+    `This cannot be undone. Continue?` + activeWarning
   );
   if (!confirmed) return;
 
+  // If there are active rounds, importBackup() will throw — surface a clear message.
   const btn = document.getElementById('btn-backup-import');
   if (btn) { btn.disabled = true; btn.textContent = 'Restoring…'; }
   try {
     await importBackup(json);
+    // Stage 3: Clear IDB recovery entries for any rounds that were just overwritten.
+    // The rounds store was cleared by importBackup — remove any orphan active_rounds entries.
+    try {
+      const dirtyEntries = await idbGetDirty();
+      await Promise.all((dirtyEntries ?? []).map(e => idbClear(e.roundId).catch(() => {})));
+    } catch {}
+    // Clear localStorage pointers that now point to non-existent rounds.
+    try { localStorage.removeItem('lb-active-round'); } catch {}
+    try { localStorage.removeItem('lb-game-state-cache'); } catch {}
     alert('Backup restored successfully. The app will now reload.');
     window.location.reload();
   } catch (err) {
