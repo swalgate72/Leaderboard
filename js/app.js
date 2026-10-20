@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261020au)
-window.APP_BUILD = '20261020au';
+// LEADERBOARD - app.js  (v3.2 · build 20261020av)
+window.APP_BUILD = '20261020av';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -39,7 +39,7 @@ import {
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
 } from '../game.js?v=20260704l';
-import { idbSave, idbSaveSeq, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20261020au';
+import { idbSave, idbSaveSeq, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20261020av';
 
 
 // ================================================================
@@ -193,22 +193,27 @@ function _setSaveStatus(state, retryFn) {
   el.onclick = null;
 
   if (state === 'saving') {
+    el.dataset.state       = 'saving';
     dot.style.background   = '#fff';
     dot.style.animation    = 'pulse 1s infinite';
     label.textContent      = 'Saving…';
     el.style.background    = 'rgba(0,0,0,0.28)';
+    el.style.cursor        = 'default';
   } else if (state === 'saved') {
+    el.dataset.state       = 'saved';
     dot.style.background   = '#2ecc71';
     dot.style.animation    = '';
     label.textContent      = 'All scores saved';
     el.style.background    = 'rgba(0,0,0,0.28)';
+    el.style.cursor        = 'default';
     // Auto-hide after 3 s
     _saveStatusTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
   } else if (state === 'failed') {
+    el.dataset.state       = 'error';  // 'error' so Stage 3 guard can read it
     dot.style.background   = '#e74c3c';
-    dot.style.animation    = '';
+    dot.style.animation    = 'pulse 1.2s infinite';
     label.textContent      = 'Save failed — Retry';
-    el.style.background    = 'rgba(180,0,0,0.55)';
+    el.style.background    = 'rgba(180,0,0,0.65)';
     el.style.cursor        = 'pointer';
     if (retryFn) el.onclick = () => { el.onclick = null; retryFn(); };
   }
