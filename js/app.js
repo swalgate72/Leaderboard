@@ -423,8 +423,8 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
           <label style="font-size:0.8rem;color:var(--text-muted,#a0aec0);">Expiry</label>
           <select id="share-game-expiry-sel" style="
             display:block;width:100%;margin-top:0.35rem;
-            background:var(--surface2,#243045);border:1px solid var(--gold-border,rgba(212,168,67,0.35));
-            color:var(--text,#f0f4f8);border-radius:0.5rem;padding:0.5rem 0.75rem;font-size:0.9rem;">
+            background:#fff;border:1px solid var(--gold-border,rgba(212,168,67,0.35));
+            color:#1a1a1a;border-radius:0.5rem;padding:0.5rem 0.75rem;font-size:0.9rem;">
             <option value="48">48 hours (default)</option>
             <option value="168">1 week</option>
             <option value="720">30 days</option>
@@ -434,8 +434,8 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
           </select>
           <input type="date" id="share-game-expiry-date" style="
             display:none;width:100%;margin-top:0.35rem;
-            background:var(--surface2,#243045);border:1px solid var(--gold-border,rgba(212,168,67,0.35));
-            color:var(--text,#f0f4f8);border-radius:0.5rem;padding:0.5rem 0.75rem;font-size:0.9rem;">
+            background:#fff;border:1px solid var(--gold-border,rgba(212,168,67,0.35));
+            color:#1a1a1a;border-radius:0.5rem;padding:0.5rem 0.75rem;font-size:0.9rem;">
         </div>
         <button id="share-game-close" class="btn btn-ghost" style="width:100%;">Close</button>
       </div>`;
