@@ -331,9 +331,12 @@ async function pushScoresToCloud(btn) {
   try {
     const allStates = gameState.allGroupStates?.length > 1 ? gameState.allGroupStates : [gameState];
     const isStroke = (gs => (gs.format?.type ?? gs.scoring ?? 'stableford') === 'stroke')(gameState);
+    // Use a stable groupId derived from sorted player names so two independent
+    // devices pushing to the same game code don't collide on group: 1
+    const makeGroupId = (gs) => (gs.names ?? []).slice().sort().join('|').toLowerCase().replace(/[^a-z0-9|]/g, '').slice(0, 40) || String(Date.now());
     const rounds = allStates.map((gs, gi) => ({
       round: 1,
-      group: gi + 1,
+      group: makeGroupId(gs),
       players: (gs.names ?? []).map((nm, pi) => {
         const log      = gs.log ?? [];
         const grosses  = log.map(e => e.grosses?.[pi] ?? 0);
