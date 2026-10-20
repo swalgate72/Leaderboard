@@ -888,7 +888,7 @@
         style="font-family:var(--font-ui);font-weight:800;font-size:1.2rem;
                line-height:1.1;letter-spacing:-0.01em;"></div>
       <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
-        <button id="game-code-pill" onclick="(function(){const c=localStorage.getItem('lb-game-code');if(c){navigator.clipboard.writeText(c).catch(()=>{});const el=document.getElementById('game-code-pill');const orig=el.textContent;el.textContent='Copied!';setTimeout(()=>el.textContent=orig,1500);}})()"
+        <button id="game-code-pill" onclick="(function(){const c=localStorage.getItem('lb-game-code');if(c){window.open(location.origin+'/live?code='+c,'_blank');}})()"
           style="display:none;font-family:var(--font-ui);font-weight:800;font-size:0.72rem;
                  letter-spacing:0.12em;text-transform:uppercase;color:#fff;
                  background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);
