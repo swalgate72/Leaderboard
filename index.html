@@ -970,6 +970,13 @@
       ✓ Finish Round Early
     </button>
 
+    <!-- Push scores to live leaderboard -->
+    <button class="btn btn-outline hidden" id="btn-push-scores-game"
+      style="font-size:0.85rem;padding:0.45rem;width:100%;margin-top:0.4rem;
+             border-color:rgba(212,168,67,0.5);color:var(--gold);">
+      ⬆ Push Scores to Leaderboard
+    </button>
+
   </div><!-- /hole-panel -->
 
   <!-- ══ FIXED BOTTOM BAR ══ -->
@@ -1140,6 +1147,15 @@
     <!-- Scorecard -->
     <div class="label mb-sm">Scorecard</div>
     <div id="er-scorecard" style="overflow-x:auto;margin-bottom:1.5rem;"></div>
+
+    <!-- Push scores to live leaderboard -->
+    <button id="btn-push-scores-end"
+      style="width:100%;padding:0.75rem;margin-bottom:0.75rem;
+             font-family:'Plus Jakarta Sans',sans-serif;font-size:1rem;font-weight:800;
+             background:none;border:2px solid rgba(212,168,67,0.6);color:var(--gold,#d4a843);
+             border-radius:12px;cursor:pointer;">
+      ⬆ Push Scores to Live Leaderboard
+    </button>
 
     <!-- Actions -->
     <button class="btn btn-primary btn-full" id="btn-confirm-end">

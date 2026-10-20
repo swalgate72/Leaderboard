@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261020e';
+window.APP_BUILD = '20261020f';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -311,6 +311,43 @@ async function fetchProfileByCode(code) {
  */
 async function uploadScores(gameCode, roundsArr) {
   return _workerFetch(`/scores/${gameCode.toUpperCase()}`, 'PUT', { rounds: roundsArr });
+}
+
+/**
+ * Build scores payload from current gameState and push to Worker.
+ * btn — the button element to show feedback on.
+ */
+async function pushScoresToCloud(btn) {
+  let code = null;
+  try { code = localStorage.getItem('lb-game-code'); } catch {}
+  if (!code) {
+    if (btn) { btn.textContent = '✗ No game code'; setTimeout(() => restorePushBtn(btn), 2000); }
+    return;
+  }
+  if (btn) { btn.textContent = '⏳ Pushing…'; btn.disabled = true; }
+  try {
+    const allStates = gameState.allGroupStates?.length > 1 ? gameState.allGroupStates : [gameState];
+    const rounds = allStates.map((gs, gi) => ({
+      round: 1,
+      group: gi + 1,
+      players: (gs.names ?? []).map((nm, pi) => {
+        const scores = (gs.log ?? []).map(e => e.grosses?.[pi] ?? 0);
+        const pts    = (gs.log ?? []).reduce((sum, e) => sum + (e.holePts?.[pi] ?? e.sbPts?.[pi] ?? 0), 0);
+        return { name: nm, hcp: gs.hdcps?.[pi] ?? 0, scores, total: pts };
+      }),
+    }));
+    await uploadScores(code, rounds);
+    if (btn) { btn.textContent = '✓ Pushed!'; btn.style.color = '#48bb78'; setTimeout(() => restorePushBtn(btn), 2500); }
+  } catch (e) {
+    if (btn) { btn.textContent = '✗ Failed — retry?'; setTimeout(() => restorePushBtn(btn), 2500); }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function restorePushBtn(btn) {
+  btn.textContent = '⬆ Push Scores to Leaderboard';
+  btn.style.color = '';
 }
 
 // ── UI helpers ────────────────────────────────────────────────────
@@ -6106,6 +6143,19 @@ function renderHolePanel() {
 
   toggle('btn-finish-early', (gameState.log?.length ?? 0) > 0);
 
+  // Show push-scores button when a game code exists and holes have been played
+  const pushGameBtn = document.getElementById('btn-push-scores-game');
+  if (pushGameBtn) {
+    let code = null;
+    try { code = localStorage.getItem('lb-game-code'); } catch {}
+    const show = !!code && (gameState.log?.length ?? 0) > 0;
+    toggle('btn-push-scores-game', show);
+    if (show && !pushGameBtn._wired) {
+      pushGameBtn._wired = true;
+      pushGameBtn.addEventListener('click', () => pushScoresToCloud(pushGameBtn));
+    }
+  }
+
   // Texas Scramble: show running driver usage tally
   if (isTexas) {
     const driverWrap = document.createElement('div');
@@ -10329,49 +10379,16 @@ async function showEndRound() {
     podiumEl.appendChild(card);
   }
 
-  // Rich highlights
+  // Clear highlights (removed)
   const highlightsEl = document.getElementById('er-highlights');
-  if (highlightsEl) {
-    const log = merged.log ?? [], par = merged.par ?? [], names = merged.names ?? [];
-    const offset = merged.holeOffset ?? 0;
-    const isMatch = ['match','betterball','csm','foursomes','greensomes'].includes(fmt);
-    const isPairs = ['betterball','csm','foursomes','greensomes'].includes(fmt);
-    const highlights = [];
-    if (!isMatch) {
-      names.forEach((nm, pi) => {
-        let best = null;
-        log.forEach((entry, hi) => {
-          const pts = entry.holePts?.[pi] ?? entry.sbPts?.[pi];
-          if (pts != null && (best === null || pts > best.pts)) best = { pts, hi, holeNum: offset+hi+1 };
-        });
-        if (best) highlights.push({ icon:'⭐', text:`${shortName(nm)} — best hole ${best.holeNum} (${best.pts} pts)` });
-      });
-    }
-    log.forEach((entry, hi) => {
-      const parH = par[hi];
-      names.forEach((nm, pi) => {
-        const gross = entry.grosses?.[pi]; if (gross == null) return;
-        const net = gross - (entry.extras?.[pi]??0);
-        if (net <= parH-2) highlights.push({ icon:'🦅', text:`${shortName(nm)} eagle or better hole ${offset+hi+1}` });
-        else if (net === parH-1) highlights.push({ icon:'🐦', text:`${shortName(nm)} birdie hole ${offset+hi+1}` });
-      });
-    });
-    if (isMatch) {
-      const ms = merged.matchScore ?? 0, up = Math.abs(ms);
-      const n0 = isPairs ? `${shortName(names[0])} & ${shortName(names[1])}` : shortName(names[0]);
-      const n1 = isPairs ? `${shortName(names[2]??'')} & ${shortName(names[3]??'')}` : shortName(names[1]??'');
-      const winsA = log.filter(e=>e.result>0).length, winsB = log.filter(e=>e.result<0).length, halved = log.filter(e=>e.result===0).length;
-      if (ms !== 0) {
-        highlights.push({ icon:'🏆', text:`${ms>0?n0:n1} won ${up} up` });
-        highlights.push({ icon:'📊', text:`Holes: ${n0} ${winsA} · ${n1} ${winsB} · Halved ${halved}` });
-      } else highlights.push({ icon:'🤝', text:'Match all square' });
-    }
-    highlightsEl.innerHTML = highlights.length
-      ? `<div style="margin-top:1.25rem;">
-           <div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:0.6rem;">Highlights</div>
-           ${highlights.map(h=>`<div style="display:flex;align-items:flex-start;gap:0.5rem;padding:0.4rem 0;border-bottom:0.5px solid var(--border);font-size:0.9rem;"><span>${h.icon}</span><span style="color:var(--white);font-weight:600;">${h.text}</span></div>`).join('')}
-         </div>`
-      : '';
+  if (highlightsEl) highlightsEl.innerHTML = '';
+
+  // Wire push-scores button on end-round screen
+  const pushEndBtn = document.getElementById('btn-push-scores-end');
+  if (pushEndBtn) {
+    pushEndBtn.onclick = () => pushScoresToCloud(pushEndBtn);
+    const code = (() => { try { return localStorage.getItem('lb-game-code'); } catch { return null; } })();
+    pushEndBtn.style.display = code ? '' : 'none';
   }
 
   document.getElementById('er-scorecard').innerHTML = buildEndRoundScorecard(merged);
