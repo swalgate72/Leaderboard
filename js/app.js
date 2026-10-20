@@ -10852,7 +10852,13 @@ document.getElementById('modal-combine-results')?.addEventListener('click', e =>
 document.getElementById('btn-confirm-end')?.addEventListener('click', async () => {
   const btn = document.getElementById('btn-confirm-end');
   btn.disabled = true; btn.textContent = 'Saving…';
+  // Safety: re-enable button after 15s so the user is never permanently stuck
+  const saveTimeout = setTimeout(() => {
+    btn.disabled = false; btn.textContent = '✓ Save & Finish';
+    alert('Save is taking longer than expected — please check your connection and try again.');
+  }, 15000);
   try {
+    if (!roundId) throw new Error('No active round ID — cannot save.');
     // Build allGroupStates with clean individual group states
     const rawGroups = gameState.allGroupStates?.length > 1
       ? gameState.allGroupStates.map(s => {
@@ -10886,11 +10892,13 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     } else {
       await showHome();
     }
+    clearTimeout(saveTimeout);
     // Prompt to back up after every completed round
     _promptBackup('Round saved! Back up your data to iCloud Drive or Google Drive?');
   } catch (err) {
+    clearTimeout(saveTimeout);
     alert('Could not save round: ' + err.message);
-    btn.disabled = false; btn.textContent = '✓ SAVE & FINISH';
+    btn.disabled = false; btn.textContent = '✓ Save & Finish';
   }
 });
 
