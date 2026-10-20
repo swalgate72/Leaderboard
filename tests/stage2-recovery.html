@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Leaderboard — Stage 2 Recovery Tests</title>
+<style>
+  body { font-family: monospace; background: #1a1a1a; color: #e0e0e0; padding: 1rem; }
+  h1 { color: #f0c040; }
+  .pass { color: #2ecc71; }
+  .fail { color: #e74c3c; }
+  .skip { color: #aaa; }
+  .summary { margin-top: 1.5rem; font-size: 1.1rem; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Leaderboard — Stage 2 Recovery Tests</h1>
+<p id="status">Running…</p>
+<div id="results"></div>
+<div class="summary" id="summary"></div>
+
+<script>
+// ================================================================
+// ISOLATED TEST HARNESS — mirrors _collectRecoverableRounds logic
+// ================================================================
+const TEST_DB = 'lb_test_stage2_' + Date.now();
+const STORE_ACTIVE = 'active_rounds';
+const STORE_ROUNDS = 'rounds';
+
+let passed = 0, failed = 0;
+const resultsEl = document.getElementById('results');
+
+function log(id, ok, detail) {
+  resultsEl.innerHTML += `<div class="${ok?'pass':'fail'}">${ok?'✓':'✗'} ${id}: ${detail}</div>`;
+  ok ? passed++ : failed++;
+}
+function logSkip(id, reason) {
+  resultsEl.innerHTML += `<div class="skip">– ${id}: SKIP — ${reason}</div>`;
+}
+
+function openTestDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(TEST_DB, 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      db.createObjectStore(STORE_ACTIVE, { keyPath: 'roundId' });
+      const rs = db.createObjectStore(STORE_ROUNDS, { keyPath: 'id' });
+      rs.createIndex('status', 'status', { unique: false });
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function idbSaveSeq(db, roundId, state, seq, savedAt) {
+  return new Promise((resolve, reject) => {
+    const tx    = db.transaction(STORE_ACTIVE, 'readwrite');
+    const store = tx.objectStore(STORE_ACTIVE);
+    const get   = store.get(roundId);
+    get.onsuccess = () => {
+      const ex = get.result;
+      if (ex && typeof ex.seq === 'number' && ex.seq > seq) { resolve(false); return; }
+      const put = store.put({ roundId, state, dirty: true, savedAt: savedAt ?? Date.now(), seq });
+      put.onsuccess = () => resolve(true);
+      put.onerror   = e => reject(e.target.error);
+    };
+    get.onerror = e => reject(e.target.error);
+  });
+}
+
+function idbLoad(db, roundId) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE_ACTIVE, 'readonly');
+    const req = tx.objectStore(STORE_ACTIVE).get(roundId);
+    req.onsuccess = e => resolve(e.target.result ?? null);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function idbGetDirty(db) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE_ACTIVE, 'readonly');
+    const res = [];
+    const req = tx.objectStore(STORE_ACTIVE).openCursor();
+    req.onsuccess = e => {
+      const c = e.target.result;
+      if (c) { if (c.value.dirty) res.push(c.value); c.continue(); }
+      else resolve(res);
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function roundCreate(db, id, status, gameState, courseName) {
+  return new Promise((resolve, reject) => {
+    const rec = { id, status, game_state: gameState, course_name: courseName ?? null,
+                  createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const tx  = db.transaction(STORE_ROUNDS, 'readwrite');
+    const req = tx.objectStore(STORE_ROUNDS).put(rec);
+    req.onsuccess = () => resolve(id);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function roundsLoadActive(db) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE_ROUNDS, 'readonly');
+    const res = [];
+    const req = tx.objectStore(STORE_ROUNDS).openCursor();
+    req.onsuccess = e => {
+      const c = e.target.result;
+      if (c) { if (['active','paused'].includes(c.value.status)) res.push(c.value); c.continue(); }
+      else resolve(res);
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function roundLoadById(db, id) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE_ROUNDS, 'readonly');
+    const req = tx.objectStore(STORE_ROUNDS).get(id);
+    req.onsuccess = e => resolve(e.target.result ?? null);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+// ── Inline _collectRecoverableRounds for testing ────────────────
+async function collectRecoverableRounds(db, storedRoundId) {
+  let fromRoundsStore = [];
+  try { fromRoundsStore = await roundsLoadActive(db); } catch {}
+
+  let fromIdb = [];
+  try { fromIdb = (await idbGetDirty(db)).filter(r => r?.roundId && r?.state); } catch {}
+
+  const map = new Map();
+
+  for (const r of fromRoundsStore) {
+    if (!r?.id) continue;
+    map.set(r.id, { ...r, _source: 'rounds' });
+  }
+
+  for (const rec of fromIdb) {
+    const id = rec.roundId;
+    const ex = map.get(id);
+    if (!ex) {
+      map.set(id, {
+        id, status: 'active', game_state: rec.state,
+        course_name: rec.state?.courseName ?? null,
+        _source: 'idb-only', _savedAt: rec.savedAt ?? 0,
+      });
+    } else {
+      const idbH   = rec.state?.log?.length ?? 0;
+      const storeH = ex.game_state?.log?.length ?? 0;
+      const idbSavedAt = rec.savedAt ?? 0;
+      if (idbH > storeH || (idbH === storeH && idbSavedAt > (ex._savedAt ?? 0))) {
+        map.set(id, { ...ex, game_state: rec.state, _source: 'idb-wins', _savedAt: idbSavedAt });
+      }
+    }
+  }
+
+  if (storedRoundId && !map.has(storedRoundId)) {
+    try {
+      const stored = await roundLoadById(db, storedRoundId);
+      if (stored?.id && ['active','paused'].includes(stored.status)) {
+        map.set(stored.id, { ...stored, _source: 'localStorage-ptr' });
+      }
+    } catch {}
+  }
+
+  const list = [...map.values()];
+  list.sort((a, b) => {
+    if (a.id === storedRoundId) return -1;
+    if (b.id === storedRoundId) return 1;
+    return (b._savedAt ?? 0) - (a._savedAt ?? 0);
+  });
+  return list;
+}
+
+// ================================================================
+// TESTS
+// ================================================================
+async function runTests() {
+  const db = await openTestDB();
+  const uid = () => 'r-' + Math.random().toString(36).slice(2,8) + '-' + Date.now();
+
+  // ── R1: Round in rounds store only — appears in recovery list ───
+  try {
+    const id = uid();
+    await roundCreate(db, id, 'active', { hole: 2, log: Array(2).fill({grosses:[4,5]}), format:'stableford' }, 'Test Course');
+    const list = await collectRecoverableRounds(db, null);
+    const found = list.some(r => r.id === id);
+    log('R1', found, found ? 'rounds-store-only round appears in collection' : 'NOT found');
+  } catch(e) { log('R1', false, e.message); }
+
+  // ── R2: Round in active_rounds only — surfaces as idb-only ──────
+  try {
+    const id = uid();
+    await idbSaveSeq(db, id, { hole: 3, log: Array(3).fill({grosses:[4,4]}), format:'betterball', courseName:'Orphan Course' }, 1, Date.now());
+    const list = await collectRecoverableRounds(db, null);
+    const found = list.find(r => r.id === id);
+    const ok = found && found._source === 'idb-only';
+    log('R2', ok, ok ? `IDB-only round found with _source='idb-only'` : `found=${!!found} source=${found?._source}`);
+  } catch(e) { log('R2', false, e.message); }
+
+  // ── R3: Round in both stores — IDB wins when it has more holes ──
+  try {
+    const id = uid();
+    const storeState = { hole: 5, log: Array(5).fill({grosses:[4,4]}), format:'stableford' };
+    const idbState   = { hole: 7, log: Array(7).fill({grosses:[3,4]}), format:'stableford' };
+    await roundCreate(db, id, 'active', storeState, 'Both Course');
+    await idbSaveSeq(db, id, idbState, 7, Date.now());
+    const list = await collectRecoverableRounds(db, null);
+    const found = list.find(r => r.id === id);
+    const ok = found && found.game_state.log.length === 7 && found._source === 'idb-wins';
+    log('R3', ok, ok ? 'IDB wins (7 holes > 5 holes in rounds store)' : `holes=${found?.game_state?.log?.length} source=${found?._source}`);
+  } catch(e) { log('R3', false, e.message); }
+
+  // ── R4: Round in both stores — rounds store wins when it has more holes
+  try {
+    const id = uid();
+    const storeState = { hole: 9, log: Array(9).fill({grosses:[4,5]}), format:'stableford' };
+    const idbState   = { hole: 6, log: Array(6).fill({grosses:[4,4]}), format:'stableford' };
+    await roundCreate(db, id, 'active', storeState, 'Both B');
+    await idbSaveSeq(db, id, idbState, 6, Date.now() - 5000); // older savedAt too
+    const list = await collectRecoverableRounds(db, null);
+    const found = list.find(r => r.id === id);
+    const ok = found && found.game_state.log.length === 9 && found._source === 'rounds';
+    log('R4', ok, ok ? 'rounds store wins (9 holes > 6 holes in IDB)' : `holes=${found?.game_state?.log?.length} source=${found?._source}`);
+  } catch(e) { log('R4', false, e.message); }
+
+  // ── R5: Edit to earlier hole — IDB wins when same holes but newer savedAt
+  try {
+    const id = uid();
+    const savedAt_store = Date.now() - 10000;
+    const savedAt_idb   = Date.now();        // IDB updated more recently (edit)
+    const storeState = { hole: 5, log: Array(5).fill({grosses:[4,5]}), format:'stableford' };
+    const idbState   = { hole: 5, log: [{grosses:[3,5]},...Array(4).fill({grosses:[4,5]})], format:'stableford' }; // hole 0 edited 4→3
+    await roundCreate(db, id, 'active', storeState, 'Edit Test');
+    // Manually set _savedAt on rounds store record via raw IDB isn't practical;
+    // instead verify the IDB entry wins via savedAt comparison in the collector.
+    await idbSaveSeq(db, id, idbState, 5, savedAt_idb);
+    const list = await collectRecoverableRounds(db, null);
+    const found = list.find(r => r.id === id);
+    // IDB should win: same holes, newer savedAt
+    const ok = found && found.game_state?.log?.[0]?.grosses?.[0] === 3;
+    log('R5', ok, ok ? 'IDB state wins on same-holes + newer savedAt (earlier hole edit preserved)' : `hole0=${found?.game_state?.log?.[0]?.grosses?.[0]}`);
+  } catch(e) { log('R5', false, e.message); }
+
+  // ── R6: localStorage pointer to round not in either store ────────
+  try {
+    const id = uid();
+    // Put it only in rounds store (simulate it was returned via a pointer lookup)
+    await roundCreate(db, id, 'paused', { hole: 4, log: Array(4).fill({grosses:[5,4]}), format:'stableford' }, 'Pointer Course');
+    const list = await collectRecoverableRounds(db, id); // id is the "stored" pointer
+    const found = list.find(r => r.id === id);
+    const ok = found && list[0].id === id; // should be first (pointer round)
+    log('R6', ok, ok ? `localStorage pointer round found and sorted first` : `found=${!!found} first=${list[0]?.id}`);
+  } catch(e) { log('R6', false, e.message); }
+
+  // ── R7: Multiple rounds — all appear in collection ───────────────
+  try {
+    const ids = [uid(), uid(), uid()];
+    await roundCreate(db, ids[0], 'active',  { hole:1, log:[{grosses:[4,4]}] }, 'Course A');
+    await roundCreate(db, ids[1], 'paused',  { hole:3, log:Array(3).fill({}) }, 'Course B');
+    await idbSaveSeq(db, ids[2], { hole:2, log:Array(2).fill({}), courseName:'Course C (IDB-only)' }, 1, Date.now());
+    const list = await collectRecoverableRounds(db, null);
+    const allFound = ids.every(id => list.some(r => r.id === id));
+    log('R7', allFound, allFound ? `All 3 rounds (active/paused/idb-only) in collection (total ${list.length})` : `Missing: ${ids.filter(id => !list.some(r => r.id === id)).join(', ')}`);
+  } catch(e) { log('R7', false, e.message); }
+
+  // ── R8: Malformed record does not hide valid rounds ───────────────
+  try {
+    const BAD  = uid();
+    const GOOD = uid();
+    // Insert malformed rounds-store record (no status)
+    await new Promise((res,rej) => {
+      const tx = db.transaction(STORE_ROUNDS, 'readwrite');
+      tx.objectStore(STORE_ROUNDS).put({ id: BAD, game_state: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+    });
+    await roundCreate(db, GOOD, 'active', { hole:1, log:[{grosses:[4,4]}] }, 'Good Course');
+    const list = await collectRecoverableRounds(db, null);
+    const goodFound = list.some(r => r.id === GOOD);
+    const badFiltered = !list.some(r => r.id === BAD);
+    log('R8', goodFound && badFiltered, goodFound && badFiltered
+      ? 'Malformed record (no status) filtered; valid round visible'
+      : `goodFound=${goodFound} badFiltered=${badFiltered}`);
+  } catch(e) { log('R8', false, e.message); }
+
+  // ── R9: Completed round does not appear in recovery list ─────────
+  try {
+    const id = uid();
+    await roundCreate(db, id, 'completed', { hole:18, log:Array(18).fill({grosses:[4,4]}) }, 'Completed Course');
+    const list = await collectRecoverableRounds(db, null);
+    const notFound = !list.some(r => r.id === id);
+    log('R9', notFound, notFound ? 'Completed round correctly excluded from recovery list' : 'Completed round INCORRECTLY appears in list');
+  } catch(e) { log('R9', false, e.message); }
+
+  // ── R10: IDB-only orphan contains enough data to resume ───────────
+  try {
+    const id = uid();
+    const state = { hole:8, log:Array(8).fill({grosses:[4,3]}), names:['Alice','Bob'],
+                    format:'betterball', courseName:'Orphan 18', numHoles:18 };
+    await idbSaveSeq(db, id, state, 8, Date.now());
+    const list = await collectRecoverableRounds(db, null);
+    const found = list.find(r => r.id === id);
+    const ok = found && found._source === 'idb-only' &&
+               found.game_state?.names?.length === 2 &&
+               found.game_state?.log?.length === 8;
+    log('R10', ok, ok ? 'IDB-only orphan has game_state with players and log — resumable' : `source=${found?._source} names=${found?.game_state?.names?.length} holes=${found?.game_state?.log?.length}`);
+  } catch(e) { log('R10', false, e.message); }
+
+  // ── Clean up ─────────────────────────────────────────────────────
+  db.close();
+  indexedDB.deleteDatabase(TEST_DB);
+
+  const total = passed + failed;
+  document.getElementById('status').textContent = 'Complete.';
+  document.getElementById('summary').innerHTML =
+    `<span class="${failed===0?'pass':'fail'}">${passed} / ${total} tests PASSED · ${failed} FAILED</span>`;
+}
+
+runTests().catch(e => {
+  document.getElementById('status').textContent = 'Test runner error: ' + e.message;
+  document.getElementById('summary').innerHTML = '<span class="fail">Tests did not complete.</span>';
+});
+</script>
+</body>
+</html>

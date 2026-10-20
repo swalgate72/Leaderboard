@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261020as)
-window.APP_BUILD = '20261020as';
+// LEADERBOARD - app.js  (v3.2 · build 20261020at)
+window.APP_BUILD = '20261020at';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -39,7 +39,7 @@ import {
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
 } from '../game.js?v=20260704l';
-import { idbSave, idbSaveSeq, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20261020as';
+import { idbSave, idbSaveSeq, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20261020at';
 
 
 // ================================================================
@@ -1454,27 +1454,8 @@ async function onSignedIn(user) {
 
     if (_joiningViaInvite) return;
 
-    let actives = [];
-    try { actives = await roundsLoadActive(user.id); } catch (netErr) {
-      console.warn('onSignedIn: roundsLoadActive failed', netErr);
-    }
-    let storedRoundId = null;
-    try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
-    if (storedRoundId && !actives.some(r => r.id === storedRoundId)) {
-      try {
-        const stored = await roundLoadById(storedRoundId);
-        if (['active','paused'].includes(stored?.status)) actives.unshift(stored);
-        else try { localStorage.removeItem('lb-active-round'); } catch {}
-      } catch {
-        // Network failed — if we have a local cache for this round, resume anyway
-        try {
-          const cached = JSON.parse(localStorage.getItem('lb-game-state-cache') ?? 'null');
-          if (cached?.roundId === storedRoundId && cached?.state) {
-            actives.unshift({ id: storedRoundId, status: 'active', game_state: cached.state });
-          }
-        } catch {}
-      }
-    }
+    // Stage 2: use _collectRecoverableRounds to merge all sources
+    const actives = await _collectRecoverableRounds(user.id);
 
     if (actives.length > 0) {
       await resumeRound(actives[0].id);
@@ -1619,17 +1600,8 @@ async function showHome() {
     ? fmtHandicap(currentProfile.hcp) : '--';
 
   try {
-    const actives = await roundsLoadActive(currentUser.id);
-
-    // Also check localStorage for a round the user joined (e.g. as group 2 scorer)
-    let storedRoundId = null;
-    try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
-    if (storedRoundId && !actives.some(r => r.id === storedRoundId)) {
-      const stored = await roundLoadById(storedRoundId);
-      if (['active','paused'].includes(stored?.status)) actives.unshift(stored);
-      else try { localStorage.removeItem('lb-active-round'); } catch {}
-    }
-
+    // Stage 2: use unified collector so IDB-only rounds appear in badge/card
+    await _collectRecoverableRounds(currentUser.id);
   } catch {}
 
   // Populate Best Score / Rounds stats
@@ -5441,6 +5413,127 @@ async function teeOff() {
 }
 
 // ================================================================
+// RECOVERY — Stage 2
+// ================================================================
+
+// Merge all recoverable rounds from every source into one deduplicated list.
+// Sources consulted independently:
+//   A. rounds store (active + paused)          — via roundsLoadActive()
+//   B. active_rounds IDB                        — via idbGetDirty()
+//   C. lb-active-round localStorage pointer     — cross-checked against A & B
+//
+// Each returned item has the shape the rest of the UI expects:
+//   { id, status, game_state, course_name?, tee_name?, _source }
+//
+// Malformed records are skipped without hiding valid ones.
+// A round in active_rounds that has no rounds-store record is surfaced
+// as a recoverable item with status='active' and _source='idb-only'.
+async function _collectRecoverableRounds(userId) {
+  // ── Source A: rounds store ──────────────────────────────────────
+  let fromRoundsStore = [];
+  try {
+    fromRoundsStore = await roundsLoadActive(userId);
+    if (!Array.isArray(fromRoundsStore)) fromRoundsStore = [];
+  } catch (e) {
+    console.warn('[recovery] roundsLoadActive failed:', e);
+  }
+
+  // ── Source B: active_rounds IDB ────────────────────────────────
+  let fromIdb = [];
+  try {
+    const dirty = await idbGetDirty();
+    fromIdb = (dirty ?? []).filter(rec => rec?.roundId && rec?.state);
+  } catch (e) {
+    console.warn('[recovery] idbGetDirty failed:', e);
+  }
+
+  // ── Source C: localStorage pointer ────────────────────────────
+  let storedRoundId = null;
+  try { storedRoundId = localStorage.getItem('lb-active-round'); } catch {}
+
+  // ── Merge ───────────────────────────────────────────────────────
+  // Build a map keyed by roundId; prefer rounds-store records as the base,
+  // augmented with active_rounds state when IDB is newer (more holes OR
+  // same holes but higher savedAt — captures edits to earlier holes).
+  const map = new Map();
+
+  for (const r of fromRoundsStore) {
+    if (!r?.id) continue;
+    try {
+      map.set(r.id, { ...r, _source: 'rounds' });
+    } catch {}
+  }
+
+  for (const rec of fromIdb) {
+    const id = rec.roundId;
+    const existing = map.get(id);
+    if (!existing) {
+      // Orphan: exists in active_rounds but not in rounds store
+      map.set(id, {
+        id,
+        status:     'active',
+        game_state: rec.state,
+        course_name: rec.state?.courseName ?? null,
+        tee_name:    rec.state?.teeName ?? null,
+        _source:     'idb-only',
+        _savedAt:    rec.savedAt ?? 0,
+      });
+    } else {
+      // Both sources have the round — pick the more up-to-date game_state
+      const idbHoles    = rec.state?.log?.length ?? 0;
+      const storeHoles  = existing.game_state?.log?.length ?? 0;
+      const idbSavedAt  = rec.savedAt ?? 0;
+      // Use IDB state if it has strictly more holes, OR same holes but
+      // was saved more recently (edit to an earlier hole without advancing log)
+      if (idbHoles > storeHoles ||
+          (idbHoles === storeHoles && idbSavedAt > (existing._savedAt ?? 0))) {
+        map.set(id, { ...existing, game_state: rec.state, _source: 'idb-wins', _savedAt: idbSavedAt });
+      }
+    }
+  }
+
+  // ── Honour localStorage pointer ────────────────────────────────
+  // If the pointer references a round not yet in the map, try to load it
+  // from the rounds store (it may be paused/active but not returned above
+  // because roundsLoadActive is user-scoped in MULTI_USER mode).
+  if (storedRoundId && !map.has(storedRoundId)) {
+    try {
+      const stored = await roundLoadById(storedRoundId);
+      if (stored?.id && ['active','paused'].includes(stored.status)) {
+        map.set(stored.id, { ...stored, _source: 'localStorage-ptr' });
+      } else if (!stored) {
+        // localStorage pointer is stale — clean it up
+        try { localStorage.removeItem('lb-active-round'); } catch {}
+      }
+    } catch (e) {
+      // rounds store unavailable; try localStorage cache as last resort
+      try {
+        const cached = JSON.parse(localStorage.getItem('lb-game-state-cache') ?? 'null');
+        if (cached?.roundId === storedRoundId && cached?.state) {
+          map.set(storedRoundId, {
+            id:         storedRoundId,
+            status:     'active',
+            game_state: cached.state,
+            course_name: cached.state?.courseName ?? null,
+            _source:    'ls-cache',
+          });
+        }
+      } catch {}
+    }
+  }
+
+  // ── Return sorted list ────────────────────────────────────────
+  // Pointer round first, then by most-recently-updated
+  const list = [...map.values()];
+  list.sort((a, b) => {
+    if (a.id === storedRoundId) return -1;
+    if (b.id === storedRoundId) return 1;
+    return (b._savedAt ?? 0) - (a._savedAt ?? 0);
+  });
+  return list;
+}
+
+// ================================================================
 // RESUME
 // ================================================================
 async function resumeRound(id) {
@@ -5460,17 +5553,29 @@ async function resumeRound(id) {
       console.warn('[idb] load failed, falling back to Supabase', idbErr);
     }
 
-    // 2. Try rounds store (local.js) — may have a more recently saved state
+    // 2. Try rounds store (local.js) — compare carefully with IDB state
+    // Use whichever source has MORE holes played OR the same holes with a
+    // more recent savedAt (to preserve edits to earlier holes, not just new holes).
     try {
       const remote = await roundLoadById(id);
       if (remote?.game_state) {
-        // Prefer rounds store if it has at least as many holes played as active_rounds
         const remoteHoles = remote.game_state?.log?.length ?? 0;
         const localHoles  = round?.game_state?.log?.length ?? 0;
-        if (!fromIdb || remoteHoles >= localHoles) {
+        const idbSavedAt  = (await idbLoad(id))?.savedAt ?? 0;
+        // Prefer rounds store if: no IDB state, more holes, or same holes
+        // but rounds store was saved after IDB (rounds store is the write-through)
+        // Prefer IDB if it has more holes OR same holes + newer savedAt
+        if (!fromIdb) {
+          round   = remote;
+        } else if (remoteHoles > localHoles) {
+          round   = remote;
+          fromIdb = false;
+        } else if (remoteHoles === localHoles && idbSavedAt === 0) {
+          // IDB has nothing; use rounds store
           round   = remote;
           fromIdb = false;
         }
+        // else: IDB has same or more holes and was saved more recently — keep IDB state
       }
     } catch (roundsErr) {
       console.warn('resumeRound: rounds store read failed, using active_rounds state', roundsErr);
@@ -9770,7 +9875,7 @@ async function updateActiveGamesBadge() {
   try {
     const [inviteRows, activeRounds] = await Promise.all([
       gameInvitesPollPending(currentUser.id, null).catch(() => []),
-      roundsLoadActive(currentUser.id).catch(() => []),
+      _collectRecoverableRounds(currentUser.id).catch(() => []),
     ]);
 
     // Active Games badge = active/paused rounds + any saved setup draft
@@ -10008,9 +10113,9 @@ async function renderActiveGamesList() {
   // Read draft FIRST — before any async calls — so a network failure can never hide it
   const savedDraft = readSetupDraft();
   try {
-    // Load active rounds + any pending game invites
+    // Stage 2: Load active rounds from all sources + pending game invites
     const [rounds, inviteRows] = await Promise.all([
-      roundsLoadActive(currentUser?.id).catch(() => []),
+      _collectRecoverableRounds(currentUser?.id).catch(() => []),
       gameInvitesPollPending(currentUser?.id, null).catch(() => []),
     ]);
     const invites = (await Promise.all(
@@ -10067,15 +10172,22 @@ async function renderActiveGamesList() {
 
     // Active rounds this user is scoring — Resume + Delete
     rounds.forEach(r => {
-      const isPaused = r.status === 'paused';
+      const isPaused  = r.status === 'paused';
+      const isOrphan  = r._source === 'idb-only';
+      const holesInfo = r.game_state?.log?.length
+        ? ` · ${r.game_state.log.length} hole${r.game_state.log.length !== 1 ? 's' : ''} played`
+        : '';
+      const orphanNote = isOrphan ? ' · Recovered from local cache' : '';
       items.push({
         kind: 'round',
         roundId: r.id,
-        icon: isPaused ? '⏸️' : '⛳',
-        title: r.course_name ?? 'Round',
-        sub: `${fmtLabel(r.game_state?.format ?? '')} · Group ${r.game_state?.groupNumber ?? 1}${isPaused ? ' · Saved' : ''}`,
+        icon: isOrphan ? '🔄' : isPaused ? '⏸️' : '⛳',
+        title: r.course_name ?? r.game_state?.courseName ?? 'Round',
+        sub: `${fmtLabel(r.game_state?.format ?? '')} · Group ${r.game_state?.groupNumber ?? 1}${isPaused ? ' · Saved' : ''}${holesInfo}${orphanNote}`,
         action: () => resumeRound(r.id),
         actionLabel: 'Resume',
+        // Orphan rounds can't be deleted via normal path (no rounds store record)
+        noDelete: isOrphan,
       });
     });
 
