@@ -420,23 +420,23 @@ function renderRoundTabs(rounds, active) {
 function renderLeaderboard(game, scores, round) {
   const fmt = game.format?.type ?? 'stableford';
 
-  // Gather players for this round
-  let players = [];
+  // Gather groups (each group is an array of players) for this round
+  let groups = [];
   if (scores && scores.rounds) {
     const roundData = scores.rounds.filter(r => r.round === round);
     for (const grp of roundData) {
-      for (const p of (grp.players ?? [])) {
-        players.push({ ...p, group: grp.group });
-      }
+      if (grp.players?.length) groups.push(grp.players.map(p => ({ ...p, _group: grp.group })));
     }
   }
 
   // Fall back to game player list with no scores
-  if (players.length === 0 && game.players && game.players.length > 0) {
-    players = game.players.map(p => ({ name: p.name, hcp: p.courseHcp ?? p.index ?? 0, total: null, scores: [] }));
+  if (groups.length === 0 && game.players?.length) {
+    groups = [game.players.map(p => ({ name: p.name, hcp: p.courseHcp ?? p.index ?? 0, total: null, scores: [] }))];
   }
 
-  if (players.length === 0) {
+  const allPlayers = groups.flat();
+
+  if (allPlayers.length === 0) {
     return `<div class="state-msg">
       <div class="icon">📋</div>
       <h3>No scores yet</h3>
@@ -444,14 +444,204 @@ function renderLeaderboard(game, scores, round) {
     </div>`;
   }
 
-  const isStroke = fmt === 'stroke';
+  const dash = '<span style="color:var(--muted)">–</span>';
 
-  // Sort: stableford = highest pts first, stroke = lowest net shots first
-  const sorted = [...players].sort((a, b) => {
-    if (a.total == null && b.total == null) return 0;
-    if (a.total == null) return 1;
-    if (b.total == null) return -1;
-    return isStroke ? a.total - b.total : b.total - a.total;
+  // ── Helper: expandable scorecard row ──────────────────────────────
+  function scRow(p, rowId, colSpan, holeScores) {
+    if (!holeScores?.length) return '';
+    const holes = holeScores.map((s, h) => `
+      <div class="sc-hole">
+        <div class="h-num">${h+1}</div>
+        <div class="h-pts">${s ?? '–'}</div>
+      </div>`).join('');
+    return `<tr class="sc-row" id="${rowId}">
+      <td class="sc-cell" colspan="${colSpan}"><div class="sc-holes">${holes}</div></td>
+    </tr>`;
+  }
+
+  // ── MATCH PLAY ─────────────────────────────────────────────────────
+  // Players are paired in the order they appear within each group
+  if (fmt === 'match' || fmt === 'foursomes' || fmt === 'greensomes') {
+    let html = '';
+    for (const grp of groups) {
+      // pairs: [p0,p1], [p2,p3], …
+      for (let i = 0; i < grp.length; i += 2) {
+        const p0 = grp[i], p1 = grp[i+1];
+        if (!p0) continue;
+        if (!p1) {
+          // odd player out — just show them
+          html += `<div class="lb-wrap" style="padding-bottom:0.25rem;">
+            <table class="lb-table"><tbody>
+              <tr><td>${p0.name ?? '?'}</td><td class="num">${p0.grossTotal ?? dash}</td></tr>
+            </tbody></table></div>`;
+          continue;
+        }
+        // Compute match status from hole-by-hole nets
+        const nets0 = p0.nets ?? p0.scores ?? [];
+        const nets1 = p1.nets ?? p1.scores ?? [];
+        const holesPlayed = Math.min(nets0.length, nets1.length);
+        let matchScore = 0; // positive = p0 leads
+        let holesRemaining = (game.format?.holesCount ?? 18) - holesPlayed;
+        for (let h = 0; h < holesPlayed; h++) {
+          const n0 = nets0[h] ?? 99, n1 = nets1[h] ?? 99;
+          if (n0 < n1) matchScore++;
+          else if (n1 < n0) matchScore--;
+        }
+        const up = Math.abs(matchScore);
+        let statusText;
+        if (holesPlayed === 0) {
+          statusText = 'Not started';
+        } else if (holesPlayed >= (game.format?.holesCount ?? 18) || up > holesRemaining) {
+          // finished or mathematically decided
+          if (matchScore === 0) statusText = 'Halved';
+          else {
+            const winner = matchScore > 0 ? p0.name : p1.name;
+            const holesLeft = holesRemaining > 0 ? `&${holesRemaining}` : '';
+            statusText = holesRemaining > 0
+              ? `${up}&${holesRemaining}` // e.g. 3&2
+              : `${up} Up`; // finished on last hole
+          }
+        } else if (matchScore === 0) {
+          statusText = 'All Square';
+        } else {
+          const leader = matchScore > 0 ? p0.name : p1.name;
+          statusText = `${up} Up (${leader.split(' ')[0]})`;
+        }
+
+        const statusColor = matchScore === 0 ? 'var(--gold)' : 'var(--green)';
+        html += `
+          <div class="lb-wrap" style="padding-bottom:0;">
+            <div style="border:1px solid rgba(255,255,255,0.1);border-radius:0.75rem;overflow:hidden;margin-bottom:0.75rem;">
+              <div style="display:flex;align-items:center;justify-content:space-between;
+                          padding:0.5rem 0.75rem;background:rgba(255,255,255,0.04);
+                          border-bottom:1px solid rgba(255,255,255,0.07);">
+                <span style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">Match</span>
+                <span style="font-size:0.8rem;font-weight:700;color:${statusColor};">${statusText}</span>
+                <span style="font-size:0.72rem;color:var(--muted);">Thru ${holesPlayed}</span>
+              </div>
+              <table class="lb-table" style="margin:0;">
+                <thead><tr>
+                  <th>Player</th>
+                  <th class="num" style="font-size:0.7rem">Shots</th>
+                </tr></thead>
+                <tbody>
+                  <tr>
+                    <td><div class="player-name">${p0.name ?? '?'}</div><div class="player-hcp">HCP ${p0.hcp ?? '–'}</div></td>
+                    <td class="num" style="font-weight:700">${p0.grossTotal ?? (p0.scores?.reduce((s,v)=>s+(v??0),0)||null) ?? dash}</td>
+                  </tr>
+                  <tr style="border-top:1px solid rgba(255,255,255,0.08)">
+                    <td><div class="player-name">${p1.name ?? '?'}</div><div class="player-hcp">HCP ${p1.hcp ?? '–'}</div></td>
+                    <td class="num" style="font-weight:700">${p1.grossTotal ?? (p1.scores?.reduce((s,v)=>s+(v??0),0)||null) ?? dash}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>`;
+      }
+    }
+    return html || `<div class="state-msg"><div class="icon">📋</div><h3>No scores yet</h3></div>`;
+  }
+
+  // ── BETTER BALL / CSM (pairs showing team points) ─────────────────
+  if (fmt === 'betterball' || fmt === 'csm') {
+    let html = '';
+    let pairIdx = 0;
+    for (const grp of groups) {
+      for (let i = 0; i < grp.length; i += 2) {
+        const p0 = grp[i], p1 = grp[i+1];
+        const teamPts = (p0?.pts ?? 0) + (p1?.pts ?? 0); // sum of individual best-ball pts
+        const thru = Math.max(p0?.scores?.length ?? 0, p1?.scores?.length ?? 0);
+        const pairLabel = fmt === 'csm' ? 'Combined' : 'Better Ball';
+        html += `
+          <div class="lb-wrap" style="padding-bottom:0;">
+            <div style="border:1px solid rgba(255,255,255,0.1);border-radius:0.75rem;overflow:hidden;margin-bottom:0.75rem;">
+              <table class="lb-table" style="margin:0;">
+                <thead><tr>
+                  <th>Player</th>
+                  <th class="num" style="font-size:0.7rem">Shots</th>
+                  <th class="num" style="font-size:0.7rem">Pts</th>
+                </tr></thead>
+                <tbody>
+                  ${[p0, p1].filter(Boolean).map(p => `
+                    <tr>
+                      <td><div class="player-name">${p.name ?? '?'}</div><div class="player-hcp">HCP ${p.hcp ?? '–'}${p.scores?.length ? ` · Thru ${p.scores.length}` : ''}</div></td>
+                      <td class="num">${p.grossTotal ?? (p.scores?.reduce((s,v)=>s+(v??0),0)||null) ?? dash}</td>
+                      <td class="num" style="font-weight:700">${p.pts ?? dash}</td>
+                    </tr>`).join('')}
+                  <tr style="border-top:2px solid rgba(255,255,255,0.12);background:rgba(212,168,67,0.06);">
+                    <td style="font-weight:700;font-size:0.85rem;color:var(--gold);">${pairLabel} Total</td>
+                    <td></td>
+                    <td class="num" style="font-weight:800;color:var(--gold);font-size:1rem;">${teamPts}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>`;
+        pairIdx++;
+      }
+    }
+    return html || `<div class="state-msg"><div class="icon">📋</div><h3>No scores yet</h3></div>`;
+  }
+
+  // ── SCRAMBLE / TEXAS ───────────────────────────────────────────────
+  if (fmt === 'texas') {
+    let html = '';
+    for (const grp of groups) {
+      // Scramble: all players in the group contribute — show team score
+      const teamScore = grp[0]?.total ?? null;
+      const thru = grp[0]?.scores?.length ?? 0;
+      const teamName = grp.map(p => p.name?.split(' ')[0]).join(' & ');
+      html += `
+        <div class="lb-wrap" style="padding-bottom:0;">
+          <div style="border:1px solid rgba(255,255,255,0.1);border-radius:0.75rem;overflow:hidden;margin-bottom:0.75rem;">
+            <table class="lb-table" style="margin:0;">
+              <thead><tr>
+                <th>Team</th>
+                <th class="num" style="font-size:0.7rem">Shots</th>
+                <th class="num" style="font-size:0.7rem">Pts</th>
+              </tr></thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div class="player-name">${teamName}</div>
+                    <div class="player-hcp">${thru > 0 ? `Thru ${thru}` : 'Not started'}</div>
+                  </td>
+                  <td class="num">${grp[0]?.grossTotal ?? dash}</td>
+                  <td class="num" style="font-weight:800;color:var(--gold);font-size:1rem;">${teamScore ?? dash}</td>
+                </tr>
+                ${grp.map(p => `
+                  <tr style="background:rgba(255,255,255,0.02);">
+                    <td style="padding-left:1.25rem;">
+                      <div style="font-size:0.82rem;color:var(--muted);">${p.name ?? '?'}</div>
+                    </td>
+                    <td class="num" style="font-size:0.82rem;color:var(--muted);">${p.grossTotal ?? dash}</td>
+                    <td></td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    }
+    return html || `<div class="state-msg"><div class="icon">📋</div><h3>No scores yet</h3></div>`;
+  }
+
+  // ── INDIVIDUAL FORMATS: Stableford, Stroke, Skins, ITC, Split 6 ───
+  const isStroke = fmt === 'stroke';
+  const isITC    = fmt === 'itc';
+  const isSkins  = fmt === 'skins';
+
+  // Columns: always Shots. Then format-specific:
+  // stroke  → Net Shots (running net)
+  // others  → Points
+  // ITC     → Points + Chair count (shown in sub-label for now)
+  const showNet  = isStroke;
+  const showPts  = !isStroke;
+
+  // Sort
+  const sorted = [...allPlayers].sort((a, b) => {
+    const ta = a.total ?? (isStroke ? Infinity : -Infinity);
+    const tb = b.total ?? (isStroke ? Infinity : -Infinity);
+    return isStroke ? ta - tb : tb - ta;
   });
 
   // Assign positions (handle ties)
@@ -462,53 +652,43 @@ function renderLeaderboard(game, scores, round) {
     } else {
       p._pos = pos;
     }
-    pos++;
+    pos = i + 2;
   });
 
-  const colSpan = isStroke ? 5 : 6; // extra pts col for stableford
+  const colCount = showNet ? 3 : 3; // #, Name, Shots, Net/Pts
+  const colSpan  = colCount + 1;
 
   const rows = sorted.map((p, i) => {
     const posLabel = p.total == null ? '–' : p._pos <= 3 ? ['🥇','🥈','🥉'][p._pos-1] : p._pos;
     const posClass = p._pos <= 3 && p.total != null ? 'pos top3' : 'pos';
     const rowId    = `sc-${i}`;
-    const dash     = '<span style="color:var(--muted)">–</span>';
 
-    const shotsVal  = p.grossTotal != null ? p.grossTotal : (p.scores?.reduce((s,v)=>s+(v??0),0) || null);
-    const netVal    = p.netTotal   != null ? p.netTotal   : null;
-    const ptsVal    = p.pts        != null ? p.pts        : (isStroke ? null : p.total);
+    const shots = p.grossTotal ?? (p.scores?.reduce((s,v)=>s+(v??0),0) || null);
+    const net   = p.netTotal   ?? null;
+    const pts   = p.pts        ?? (!isStroke ? p.total : null);
+    const thru  = p.scores?.length ?? 0;
 
-    const shotsCell = shotsVal != null ? `<td class="num" style="font-size:0.9rem">${shotsVal}</td>` : `<td class="num">${dash}</td>`;
-    const netCell   = netVal   != null ? `<td class="num" style="font-size:0.9rem;color:var(--gold)">${netVal}</td>` : `<td class="num">${dash}</td>`;
-    const ptsCell   = !isStroke ? (ptsVal != null ? `<td class="num" style="font-size:0.9rem;font-weight:700">${ptsVal}</td>` : `<td class="num">${dash}</td>`) : '';
+    const shotsCell = `<td class="num" style="font-size:0.9rem">${shots ?? dash}</td>`;
+    const netCell   = showNet  ? `<td class="num" style="font-size:0.9rem;color:var(--gold);font-weight:700">${net ?? dash}</td>` : '';
+    const ptsCell   = showPts  ? `<td class="num" style="font-size:0.9rem;font-weight:700">${pts ?? dash}</td>` : '';
 
-    // Scorecard row
-    let scRow = '';
-    if (p.scores && p.scores.length > 0) {
-      const holeNums = p.scores.map((s, h) => `
-        <div class="sc-hole">
-          <div class="h-num">${h+1}</div>
-          <div class="h-pts">${s ?? '–'}</div>
-        </div>`).join('');
-      scRow = `
-        <tr class="sc-row" id="${rowId}">
-          <td class="sc-cell" colspan="${colSpan}">
-            <div class="sc-holes">${holeNums}</div>
-          </td>
-        </tr>`;
-    }
+    const itcSub = isITC && p.chairCount != null ? ` · 🪑 ×${p.chairCount}` : '';
 
     return `
-      <tr style="cursor:${p.scores?.length > 0 ? 'pointer' : 'default'}"
-          onclick="${p.scores?.length > 0 ? `toggleSC('${rowId}')` : ''}">
+      <tr style="cursor:${thru > 0 ? 'pointer' : 'default'}"
+          onclick="${thru > 0 ? `toggleSC('${rowId}')` : ''}">
         <td class="${posClass}">${posLabel}</td>
         <td>
           <div class="player-name">${p.name ?? '?'}</div>
-          <div class="player-hcp">HCP ${p.hcp ?? '–'}${p.scores?.length > 0 ? ` · Thru ${p.scores.length}` : ''}</div>
+          <div class="player-hcp">HCP ${p.hcp ?? '–'}${thru > 0 ? ` · Thru ${thru}` : ''}${itcSub}</div>
         </td>
         ${shotsCell}${netCell}${ptsCell}
       </tr>
-      ${scRow}`;
+      ${scRow(p, rowId, colSpan, isStroke ? p.nets : p.scores)}`;
   }).join('');
+
+  const hdrNet  = isStroke ? '<th class="num" style="font-size:0.7rem">Net</th>' : '';
+  const hdrPts  = !isStroke ? `<th class="num" style="font-size:0.7rem">${isSkins ? 'Skins' : isITC ? 'Pts' : 'Pts'}</th>` : '';
 
   return `
     <div class="lb-wrap">
@@ -518,13 +698,12 @@ function renderLeaderboard(game, scores, round) {
             <th style="width:2rem">#</th>
             <th>Player</th>
             <th class="num" style="font-size:0.7rem">Shots</th>
-            <th class="num" style="font-size:0.7rem">Net</th>
-            ${isStroke ? '' : '<th class="num" style="font-size:0.7rem">Pts</th>'}
+            ${hdrNet}${hdrPts}
           </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      ${sorted.some(p => p.scores?.length > 0) ? '<p style="text-align:center;color:var(--muted);font-size:0.75rem;margin-top:0.75rem">Tap a row to see scorecard</p>' : ''}
+      ${sorted.some(p => (p.scores?.length ?? 0) > 0) ? '<p style="text-align:center;color:var(--muted);font-size:0.75rem;margin-top:0.75rem">Tap a row to see scorecard</p>' : ''}
     </div>`;
 }
 
