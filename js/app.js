@@ -1825,6 +1825,8 @@ function showFormatPicker(category) {
       setup.scoring  = fmt;
       setup.courseId = null; setup.teeIdx = 0; setup.holes = 18;
       setup.gameDate = null; setup.pairs = [];
+      // Clear stale game code so scores are never pushed to a previous game
+      try { localStorage.removeItem('lb-game-code'); } catch {}
       // Only clear players and tournament context if NOT in tournament mode
       if (!setup.tournamentId) {
         setup.players = [];
