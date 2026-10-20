@@ -12029,8 +12029,19 @@ document.getElementById('btn-save-profile')?.addEventListener('click', async () 
     const syncEl = document.getElementById('profile-sync-text');
     if (syncEl) syncEl.textContent = 'Saved ✓';
     setTimeout(() => { if (syncEl) syncEl.textContent = 'Synced'; }, 2000);
-  } catch (err) { alert('Could not save profile: ' + err.message); }
-  finally { btn.disabled = false; btn.textContent = 'SAVE PROFILE'; }
+    btn.disabled = false;
+    btn.textContent = '✓ PROFILE SAVED';
+    btn.style.background = '#2d6a4f';
+    setTimeout(() => {
+      btn.textContent = 'SAVE PROFILE';
+      btn.style.background = '';
+    }, 2500);
+  } catch (err) {
+    alert('Could not save profile: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = 'SAVE PROFILE';
+    btn.style.background = '';
+  }
 });
 
 document.getElementById('btn-profile-home')?.addEventListener('click', () => showHome());
