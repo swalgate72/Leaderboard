@@ -467,12 +467,14 @@ function renderLeaderboard(game, scores, round) {
     </div>`;
   }
 
-  // Sort: stableford = highest first, stroke = lowest first
+  const isStroke = fmt === 'stroke';
+
+  // Sort: stableford = highest pts first, stroke = lowest net shots first
   const sorted = [...players].sort((a, b) => {
     if (a.total == null && b.total == null) return 0;
     if (a.total == null) return 1;
     if (b.total == null) return -1;
-    return fmt === 'stroke' ? a.total - b.total : b.total - a.total;
+    return isStroke ? a.total - b.total : b.total - a.total;
   });
 
   // Assign positions (handle ties)
@@ -486,10 +488,21 @@ function renderLeaderboard(game, scores, round) {
     pos++;
   });
 
+  const colSpan = isStroke ? 5 : 6; // extra pts col for stableford
+
   const rows = sorted.map((p, i) => {
     const posLabel = p.total == null ? '–' : p._pos <= 3 ? ['🥇','🥈','🥉'][p._pos-1] : p._pos;
     const posClass = p._pos <= 3 && p.total != null ? 'pos top3' : 'pos';
     const rowId    = `sc-${i}`;
+    const dash     = '<span style="color:var(--muted)">–</span>';
+
+    const shotsVal  = p.grossTotal != null ? p.grossTotal : (p.scores?.reduce((s,v)=>s+(v??0),0) || null);
+    const netVal    = p.netTotal   != null ? p.netTotal   : null;
+    const ptsVal    = p.pts        != null ? p.pts        : (isStroke ? null : p.total);
+
+    const shotsCell = shotsVal != null ? `<td class="num" style="font-size:0.9rem">${shotsVal}</td>` : `<td class="num">${dash}</td>`;
+    const netCell   = netVal   != null ? `<td class="num" style="font-size:0.9rem;color:var(--gold)">${netVal}</td>` : `<td class="num">${dash}</td>`;
+    const ptsCell   = !isStroke ? (ptsVal != null ? `<td class="num" style="font-size:0.9rem;font-weight:700">${ptsVal}</td>` : `<td class="num">${dash}</td>`) : '';
 
     // Scorecard row
     let scRow = '';
@@ -501,7 +514,7 @@ function renderLeaderboard(game, scores, round) {
         </div>`).join('');
       scRow = `
         <tr class="sc-row" id="${rowId}">
-          <td class="sc-cell" colspan="5">
+          <td class="sc-cell" colspan="${colSpan}">
             <div class="sc-holes">${holeNums}</div>
           </td>
         </tr>`;
@@ -515,8 +528,7 @@ function renderLeaderboard(game, scores, round) {
           <div class="player-name">${p.name ?? '?'}</div>
           <div class="player-hcp">HCP ${p.hcp ?? '–'}</div>
         </td>
-        <td class="num">${p.total != null ? fmtScore(p.total, fmt) : '<span style="color:var(--muted)">–</span>'}</td>
-        <td class="num" style="color:var(--muted);font-size:0.78rem">${p.group != null ? `Grp ${p.group}` : ''}</td>
+        ${shotsCell}${netCell}${ptsCell}
       </tr>
       ${scRow}`;
   }).join('');
@@ -528,8 +540,9 @@ function renderLeaderboard(game, scores, round) {
           <tr>
             <th style="width:2rem">#</th>
             <th>Player</th>
-            <th class="num">${fmt === 'stroke' ? 'Score' : 'Points'}</th>
-            <th class="num"></th>
+            <th class="num" style="font-size:0.7rem">Shots</th>
+            <th class="num" style="font-size:0.7rem">Net</th>
+            ${isStroke ? '' : '<th class="num" style="font-size:0.7rem">Pts</th>'}
           </tr>
         </thead>
         <tbody>${rows}</tbody>

@@ -330,13 +330,18 @@ async function pushScoresToCloud(btn) {
   if (btn) { btn.textContent = '⏳ Pushing…'; btn.disabled = true; }
   try {
     const allStates = gameState.allGroupStates?.length > 1 ? gameState.allGroupStates : [gameState];
+    const isStroke = (gs => (gs.format?.type ?? gs.scoring ?? 'stableford') === 'stroke')(gameState);
     const rounds = allStates.map((gs, gi) => ({
       round: 1,
       group: gi + 1,
       players: (gs.names ?? []).map((nm, pi) => {
-        const scores = (gs.log ?? []).map(e => e.grosses?.[pi] ?? 0);
-        const pts    = (gs.log ?? []).reduce((sum, e) => sum + (e.holePts?.[pi] ?? e.sbPts?.[pi] ?? 0), 0);
-        return { name: nm, hcp: gs.hdcps?.[pi] ?? 0, scores, total: pts };
+        const log      = gs.log ?? [];
+        const grosses  = log.map(e => e.grosses?.[pi] ?? 0);
+        const nets     = log.map(e => e.nets?.[pi] ?? e.grosses?.[pi] ?? 0);
+        const pts      = log.reduce((sum, e) => sum + (e.holePts?.[pi] ?? e.sbPts?.[pi] ?? 0), 0);
+        const grossTot = grosses.reduce((s, v) => s + v, 0);
+        const netTot   = nets.reduce((s, v) => s + v, 0);
+        return { name: nm, hcp: gs.hdcps?.[pi] ?? 0, scores: grosses, nets, grossTotal: grossTot, netTotal: netTot, pts, total: isStroke ? netTot : pts };
       }),
     }));
     await uploadScores(code, rounds);
