@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261020a';
+window.APP_BUILD = '20261020b';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -174,7 +174,7 @@ let roundId    = null;
 // ================================================================
 // CLOUDFLARE SYNC WORKER — game sharing, profile sharing, scores
 // ================================================================
-const SYNC_WORKER_URL = 'https://leaderboard-sync.steve-walgate.workers.dev';
+const SYNC_WORKER_URL = 'https://leaderboardsync.sw-77d.workers.dev';
 
 /**
  * Low-level fetch wrapper — adds CORS headers + JSON parsing.
