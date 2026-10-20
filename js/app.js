@@ -10448,12 +10448,26 @@ async function showEndRound() {
   const highlightsEl = document.getElementById('er-highlights');
   if (highlightsEl) highlightsEl.innerHTML = '';
 
-  // Wire push-scores button on end-round screen
+  // Wire push-scores + live-leaderboard buttons on end-round screen
   const pushEndBtn = document.getElementById('btn-push-scores-end');
+  const liveEndBtn = document.getElementById('btn-live-end');
+  const code = (() => { try { return gameState?.gameCode ?? localStorage.getItem('lb-game-code'); } catch { return null; } })();
   if (pushEndBtn) {
     pushEndBtn.onclick = () => pushScoresToCloud(pushEndBtn);
-    const code = (() => { try { return localStorage.getItem('lb-game-code'); } catch { return null; } })();
     pushEndBtn.style.display = code ? '' : 'none';
+  }
+  if (liveEndBtn) {
+    liveEndBtn.style.display = code ? '' : 'none';
+    liveEndBtn.onclick = () => openLiveLeaderboard();
+  }
+  // Wire edit-scorecard button
+  const editScEnd = document.getElementById('btn-edit-sc-end');
+  if (editScEnd && !editScEnd._wired) {
+    editScEnd._wired = true;
+    editScEnd.addEventListener('click', () => {
+      renderScorecardOverlay();
+      document.getElementById('scorecard-overlay')?.classList.add('open');
+    });
   }
 
   document.getElementById('er-scorecard').innerHTML = buildEndRoundScorecard(merged);

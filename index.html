@@ -1138,23 +1138,39 @@
     <div class="label mb-sm">Scorecard</div>
     <div id="er-scorecard" style="overflow-x:auto;margin-bottom:1.5rem;"></div>
 
-    <!-- Push scores to live leaderboard -->
-    <button id="btn-push-scores-end"
-      style="width:100%;padding:0.75rem;margin-bottom:0.75rem;
-             font-family:'Plus Jakarta Sans',sans-serif;font-size:1rem;font-weight:800;
-             background:none;border:2px solid rgba(212,168,67,0.6);color:var(--gold,#d4a843);
-             border-radius:12px;cursor:pointer;">
-      ⬆ Push Scores to Live Leaderboard
-    </button>
+    <!-- 2×2 action grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem;">
 
-    <!-- Actions -->
-    <button class="btn btn-primary btn-full" id="btn-confirm-end">
-      ✓ SAVE &amp; FINISH
-    </button>
+      <!-- Row 1: Live Leaderboard + Save & Finish -->
+      <button id="btn-live-end"
+        style="padding:0.7rem 0.4rem;font-family:'Plus Jakarta Sans',sans-serif;
+               font-size:0.82rem;font-weight:700;line-height:1.25;text-align:center;
+               background:none;border:1px solid rgba(212,168,67,0.5);color:var(--gold,#d4a843);
+               border-radius:12px;cursor:pointer;display:none;">
+        📊 Live<br>Leaderboard
+      </button>
+      <button class="btn btn-primary" id="btn-confirm-end"
+        style="padding:0.7rem 0.4rem;font-size:0.82rem;font-weight:700;line-height:1.25;text-align:center;">
+        ✓ Save &amp;<br>Finish
+      </button>
 
-    <button class="btn btn-outline mt-sm" id="btn-back-to-game">
-      ← Back to Scoring
-    </button>
+      <!-- Row 2: Push Scores + Edit Scorecard -->
+      <button id="btn-push-scores-end"
+        style="padding:0.7rem 0.4rem;font-family:'Plus Jakarta Sans',sans-serif;
+               font-size:0.82rem;font-weight:700;line-height:1.25;text-align:center;
+               background:none;border:1px solid rgba(212,168,67,0.5);color:var(--gold,#d4a843);
+               border-radius:12px;cursor:pointer;display:none;">
+        ⬆ Push Scores<br>to Leaderboard
+      </button>
+      <button id="btn-edit-sc-end"
+        style="padding:0.7rem 0.4rem;font-family:'Plus Jakarta Sans',sans-serif;
+               font-size:0.82rem;font-weight:700;line-height:1.25;text-align:center;
+               background:none;border:1px solid rgba(255,255,255,0.2);color:var(--text,#f0f4f8);
+               border-radius:12px;cursor:pointer;">
+        ✏️ Edit<br>Scorecard
+      </button>
+
+    </div>
 
   </div>
 </div>
