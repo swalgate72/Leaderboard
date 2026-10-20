@@ -1,7 +1,7 @@
 // Leaderboard Service Worker
 // Handles Web Push notifications and offline caching
 
-const CACHE_NAME = 'leaderboard-v20261019s';
+const CACHE_NAME = 'leaderboard-v20261020a';
 
 // ── Push event ───────────────────────────────────────────────────
 self.addEventListener('push', event => {

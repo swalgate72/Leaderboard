@@ -573,11 +573,18 @@
       </div>
     </div>
 
-    <button class="btn btn-outline" id="btn-share-course-qr"
-      style="display:none;width:100%;padding:0.9rem;font-size:1rem;font-weight:800;
-             margin-bottom:0.75rem;border-color:var(--green,#48bb78);color:var(--green,#48bb78);">
-      📋 Share Course Info
-    </button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">
+      <button class="btn btn-outline" onclick="openShareGameModal()"
+        style="padding:0.9rem;font-size:0.95rem;font-weight:800;
+               border-color:var(--gold,#d4a843);color:var(--gold,#d4a843);">
+        📤 Share Game
+      </button>
+      <button class="btn btn-outline" onclick="openJoinGameModal()"
+        style="padding:0.9rem;font-size:0.95rem;font-weight:800;
+               border-color:var(--green,#48bb78);color:var(--green,#48bb78);">
+        📥 Join Game
+      </button>
+    </div>
 
     <button class="btn-setup-next" id="btn-setup-course-next">NEXT: PLAYERS →</button>
   </div>
@@ -627,13 +634,19 @@
         </button>
       </div>
 
-      <!-- Share Competition QR button — only shown when a tournamentId is set -->
-      <button class="btn btn-outline" id="btn-share-competition-qr"
-        style="display:none;width:100%;padding:0.9rem;font-size:1rem;font-weight:800;
-               margin-bottom:0.75rem;border-color:var(--blue-border,#4299e1);
-               color:var(--blue,#4299e1);">
-        📲 Share Competition QR
-      </button>
+      <!-- Share / Join game by code -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">
+        <button class="btn btn-outline" onclick="openShareGameModal()"
+          style="padding:0.9rem;font-size:0.95rem;font-weight:800;
+                 border-color:var(--gold,#d4a843);color:var(--gold,#d4a843);">
+          📤 Share Game
+        </button>
+        <button class="btn btn-outline" onclick="openJoinGameModal()"
+          style="padding:0.9rem;font-size:0.95rem;font-weight:800;
+                 border-color:var(--green,#48bb78);color:var(--green,#48bb78);">
+          📥 Join Game
+        </button>
+      </div>
 
       <button class="btn-setup-next" id="btn-setup-players-next">NEXT: ARRANGE GROUPS →</button>
     </div>
@@ -1265,6 +1278,17 @@
     </div>
 
     <button class="btn btn-primary btn-full" id="btn-save-profile">SAVE PROFILE</button>
+
+    <!-- Share profile code -->
+    <div class="card mt-sm">
+      <div class="card-title">Share Your Profile</div>
+      <p style="font-size:0.85rem;color:#a0aec0;margin:0.5rem 0 0.75rem;line-height:1.5;">
+        Generate a code that lets others add you to their friends list.
+      </p>
+      <button class="btn btn-outline btn-full" onclick="openShareProfileModal()">
+        👤 Share My Profile Code
+      </button>
+    </div>
     <!-- btn-open-privacy hidden; kept for JS back-compat -->
     <button id="btn-open-privacy" style="display:none;"></button>
 
@@ -1347,13 +1371,20 @@
       </div>
     </div>
 
-    <!-- Add Player to Favourites -->
+    <!-- Add Player to Favourites / by code -->
     <div class="card mt-md">
-      <button class="btn btn-outline btn-full" id="btn-add-guest-friend"
-        style="border-color:var(--green-border);color:var(--green);font-weight:800;
-               font-size:1.05rem;padding:0.85rem;">
-        👤 Add Player to Favourites
-      </button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+        <button class="btn btn-outline btn-full" id="btn-add-guest-friend"
+          style="border-color:var(--green-border);color:var(--green);font-weight:800;
+                 font-size:0.95rem;padding:0.85rem;">
+          👤 Add Player
+        </button>
+        <button class="btn btn-outline btn-full" onclick="openAddFriendByCodeModal()"
+          style="border-color:var(--gold-border);color:var(--gold);font-weight:800;
+                 font-size:0.95rem;padding:0.85rem;">
+          🔑 Add by Code
+        </button>
+      </div>
     </div>
 
     <!-- Friends list -->
@@ -1931,7 +1962,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261019s"></script>
+<script type="module" src="js/app.js?v=20261020a"></script>
 
 
 <!-- ══════════════════════════════════════════

@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leaderboard – Live Scores</title>
+  <meta name="description" content="Live golf leaderboard">
+  <style>
+    :root {
+      --bg:          #0f1923;
+      --surface:     #1a2535;
+      --surface2:    #243045;
+      --gold:        #d4a843;
+      --gold-border: rgba(212,168,67,0.35);
+      --text:        #f0f4f8;
+      --muted:       #a0aec0;
+      --green:       #48bb78;
+      --red:         #e53e3e;
+      --radius:      0.75rem;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100dvh;
+      padding: 0 0 2rem;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--gold-border);
+      padding: 1rem 1.25rem 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header-icon { font-size: 1.5rem; }
+    .header-text { flex: 1; min-width: 0; }
+    .header-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .header-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+    .refresh-btn {
+      background: none;
+      border: 1px solid var(--gold-border);
+      color: var(--gold);
+      border-radius: 0.5rem;
+      padding: 0.35rem 0.7rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .refresh-btn:active { opacity: 0.6; }
+
+    /* ── Status bar ── */
+    .status-bar {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      padding: 0.4rem 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .status-bar .dot {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      margin-right: 0.35rem;
+      vertical-align: middle;
+      animation: pulse 2s infinite;
+    }
+    .status-bar.stale .dot { background: var(--muted); animation: none; }
+    @keyframes pulse {
+      0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+
+    /* ── Code entry ── */
+    .code-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 70dvh;
+      padding: 2rem;
+      gap: 1.25rem;
+      text-align: center;
+    }
+    .code-screen h2 { font-size: 1.2rem; }
+    .code-screen p  { font-size: 0.9rem; color: var(--muted); max-width: 280px; line-height: 1.5; }
+    .code-input {
+      background: var(--surface);
+      border: 1px solid var(--gold-border);
+      border-radius: 0.6rem;
+      color: var(--text);
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      padding: 0.7rem 1.25rem;
+      text-align: center;
+      text-transform: uppercase;
+      width: 220px;
+      outline: none;
+    }
+    .code-input::placeholder { color: var(--muted); font-weight: 400; letter-spacing: 0; font-size: 1rem; }
+    .code-input:focus { border-color: var(--gold); }
+    .btn-go {
+      background: var(--gold);
+      color: #000;
+      font-weight: 700;
+      border: none;
+      border-radius: 0.6rem;
+      padding: 0.7rem 2rem;
+      font-size: 1rem;
+      cursor: pointer;
+      width: 220px;
+    }
+    .btn-go:disabled { opacity: 0.4; cursor: default; }
+
+    /* ── Error / empty states ── */
+    .state-msg {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--muted);
+    }
+    .state-msg .icon { font-size: 2rem; margin-bottom: 0.75rem; }
+    .state-msg h3    { color: var(--text); margin-bottom: 0.5rem; }
+
+    /* ── Round tabs ── */
+    .round-tabs {
+      display: flex;
+      gap: 0.4rem;
+      padding: 0.75rem 1rem 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .round-tabs::-webkit-scrollbar { display: none; }
+    .round-tab {
+      background: var(--surface);
+      border: 1px solid var(--gold-border);
+      color: var(--muted);
+      border-radius: 2rem;
+      padding: 0.3rem 0.9rem;
+      font-size: 0.82rem;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .round-tab.active {
+      background: var(--gold);
+      color: #000;
+      font-weight: 700;
+      border-color: transparent;
+    }
+
+    /* ── Leaderboard table ── */
+    .lb-wrap { padding: 0.75rem 1rem; }
+
+    .lb-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    .lb-table thead th {
+      text-align: left;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.4rem 0.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .lb-table thead th.num { text-align: center; }
+
+    .lb-table tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      transition: background 0.15s;
+    }
+    .lb-table tbody tr:last-child { border-bottom: none; }
+    .lb-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+    .lb-table td {
+      padding: 0.65rem 0.5rem;
+      vertical-align: middle;
+    }
+    .lb-table td.num { text-align: center; }
+
+    .pos {
+      color: var(--muted);
+      font-size: 0.8rem;
+      min-width: 1.5rem;
+    }
+    .pos.top3 { color: var(--gold); font-weight: 700; }
+
+    .player-name {
+      font-weight: 600;
+    }
+    .player-hcp {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .score-pill {
+      display: inline-block;
+      min-width: 2rem;
+      text-align: center;
+      font-weight: 700;
+      border-radius: 0.3rem;
+      padding: 0.1rem 0.35rem;
+    }
+    .score-pill.plus  { background: rgba(72,187,120,0.18); color: var(--green); }
+    .score-pill.zero  { background: rgba(212,168,67,0.18);  color: var(--gold); }
+    .score-pill.minus { background: rgba(229,62,62,0.18);   color: var(--red); }
+
+    .total-pts {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    /* Stableford: higher = better; stroke: lower = better */
+    .rank-1 { color: var(--gold); }
+
+    /* ── Scorecard rows (expandable) ── */
+    .sc-row { display: none; }
+    .sc-row.open { display: table-row; }
+    .sc-cell {
+      padding: 0.5rem 0.5rem 0.75rem;
+      background: var(--surface2);
+    }
+    .sc-holes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+    .sc-hole {
+      width: 2.2rem;
+      text-align: center;
+      font-size: 0.7rem;
+      background: var(--surface);
+      border-radius: 0.3rem;
+      padding: 0.2rem 0;
+    }
+    .sc-hole .h-num { color: var(--muted); font-size: 0.65rem; }
+    .sc-hole .h-pts { font-weight: 700; }
+
+    /* ── Course info card ── */
+    .course-card {
+      margin: 0.75rem 1rem 0;
+      background: var(--surface);
+      border: 1px solid var(--gold-border);
+      border-radius: var(--radius);
+      padding: 0.9rem 1rem;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+    .course-icon { font-size: 1.5rem; flex-shrink: 0; }
+    .course-detail { flex: 1; min-width: 0; }
+    .course-name   { font-weight: 700; font-size: 0.95rem; }
+    .course-meta   { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
+
+    /* ── Auto-refresh countdown ── */
+    #countdown { font-variant-numeric: tabular-nums; }
+
+    @media (min-width: 600px) {
+      .lb-wrap { max-width: 680px; margin: 0 auto; }
+      .course-card { max-width: 680px; margin: 0.75rem auto 0; }
+      .round-tabs  { max-width: 680px; margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="header" id="hdr" style="display:none">
+  <div class="header-icon">⛳</div>
+  <div class="header-text">
+    <div class="header-title" id="hdr-title">Leaderboard</div>
+    <div class="header-sub"  id="hdr-sub"></div>
+  </div>
+  <button class="refresh-btn" id="btn-refresh">↻ Refresh</button>
+</header>
+
+<div class="status-bar stale" id="status-bar" style="display:none">
+  <span class="dot"></span>
+  Updated <span id="last-updated">–</span> · auto-refresh in <span id="countdown">60</span>s
+</div>
+
+<main id="main">
+  <!-- Code entry screen shown when no ?code= param -->
+  <div class="code-screen" id="screen-code">
+    <div style="font-size:2.5rem">⛳</div>
+    <h2>Live Leaderboard</h2>
+    <p>Enter the game code to view scores</p>
+    <input class="code-input" id="code-input" maxlength="6" placeholder="e.g. X7K2AB" autocomplete="off" spellcheck="false">
+    <button class="btn-go" id="btn-go" disabled>View Scores</button>
+  </div>
+</main>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+// SYNC_WORKER_URL is injected at deploy time; falls back to a placeholder
+const WORKER = (window.LEADERBOARD_WORKER_URL || 'https://leaderboard-sync.REPLACEME.workers.dev').replace(/\/$/, '');
+const REFRESH_SECS = 60;
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentCode   = null;
+let gameData      = null;
+let scoresData    = null;
+let activeRound   = null;
+let refreshTimer  = null;
+let countdownVal  = REFRESH_SECS;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function qs(sel, ctx = document) { return ctx.querySelector(sel); }
+
+function fmtRelTime(isoStr) {
+  if (!isoStr) return '–';
+  const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
+  if (diff < 5)   return 'just now';
+  if (diff < 60)  return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  return `${Math.floor(diff/3600)}h ago`;
+}
+
+function fmtScore(pts, fmt) {
+  if (pts == null) return '<span class="score-pill" style="color:var(--muted)">–</span>';
+  const n = Number(pts);
+  if (fmt === 'stroke') {
+    // lower is better — show relative to par if available
+    const cls = n < 0 ? 'plus' : n > 0 ? 'minus' : 'zero';
+    const label = n === 0 ? 'E' : n > 0 ? `+${n}` : `${n}`;
+    return `<span class="score-pill ${cls}">${label}</span>`;
+  }
+  // Stableford — higher is better
+  const cls = n > 18 ? 'plus' : n < 18 ? 'minus' : 'zero';
+  return `<span class="score-pill ${cls}">${n}</span>`;
+}
+
+// ── URL param handling ────────────────────────────────────────────────────────
+function getCodeFromURL() {
+  const p = new URLSearchParams(location.search);
+  return (p.get('code') || '').toUpperCase().slice(0, 6);
+}
+
+function setCodeInURL(code) {
+  const u = new URL(location.href);
+  u.searchParams.set('code', code);
+  history.replaceState(null, '', u.toString());
+}
+
+// ── Fetch from worker ─────────────────────────────────────────────────────────
+async function fetchGame(code) {
+  const r = await fetch(`${WORKER}/game/${code}`);
+  if (!r.ok) throw new Error(r.status === 404 ? 'Game not found' : `Error ${r.status}`);
+  return r.json();
+}
+
+async function fetchScores(code) {
+  const r = await fetch(`${WORKER}/scores/${code}`);
+  if (r.status === 404) return null; // no scores yet — that's fine
+  if (!r.ok) throw new Error(`Scores error ${r.status}`);
+  return r.json();
+}
+
+// ── Render helpers ────────────────────────────────────────────────────────────
+function showError(icon, title, msg) {
+  qs('#main').innerHTML = `
+    <div class="state-msg">
+      <div class="icon">${icon}</div>
+      <h3>${title}</h3>
+      <p>${msg}</p>
+    </div>`;
+}
+
+function renderCourseCard(game) {
+  const c    = game.course ?? {};
+  const fmt  = game.format?.type ?? 'stableford';
+  const tee  = game.format?.tee  ?? '';
+  const meta = [fmt.charAt(0).toUpperCase() + fmt.slice(1), tee && `${tee} tees`, game.name].filter(Boolean).join(' · ');
+  return `
+    <div class="course-card">
+      <div class="course-icon">🏌️</div>
+      <div class="course-detail">
+        <div class="course-name">${c.name ?? 'Unknown course'}</div>
+        <div class="course-meta">${meta}</div>
+      </div>
+    </div>`;
+}
+
+function renderRoundTabs(rounds, active) {
+  if (!rounds || rounds.length <= 1) return '';
+  return `
+    <div class="round-tabs" id="round-tabs">
+      ${rounds.map(r => `
+        <button class="round-tab${r === active ? ' active' : ''}" data-round="${r}">
+          Round ${r}
+        </button>`).join('')}
+    </div>`;
+}
+
+function renderLeaderboard(game, scores, round) {
+  const fmt = game.format?.type ?? 'stableford';
+
+  // Gather players for this round
+  let players = [];
+  if (scores && scores.rounds) {
+    const roundData = scores.rounds.filter(r => r.round === round);
+    for (const grp of roundData) {
+      for (const p of (grp.players ?? [])) {
+        players.push({ ...p, group: grp.group });
+      }
+    }
+  }
+
+  // Fall back to game player list with no scores
+  if (players.length === 0 && game.players && game.players.length > 0) {
+    players = game.players.map(p => ({ name: p.name, hcp: p.courseHcp ?? p.index ?? 0, total: null, scores: [] }));
+  }
+
+  if (players.length === 0) {
+    return `<div class="state-msg">
+      <div class="icon">📋</div>
+      <h3>No scores yet</h3>
+      <p>Scores will appear here once a group uploads their round</p>
+    </div>`;
+  }
+
+  // Sort: stableford = highest first, stroke = lowest first
+  const sorted = [...players].sort((a, b) => {
+    if (a.total == null && b.total == null) return 0;
+    if (a.total == null) return 1;
+    if (b.total == null) return -1;
+    return fmt === 'stroke' ? a.total - b.total : b.total - a.total;
+  });
+
+  // Assign positions (handle ties)
+  let pos = 1;
+  sorted.forEach((p, i) => {
+    if (i > 0 && p.total === sorted[i-1].total) {
+      p._pos = sorted[i-1]._pos;
+    } else {
+      p._pos = pos;
+    }
+    pos++;
+  });
+
+  const rows = sorted.map((p, i) => {
+    const posLabel = p.total == null ? '–' : p._pos <= 3 ? ['🥇','🥈','🥉'][p._pos-1] : p._pos;
+    const posClass = p._pos <= 3 && p.total != null ? 'pos top3' : 'pos';
+    const rowId    = `sc-${i}`;
+
+    // Scorecard row
+    let scRow = '';
+    if (p.scores && p.scores.length > 0) {
+      const holeNums = p.scores.map((s, h) => `
+        <div class="sc-hole">
+          <div class="h-num">${h+1}</div>
+          <div class="h-pts">${s ?? '–'}</div>
+        </div>`).join('');
+      scRow = `
+        <tr class="sc-row" id="${rowId}">
+          <td class="sc-cell" colspan="5">
+            <div class="sc-holes">${holeNums}</div>
+          </td>
+        </tr>`;
+    }
+
+    return `
+      <tr style="cursor:${p.scores?.length > 0 ? 'pointer' : 'default'}"
+          onclick="${p.scores?.length > 0 ? `toggleSC('${rowId}')` : ''}">
+        <td class="${posClass}">${posLabel}</td>
+        <td>
+          <div class="player-name">${p.name ?? '?'}</div>
+          <div class="player-hcp">HCP ${p.hcp ?? '–'}</div>
+        </td>
+        <td class="num">${p.total != null ? fmtScore(p.total, fmt) : '<span style="color:var(--muted)">–</span>'}</td>
+        <td class="num" style="color:var(--muted);font-size:0.78rem">${p.group != null ? `Grp ${p.group}` : ''}</td>
+      </tr>
+      ${scRow}`;
+  }).join('');
+
+  return `
+    <div class="lb-wrap">
+      <table class="lb-table">
+        <thead>
+          <tr>
+            <th style="width:2rem">#</th>
+            <th>Player</th>
+            <th class="num">${fmt === 'stroke' ? 'Score' : 'Points'}</th>
+            <th class="num"></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${sorted.some(p => p.scores?.length > 0) ? '<p style="text-align:center;color:var(--muted);font-size:0.75rem;margin-top:0.75rem">Tap a row to see scorecard</p>' : ''}
+    </div>`;
+}
+
+function toggleSC(id) {
+  const row = document.getElementById(id);
+  if (row) row.classList.toggle('open');
+}
+window.toggleSC = toggleSC;
+
+// ── Main render ───────────────────────────────────────────────────────────────
+function render() {
+  if (!gameData) return;
+
+  const game   = gameData;
+  const scores = scoresData;
+
+  // Work out available rounds
+  const rounds = scores
+    ? [...new Set(scores.rounds.map(r => r.round))].sort((a,b) => a-b)
+    : [1];
+
+  if (activeRound == null || !rounds.includes(activeRound)) {
+    activeRound = rounds[rounds.length - 1]; // default to latest round
+  }
+
+  // Header
+  qs('#hdr').style.display = '';
+  qs('#hdr-title').textContent = game.name || game.course?.name || 'Leaderboard';
+  qs('#hdr-sub').textContent   = game.organiser ? `Organised by ${game.organiser}` : '';
+
+  // Status bar
+  const sb = qs('#status-bar');
+  sb.style.display = '';
+  const updAt = scores?.updatedAt;
+  qs('#last-updated').textContent = fmtRelTime(updAt);
+  sb.className = 'status-bar' + (updAt ? '' : ' stale');
+
+  // Main content
+  const main = qs('#main');
+  main.innerHTML =
+    renderCourseCard(game) +
+    renderRoundTabs(rounds, activeRound) +
+    renderLeaderboard(game, scores, activeRound);
+
+  // Wire round tabs
+  main.querySelectorAll('.round-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeRound = Number(btn.dataset.round);
+      render();
+    });
+  });
+}
+
+// ── Load data ─────────────────────────────────────────────────────────────────
+async function load(code) {
+  qs('#main').innerHTML = `<div class="state-msg"><div class="icon" style="animation:pulse 1s infinite">⏳</div><h3>Loading…</h3></div>`;
+  qs('#screen-code') && qs('#screen-code').remove();
+
+  try {
+    [gameData, scoresData] = await Promise.all([fetchGame(code), fetchScores(code)]);
+    render();
+    startCountdown();
+  } catch (e) {
+    showError('❌', 'Not found', e.message || 'Could not load this game. Check the code and try again.');
+  }
+}
+
+async function refresh() {
+  if (!currentCode) return;
+  clearInterval(refreshTimer);
+  try {
+    scoresData = await fetchScores(currentCode);
+    gameData   = await fetchGame(currentCode);
+    qs('#last-updated').textContent = fmtRelTime(scoresData?.updatedAt);
+  } catch {}
+  render();
+  startCountdown();
+}
+
+function startCountdown() {
+  clearInterval(refreshTimer);
+  countdownVal = REFRESH_SECS;
+  qs('#countdown').textContent = countdownVal;
+  refreshTimer = setInterval(() => {
+    countdownVal--;
+    const el = qs('#countdown');
+    if (el) el.textContent = countdownVal;
+    if (countdownVal <= 0) refresh();
+  }, 1000);
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+function init() {
+  const urlCode = getCodeFromURL();
+
+  if (urlCode.length === 6) {
+    currentCode = urlCode;
+    load(currentCode);
+  }
+  // else show code entry screen (already in HTML)
+
+  // Code input
+  const inp = qs('#code-input');
+  const btn = qs('#btn-go');
+  if (inp) {
+    inp.addEventListener('input', () => {
+      const v = inp.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0,6);
+      inp.value = v;
+      btn.disabled = v.length !== 6;
+    });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !btn.disabled) btn.click(); });
+  }
+  if (btn) {
+    btn.addEventListener('click', () => {
+      const code = inp.value.toUpperCase().slice(0,6);
+      if (code.length !== 6) return;
+      currentCode = code;
+      setCodeInURL(code);
+      load(code);
+    });
+  }
+
+  // Manual refresh button
+  qs('#btn-refresh')?.addEventListener('click', refresh);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

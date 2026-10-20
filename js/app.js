@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261019s';
+window.APP_BUILD = '20261020a';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -170,6 +170,476 @@ const setup = {
 };
 
 let roundId    = null;
+
+// ================================================================
+// CLOUDFLARE SYNC WORKER — game sharing, profile sharing, scores
+// ================================================================
+const SYNC_WORKER_URL = 'https://leaderboard-sync.steve-walgate.workers.dev';
+
+/**
+ * Low-level fetch wrapper — adds CORS headers + JSON parsing.
+ */
+async function _workerFetch(path, method = 'GET', body = null) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(SYNC_WORKER_URL + path, opts);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
+}
+
+// ── Game sharing ─────────────────────────────────────────────────
+
+/**
+ * Publish current game setup to the Worker.
+ * Returns { code, expiresAt }.
+ */
+async function shareGameSetup({ ttlHours = 48, expiresAt = null, name = null } = {}) {
+  const course = allCourses.find(c => c.id === setup.courseId) ?? null;
+  const tee    = course?.tees?.[setup.teeIdx] ?? null;
+  if (!course || !tee) throw new Error('No course/tee selected');
+
+  const payload = {
+    course: {
+      name:     course.name,
+      location: course.location ?? null,
+      tees: [{ name: tee.name, par: tee.par, si: tee.si,
+               courseRating: tee.courseRating ?? null,
+               slopeRating:  tee.slopeRating  ?? null }],
+    },
+    format: {
+      type:       setup.format      ?? 'stableford',
+      teeIdx:     0,
+      groups:     setup.groups      ?? 1,
+      holesCount: setup.holesCount  ?? 18,
+    },
+    players:   (setup.players ?? []).map(p => ({
+      name:      p.name,
+      index:     p.hcpIndex   ?? null,
+      courseHcp: p.courseHandicap ?? null,
+    })),
+    name:      name ?? null,
+    organiser: currentProfile
+      ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+      : null,
+    ...(expiresAt ? { expiresAt } : { ttlHours }),
+  };
+
+  return _workerFetch('/game', 'POST', payload);
+}
+
+/**
+ * Fetch a game by code.
+ * Returns the full game record or throws.
+ */
+async function fetchGameByCode(code) {
+  return _workerFetch(`/game/${code.toUpperCase()}`);
+}
+
+/**
+ * Import a fetched game record into the current setup.
+ * Saves the course locally if not already present.
+ */
+async function importGameRecord(rec) {
+  const courseData = rec.course;
+  if (!courseData) throw new Error('No course in game record');
+
+  // Find or create course
+  let course = allCourses.find(c => c.name.toLowerCase() === courseData.name.toLowerCase());
+  if (!course) {
+    course = await courseSave({
+      name:     courseData.name,
+      location: courseData.location ?? '',
+      tees:     courseData.tees ?? [],
+    });
+    allCourses = await coursesLoadAll();
+  }
+
+  // Match tee by name
+  const teeIdx = course.tees?.findIndex(
+    t => t.name.toLowerCase() === (courseData.tees?.[0]?.name ?? '').toLowerCase()
+  ) ?? 0;
+
+  setup.courseId   = course.id;
+  setup.teeIdx     = teeIdx >= 0 ? teeIdx : 0;
+  setup.format     = rec.format?.type      ?? 'stableford';
+  setup.groups     = rec.format?.groups    ?? 1;
+  setup.holesCount = rec.format?.holesCount ?? 18;
+
+  // Pre-fill players if provided and slots are empty
+  if (rec.players?.length > 0 && (!setup.players || setup.players.every(p => !p.name))) {
+    setup.players = rec.players.map(p => ({
+      name:            p.name ?? '',
+      hcpIndex:        p.index ?? 0,
+      courseHandicap:  p.courseHcp ?? null,
+      groupNumber:     1,
+      profileId:       null,
+      isScorer:        false,
+    }));
+  }
+}
+
+// ── Profile sharing ───────────────────────────────────────────────
+
+/** Publish current profile as a 24-hour share code. Returns { code }. */
+async function shareProfile() {
+  if (!currentProfile) throw new Error('No profile loaded');
+  const payload = {
+    name:       `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim(),
+    index:      currentProfile.hcp ?? null,
+    homeCourse: currentProfile.home_course ?? null,
+    courseHcp:  currentProfile.course_hcp  ?? null,
+  };
+  return _workerFetch('/profile', 'POST', payload);
+}
+
+/** Fetch a profile by 6-character code. Returns profile record. */
+async function fetchProfileByCode(code) {
+  return _workerFetch(`/profile/${code.toUpperCase()}`);
+}
+
+// ── Score upload ──────────────────────────────────────────────────
+
+/**
+ * Upload completed round scores for the game code stored in the
+ * current setup.  Called at end of round.
+ * @param {string} gameCode  — the 6-char code used to set up this game
+ * @param {Array}  roundsArr — array of { round, group, players:[...] }
+ */
+async function uploadScores(gameCode, roundsArr) {
+  return _workerFetch(`/scores/${gameCode.toUpperCase()}`, 'PUT', { rounds: roundsArr });
+}
+
+// ── UI helpers ────────────────────────────────────────────────────
+
+/**
+ * Show the "Share Game" modal — generates a game code and displays it
+ * with a live URL and expiry options.
+ */
+async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null } = {}) {
+  // Build or reuse modal
+  let modal = document.getElementById('modal-share-game');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-share-game';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-box" style="max-width:360px;padding:1.5rem;text-align:center;">
+        <h3 style="margin:0 0 0.25rem;font-size:1.1rem;">📤 Share Game</h3>
+        <p id="share-game-status" style="color:var(--text-muted,#a0aec0);font-size:0.85rem;margin:0 0 1rem;">
+          Generating code…
+        </p>
+        <div id="share-game-code" style="font-size:2.5rem;font-weight:800;letter-spacing:0.2em;
+          color:var(--gold,#d4a843);margin:0.5rem 0 0.25rem;"></div>
+        <div id="share-game-expiry" style="font-size:0.75rem;color:var(--text-muted,#a0aec0);
+          margin-bottom:1rem;"></div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem;">
+          <button id="share-game-copy-code" class="btn btn-gold" style="width:100%;">📋 Copy Code</button>
+          <button id="share-game-copy-url"  class="btn btn-ghost" style="width:100%;">🔗 Copy Live Leaderboard URL</button>
+        </div>
+        <div style="font-size:0.78rem;color:var(--text-muted,#a0aec0);line-height:1.4;margin-bottom:1rem;">
+          Others enter this code in the app to join.<br>
+          Share the URL to let anyone follow scores in a browser.
+        </div>
+        <div style="margin-bottom:0.75rem;">
+          <label style="font-size:0.8rem;color:var(--text-muted,#a0aec0);">Expiry</label>
+          <select id="share-game-expiry-sel" style="
+            display:block;width:100%;margin-top:0.35rem;
+            background:var(--surface2,#243045);border:1px solid var(--gold-border,rgba(212,168,67,0.35));
+            color:var(--text,#f0f4f8);border-radius:0.5rem;padding:0.5rem 0.75rem;font-size:0.9rem;">
+            <option value="48">48 hours (default)</option>
+            <option value="168">1 week</option>
+            <option value="720">30 days</option>
+            <option value="2160">90 days</option>
+            <option value="8760">1 year</option>
+            <option value="custom">Pick a date…</option>
+          </select>
+          <input type="date" id="share-game-expiry-date" style="
+            display:none;width:100%;margin-top:0.35rem;
+            background:var(--surface2,#243045);border:1px solid var(--gold-border,rgba(212,168,67,0.35));
+            color:var(--text,#f0f4f8);border-radius:0.5rem;padding:0.5rem 0.75rem;font-size:0.9rem;">
+        </div>
+        <button id="share-game-close" class="btn btn-ghost" style="width:100%;">Close</button>
+      </div>`;
+    document.body.appendChild(modal);
+
+    document.getElementById('share-game-close').addEventListener('click', () => modal.classList.remove('open'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+    document.getElementById('share-game-expiry-sel').addEventListener('change', e => {
+      const dateInput = document.getElementById('share-game-expiry-date');
+      dateInput.style.display = e.target.value === 'custom' ? 'block' : 'none';
+    });
+  }
+
+  modal.classList.add('open');
+  const statusEl  = document.getElementById('share-game-status');
+  const codeEl    = document.getElementById('share-game-code');
+  const expiryEl  = document.getElementById('share-game-expiry');
+  const copyCode  = document.getElementById('share-game-copy-code');
+  const copyUrl   = document.getElementById('share-game-copy-url');
+
+  codeEl.textContent    = '…';
+  expiryEl.textContent  = '';
+  statusEl.textContent  = 'Generating code…';
+
+  try {
+    const result = await shareGameSetup({ ttlHours, expiresAt, name });
+    const code    = result.code;
+    const exp     = new Date(result.expiresAt);
+    const liveUrl = `${APP_BASE_URL}live?code=${code}`;
+
+    codeEl.textContent   = code;
+    expiryEl.textContent = `Expires ${exp.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}`;
+    statusEl.textContent = 'Share this code with your group';
+
+    // Store for score upload later
+    try { localStorage.setItem('lb-game-code', code); } catch {}
+
+    copyCode.onclick = async () => {
+      try { await navigator.clipboard.writeText(code); }
+      catch { prompt('Game code:', code); return; }
+      copyCode.textContent = '✅ Copied!';
+      setTimeout(() => { copyCode.textContent = '📋 Copy Code'; }, 2000);
+    };
+    copyUrl.onclick = async () => {
+      try { await navigator.clipboard.writeText(liveUrl); }
+      catch { prompt('Live leaderboard URL:', liveUrl); return; }
+      copyUrl.textContent = '✅ Copied!';
+      setTimeout(() => { copyUrl.textContent = '🔗 Copy Live Leaderboard URL'; }, 2500);
+    };
+
+  } catch (err) {
+    codeEl.textContent   = '–';
+    statusEl.textContent = '❌ ' + (err.message ?? 'Could not generate code');
+  }
+}
+
+/**
+ * Show the "Join Game" modal — text box for entering a code.
+ * On success, imports course + format into setup.
+ */
+function openJoinGameModal() {
+  let modal = document.getElementById('modal-join-game');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-join-game';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-box" style="max-width:340px;padding:1.5rem;text-align:center;">
+        <h3 style="margin:0 0 0.25rem;font-size:1.1rem;">📥 Join a Game</h3>
+        <p style="color:var(--text-muted,#a0aec0);font-size:0.85rem;margin:0 0 1rem;line-height:1.5;">
+          Enter the 6-character code from the game organiser
+        </p>
+        <input id="join-game-input" maxlength="6" autocomplete="off" spellcheck="false"
+          placeholder="e.g. X7K2AB"
+          style="display:block;width:100%;background:var(--surface2,#243045);
+            border:1px solid var(--gold-border,rgba(212,168,67,0.35));
+            color:var(--text,#f0f4f8);border-radius:0.5rem;padding:0.65rem 0.75rem;
+            font-size:1.4rem;font-weight:700;letter-spacing:0.2em;text-align:center;
+            text-transform:uppercase;margin-bottom:0.75rem;outline:none;">
+        <div id="join-game-status" style="font-size:0.82rem;color:var(--text-muted,#a0aec0);
+          min-height:1.2em;margin-bottom:0.75rem;"></div>
+        <div style="display:flex;gap:0.5rem;">
+          <button id="join-game-btn" class="btn btn-gold" style="flex:1;" disabled>Join</button>
+          <button id="join-game-close" class="btn btn-ghost" style="flex:0 0 auto;padding:0.5rem 1rem;">Cancel</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    const inp    = document.getElementById('join-game-input');
+    const btn    = document.getElementById('join-game-btn');
+    const status = document.getElementById('join-game-status');
+
+    document.getElementById('join-game-close').addEventListener('click', () => modal.classList.remove('open'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+
+    inp.addEventListener('input', () => {
+      const v = inp.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6);
+      inp.value = v;
+      btn.disabled = v.length !== 6;
+      status.textContent = '';
+    });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !btn.disabled) btn.click(); });
+
+    btn.addEventListener('click', async () => {
+      const code = inp.value.toUpperCase().slice(0, 6);
+      if (code.length !== 6) return;
+      btn.disabled = true;
+      btn.textContent = '⏳';
+      status.textContent = 'Looking up code…';
+      try {
+        const rec = await fetchGameByCode(code);
+        await importGameRecord(rec);
+
+        // Store for later score upload
+        try { localStorage.setItem('lb-game-code', code); } catch {}
+
+        status.textContent = `✅ Joined: ${rec.course?.name ?? 'game'}`;
+        modal.classList.remove('open');
+
+        // Re-render course select to reflect imported course
+        await populateCourseSelect();
+        showScreen('screen-setup-course');
+
+      } catch (err) {
+        status.textContent = '❌ ' + (err.message ?? 'Code not found');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Join';
+      }
+    });
+  }
+
+  // Reset state
+  const inp = document.getElementById('join-game-input');
+  const btn = document.getElementById('join-game-btn');
+  if (inp) { inp.value = ''; btn.disabled = true; }
+  document.getElementById('join-game-status').textContent = '';
+  modal.classList.add('open');
+  setTimeout(() => inp?.focus(), 100);
+}
+
+/**
+ * Show the "Share Profile" modal — generates a 24h code.
+ */
+async function openShareProfileModal() {
+  let modal = document.getElementById('modal-share-profile');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-share-profile';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-box" style="max-width:320px;padding:1.5rem;text-align:center;">
+        <h3 style="margin:0 0 0.25rem;font-size:1.1rem;">👤 Share My Profile</h3>
+        <p id="share-profile-status" style="color:var(--text-muted,#a0aec0);font-size:0.85rem;
+          margin:0 0 0.75rem;line-height:1.5;">Generating code…</p>
+        <div id="share-profile-code" style="font-size:2.5rem;font-weight:800;letter-spacing:0.2em;
+          color:var(--gold,#d4a843);margin:0.5rem 0;"></div>
+        <div style="font-size:0.75rem;color:var(--text-muted,#a0aec0);margin-bottom:1rem;">
+          Valid for 24 hours
+        </div>
+        <button id="share-profile-copy" class="btn btn-gold" style="width:100%;margin-bottom:0.5rem;">
+          📋 Copy Code
+        </button>
+        <button id="share-profile-close" class="btn btn-ghost" style="width:100%;">Close</button>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById('share-profile-close').addEventListener('click', () => modal.classList.remove('open'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+  }
+
+  modal.classList.add('open');
+  const statusEl = document.getElementById('share-profile-status');
+  const codeEl   = document.getElementById('share-profile-code');
+  const copyBtn  = document.getElementById('share-profile-copy');
+  codeEl.textContent = '…';
+
+  try {
+    const result = await shareProfile();
+    const code = result.code;
+    codeEl.textContent   = code;
+    statusEl.textContent = 'Give this code to a friend — they can add you to their friends list';
+
+    copyBtn.onclick = async () => {
+      try { await navigator.clipboard.writeText(code); }
+      catch { prompt('Profile code:', code); return; }
+      copyBtn.textContent = '✅ Copied!';
+      setTimeout(() => { copyBtn.textContent = '📋 Copy Code'; }, 2000);
+    };
+  } catch (err) {
+    codeEl.textContent   = '–';
+    statusEl.textContent = '❌ ' + (err.message ?? 'Could not generate code');
+  }
+}
+
+/**
+ * Show the "Add Friend by Code" modal.
+ */
+function openAddFriendByCodeModal() {
+  let modal = document.getElementById('modal-add-friend-code');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-add-friend-code';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-box" style="max-width:320px;padding:1.5rem;text-align:center;">
+        <h3 style="margin:0 0 0.25rem;font-size:1.1rem;">➕ Add Friend by Code</h3>
+        <p style="color:var(--text-muted,#a0aec0);font-size:0.85rem;margin:0 0 1rem;line-height:1.5;">
+          Ask your friend to share their profile code and enter it here
+        </p>
+        <input id="friend-code-input" maxlength="6" autocomplete="off" spellcheck="false"
+          placeholder="e.g. X7K2AB"
+          style="display:block;width:100%;background:var(--surface2,#243045);
+            border:1px solid var(--gold-border,rgba(212,168,67,0.35));
+            color:var(--text,#f0f4f8);border-radius:0.5rem;padding:0.65rem 0.75rem;
+            font-size:1.4rem;font-weight:700;letter-spacing:0.2em;text-align:center;
+            text-transform:uppercase;margin-bottom:0.75rem;outline:none;">
+        <div id="friend-code-status" style="font-size:0.82rem;color:var(--text-muted,#a0aec0);
+          min-height:1.2em;margin-bottom:0.75rem;"></div>
+        <div style="display:flex;gap:0.5rem;">
+          <button id="friend-code-btn" class="btn btn-gold" style="flex:1;" disabled>Add Friend</button>
+          <button id="friend-code-close" class="btn btn-ghost" style="flex:0 0 auto;padding:0.5rem 1rem;">Cancel</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    const inp    = document.getElementById('friend-code-input');
+    const btn    = document.getElementById('friend-code-btn');
+    const status = document.getElementById('friend-code-status');
+
+    document.getElementById('friend-code-close').addEventListener('click', () => modal.classList.remove('open'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+
+    inp.addEventListener('input', () => {
+      const v = inp.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6);
+      inp.value = v;
+      btn.disabled = v.length !== 6;
+      status.textContent = '';
+    });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !btn.disabled) btn.click(); });
+
+    btn.addEventListener('click', async () => {
+      const code = inp.value.toUpperCase().slice(0, 6);
+      btn.disabled = true; btn.textContent = '⏳';
+      status.textContent = 'Looking up profile…';
+      try {
+        const profile = await fetchProfileByCode(code);
+        // Save to local friends list
+        await guestProfileCreate({
+          first_name: profile.name.split(' ')[0] ?? profile.name,
+          last_name:  profile.name.split(' ').slice(1).join(' ') ?? '',
+          hcp:        profile.index ?? null,
+          home_course: profile.homeCourse ?? null,
+          course_hcp:  profile.courseHcp ?? null,
+          source:      'code-share',
+        });
+        allFriends = await friendsLoad(currentUser?.id ?? null);
+        status.textContent = `✅ Added: ${profile.name}`;
+        modal.classList.remove('open');
+      } catch (err) {
+        status.textContent = '❌ ' + (err.message ?? 'Code not found or expired');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Add Friend';
+      }
+    });
+  }
+
+  const inp = document.getElementById('friend-code-input');
+  const btn = document.getElementById('friend-code-btn');
+  if (inp) { inp.value = ''; btn.disabled = true; }
+  document.getElementById('friend-code-status').textContent = '';
+  modal.classList.add('open');
+  setTimeout(() => inp?.focus(), 100);
+}
+
+// Expose for button wiring in HTML
+window.openShareGameModal   = openShareGameModal;
+window.openJoinGameModal    = openJoinGameModal;
+window.openShareProfileModal = openShareProfileModal;
+window.openAddFriendByCodeModal = openAddFriendByCodeModal;
 
 // ================================================================
 // LOCAL-FIRST SYNC — IndexedDB primary, Supabase every 30s
