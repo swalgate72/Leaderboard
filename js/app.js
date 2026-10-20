@@ -10413,6 +10413,80 @@ async function showEndRound() {
   document.getElementById('er-result').textContent = summary.winner ?? 'Completed';
   document.getElementById('er-sub').textContent    = `${merged.courseName} · ${merged.teeName} Tees · ${merged.log?.length ?? 0} holes`;
 
+  // ── Round info panel ──────────────────────────────────────────
+  const infoEl = document.getElementById('er-info');
+  if (infoEl) {
+    const dateStr = (() => {
+      const d = setup.gameDate ?? gameState.gameDate;
+      if (!d) return '';
+      try { return new Date(d).toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short', year:'numeric' }); }
+      catch { return d; }
+    })();
+    const organiser = (() => {
+      if (currentProfile) {
+        const n = `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim();
+        if (n) return n;
+      }
+      return gameState.organiserName ?? '';
+    })();
+    const rows = [
+      ['Course',    `${merged.courseName ?? '–'} · ${merged.teeName ?? ''} Tees`],
+      ['Format',    fmtLabel(merged.format)],
+      dateStr     ? ['Date',      dateStr]     : null,
+      organiser   ? ['Organiser', organiser]   : null,
+    ].filter(Boolean);
+    infoEl.innerHTML = rows.map(([label, val]) =>
+      `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:0.2rem 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+        <span style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted,#94a3b8);">${label}</span>
+        <span style="font-size:0.85rem;font-weight:600;color:var(--text,#f0f4f8);text-align:right;max-width:65%;">${val}</span>
+      </div>`
+    ).join('');
+    infoEl.style.display = '';
+  }
+
+  // ── Player handicap panel ─────────────────────────────────────
+  const playersEl = document.getElementById('er-players');
+  if (playersEl) {
+    const names   = merged.names ?? [];
+    const phcps   = merged.playingHandicaps ?? [];
+    const mhcps   = merged.matchHandicaps   ?? [];
+    const hidxs   = merged.handicapIndexes  ?? [];
+    const isMatchFmt = ['match','betterball','csm','split6','skins','itc','foursomes','greensomes','texas'].includes(merged.format);
+
+    // For match formats: find scratch player (lowest matchHandicap = 0)
+    const scratchIdx = isMatchFmt ? mhcps.indexOf(Math.min(...mhcps)) : -1;
+
+    const rows = names.map((name, i) => {
+      const idx      = hidxs[i] != null ? Number(hidxs[i]).toFixed(1) : '–';
+      const crsHcp   = phcps[i] != null ? phcps[i] : '–';
+      const matchHcp = mhcps[i];
+
+      let matchCell = '';
+      if (isMatchFmt && matchHcp != null) {
+        if (i === scratchIdx) {
+          matchCell = `<span style="padding:0.15rem 0.5rem;border-radius:6px;background:var(--gold,#d4a843);color:#000;font-size:0.72rem;font-weight:700;">SCRATCH</span>`;
+        } else {
+          matchCell = `<span style="font-size:0.82rem;font-weight:600;color:var(--text,#f0f4f8);">+${matchHcp} shots</span>`;
+        }
+      }
+
+      return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.75rem;border-bottom:1px solid rgba(255,255,255,0.06);">
+        <span style="width:0.55rem;height:0.55rem;border-radius:50%;background:${pHex(i)};flex-shrink:0;"></span>
+        <span style="flex:1;font-size:0.9rem;font-weight:700;">${name}</span>
+        <span style="font-size:0.75rem;color:var(--muted);white-space:nowrap;">Idx <b>${idx}</b></span>
+        <span style="font-size:0.75rem;color:var(--muted);white-space:nowrap;">Crs <b>${crsHcp}</b></span>
+        ${matchCell ? `<span style="flex-shrink:0;">${matchCell}</span>` : ''}
+      </div>`;
+    }).join('');
+
+    playersEl.innerHTML = rows
+      ? `<div style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;overflow:hidden;">
+           <div style="padding:0.4rem 0.75rem;background:rgba(255,255,255,0.05);font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);">Players &amp; Handicaps</div>
+           ${rows}
+         </div>`
+      : '';
+  }
+
   // Podium
   const podiumEl = document.getElementById('er-podium');
   podiumEl.innerHTML = '';
