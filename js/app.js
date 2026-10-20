@@ -3890,19 +3890,6 @@ function renderSetupPairsScreen() {
     pairsEl.appendChild(card);
   });
 
-  // Add New Pair button
-  const addBtn = document.createElement('button');
-  addBtn.className = 'btn btn-outline';
-  addBtn.style.cssText = 'width:100%;padding:0.85rem;font-size:1rem;font-weight:700;border-style:dashed;border-color:var(--gold-border);color:var(--gold);';
-  addBtn.textContent = '＋ Add Another Pair';
-  addBtn.addEventListener('click', () => {
-    setup.pairs.push({
-      _uid: `p${Date.now()}_${setup.pairs.length}_${Math.random().toString(36).slice(2,7)}`,
-      name: `Pair ${setup.pairs.length + 1}`, playerIndices: [], groupNumber: 1,
-    });
-    renderSetupPairsScreen();
-  });
-  pairsEl.appendChild(addBtn);
 
   // Wire name inputs
   pairsEl.querySelectorAll('.sp-pair-name').forEach(inp => {
