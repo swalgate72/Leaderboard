@@ -288,12 +288,12 @@
 <body>
 
 <header class="header" id="hdr" style="display:none">
-  <div class="header-icon">⛳</div>
+  <button class="refresh-btn" id="btn-back" onclick="history.back()" style="margin-right:0.5rem;padding:0.35rem 0.6rem;">← Back</button>
   <div class="header-text">
     <div class="header-title" id="hdr-title">Leaderboard</div>
     <div class="header-sub"  id="hdr-sub"></div>
   </div>
-  <button class="refresh-btn" id="btn-share" onclick="shareLeaderboard()" style="margin-right:0.4rem;">⬆ Share</button>
+  <button class="refresh-btn" id="btn-copy-link" onclick="copyLink()" style="margin-right:0.4rem;">⎘ Copy Link</button>
   <button class="refresh-btn" id="btn-refresh">↻ Refresh</button>
 </header>
 
@@ -327,21 +327,29 @@ let activeRound   = null;
 let refreshTimer  = null;
 let countdownVal  = REFRESH_SECS;
 
-// ── Share ─────────────────────────────────────────────────────────────────────
-function shareLeaderboard() {
+// ── Copy link ─────────────────────────────────────────────────────────────────
+function copyLink() {
   const url = location.href;
-  if (navigator.share) {
-    navigator.share({ title: 'Live Leaderboard', url }).catch(() => {});
-  } else {
-    navigator.clipboard.writeText(url).then(() => {
-      const btn = document.getElementById('btn-share');
-      const orig = btn.textContent;
-      btn.textContent = '✓ Copied';
-      setTimeout(() => btn.textContent = orig, 1800);
-    }).catch(() => {
-      prompt('Copy this link to share:', url);
-    });
-  }
+  const btn = document.getElementById('btn-copy-link');
+  navigator.clipboard.writeText(url).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    btn.style.color = '#48bb78';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
+  }).catch(() => {
+    // Fallback: select a temporary input
+    const inp = document.createElement('input');
+    inp.value = url;
+    inp.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+    document.body.appendChild(inp);
+    inp.focus(); inp.select();
+    document.execCommand('copy');
+    document.body.removeChild(inp);
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    btn.style.color = '#48bb78';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
+  });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
