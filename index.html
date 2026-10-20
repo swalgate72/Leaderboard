@@ -173,31 +173,39 @@
         </div>
       </div>
 
-      <!-- Round in progress card (opens the Active Games list) -->
-      <button id="btn-home-active-games" class="home-round-card is-idle" type="button">
-        <span class="home-round-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="21"/><path d="M6 4h11l-2.5 4L17 12H6"/></svg>
-          <span class="home-round-live"></span>
-        </span>
-        <span class="home-round-body">
-          <span class="home-round-status" id="home-round-status">No round in progress</span>
-          <span class="home-round-course" id="home-round-course">Choose a format below</span>
-        </span>
-        <span class="home-round-btn" id="home-round-btn">View <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></span>
-        <span id="home-active-games-badge" class="home-hero-cta-badge" style="display:none;"></span>
-      </button>
+      <!-- Round in progress + Join a Game — side by side -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
 
-      <!-- Join Game by code -->
-      <button id="btn-home-join-game" class="home-round-card" type="button"
-        onclick="openJoinGameModal()"
-        style="margin-top:0.5rem;display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;">
-        <span style="font-size:1.3rem;" aria-hidden="true">🏌️</span>
-        <span style="flex:1;text-align:left;">
-          <span style="display:block;font-weight:600;font-size:0.95rem;">Join a Game</span>
-          <span style="display:block;font-size:0.78rem;opacity:0.7;">Enter a code from the organiser</span>
-        </span>
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>
-      </button>
+        <button id="btn-home-active-games" class="home-round-card is-idle" type="button"
+          style="flex-direction:column;align-items:flex-start;gap:0.5rem;padding:0.85rem;">
+          <span style="display:flex;align-items:center;gap:0.5rem;width:100%;">
+            <span class="home-round-icon" aria-hidden="true" style="width:32px;height:32px;border-radius:8px;flex-shrink:0;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="21"/><path d="M6 4h11l-2.5 4L17 12H6"/></svg>
+              <span class="home-round-live"></span>
+            </span>
+            <span class="home-round-btn" id="home-round-btn" style="margin-left:auto;">View <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></span>
+            <span id="home-active-games-badge" class="home-hero-cta-badge" style="display:none;"></span>
+          </span>
+          <span class="home-round-body">
+            <span class="home-round-status" id="home-round-status">No round in progress</span>
+            <span class="home-round-course" id="home-round-course">Choose a format below</span>
+          </span>
+        </button>
+
+        <button id="btn-home-join-game" class="home-round-card" type="button"
+          onclick="openJoinGameModal()"
+          style="flex-direction:column;align-items:flex-start;gap:0.5rem;padding:0.85rem;">
+          <span style="display:flex;align-items:center;gap:0.5rem;width:100%;">
+            <span style="font-size:1.3rem;" aria-hidden="true">🏌️</span>
+            <svg style="margin-left:auto;" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>
+          </span>
+          <span style="display:flex;flex-direction:column;gap:2px;">
+            <span style="display:block;font-weight:700;font-size:0.95rem;">Join a Game</span>
+            <span style="display:block;font-size:0.78rem;opacity:0.7;line-height:1.3;">Enter a code from the organiser</span>
+          </span>
+        </button>
+
+      </div>
 
       <!-- Hidden for JS back-compat -->
       <button id="btn-home-game-invites" style="display:none;"></button>
