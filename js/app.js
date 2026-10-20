@@ -4848,8 +4848,22 @@ function buildSetupReview() {
   const teamScoreLabel2 = teamScoreMode2 === 'stroke' ? 'Strokeplay'
     : teamScoreMode2 === 'match' ? 'Match Play' : 'Stableford';
 
+  const reviewDateStr = (() => {
+    const d = setup.gameDate;
+    if (!d) return '';
+    try { return new Date(d).toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short', year:'numeric' }); }
+    catch { return d; }
+  })();
+  const reviewOrganiser = currentProfile
+    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+    : '';
+
   let html = `
     <div style="display:grid;gap:0.5rem;font-size:1.05rem;font-weight:700;margin-bottom:1rem;">
+      ${course ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Course</span><span style="text-align:right;max-width:60%;">${course.name}</span></div>` : ''}
+      ${tee    ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Tees</span><span>${tee.name}</span></div>` : ''}
+      ${reviewDateStr ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Date</span><span>${reviewDateStr}</span></div>` : ''}
+      ${reviewOrganiser ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Organiser</span><span>${reviewOrganiser}</span></div>` : ''}
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Format</span><span>${fmtLabel(setup.scoring)}</span></div>
       ${isTeamFmt2 ? `
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Scoring</span><span>${teamScoreLabel2}</span></div>
