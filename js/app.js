@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261010q)
-window.APP_BUILD = '20261020c';
+window.APP_BUILD = '20261020d';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -5412,6 +5412,19 @@ function renderGameTopBar() {
   if (throughEl) throughEl.textContent = holesPlayed > 0 ? `Through ${holesPlayed}` : '';
   const mini = document.getElementById('game-logo-mini');
   if (mini) mini.innerHTML = PENCIL_SVG_MINI;
+
+  // Show game code pill if we have one
+  const codePill = document.getElementById('game-code-pill');
+  if (codePill) {
+    let code = null;
+    try { code = localStorage.getItem('lb-game-code'); } catch {}
+    if (code) {
+      codePill.textContent = code;
+      codePill.style.display = '';
+    } else {
+      codePill.style.display = 'none';
+    }
+  }
 }
 
 // ----------------------------------------------------------------
