@@ -8347,7 +8347,7 @@ function renderLeaderboard() {
         if (namesB) pairRows.push({ label: namesB, sub: '', score: scoreB, thru });
       });
       pairRows.sort((a,b) => isTeamSb ? b.score-a.score : a.score-b.score);
-      tableEl.innerHTML = buildLeaderboardTable(pairRows.map((r,i)=>({rank:i+1,...r,isLead:i===0})), isTeamSb?'Pts':'Net');
+      tableEl.innerHTML = buildLeaderboardTable(pairRows.map((r,i)=>({rank:i+1,...r,isLead:i===0})), isTeamSb?'Pts':'Net', 'Shots');
       return;
     }
 
@@ -8379,7 +8379,8 @@ function renderLeaderboard() {
         thru:   r.holesPlayed,
         isLead: rank === 0,
       })),
-      scoreLabel
+      scoreLabel,
+      typeof sortedRows[0]?.score === 'number' ? 'Shots' : undefined
     );
 
     // In tournament team mode, also show a hint that the full tournament
@@ -8404,17 +8405,21 @@ function renderLeaderboard() {
       const names = gs.names ?? [];
       const pts   = gs.pts ?? [];
       const holesPlayed = gs.log?.length ?? 0;
-      const itcRows = names.map((nm, i) => ({
-        rank:   0,
-        label:  nm,
-        sub:    null,
-        score:  pts[i] ?? 0,
-        thru:   holesPlayed,
-        isLead: false,
-      }));
+      const itcRows = names.map((nm, i) => {
+        const gross = (gs.log ?? []).reduce((s, e) => s + (e.grosses?.[i] ?? 0), 0);
+        return {
+          rank:       0,
+          label:      nm,
+          sub:        null,
+          score:      pts[i] ?? 0,
+          extraScore: gross || undefined,
+          thru:       holesPlayed,
+          isLead:     false,
+        };
+      });
       itcRows.sort((a, b) => b.score - a.score);
       itcRows.forEach((r, i) => { r.rank = i + 1; r.isLead = i === 0; });
-      tableEl.innerHTML = buildLeaderboardTable(itcRows, 'Pts');
+      tableEl.innerHTML = buildLeaderboardTable(itcRows, 'Pts', 'Shots');
       return;
     }
 
@@ -8425,21 +8430,26 @@ function renderLeaderboard() {
       return;
     }
 
+    // All individual formats show Shots as a secondary column alongside their primary score
+    const showShotsCol = !isMatch; // match already shows shots inside buildMatchLeaderboard
+
     tableEl.innerHTML = buildLeaderboardTable(
       rows.map((r, rank) => {
         let score;
         if (isStroke) score = r.net ?? '--';
         else          score = r.pts ?? '--';
         return {
-          rank:   rank + 1,
-          label:  r.name,
-          sub:    null,
+          rank:       rank + 1,
+          label:      r.name,
+          sub:        null,
           score,
-          thru:   r.holesPlayed,
-          isLead: rank === 0,
+          extraScore: showShotsCol && r.gross != null ? r.gross : undefined,
+          thru:       r.holesPlayed,
+          isLead:     rank === 0,
         };
       }),
-      scoreLabel
+      scoreLabel,
+      showShotsCol ? 'Shots' : undefined
     );
     return;
   }
@@ -8729,17 +8739,25 @@ function buildMatchLeaderboard(state) {
   return topBanner + html;
 }
 
-function buildLeaderboardTable(rows, scoreLabel) {
+// scoreLabel: primary score column header (e.g. 'Pts', 'Net')
+// extraLabel: optional secondary column header (e.g. 'Shots') — shown before the primary col
+// rows may include r.extraScore for the secondary column value
+function buildLeaderboardTable(rows, scoreLabel, extraLabel) {
   if (!rows.length) return '<div style="padding:2rem;text-align:center;color:var(--muted);">No scores yet.</div>';
 
+  const hasExtra = !!extraLabel;
+  const gridCols = hasExtra ? 'auto 1fr auto auto auto' : 'auto 1fr auto auto';
+
   let html = `
-    <div style="display:grid;grid-template-columns:auto 1fr auto auto;
+    <div style="display:grid;grid-template-columns:${gridCols};
                 align-items:center;border-bottom:2px solid var(--border2);
                 padding:0.5rem 0.75rem;margin-top:1rem;">
       <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
                   color:var(--muted);letter-spacing:0.1em;width:2rem;">#</div>
       <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
                   color:var(--muted);letter-spacing:0.1em;">NAME</div>
+      ${hasExtra ? `<div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
+                  color:var(--muted);letter-spacing:0.1em;text-align:right;padding-right:0.75rem;">${extraLabel.toUpperCase()}</div>` : ''}
       <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
                   color:var(--muted);letter-spacing:0.1em;text-align:right;padding-right:1.25rem;">${scoreLabel.toUpperCase()}</div>
       <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
@@ -8766,8 +8784,13 @@ function buildLeaderboardTable(rows, scoreLabel) {
         </div>`;
     }
 
+    const extraCell = hasExtra
+      ? `<div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;
+                    font-size:1.1rem;color:var(--muted2);text-align:right;padding-right:0.75rem;">${r.extraScore ?? '–'}</div>`
+      : '';
+
     html += `
-      <div style="display:grid;grid-template-columns:auto 1fr auto auto;
+      <div style="display:grid;grid-template-columns:${gridCols};
                   align-items:center;padding:0.9rem 0.75rem;
                   border-bottom:1px solid var(--border);${bg}">
         <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
@@ -8778,6 +8801,7 @@ function buildLeaderboardTable(rows, scoreLabel) {
           ${r.sub ? `<div style="font-size:0.85rem;font-weight:700;color:var(--muted2);">${r.sub}</div>` : ''}
           ${playerScoreHtml}
         </div>
+        ${extraCell}
         <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
                     font-size:1.6rem;color:${gold};text-align:right;padding-right:1.25rem;">${r.score}</div>
         <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;
