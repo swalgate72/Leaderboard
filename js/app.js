@@ -10481,7 +10481,7 @@ async function showEndRound() {
       let matchCell = '';
       if (isMatchFmt && matchHcp != null) {
         if (i === scratchIdx) {
-          matchCell = `<span style="padding:0.15rem 0.5rem;border-radius:6px;background:var(--gold,#d4a843);color:#000;font-size:0.72rem;font-weight:700;">SCRATCH</span>`;
+          matchCell = `<span style="font-size:0.82rem;font-weight:600;color:#1a1a1a;">SCRATCH</span>`;
         } else {
           matchCell = `<span style="font-size:0.82rem;font-weight:600;color:#1a1a1a;">+${matchHcp} shots</span>`;
         }
