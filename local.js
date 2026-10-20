@@ -742,7 +742,18 @@ export async function importBackup(jsonString) {
     }
   }
 
-  // 4. All validation passed — write to IDB
+  // 4. Guard against overwriting an active or paused round (Stage 1 P0 fix)
+  const existingRounds = await roundsStore.getAll();
+  const activeOrPaused = existingRounds.filter(r => r.status === 'active' || r.status === 'paused');
+  if (activeOrPaused.length > 0) {
+    const names = activeOrPaused.map(r => r.courseName || r.id).join(', ');
+    throw new Error(
+      `Cannot restore backup: ${activeOrPaused.length} unfinished round(s) exist (${names}). ` +
+      'Please complete or abandon all active rounds before restoring a backup.'
+    );
+  }
+
+  // 5. All validation passed — write to IDB
   // OVERWRITE mode: clear each store, then bulk-insert backup data.
   // This is atomic per store but not across stores. If it fails partway,
   // the app may be in a mixed state — the user should re-import.

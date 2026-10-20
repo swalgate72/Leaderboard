@@ -165,6 +165,31 @@ export async function idbSave(roundId, state, dirty = true) {
   });
 }
 
+// ── Sequence-guarded save (Stage 1 reliability) ──────────────────
+// Writes only if seq >= the stored seq, preventing older async saves
+// from overwriting newer data.  Returns true if the write happened,
+// false if it was skipped because a newer record already exists.
+export async function idbSaveSeq(roundId, state, seq) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx      = db.transaction(STORE_ACTIVE, 'readwrite');
+    const store   = tx.objectStore(STORE_ACTIVE);
+    const getReq  = store.get(roundId);
+    getReq.onsuccess = () => {
+      const existing = getReq.result;
+      if (existing && typeof existing.seq === 'number' && existing.seq > seq) {
+        // A newer save already won — skip this write silently
+        resolve(false);
+        return;
+      }
+      const putReq = store.put({ roundId, state, dirty: true, savedAt: Date.now(), seq });
+      putReq.onsuccess = () => resolve(true);
+      putReq.onerror   = e => reject(e.target.error);
+    };
+    getReq.onerror = e => reject(e.target.error);
+  });
+}
+
 export async function idbLoad(roundId) {
   const db = await openDB();
   return new Promise((resolve, reject) => {

@@ -862,9 +862,19 @@
     flex-shrink:0;
     position:relative;">
 
-    <!-- Sync badge top-right -->
+    <!-- Save-status indicator top-right (Stage 1: reliable persistence) -->
+    <div id="game-save-status"
+      style="position:absolute;top:0.75rem;right:1rem;display:none;
+             align-items:center;gap:0.4rem;font-family:var(--font-ui);
+             font-size:0.72rem;font-weight:700;letter-spacing:0.04em;
+             color:#fff;background:rgba(0,0,0,0.28);
+             border-radius:2rem;padding:0.2rem 0.6rem;cursor:default;">
+      <span id="game-save-dot" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#fff;flex-shrink:0;"></span>
+      <span id="game-save-label">Saving…</span>
+    </div>
+    <!-- Legacy sync badge kept for compatibility but hidden -->
     <div class="sync-badge syncing hidden" id="game-sync-badge"
-      style="position:absolute;top:0.75rem;right:1rem;">
+      style="position:absolute;top:0.75rem;right:1rem;display:none;">
       <div class="sync-dot pulse"></div>
       <span>Saving</span>
     </div>
@@ -2004,7 +2014,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261020ar"></script>
+<script type="module" src="js/app.js?v=20261020as"></script>
 
 
 <!-- ══════════════════════════════════════════

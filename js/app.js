@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261020ar)
-window.APP_BUILD = '20261020ar';
+// LEADERBOARD - app.js  (v3.2 · build 20261020as)
+window.APP_BUILD = '20261020as';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -39,7 +39,7 @@ import {
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
 } from '../game.js?v=20260704l';
-import { idbSave, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20260704l';
+import { idbSave, idbSaveSeq, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20261020as';
 
 
 // ================================================================
@@ -170,6 +170,49 @@ const setup = {
 };
 
 let roundId    = null;
+
+// ================================================================
+// SAVE-STATUS INDICATOR (Stage 1 — reliable persistence)
+// ================================================================
+// Monotonically increasing counter — each hole confirmation gets a
+// higher seq than the last.  idbSaveSeq() uses this to prevent an
+// older async write from overwriting a newer one.
+let _saveSeq = 0;
+function _nextSeq() { return ++_saveSeq; }
+
+// Three states: 'saving' | 'saved' | 'failed'
+let _saveStatusTimer = null;
+function _setSaveStatus(state, retryFn) {
+  const el    = document.getElementById('game-save-status');
+  const dot   = document.getElementById('game-save-dot');
+  const label = document.getElementById('game-save-label');
+  if (!el || !dot || !label) return;
+
+  clearTimeout(_saveStatusTimer);
+  el.style.display = 'flex';
+  el.onclick = null;
+
+  if (state === 'saving') {
+    dot.style.background   = '#fff';
+    dot.style.animation    = 'pulse 1s infinite';
+    label.textContent      = 'Saving…';
+    el.style.background    = 'rgba(0,0,0,0.28)';
+  } else if (state === 'saved') {
+    dot.style.background   = '#2ecc71';
+    dot.style.animation    = '';
+    label.textContent      = 'All scores saved';
+    el.style.background    = 'rgba(0,0,0,0.28)';
+    // Auto-hide after 3 s
+    _saveStatusTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+  } else if (state === 'failed') {
+    dot.style.background   = '#e74c3c';
+    dot.style.animation    = '';
+    label.textContent      = 'Save failed — Retry';
+    el.style.background    = 'rgba(180,0,0,0.55)';
+    el.style.cursor        = 'pointer';
+    if (retryFn) el.onclick = () => { el.onclick = null; retryFn(); };
+  }
+}
 
 // ================================================================
 // CLOUDFLARE SYNC WORKER — game sharing, profile sharing, scores
@@ -5417,11 +5460,11 @@ async function resumeRound(id) {
       console.warn('[idb] load failed, falling back to Supabase', idbErr);
     }
 
-    // 2. Try Supabase (gets fresher state if other scorers have written)
+    // 2. Try rounds store (local.js) — may have a more recently saved state
     try {
       const remote = await roundLoadById(id);
       if (remote?.game_state) {
-        // Use Supabase if it has more holes played (i.e. more up to date)
+        // Prefer rounds store if it has at least as many holes played as active_rounds
         const remoteHoles = remote.game_state?.log?.length ?? 0;
         const localHoles  = round?.game_state?.log?.length ?? 0;
         if (!fromIdb || remoteHoles >= localHoles) {
@@ -5429,8 +5472,8 @@ async function resumeRound(id) {
           fromIdb = false;
         }
       }
-    } catch (netErr) {
-      console.warn('resumeRound: Supabase unavailable, using local state', netErr);
+    } catch (roundsErr) {
+      console.warn('resumeRound: rounds store read failed, using active_rounds state', roundsErr);
     }
 
     // 3. Fall back to old localStorage cache if IDB and Supabase both failed
@@ -7283,8 +7326,11 @@ function setScoreValue(pi, h, par, value, isPickup) {
     rebuilt.allGroupStates = gameState.allGroupStates;
     rebuilt.organiserId    = gameState.organiserId;
     gameState = rebuilt;
-      // Persist the change
-    saveRoundState().catch(() => {});
+      // Persist the change — awaited so save status is shown
+    _setSaveStatus('saving');
+    saveRoundState().then(() => _setSaveStatus('saved')).catch(() => {
+      _setSaveStatus('failed', () => saveRoundState().then(() => _setSaveStatus('saved')).catch(() => {}));
+    });
     // Refresh BOTH the score header AND the hole panel in the game screen.
     // renderHolePanel() is needed so the live match score / pair status
     // behind the overlay matches the updated gameState immediately.
@@ -8135,7 +8181,7 @@ async function recordHole() {
       if (banner) banner.textContent =
         `✏️ AMEND MODE — Hole ${offset+nextHole+1} of ${gameState.log.length} · Confirm each hole to recalculate`;
       const snap = _buildStateToSave();
-      if (snap) idbSave(roundId, snap, true).then(() => { if (MULTI_USER) _syncTick(); }).catch(() => {});
+      if (snap) idbSaveSeq(roundId, snap, _nextSeq()).catch(() => {});
       renderScoreHeader(); renderHolePanel();
       return;
     } else {
@@ -8145,10 +8191,28 @@ async function recordHole() {
     }
   }
 
-  // ── LOCAL-FIRST: write to IndexedDB immediately, never block the UI ──
+  // ── LOCAL-FIRST: await durable IndexedDB write before advancing UI ──
+  // Stage 1: sequence-guarded, awaited save with visible status.
   const stateSnap = _buildStateToSave();
   if (stateSnap) {
-    idbSave(roundId, stateSnap, true).catch(e => console.warn('[idb] save failed', e));
+    const seq = _nextSeq();
+    _setSaveStatus('saving');
+    try {
+      await idbSaveSeq(roundId, stateSnap, seq);
+      _setSaveStatus('saved');
+    } catch (saveErr) {
+      console.warn('[idb] hole save failed', saveErr);
+      _setSaveStatus('failed', async () => {
+        _setSaveStatus('saving');
+        try {
+          await idbSaveSeq(roundId, _buildStateToSave(), _nextSeq());
+          _setSaveStatus('saved');
+        } catch (retryErr) {
+          console.error('[idb] retry save failed', retryErr);
+          _setSaveStatus('failed', null);
+        }
+      });
+    }
   }
 
   const matchFmts = ['match','betterball','csm','foursomes','greensomes'];
@@ -10881,6 +10945,9 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     stopSyncLoop();
     idbClear(roundId).catch(() => {});
     realtimeUnsubscribe(realtimeCh); realtimeCh = null;
+    // Stage 1: clear lb-active-round now the round is durably completed
+    try { localStorage.removeItem('lb-active-round'); } catch {}
+    try { localStorage.removeItem('lb-game-state-cache'); } catch {}
     roundId = null;
     const wasTournament = !!gameState.tournamentId;
     const tournId = gameState.tournamentId;
@@ -13491,6 +13558,34 @@ async function joinTournamentRoundAsScorer(user, troundId, groupNumber) {
     await onSignedIn(user);
   }
 }
+
+// ================================================================
+// MOBILE PWA LIFECYCLE PROTECTION (Stage 1)
+// ================================================================
+// Primary persistence is the awaited idbSaveSeq() on each hole
+// confirmation.  These handlers are a secondary safeguard only —
+// iOS may kill the PWA before async operations complete, so they
+// are not the primary mechanism.  We do a synchronous best-effort
+// idbSaveSeq when the page is hidden / unloaded.
+
+function _flushOnHide() {
+  if (!roundId || !gameState) return;
+  const snap = _buildStateToSave();
+  if (!snap) return;
+  const seq = _nextSeq();
+  // idbSaveSeq returns a Promise; we cannot await it here but we still
+  // start it — on most mobile browsers the IDB transaction will commit
+  // even if the page is killed shortly after.
+  idbSaveSeq(roundId, snap, seq).catch(() => {});
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) _flushOnHide();
+});
+
+window.addEventListener('pagehide', () => {
+  _flushOnHide();
+});
 
 // ================================================================
 // KICK OFF
