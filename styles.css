@@ -4293,6 +4293,25 @@ html.light .btn-back-hole {
   font-family: var(--font-ui);
 }
 
+/* Game code pill — shown in hero banners when a code is active */
+.hero-game-code-pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(72,187,120,0.25);
+  border: 1px solid rgba(72,187,120,0.55);
+  border-radius: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  cursor: pointer;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
 /* Leaderboard screen hero — same green + gold glow */
 .lb-hero {
   background:

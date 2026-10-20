@@ -482,7 +482,8 @@
     <div class="home-hero">
       <div class="home-hero-top">
         <button class="btn btn-ghost" id="setup-course-back" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
-        <div style="display:flex;gap:0.4rem;margin-left:auto;">
+        <div style="display:flex;gap:0.4rem;margin-left:auto;align-items:center;">
+          <span id="hero-code-pill-1" class="hero-game-code-pill" style="display:none;" onclick="openShareGameModal()"></span>
           <button class="btn btn-ghost" id="setup-home-1" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-weight:800;">🏠</button>
           <button class="btn btn-ghost" id="setup-save-1" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;font-weight:800;">💾 Save</button>
         </div>
@@ -585,18 +586,11 @@
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">
-      <button class="btn btn-outline" onclick="openShareGameModal()"
-        style="padding:0.9rem;font-size:0.95rem;font-weight:800;
-               border-color:var(--gold,#d4a843);color:var(--gold,#d4a843);">
-        📤 Share Game
-      </button>
-      <button class="btn btn-outline" onclick="openJoinGameModal()"
-        style="padding:0.9rem;font-size:0.95rem;font-weight:800;
-               border-color:var(--green,#48bb78);color:var(--green,#48bb78);">
-        📥 Join Game
-      </button>
-    </div>
+    <button class="btn btn-outline" id="btn-multi-group-course" onclick="openShareGameModal()"
+      style="width:100%;margin-bottom:0.75rem;padding:0.9rem;font-size:0.95rem;font-weight:800;
+             border-color:var(--gold,#d4a843);color:var(--gold,#d4a843);">
+      👥 Multi-group Scorecard
+    </button>
 
     <button class="btn-setup-next" id="btn-setup-course-next">NEXT: PLAYERS →</button>
   </div>
@@ -618,7 +612,8 @@
     <div class="home-hero">
       <div class="home-hero-top">
         <button class="btn btn-ghost" id="setup-players-back" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
-        <div style="display:flex;gap:0.4rem;margin-left:auto;">
+        <div style="display:flex;gap:0.4rem;margin-left:auto;align-items:center;">
+          <span id="hero-code-pill-2" class="hero-game-code-pill" style="display:none;" onclick="openShareGameModal()"></span>
           <button class="btn btn-ghost" id="setup-home-2" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-weight:800;">🏠</button>
           <button class="btn btn-ghost" id="setup-save-2" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;font-weight:800;">💾 Save</button>
         </div>
@@ -646,21 +641,13 @@
         </button>
       </div>
 
-      <!-- Share / Join game by code -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">
-        <button class="btn btn-outline" onclick="openShareGameModal()"
-          style="padding:0.9rem;font-size:0.95rem;font-weight:800;
-                 border-color:var(--gold,#d4a843);color:var(--gold,#d4a843);">
-          📤 Share Game
-        </button>
-        <button class="btn btn-outline" onclick="openJoinGameModal()"
-          style="padding:0.9rem;font-size:0.95rem;font-weight:800;
-                 border-color:var(--green,#48bb78);color:var(--green,#48bb78);">
-          📥 Join Game
-        </button>
-      </div>
+      <button class="btn btn-outline" id="btn-multi-group-players" onclick="openShareGameModal()"
+        style="width:100%;margin-bottom:0.75rem;padding:0.9rem;font-size:0.95rem;font-weight:800;
+               border-color:var(--gold,#d4a843);color:var(--gold,#d4a843);">
+        👥 Multi-group Scorecard
+      </button>
 
-      <button class="btn-setup-next" id="btn-setup-players-next">NEXT: ARRANGE GROUPS →</button>
+      <button class="btn-setup-next" id="btn-setup-players-next">NEXT →</button>
     </div>
   </div>
       <!-- Pencil footer -->
@@ -747,7 +734,8 @@
     <div class="home-hero">
       <div class="home-hero-top">
         <button class="btn btn-ghost" id="setup-groups-back" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
-        <div style="display:flex;gap:0.4rem;margin-left:auto;">
+        <div style="display:flex;gap:0.4rem;margin-left:auto;align-items:center;">
+          <span id="hero-code-pill-3" class="hero-game-code-pill" style="display:none;" onclick="openShareGameModal()"></span>
           <button class="btn btn-ghost" id="setup-home-3" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-weight:800;">🏠</button>
           <button class="btn btn-ghost" id="setup-save-3" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;font-weight:800;">💾 Save</button>
         </div>
@@ -822,7 +810,8 @@
     <div class="home-hero">
       <div class="home-hero-top">
         <button class="btn btn-ghost" id="setup-review-back" style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
-        <div style="display:flex;gap:0.4rem;margin-left:auto;">
+        <div style="display:flex;gap:0.4rem;margin-left:auto;align-items:center;">
+          <span id="hero-code-pill-review" class="hero-game-code-pill" style="display:none;" onclick="openShareGameModal()"></span>
           <button class="btn btn-ghost" id="setup-home-review" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-weight:800;">🏠</button>
           <button class="btn btn-ghost" id="setup-save-review" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;font-weight:800;">💾 Save</button>
         </div>
@@ -888,7 +877,7 @@
         style="font-family:var(--font-ui);font-weight:800;font-size:1.2rem;
                line-height:1.1;letter-spacing:-0.01em;"></div>
       <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
-        <button id="game-code-pill" onclick="(function(){const c=localStorage.getItem('lb-game-code');if(c){const a=document.createElement('a');a.href=location.origin+'/live?code='+c;a.target='_blank';a.rel='noreferrer';document.body.appendChild(a);a.click();document.body.removeChild(a);}})()"
+        <button id="game-code-pill" onclick="openShareGameModal()"
           style="display:none;font-family:var(--font-ui);font-weight:800;font-size:0.72rem;
                  letter-spacing:0.12em;text-transform:uppercase;color:#fff;
                  background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);

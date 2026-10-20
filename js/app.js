@@ -361,6 +361,35 @@ function restorePushBtn(btn) {
   btn.style.color = '';
 }
 
+/**
+ * Update all hero-banner game-code pills across setup screens and the
+ * scoring screen. Call whenever a code is set or cleared.
+ * @param {string|null} code
+ */
+function updateHeroCodePills(code) {
+  const ids = ['hero-code-pill-1','hero-code-pill-2','hero-code-pill-3','hero-code-pill-review'];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (code) {
+      el.textContent = code;
+      el.style.display = '';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+  // Also update the scoring screen pill (different element, different style)
+  const gamePill = document.getElementById('game-code-pill');
+  if (gamePill) {
+    if (code) {
+      gamePill.textContent = code;
+      gamePill.style.display = '';
+    } else {
+      gamePill.style.display = 'none';
+    }
+  }
+}
+
 // ── UI helpers ────────────────────────────────────────────────────
 
 /**
@@ -376,7 +405,7 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
     modal.className = 'modal-overlay';
     modal.innerHTML = `
       <div class="modal-box" style="max-width:360px;padding:1.5rem;text-align:center;">
-        <h3 style="margin:0 0 0.25rem;font-size:1.1rem;">📤 Share Game</h3>
+        <h3 style="margin:0 0 0.25rem;font-size:1.1rem;">👥 Multi-group Scorecard</h3>
         <p id="share-game-status" style="color:var(--text-muted,#a0aec0);font-size:0.85rem;margin:0 0 1rem;">
           Generating code…
         </p>
@@ -385,12 +414,10 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
         <div id="share-game-expiry" style="font-size:0.75rem;color:var(--text,#1a202c);
           margin-bottom:1rem;"></div>
         <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem;">
-          <button id="share-game-copy-code" class="btn btn-gold" style="width:100%;">📋 Copy Code</button>
-          <button id="share-game-copy-url"  class="btn btn-ghost" style="width:100%;">🔗 Copy Live Leaderboard URL</button>
+          <button id="share-game-copy-url" class="btn btn-gold" style="width:100%;">🔗 Copy Live Leaderboard URL</button>
         </div>
         <div style="font-size:0.78rem;color:var(--text-muted,#a0aec0);line-height:1.4;margin-bottom:1rem;">
-          Others enter this code in the app to join.<br>
-          Share the URL to let anyone follow scores in a browser.
+          Share this URL with other groups — everyone pushes their scores and the live leaderboard shows all groups together.
         </div>
         <div style="margin-bottom:0.75rem;">
           <label style="font-size:0.8rem;color:var(--text-muted,#a0aec0);">Expiry</label>
@@ -426,7 +453,6 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
   const statusEl  = document.getElementById('share-game-status');
   const codeEl    = document.getElementById('share-game-code');
   const expiryEl  = document.getElementById('share-game-expiry');
-  const copyCode  = document.getElementById('share-game-copy-code');
   const copyUrl   = document.getElementById('share-game-copy-url');
 
   codeEl.textContent    = '…';
@@ -446,13 +472,8 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
     // Store for score upload later, and embed in gameState for history
     try { localStorage.setItem('lb-game-code', code); } catch {}
     if (gameState) gameState.gameCode = code;
+    updateHeroCodePills(code);
 
-    copyCode.onclick = async () => {
-      try { await navigator.clipboard.writeText(code); }
-      catch { prompt('Game code:', code); return; }
-      copyCode.textContent = '✅ Copied!';
-      setTimeout(() => { copyCode.textContent = '📋 Copy Code'; }, 2000);
-    };
     copyUrl.onclick = async () => {
       try { await navigator.clipboard.writeText(liveUrl); }
       catch { prompt('Live leaderboard URL:', liveUrl); return; }
@@ -1220,6 +1241,12 @@ function renderLogos() {
 async function boot() {
   applyTheme(theme);
   renderLogos();
+  // Restore game code pill if a code was active from a previous session
+  try {
+    const savedCode = localStorage.getItem('lb-game-code');
+    if (savedCode) updateHeroCodePills(savedCode);
+  } catch {}
+
 
   const params      = new URLSearchParams(window.location.search);
   const joinToken   = params.get('join');
@@ -3074,13 +3101,21 @@ document.getElementById('btn-setup-players-next')?.addEventListener('click', () 
   const filled = setup.players.filter(p => p.name);
   const minPlayers = ['betterball','csm','foursomes','greensomes','match','best2','split6','skins','itc'].includes(setup.scoring) ? 2 : 1;
   if (filled.length < minPlayers) { alert(`Add at least ${minPlayers} player${minPlayers > 1 ? 's' : ''}.`); return; }
+
+  // Formats that need the Arrange Groups / Pair Up screen
+  const NEEDS_GROUPS = ['match','betterball','csm','foursomes','greensomes','texas'];
   const isPairs = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
+
   if (isPairs) {
     initSetupPairs();
     showScreen('screen-setup-pairs');
-  } else {
+  } else if (NEEDS_GROUPS.includes(setup.scoring)) {
     renderSetupGroupCards();
     showScreen('screen-setup-groups');
+  } else {
+    // All other formats (stableford, stroke, skins, etc.) — skip straight to review
+    renderSetupGroupCards(); // ensure group data is initialised
+    showScreen('screen-setup-review');
   }
 });
 
@@ -5014,8 +5049,15 @@ function buildSetupReview() {
   });
 }
 
-document.getElementById('setup-review-back') ?.addEventListener('click', () => showScreen('screen-setup-groups'));
-document.getElementById('btn-review-back')   ?.addEventListener('click', () => showScreen('screen-setup-groups'));
+function reviewBackScreen() {
+  const NEEDS_GROUPS = ['match','betterball','csm','foursomes','greensomes','texas'];
+  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
+  if (isPairs) return 'screen-setup-pairs';
+  if (NEEDS_GROUPS.includes(setup.scoring)) return 'screen-setup-groups';
+  return 'screen-setup-players';
+}
+document.getElementById('setup-review-back') ?.addEventListener('click', () => showScreen(reviewBackScreen()));
+document.getElementById('btn-review-back')   ?.addEventListener('click', () => showScreen(reviewBackScreen()));
 document.getElementById('btn-tee-off')       ?.addEventListener('click', async () => await teeOff());
 document.getElementById('review-weather')    ?.addEventListener('input', function() { setup.weather = this.value; });
 
