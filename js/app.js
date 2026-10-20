@@ -10453,9 +10453,9 @@ async function showEndRound() {
       organiser   ? ['Organiser', organiser]   : null,
     ].filter(Boolean);
     infoEl.innerHTML = rows.map(([label, val]) =>
-      `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:0.2rem 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-        <span style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted,#94a3b8);">${label}</span>
-        <span style="font-size:0.85rem;font-weight:600;color:var(--text,#f0f4f8);text-align:right;max-width:65%;">${val}</span>
+      `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:0.2rem 0;border-bottom:1px solid rgba(0,0,0,0.08);">
+        <span style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted,#555);">${label}</span>
+        <span style="font-size:0.85rem;font-weight:600;color:var(--text-dark,#1a1a1a);text-align:right;max-width:65%;">${val}</span>
       </div>`
     ).join('');
     infoEl.style.display = '';
@@ -10483,22 +10483,22 @@ async function showEndRound() {
         if (i === scratchIdx) {
           matchCell = `<span style="padding:0.15rem 0.5rem;border-radius:6px;background:var(--gold,#d4a843);color:#000;font-size:0.72rem;font-weight:700;">SCRATCH</span>`;
         } else {
-          matchCell = `<span style="font-size:0.82rem;font-weight:600;color:var(--text,#f0f4f8);">+${matchHcp} shots</span>`;
+          matchCell = `<span style="font-size:0.82rem;font-weight:600;color:#1a1a1a;">+${matchHcp} shots</span>`;
         }
       }
 
-      return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.75rem;border-bottom:1px solid rgba(255,255,255,0.06);">
+      return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.55rem 0.75rem;border-bottom:1px solid rgba(0,0,0,0.08);">
         <span style="width:0.55rem;height:0.55rem;border-radius:50%;background:${pHex(i)};flex-shrink:0;"></span>
-        <span style="flex:1;font-size:0.9rem;font-weight:700;">${name}</span>
-        <span style="font-size:0.75rem;color:var(--muted);white-space:nowrap;">Idx <b>${idx}</b></span>
-        <span style="font-size:0.75rem;color:var(--muted);white-space:nowrap;">Crs <b>${crsHcp}</b></span>
+        <span style="flex:1;font-size:0.9rem;font-weight:700;color:#1a1a1a;">${name}</span>
+        <span style="font-size:0.75rem;color:#555;white-space:nowrap;">Idx <b>${idx}</b></span>
+        <span style="font-size:0.75rem;color:#555;white-space:nowrap;">Crs <b>${crsHcp}</b></span>
         ${matchCell ? `<span style="flex-shrink:0;">${matchCell}</span>` : ''}
       </div>`;
     }).join('');
 
     playersEl.innerHTML = rows
-      ? `<div style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;overflow:hidden;">
-           <div style="padding:0.4rem 0.75rem;background:rgba(255,255,255,0.05);font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);">Players &amp; Handicaps</div>
+      ? `<div style="border:1px solid rgba(0,0,0,0.12);border-radius:12px;overflow:hidden;margin-bottom:1rem;">
+           <div style="padding:0.4rem 0.75rem;background:rgba(0,0,0,0.04);font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#555;">Players &amp; Handicaps</div>
            ${rows}
          </div>`
       : '';
