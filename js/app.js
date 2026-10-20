@@ -999,8 +999,10 @@ async function tryRestoreSetupState() {
       renderSetupPlayerList();
       showScreen('screen-setup-players');
     } else if (saved.screen === 'screen-setup-groups') {
+      // Groups screen removed — send straight to review
       renderSetupGroupCards();
-      showScreen('screen-setup-groups');
+      buildSetupReview();
+      showScreen('screen-setup-review');
     } else if (saved.screen === 'screen-setup-review') {
       renderSetupGroupCards();
       buildSetupReview();
@@ -1038,8 +1040,10 @@ async function _restoreSetupFromDraft(draft) {
       renderSetupPlayerList();
       showScreen('screen-setup-players');
     } else if (draft.screen === 'screen-setup-groups') {
+      // Groups screen removed — send straight to review
       renderSetupGroupCards();
-      showScreen('screen-setup-groups');
+      buildSetupReview();
+      showScreen('screen-setup-review');
     } else if (draft.screen === 'screen-setup-pairs') {
       renderSetupGroupCards();
       showScreen('screen-setup-pairs');
@@ -3122,11 +3126,9 @@ document.getElementById('btn-setup-players-next')?.addEventListener('click', () 
   if (isPairs) {
     initSetupPairs();
     showScreen('screen-setup-pairs');
-  } else if (NEEDS_GROUPS.includes(setup.scoring)) {
-    renderSetupGroupCards();
-    showScreen('screen-setup-groups');
   } else {
-    // All other formats (stableford, stroke, skins, etc.) — skip straight to review
+    // All formats (including match, texas, best2, stableford, stroke, skins, etc.)
+    // go straight to review — the groups screen has been removed from the flow
     renderSetupGroupCards(); // ensure group data is initialised
     buildSetupReview();
     showScreen('screen-setup-review');
@@ -4695,8 +4697,10 @@ document.getElementById('btn-setup-pairs-next')?.addEventListener('click', () =>
     alert(`${incompletePairs.map(p => `"${p.name}"`).join(', ')} need${incompletePairs.length === 1 ? 's' : ''} a second player.`);
     return;
   }
+  // Skip the groups screen — go straight to review
   renderSetupGroupCards();
-  showScreen('screen-setup-groups');
+  buildSetupReview();
+  showScreen('screen-setup-review');
 });
 
 // Returns the user's saved Course Handicap for the currently-selected
@@ -5078,10 +5082,8 @@ function buildSetupReview() {
 }
 
 function reviewBackScreen() {
-  const NEEDS_GROUPS = ['match','betterball','csm','foursomes','greensomes','texas'];
   const isPairs = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
   if (isPairs) return 'screen-setup-pairs';
-  if (NEEDS_GROUPS.includes(setup.scoring)) return 'screen-setup-groups';
   return 'screen-setup-players';
 }
 document.getElementById('setup-review-back') ?.addEventListener('click', () => showScreen(reviewBackScreen()));
