@@ -33,27 +33,34 @@
     .header {
       background: var(--surface);
       border-bottom: 1px solid var(--gold-border);
-      padding: 1rem 1.25rem 0.9rem;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
+      padding: 1rem 1.25rem 0.85rem;
       position: sticky;
       top: 0;
       z-index: 10;
     }
-    .header-icon { font-size: 1.5rem; }
-    .header-text { flex: 1; min-width: 0; }
     .header-title {
-      font-size: 1.1rem;
-      font-weight: 700;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.2;
+      margin-bottom: 0.15rem;
     }
-    .header-sub {
+    .header-format {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.2rem;
+    }
+    .header-meta {
       font-size: 0.78rem;
       color: var(--muted);
-      margin-top: 0.15rem;
+      margin-bottom: 0.75rem;
+    }
+    .header-btns {
+      display: flex;
+      gap: 0.5rem;
     }
     .refresh-btn {
       background: none;
@@ -259,28 +266,11 @@
     .sc-hole .h-num { color: var(--muted); font-size: 0.65rem; }
     .sc-hole .h-pts { font-weight: 700; }
 
-    /* ── Course info card ── */
-    .course-card {
-      margin: 0.75rem 1rem 0;
-      background: var(--surface);
-      border: 1px solid var(--gold-border);
-      border-radius: var(--radius);
-      padding: 0.9rem 1rem;
-      display: flex;
-      gap: 1rem;
-      align-items: flex-start;
-    }
-    .course-icon { font-size: 1.5rem; flex-shrink: 0; }
-    .course-detail { flex: 1; min-width: 0; }
-    .course-name   { font-weight: 700; font-size: 0.95rem; }
-    .course-meta   { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
-
     /* ── Auto-refresh countdown ── */
     #countdown { font-variant-numeric: tabular-nums; }
 
     @media (min-width: 600px) {
       .lb-wrap { max-width: 680px; margin: 0 auto; }
-      .course-card { max-width: 680px; margin: 0.75rem auto 0; }
       .round-tabs  { max-width: 680px; margin: 0 auto; }
     }
   </style>
@@ -288,13 +278,14 @@
 <body>
 
 <header class="header" id="hdr" style="display:none">
-  <button class="refresh-btn" id="btn-back" onclick="history.back()" style="margin-right:0.5rem;padding:0.35rem 0.6rem;">← Back</button>
-  <div class="header-text">
-    <div class="header-title" id="hdr-title">Leaderboard</div>
-    <div class="header-sub"  id="hdr-sub"></div>
+  <div class="header-title" id="hdr-title">Leaderboard</div>
+  <div class="header-format" id="hdr-format"></div>
+  <div class="header-meta" id="hdr-meta"></div>
+  <div class="header-btns">
+    <button class="refresh-btn" id="btn-back" onclick="history.back()">← Back</button>
+    <button class="refresh-btn" id="btn-copy-link" onclick="copyLink()">⎘ Copy Link</button>
+    <button class="refresh-btn" id="btn-refresh">↻ Refresh</button>
   </div>
-  <button class="refresh-btn" id="btn-copy-link" onclick="copyLink()" style="margin-right:0.4rem;">⎘ Copy Link</button>
-  <button class="refresh-btn" id="btn-refresh">↻ Refresh</button>
 </header>
 
 <div class="status-bar stale" id="status-bar" style="display:none">
@@ -414,20 +405,6 @@ function showError(icon, title, msg) {
     </div>`;
 }
 
-function renderCourseCard(game) {
-  const c    = game.course ?? {};
-  const fmt  = game.format?.type ?? 'stableford';
-  const tee  = game.format?.tee  ?? '';
-  const meta = [fmt.charAt(0).toUpperCase() + fmt.slice(1), tee && `${tee} tees`, game.name].filter(Boolean).join(' · ');
-  return `
-    <div class="course-card">
-      <div class="course-icon">🏌️</div>
-      <div class="course-detail">
-        <div class="course-name">${c.name ?? 'Unknown course'}</div>
-        <div class="course-meta">${meta}</div>
-      </div>
-    </div>`;
-}
 
 function renderRoundTabs(rounds, active) {
   if (!rounds || rounds.length <= 1) return '';
@@ -575,9 +552,19 @@ function render() {
 
   // Header
   qs('#hdr').style.display = '';
-  qs('#hdr-title').textContent = game.name || game.course?.name || 'Leaderboard';
-  qs('#hdr-sub').innerHTML = (game.organiser ? `Organised by ${game.organiser} · ` : '') +
-    `<span style="font-weight:800;letter-spacing:0.1em;color:var(--gold,#d4a843);">${currentCode}</span>`;
+  qs('#hdr-title').textContent = game.course?.name || game.name || 'Leaderboard';
+  const fmtType = game.format?.type ?? 'stableford';
+  const fmtTee  = game.format?.tee  ?? '';
+  const fmtLabel = [fmtType.charAt(0).toUpperCase() + fmtType.slice(1), fmtTee && `${fmtTee} tees`].filter(Boolean).join(' · ');
+  qs('#hdr-format').textContent = fmtLabel;
+  const dateStr = (() => {
+    const d = game.playedAt ?? game.createdAt;
+    if (!d) return '';
+    try { return new Date(d).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' }); }
+    catch { return ''; }
+  })();
+  const metaParts = [dateStr, game.organiser ? `Organised by ${game.organiser}` : ''].filter(Boolean);
+  qs('#hdr-meta').textContent = metaParts.join(' · ');
 
   // Status bar
   const sb = qs('#status-bar');
@@ -589,7 +576,6 @@ function render() {
   // Main content
   const main = qs('#main');
   main.innerHTML =
-    renderCourseCard(game) +
     renderRoundTabs(rounds, activeRound) +
     renderLeaderboard(game, scores, activeRound);
 
