@@ -411,7 +411,7 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
         </p>
         <div id="share-game-code" style="font-size:2.5rem;font-weight:800;letter-spacing:0.2em;
           color:var(--gold,#d4a843);margin:0.5rem 0 0.25rem;"></div>
-        <div id="share-game-expiry" style="font-size:0.75rem;color:var(--text,#1a202c);
+        <div id="share-game-expiry" style="font-size:0.75rem;color:#555;
           margin-bottom:1rem;"></div>
         <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem;">
           <button id="share-game-copy-url" class="btn btn-gold" style="width:100%;">🔗 Copy Live Leaderboard URL</button>
@@ -709,6 +709,17 @@ function openAddFriendByCodeModal() {
 
 // Expose for button wiring in HTML
 window.openShareGameModal   = openShareGameModal;
+window.openLiveLeaderboard  = function() {
+  let code = null;
+  try { code = gameState?.gameCode ?? localStorage.getItem('lb-game-code'); } catch {}
+  if (code) {
+    const a = document.createElement('a');
+    a.href = `${APP_BASE_URL}live?code=${code}`; a.target = '_blank'; a.rel = 'noreferrer';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  } else {
+    openShareGameModal();
+  }
+};
 window.openJoinGameModal    = openJoinGameModal;
 window.openShareProfileModal = openShareProfileModal;
 window.openAddFriendByCodeModal = openAddFriendByCodeModal;
