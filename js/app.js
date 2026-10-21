@@ -2982,7 +2982,7 @@ document.getElementById('modal-add-game-player-close')?.addEventListener('click'
   delete modal.dataset.editGuestId;
   delete modal.dataset.editRealFriendId;
   modal.classList.remove('open');
-  // Restore title and save-guest checkbox visibility
+  // Restore title, save-guest checkbox, tee section and email field
   const titleEl = document.querySelector('#modal-add-game-player .modal-header div');
   if (titleEl) titleEl.textContent = 'New Player';
   const sg = document.getElementById('game-manual-save-guest');
@@ -2991,6 +2991,10 @@ document.getElementById('modal-add-game-player-close')?.addEventListener('click'
     const row = sg.closest('label') || sg.parentElement;
     if (row) row.style.display = '';
   }
+  const teeSectionEl = document.getElementById('game-manual-tee-section');
+  if (teeSectionEl) teeSectionEl.style.display = '';
+  const emailFieldEl = document.getElementById('game-manual-email')?.closest('.field');
+  if (emailFieldEl) emailFieldEl.style.display = '';
 });
 
 // From Friends button → open friends picker
@@ -12806,6 +12810,12 @@ function openEditGuestModal(f) {
   // Update modal title to "Edit Player"
   const titleEl = document.querySelector('#modal-add-game-player .modal-header div');
   if (titleEl) titleEl.textContent = 'Edit Player';
+
+  // Hide tee section and email field — not relevant when editing a saved player
+  const teeSectionEl = document.getElementById('game-manual-tee-section');
+  if (teeSectionEl) teeSectionEl.style.display = 'none';
+  const emailFieldEl = document.getElementById('game-manual-email')?.closest('.field');
+  if (emailFieldEl) emailFieldEl.style.display = 'none';
 
   // Mark modal as edit mode — guest vs real friend
   const modal = document.getElementById('modal-add-game-player');
