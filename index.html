@@ -1316,6 +1316,11 @@
                  font-size:0.95rem;padding:0.85rem;">
           🔑 Add by Code
         </button>
+        <button class="btn btn-outline btn-full" onclick="openSharePlayersModal()"
+          style="border-color:var(--gold-border);color:var(--gold);font-weight:800;
+                 font-size:0.95rem;padding:0.85rem;">
+          📤 Share Players
+        </button>
       </div>
     </div>
 
@@ -2642,6 +2647,83 @@
     <button class="btn btn-green" id="btn-round-format-confirm" style="width:100%;">
       CONFIRM →
     </button>
+  </div>
+</div>
+
+<!-- ── Share Players modal ──────────────────────────────────── -->
+<div id="modal-share-players" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-share-players-title">
+  <div class="modal-box" style="max-width:400px;width:92%;">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-share-players-title">📤 Share Players</span>
+      <button class="btn btn-ghost" onclick="closeModal('modal-share-players')" aria-label="Close">✕</button>
+    </div>
+    <div style="padding:1rem 1rem 1.25rem;">
+      <p style="font-size:0.9rem;opacity:0.7;margin:0 0 1rem;">
+        Select players to share. The recipient can import them using a 6-character code (valid for 24 hours).
+      </p>
+
+      <!-- Own profile checkbox -->
+      <label style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0;border-bottom:1px solid var(--border);cursor:pointer;">
+        <input type="checkbox" id="share-include-self" style="width:1.1rem;height:1.1rem;accent-color:var(--gold);">
+        <span style="font-weight:700;" id="share-self-label">My Profile</span>
+      </label>
+
+      <!-- Guest players list -->
+      <div id="share-players-list" style="max-height:260px;overflow-y:auto;margin:0.5rem 0;"></div>
+
+      <div id="share-code-result" style="display:none;text-align:center;padding:1rem;background:rgba(212,175,55,0.1);border:1px solid var(--gold-border);border-radius:0.5rem;margin-top:0.75rem;">
+        <div style="font-size:0.85rem;opacity:0.7;margin-bottom:0.25rem;">Share this code:</div>
+        <div id="share-code-value" style="font-size:2rem;font-weight:900;letter-spacing:0.2em;color:var(--gold);font-family:monospace;"></div>
+        <div id="share-code-expiry" style="font-size:0.8rem;opacity:0.6;margin-top:0.25rem;"></div>
+        <button class="btn btn-outline" style="margin-top:0.75rem;border-color:var(--gold-border);color:var(--gold);" onclick="_copyShareCode()">📋 Copy Code</button>
+      </div>
+
+      <div id="share-players-error" style="display:none;color:#fc8181;font-size:0.88rem;margin-top:0.5rem;padding:0.5rem;background:rgba(245,101,101,0.1);border-radius:0.4rem;"></div>
+
+      <button id="btn-generate-share-code" class="btn btn-primary btn-full" style="margin-top:1rem;font-weight:800;"
+        onclick="_generateShareCode()">
+        Generate Code
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Import Players modal ─────────────────────────────────── -->
+<div id="modal-import-players" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-import-players-title">
+  <div class="modal-box" style="max-width:400px;width:92%;">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-import-players-title">📥 Import Players</span>
+      <button class="btn btn-ghost" onclick="closeModal('modal-import-players')" aria-label="Close">✕</button>
+    </div>
+    <div style="padding:1rem 1rem 1.25rem;">
+      <div id="import-players-entry" style="">
+        <p style="font-size:0.9rem;opacity:0.7;margin:0 0 0.75rem;">
+          Enter the 6-character code shared by another player.
+        </p>
+        <input id="import-code-input" type="text" maxlength="6"
+          placeholder="e.g. AB3X7K"
+          style="width:100%;padding:0.75rem;font-size:1.3rem;font-weight:900;letter-spacing:0.2em;
+                 text-align:center;text-transform:uppercase;font-family:monospace;
+                 background:var(--surface);border:2px solid var(--gold-border);border-radius:0.5rem;
+                 color:var(--text-primary);box-sizing:border-box;"
+          oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')_fetchImportCode()">
+        <div id="import-players-error" style="display:none;color:#fc8181;font-size:0.88rem;margin-top:0.5rem;padding:0.5rem;background:rgba(245,101,101,0.1);border-radius:0.4rem;"></div>
+        <button class="btn btn-primary btn-full" style="margin-top:0.85rem;font-weight:800;"
+          onclick="_fetchImportCode()">
+          Fetch Players
+        </button>
+      </div>
+
+      <div id="import-players-list-section" style="display:none;">
+        <div style="font-size:0.85rem;opacity:0.7;margin-bottom:0.5rem;">Select players to import:</div>
+        <div id="import-players-list" style="max-height:300px;overflow-y:auto;"></div>
+        <div id="import-players-list-error" style="display:none;color:#fc8181;font-size:0.88rem;margin-top:0.5rem;padding:0.5rem;background:rgba(245,101,101,0.1);border-radius:0.4rem;"></div>
+        <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+          <button class="btn btn-outline btn-full" onclick="_backToCodeEntry()" style="border-color:var(--border);">← Back</button>
+          <button class="btn btn-primary btn-full" style="font-weight:800;" onclick="_importSelectedPlayers()">Import Selected</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 

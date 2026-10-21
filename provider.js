@@ -61,6 +61,8 @@ export const courseSave          = (...a) => provider.courseSave(...a);
 export const courseDelete        = (...a) => provider.courseDelete(...a);
 export const coursesEnsureDefaults    = (...a) => provider.coursesEnsureDefaults(...a);
 export const courseSubmitToLibrary    = (...a) => provider.courseSubmitToLibrary(...a);
+export const playersShareExport       = (...a) => localProvider.playersShareExport(...a);
+export const playersShareImport       = (...a) => localProvider.playersShareImport(...a);
 
 // Rounds
 export const roundCreate         = (...a) => provider.roundCreate(...a);

@@ -578,6 +578,65 @@ export async function guestProfileDelete(userId, guestId, friendshipId) {
 }
 
 // ================================================================
+// PLAYER SHARING (Stage 8)
+// ================================================================
+
+const WORKER = 'https://leaderboardsync.sw-77d.workers.dev';
+
+export async function playersShareExport(playerIds, includeOwner) {
+  // Build the list of players to share
+  const players = [];
+
+  if (includeOwner) {
+    const owner = await settingsStore.get('owner');
+    if (owner) {
+      const courses = await coursesStore.getAll();
+      const homeCourse = courses.find(c => c.id === owner.home_course_id);
+      players.push({
+        type:          'self',
+        name:          `${owner.first_name ?? ''} ${owner.last_name ?? ''}`.trim() || 'Owner',
+        handicapIndex: owner.whs ?? owner.hcp ?? null,
+        homeCourse:    homeCourse?.name ?? null,
+      });
+    }
+  }
+
+  for (const pid of playerIds) {
+    const p = await playersStore.get(pid);
+    if (!p) continue;
+    const courses = await coursesStore.getAll();
+    const homeCourse = courses.find(c => c.id === p.homeCourseId);
+    players.push({
+      type:          'guest',
+      name:          p.name || `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim(),
+      handicapIndex: p.hcp ?? null,
+      homeCourse:    homeCourse?.name ?? null,
+    });
+  }
+
+  if (!players.length) throw new Error('No players selected');
+
+  const resp = await fetch(WORKER + '/players', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ players }),
+  });
+  if (!resp.ok) throw new Error('Share failed: ' + await resp.text().catch(() => resp.status));
+  const { code } = await resp.json();
+  return code;
+}
+
+export async function playersShareImport(code) {
+  const resp = await fetch(WORKER + '/players/' + code.toUpperCase());
+  if (!resp.ok) {
+    if (resp.status === 404) throw new Error('Code not found or expired');
+    throw new Error('Import failed: ' + await resp.text().catch(() => resp.status));
+  }
+  const { players } = await resp.json();
+  return players; // array of { type, name, handicapIndex, homeCourse }
+}
+
+// ================================================================
 // DORMANT STUBS — multi-user features
 // All return safe empty values. Kept so app.js call sites don't throw.
 // ================================================================

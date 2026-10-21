@@ -85,6 +85,16 @@ export default {
       return handleCourseGet(id, env);
     }
 
+    // POST /players — upload player list, return share code
+    if (method === 'POST' && path === '/players') {
+      return handlePlayersUpload(request, env);
+    }
+
+    // GET /players/:code — retrieve shared player list
+    if (method === 'GET' && path.startsWith('/players/') && path.split('/').length === 3) {
+      return handlePlayersDownload(path.split('/')[2].toUpperCase(), env);
+    }
+
     // Admin routes
     if (path.startsWith('/admin/courses')) {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
@@ -275,4 +285,33 @@ async function handleAdminEdit(id, request, env) {
   await env.COURSE_LIBRARY.put('course:approved:' + id, JSON.stringify(updated));
 
   return json({ id, version: updated.version });
+}
+
+// ================================================================
+// PLAYER SHARE HANDLERS (Stage 8)
+// ================================================================
+
+async function handlePlayersUpload(request, env) {
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON'); }
+  if (!Array.isArray(body.players) || body.players.length === 0) return err('players array required');
+
+  const code   = makeCode(6);
+  const ttl    = 24 * 3600; // 24 hours
+  const record = {
+    code,
+    players:   body.players,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + ttl * 1000).toISOString(),
+  };
+
+  await env.GAMES.put('players:' + code, JSON.stringify(record), { expirationTtl: ttl });
+  return json({ code, expiresAt: record.expiresAt }, 201);
+}
+
+async function handlePlayersDownload(code, env) {
+  const raw = await env.GAMES.get('players:' + code);
+  if (!raw) return err('Code not found or expired', 404);
+  const record = JSON.parse(raw);
+  return json({ players: record.players, expiresAt: record.expiresAt });
 }

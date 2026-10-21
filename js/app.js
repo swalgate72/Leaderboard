@@ -10,6 +10,7 @@ import {
   authForgotPassword, authUpdatePassword, authOnStateChange, authGetUser,
   profileLoad, profileSave, profileFindByEmail, profileFindByUsername,
   coursesLoadAll, courseLoadById, courseSave, courseDelete, coursesEnsureDefaults, courseSubmitToLibrary,
+  playersShareExport, playersShareImport,
   roundCreate, roundSaveState, roundPlayerClaimScorer, roundComplete, roundAbandon, roundReactivate, roundDelete,
   roundsLoadActive, roundLoadById, roundsLoadHistory,
   roundPlayersSave, roundPlayersLoad,
@@ -673,6 +674,258 @@ async function openShareProfileModal() {
     codeEl.textContent   = '–';
     statusEl.textContent = '❌ ' + (err.message ?? 'Could not generate code');
   }
+}
+
+// ================================================================
+// PLAYER SHARE — Stage 8
+// ================================================================
+
+/** Generic helper: close any modal by id. */
+function closeModal(id) {
+  document.getElementById(id)?.classList.remove('open');
+}
+
+/** Open the Share Players modal and populate the player list. */
+async function openSharePlayersModal() {
+  // Reset state
+  document.getElementById('share-players-error').style.display = 'none';
+  document.getElementById('share-code-result').style.display   = 'none';
+  document.getElementById('btn-generate-share-code').disabled  = false;
+
+  // Populate own-profile label
+  try {
+    const owner = await profileLoad();
+    if (owner) {
+      const name = [owner.first_name, owner.last_name].filter(Boolean).join(' ') || 'My Profile';
+      document.getElementById('share-self-label').textContent = name + ' (me)';
+    }
+  } catch { /* ignore */ }
+
+  // Populate guest players list
+  const list = document.getElementById('share-players-list');
+  list.innerHTML = '';
+  try {
+    const players = await friendsLoad();
+    if (!players || !players.length) {
+      list.innerHTML = '<p style="font-size:0.88rem;opacity:0.6;text-align:center;padding:0.5rem 0;">No saved players yet.</p>';
+    } else {
+      players.forEach(p => {
+        const label = document.createElement('label');
+        label.style.cssText = 'display:flex;align-items:center;gap:0.6rem;padding:0.55rem 0;border-bottom:1px solid var(--border);cursor:pointer;';
+        label.innerHTML = `
+          <input type="checkbox" data-player-id="${p.id}" style="width:1.1rem;height:1.1rem;accent-color:var(--gold);">
+          <span style="flex:1;font-size:0.93rem;">${p.name || (p.firstName + ' ' + (p.lastName || '')).trim()}</span>
+          <span style="font-size:0.82rem;opacity:0.55;">${p.hcp != null ? 'HCP '+p.hcp : ''}</span>`;
+        list.appendChild(label);
+      });
+    }
+  } catch (e) {
+    list.innerHTML = '<p style="font-size:0.88rem;color:#fc8181;padding:0.5rem 0;">Could not load players.</p>';
+  }
+
+  document.getElementById('modal-share-players').classList.add('open');
+}
+
+/** Generate and display the share code. */
+async function _generateShareCode() {
+  const errEl = document.getElementById('share-players-error');
+  const resultEl = document.getElementById('share-code-result');
+  const btn = document.getElementById('btn-generate-share-code');
+  errEl.style.display = 'none';
+  resultEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+
+  const includeSelf = document.getElementById('share-include-self').checked;
+  const checkedBoxes = document.querySelectorAll('#share-players-list input[data-player-id]:checked');
+  const playerIds = [...checkedBoxes].map(cb => cb.dataset.playerId);
+
+  if (!includeSelf && playerIds.length === 0) {
+    errEl.textContent = 'Please select at least one player to share.';
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Generate Code';
+    return;
+  }
+
+  try {
+    const code = await playersShareExport(playerIds, includeSelf);
+    document.getElementById('share-code-value').textContent = code;
+    const expiry = new Date(Date.now() + 24 * 3600 * 1000);
+    document.getElementById('share-code-expiry').textContent =
+      'Expires: ' + expiry.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+    resultEl.style.display = 'block';
+    btn.textContent = 'Generate New Code';
+    btn.disabled = false;
+  } catch (e) {
+    errEl.textContent = e.message || 'Failed to generate code. Check your connection.';
+    errEl.style.display = 'block';
+    btn.textContent = 'Generate Code';
+    btn.disabled = false;
+  }
+}
+
+/** Copy share code to clipboard. */
+function _copyShareCode() {
+  const code = document.getElementById('share-code-value').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = document.querySelector('#modal-share-players .btn-outline');
+    if (btn) { btn.textContent = '✅ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy Code'; }, 2000); }
+  }).catch(() => {});
+}
+
+// ── Import Players ───────────────────────────────────────────
+
+let _importedPlayers = [];
+
+/** Open the Import Players modal. */
+function openImportPlayersModal() {
+  document.getElementById('import-players-entry').style.display       = '';
+  document.getElementById('import-players-list-section').style.display = 'none';
+  document.getElementById('import-code-input').value = '';
+  document.getElementById('import-players-error').style.display = 'none';
+  _importedPlayers = [];
+  document.getElementById('modal-import-players').classList.add('open');
+  setTimeout(() => document.getElementById('import-code-input').focus(), 300);
+}
+
+/** Fetch players from a share code. */
+async function _fetchImportCode() {
+  const code = document.getElementById('import-code-input').value.trim().toUpperCase();
+  const errEl = document.getElementById('import-players-error');
+  errEl.style.display = 'none';
+  if (code.length < 6) {
+    errEl.textContent = 'Please enter a 6-character code.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    _importedPlayers = await playersShareImport(code);
+  } catch (e) {
+    errEl.textContent = e.message || 'Could not find that code. Please check and try again.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // Load existing players for duplicate detection
+  let existing = [];
+  try {
+    const friends = await friendsLoad();
+    const owner = await profileLoad();
+    if (owner) {
+      existing.push([owner.first_name, owner.last_name].filter(Boolean).join(' ').toLowerCase());
+    }
+    (friends || []).forEach(f => {
+      existing.push((f.name || (f.firstName + ' ' + (f.lastName || '')).trim()).toLowerCase());
+    });
+  } catch { /* ignore */ }
+
+  // Build the list UI
+  const listEl = document.getElementById('import-players-list');
+  listEl.innerHTML = '';
+  _importedPlayers.forEach((p, i) => {
+    const isDupe = existing.includes(p.name.toLowerCase());
+    const div = document.createElement('div');
+    div.style.cssText = 'border-bottom:1px solid var(--border);padding:0.55rem 0;';
+    div.innerHTML = `
+      <label style="display:flex;align-items:flex-start;gap:0.6rem;cursor:pointer;">
+        <input type="checkbox" data-import-index="${i}" ${isDupe ? '' : 'checked'}
+          style="width:1.1rem;height:1.1rem;margin-top:0.15rem;accent-color:var(--gold);">
+        <span style="flex:1;">
+          <span style="font-weight:700;font-size:0.95rem;">${p.name}</span>
+          ${p.handicapIndex != null ? `<span style="font-size:0.82rem;opacity:0.6;margin-left:0.4rem;">HCP ${p.handicapIndex}</span>` : ''}
+          ${p.homeCourse ? `<br><span style="font-size:0.82rem;opacity:0.55;">${p.homeCourse}</span>` : ''}
+          ${isDupe ? `<br><span style="font-size:0.8rem;color:#f6ad55;">⚠️ Already in your list</span>` : ''}
+        </span>
+      </label>`;
+    listEl.appendChild(div);
+  });
+
+  document.getElementById('import-players-entry').style.display        = 'none';
+  document.getElementById('import-players-list-section').style.display = '';
+  document.getElementById('import-players-list-error').style.display   = 'none';
+}
+
+function _backToCodeEntry() {
+  document.getElementById('import-players-entry').style.display        = '';
+  document.getElementById('import-players-list-section').style.display = 'none';
+}
+
+/** Import the selected players into local storage. */
+async function _importSelectedPlayers() {
+  const errEl = document.getElementById('import-players-list-error');
+  errEl.style.display = 'none';
+
+  const checked = [...document.querySelectorAll('#import-players-list input[data-import-index]:checked')];
+  if (!checked.length) {
+    errEl.textContent = 'Please select at least one player.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // Load existing for duplicate check
+  let existingNames = [];
+  try {
+    const friends = await friendsLoad();
+    existingNames = (friends || []).map(f =>
+      (f.name || (f.firstName + ' ' + (f.lastName || '')).trim()).toLowerCase()
+    );
+  } catch { /* ignore */ }
+
+  let imported = 0, skipped = 0;
+  for (const cb of checked) {
+    const p = _importedPlayers[parseInt(cb.dataset.importIndex, 10)];
+    if (!p) continue;
+
+    const isDupe = existingNames.includes(p.name.toLowerCase());
+    if (isDupe) {
+      // Check if the checkbox was manually checked by user despite duplicate warning
+      // We import anyway if checked (user chose to overwrite)
+      try {
+        const friends = await friendsLoad();
+        const existing = (friends || []).find(f =>
+          (f.name || (f.firstName + ' ' + (f.lastName || '')).trim()).toLowerCase() === p.name.toLowerCase()
+        );
+        if (existing) {
+          // Update existing player
+          const updated = { ...existing };
+          if (p.handicapIndex != null) updated.hcp = p.handicapIndex;
+          if (p.homeCourse) updated.homeCourse = p.homeCourse;
+          await guestProfileUpdate(existing.id, updated);
+          imported++;
+        }
+      } catch { skipped++; continue; }
+    } else {
+      try {
+        const nameParts = p.name.trim().split(/\s+/);
+        const firstName = nameParts[0] || p.name;
+        const lastName  = nameParts.slice(1).join(' ') || '';
+        await guestProfileCreate({
+          name:      p.name,
+          firstName, lastName,
+          hcp:       p.handicapIndex ?? null,
+          homeCourse: p.homeCourse ?? null,
+        });
+        existingNames.push(p.name.toLowerCase());
+        imported++;
+      } catch { skipped++; continue; }
+    }
+  }
+
+  document.getElementById('modal-import-players').classList.remove('open');
+
+  const msg = imported > 0
+    ? `✅ Imported ${imported} player${imported > 1 ? 's' : ''}${skipped ? ` (${skipped} skipped)` : ''}.`
+    : '⚠️ No players were imported.';
+  const _t = document.createElement('div');
+  _t.textContent = msg;
+  _t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:0.65rem 1.25rem;border-radius:20px;font-weight:800;font-size:0.9rem;z-index:9999;pointer-events:none;white-space:nowrap;';
+  document.body.appendChild(_t);
+  setTimeout(() => _t.remove(), 2800);
+
+  // Refresh players list if visible
+  if (typeof renderFriendsSection === 'function') renderFriendsSection().catch(() => {});
 }
 
 /**
