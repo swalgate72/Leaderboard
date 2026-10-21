@@ -22,118 +22,6 @@
 </head>
 <body class="local-mode">
 
-<!-- ══════════════════════════════════════════
-     AUTH SCREEN
-     ══════════════════════════════════════════ -->
-<div id="screen-auth" class="screen active auth-only">
-  <div style="max-width:480px;margin:0 auto;padding-bottom:2rem;">
-
-    <!-- Hero header -->
-    <div class="home-hero" style="border-radius:0 0 var(--radius-xl) var(--radius-xl);">
-      <div class="home-hero-title" style="font-size:3rem;">Leaderboard</div>
-      <div class="home-hero-club" style="margin-top:0.25rem;">Golf Scoring &amp; Tournaments</div>
-    </div>
-
-    <div style="padding:1.25rem 1rem 0;">
-
-      <!-- Tab switcher -->
-      <div class="auth-tabs" style="margin-bottom:1.5rem;">
-        <div class="auth-tab active" id="tab-signin" data-tab="signin">Sign In</div>
-        <div class="auth-tab" id="tab-signup" data-tab="signup">Create Account</div>
-      </div>
-
-      <div id="auth-error" class="msg-error"></div>
-      <div id="auth-success" class="msg-success"></div>
-
-      <!-- Sign In -->
-      <div id="form-signin">
-        <div class="field">
-          <label>Email or Username</label>
-          <input id="si-email" type="text" placeholder="you@email.com" autocomplete="username"
-            style="font-size:1.1rem;">
-        </div>
-        <div class="field">
-          <label>Password</label>
-          <input id="si-password" type="password" placeholder="••••••••" autocomplete="current-password"
-            style="font-size:1.1rem;">
-        </div>
-        <button class="btn btn-primary btn-full mt-sm" id="btn-signin"
-          style="padding:1rem;font-size:1.2rem;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:0.04em;">
-          SIGN IN →
-        </button>
-        <div class="text-center mt-sm">
-          <button class="btn-forgot" id="btn-forgot" style="font-size:0.95rem;">Forgot password?</button>
-        </div>
-      </div>
-
-      <!-- Sign Up -->
-      <div id="form-signup" class="hidden">
-        <div class="two-col mb-sm">
-          <div class="field" style="margin:0">
-            <label>First Name</label>
-            <input id="su-fname" type="text" placeholder="Lee" autocomplete="given-name" style="font-size:1.1rem;">
-          </div>
-          <div class="field" style="margin:0">
-            <label>Last Name</label>
-            <input id="su-lname" type="text" placeholder="Smith" autocomplete="family-name" style="font-size:1.1rem;">
-          </div>
-        </div>
-        <div class="field">
-          <label>Email</label>
-          <input id="su-email" type="email" placeholder="you@email.com" autocomplete="email" style="font-size:1.1rem;">
-        </div>
-        <div class="field">
-          <label>Password</label>
-          <input id="su-password" type="password" placeholder="min 8 characters" autocomplete="new-password" style="font-size:1.1rem;">
-        </div>
-        <button class="btn btn-primary btn-full mt-sm" id="btn-signup"
-          style="padding:1rem;font-size:1.2rem;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:0.04em;">
-          CREATE ACCOUNT →
-        </button>
-      </div>
-
-
-    </div>
-  </div>
-      <!-- Pencil footer -->
-      <div class="screen-pencil-footer">
-        <div class="logo-wrap screen-pencil"></div>
-      </div>
-  
-</div>
-
-<!-- ══════════════════════════════════════════
-     RESET PASSWORD SCREEN
-     ══════════════════════════════════════════ -->
-<div id="screen-reset-password" class="screen">
-  <div style="max-width:480px;margin:0 auto;padding:2rem 1rem;">
-    <div class="home-hero" style="border-radius:var(--radius-xl);margin-bottom:1.5rem;padding:1.5rem;">
-      <div class="home-hero-title" style="font-size:2rem;">Set New Password</div>
-      <div class="home-hero-club">Enter your new password below</div>
-    </div>
-
-    <div class="card">
-      <div class="field">
-        <label>New Password</label>
-        <input id="reset-new-password" type="password" placeholder="min 8 characters"
-          autocomplete="new-password" style="font-size:1.1rem;">
-      </div>
-      <div class="field">
-        <label>Confirm Password</label>
-        <input id="reset-confirm-password" type="password" placeholder="repeat password"
-          autocomplete="new-password" style="font-size:1.1rem;">
-      </div>
-      <div id="reset-password-error"
-        style="display:none;color:var(--red);font-size:0.88rem;font-weight:700;
-               margin-bottom:0.75rem;padding:0.5rem 0.75rem;background:rgba(214,69,69,0.1);
-               border-radius:var(--radius-sm);"></div>
-      <button class="btn btn-primary" id="btn-reset-password-submit"
-        style="width:100%;font-size:1.05rem;padding:0.9rem;">
-        SET NEW PASSWORD →
-      </button>
-    </div>
-  </div>
-</div>
 
 
 <div id="screen-home" class="screen">
@@ -1347,11 +1235,6 @@
       <button class="btn btn-outline btn-full" id="btn-backup-export" style="margin-bottom:0.5rem;">☁️ Backup to Files</button>
       <button class="btn btn-outline btn-full" id="btn-backup-import">⬆️ Restore from Backup</button>
       <input type="file" id="backup-import-file" accept=".json,application/json" style="display:none;">
-      <button class="btn btn-ghost btn-full" id="btn-supabase-export"
-        style="font-size:0.8rem;color:var(--muted);margin-top:0.4rem;display:none;"
-        title="Export existing Supabase data before switching to local mode">
-        ⬇️ Export from Supabase (migration tool)
-      </button>
     </div>
 
     <!-- Appearance -->
@@ -1369,7 +1252,6 @@
       </div>
     </div>
 
-    <button class="btn btn-danger  mt-sm auth-only" id="btn-sign-out" style="width:100%;">SIGN OUT</button>
 
     </div>
   </div>

@@ -23,7 +23,7 @@ import {
   realtimeSubscribeRound, realtimeBroadcastRound, realtimeSubscribeFriendRequests, realtimeSubscribeGameInvites, realtimeUnsubscribe,
   realtimeSubscribeTournament,
   challengeCreate, challengeUpdate, challengesLoadPending, realtimeSubscribeChallenges,
-  exportBackup, importBackup, exportFromSupabase,
+  exportBackup, importBackup,
   competitionCreate, competitionFindBySharedId,
   MULTI_USER,
 } from '../provider.js?v=20261020av';
@@ -1355,44 +1355,11 @@ async function boot() {
 // ================================================================
 function onSignedOut() {
   currentUser = null; currentProfile = null; roundId = null; gameState = null;
-  if (MULTI_USER) showScreen('screen-auth');
-  // In local mode: auth state change to SIGNED_OUT should not occur
+  if (MULTI_USER) showScreen('screen-home');
+  // In local mode: auth state change to SIGNED_OUT does not occur
   // (local authOnStateChange always fires SIGNED_IN with the local owner)
 }
 
-// ================================================================
-// PASSWORD RESET SCREEN
-// ================================================================
-function showResetPasswordScreen() {
-  const errEl = document.getElementById('reset-password-error');
-  if (errEl) errEl.style.display = 'none';
-  const f1 = document.getElementById('reset-new-password');
-  const f2 = document.getElementById('reset-confirm-password');
-  if (f1) f1.value = '';
-  if (f2) f2.value = '';
-  showScreen('screen-reset-password');
-}
-
-document.getElementById('btn-reset-password-submit')?.addEventListener('click', async () => {
-  const pw1   = document.getElementById('reset-new-password').value;
-  const pw2   = document.getElementById('reset-confirm-password').value;
-  const errEl = document.getElementById('reset-password-error');
-  const showErr = msg => { if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; } };
-  if (!pw1 || pw1.length < 8) { showErr('Password must be at least 8 characters.'); return; }
-  if (pw1 !== pw2)             { showErr('Passwords do not match.'); return; }
-  const btn = document.getElementById('btn-reset-password-submit');
-  btn.disabled = true; btn.textContent = 'Saving…';
-  if (errEl) errEl.style.display = 'none';
-  try {
-    await authUpdatePassword(pw1);
-    const user = await authGetUser();
-    if (user) await onSignedIn(user);
-    else showScreen('screen-auth');
-  } catch (err) {
-    showErr(err.message || 'Could not update password. Please try again.');
-    btn.disabled = false; btn.textContent = 'SET NEW PASSWORD →';
-  }
-});
 
 let _joiningViaInvite = false;
 
@@ -1477,84 +1444,6 @@ async function onSignedIn(user) {
   }
 }
 
-document.getElementById('tab-signin')?.addEventListener('click', () => {
-  document.getElementById('tab-signin').classList.add('active');
-  document.getElementById('tab-signup').classList.remove('active');
-  show('form-signin'); hide('form-signup');
-  clearMsg('auth-error'); clearMsg('auth-success');
-});
-document.getElementById('tab-signup')?.addEventListener('click', () => {
-  document.getElementById('tab-signup').classList.add('active');
-  document.getElementById('tab-signin').classList.remove('active');
-  hide('form-signin'); show('form-signup');
-  clearMsg('auth-error'); clearMsg('auth-success');
-});
-
-document.getElementById('btn-signin')?.addEventListener('click', async () => {
-  let identifier = document.getElementById('si-email').value.trim();
-  const pw       = document.getElementById('si-password').value;
-  clearMsg('auth-error'); clearMsg('auth-success');
-  if (!identifier || !pw) { setMsg('auth-error', 'Please enter your username/email and password.'); return; }
-  const btn = document.getElementById('btn-signin');
-  btn.disabled = true; btn.textContent = 'Signing in…';
-  try {
-    // If not an email address, treat as username — look up the associated email
-    if (!identifier.includes('@') || identifier.startsWith('@')) {
-      const username = identifier.replace(/^@/, '').toLowerCase();
-      const user = await profileFindByUsername(username);
-      if (!user?.email) throw new Error('No account found with that username.');
-      identifier = user.email;
-    }
-    await authSignIn(identifier, pw);
-    // authOnStateChange will fire onSignedIn if successful
-  } catch (err) {
-    const msg = err.message || 'Sign in failed.';
-    setMsg('auth-error', msg);
-    alert('Sign in error: ' + msg); // temporary debug
-    btn.disabled = false; btn.textContent = 'SIGN IN →';
-  }
-});
-
-document.getElementById('btn-signup')?.addEventListener('click', async () => {
-  const fname = document.getElementById('su-fname').value.trim();
-  const lname = document.getElementById('su-lname').value.trim();
-  const email = document.getElementById('su-email').value.trim();
-  const pw    = document.getElementById('su-password').value;
-  clearMsg('auth-error'); clearMsg('auth-success');
-  if (!fname || !email || !pw) { setMsg('auth-error', 'Please fill in all fields.'); return; }
-  if (pw.length < 8) { setMsg('auth-error', 'Password must be at least 8 characters.'); return; }
-  const btn = document.getElementById('btn-signup');
-  btn.disabled = true; btn.textContent = 'Creating…';
-  try {
-    const { hasSession } = await authSignUp(email, pw, fname, lname);
-    if (hasSession) {
-      // Email confirmation is off — signUp already returned an active session,
-      // so the auth state listener will sign the user straight into the app.
-      // No "check your email" message needed since there's no confirmation step.
-      setMsg('auth-success', 'Account created! Signing you in…');
-    } else {
-      setMsg('auth-success', 'Account created! Check your email to confirm, then sign in.');
-      btn.disabled = false; btn.textContent = 'CREATE ACCOUNT →';
-    }
-  } catch (err) {
-    setMsg('auth-error', err.message || 'Sign up failed.');
-    btn.disabled = false; btn.textContent = 'CREATE ACCOUNT →';
-  }
-});
-
-document.getElementById('btn-forgot')?.addEventListener('click', async () => {
-  const email = document.getElementById('si-email').value.trim();
-  if (!email) { setMsg('auth-error', 'Enter your email first.'); return; }
-  try { await authForgotPassword(email); setMsg('auth-success', 'Password reset email sent.'); }
-  catch (err) { setMsg('auth-error', err.message || 'Could not send reset email.'); }
-});
-
-
-
-document.getElementById('btn-sign-out')?.addEventListener('click', async () => {
-  realtimeUnsubscribe(realtimeCh); realtimeCh = null;
-  await authSignOut();
-});
 
 // ================================================================
 // HOME SCREEN
@@ -12510,30 +12399,6 @@ document.getElementById('backup-import-file')?.addEventListener('change', async 
   }
 });
 
-// Supabase export (migration tool — only available while still on Supabase)
-document.getElementById('btn-supabase-export')?.addEventListener('click', async () => {
-  const btn = document.getElementById('btn-supabase-export');
-  if (btn) { btn.disabled = true; btn.textContent = 'Exporting from Supabase…'; }
-  try {
-    // Dynamically import data.js only when explicitly requested
-    const supabaseProvider = await import('../data.js?v=20260704l');
-    const json     = await exportFromSupabase(supabaseProvider);
-    const blob     = new Blob([json], { type: 'application/json' });
-    const url      = URL.createObjectURL(blob);
-    const a        = document.createElement('a');
-    const dateStr  = new Date().toISOString().slice(0, 10);
-    a.href         = url;
-    a.download     = `leaderboard-supabase-export-${dateStr}.json`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
-    alert('Supabase export complete. Save this file before shutting down Supabase. Then use Import Backup to restore it in local mode.');
-  } catch (err) {
-    alert('Supabase export failed: ' + (err.message ?? err));
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '⬇️ Export from Supabase'; }
-  }
-});
 document.getElementById('prof-add-course-btn')?.addEventListener('click', () => { cwiz.returnTo = 'profile'; openCourseWizard(null); });
 document.getElementById('btn-theme-dark') ?.addEventListener('click', () => applyTheme('dark'));
 document.getElementById('btn-theme-light')?.addEventListener('click', () => applyTheme('light'));
@@ -13648,7 +13513,7 @@ async function handleJoinFlow(token, troundId = null, groupNumber = null) {
         sessionStorage.setItem('lb-join-token', token);
         if (troundId) sessionStorage.setItem('lb-join-tround', troundId);
         if (groupNumber) sessionStorage.setItem('lb-join-group', groupNumber);
-        showScreen('screen-auth');
+        showScreen('screen-home');
       });
     } else {
       show('join-confirm-prompt');

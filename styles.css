@@ -729,109 +729,6 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
   background: radial-gradient(ellipse at 30% 0%, rgba(76,175,118,0.15) 0%, transparent 55%), var(--bg);
 }
 
-.auth-hero {
-  text-align: center;
-  padding: 2rem 0 1.5rem;
-}
-
-.auth-card {
-  width: 100%;
-  max-width: 400px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1.75rem;
-  margin: 0 auto;
-}
-
-.auth-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  background: var(--surface2);
-  border-radius: var(--radius-sm);
-  padding: 4px;
-  margin-bottom: 1.5rem;
-}
-
-.auth-tab {
-  padding: 0.75rem;
-  text-align: center;
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: 'Plus Jakarta Sans',sans-serif;
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  transition: all 0.15s;
-  color: var(--muted);
-}
-
-.auth-tab.active {
-  background: var(--gold);
-  color: #0e1a13;
-}
-
-.auth-divider {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 1.25rem 0;
-}
-
-.auth-divider-line { flex: 1; height: 1px; background: var(--border); }
-
-.auth-divider-text {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--muted);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.btn-google {
-  width: 100%;
-  padding: 0.75rem;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border2);
-  border-radius: var(--radius-sm);
-  color: var(--white);
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  transition: background 0.15s;
-  cursor: pointer;
-}
-
-.btn-google:hover { background: rgba(255,255,255,0.1); }
-
-.msg-error {
-  background: var(--red-dim);
-  border: 1px solid var(--red-border);
-  border-radius: var(--radius-sm);
-  padding: 0.6rem 0.85rem;
-  font-size: 0.78rem;
-  color: var(--red);
-  margin-bottom: 0.75rem;
-  display: none;
-}
-
-.msg-error.show { display: block; }
-
-.msg-success {
-  background: var(--green-dim);
-  border: 1px solid var(--green-border);
-  border-radius: var(--radius-sm);
-  padding: 0.6rem 0.85rem;
-  font-size: 0.78rem;
-  color: var(--green);
-  margin-bottom: 0.75rem;
-  display: none;
-}
-
-.msg-success.show { display: block; }
 
 /* ── PROFILE SCREEN ─────────────────────────────────────────────── */
 .profile-hero {
@@ -2825,27 +2722,6 @@ html.light .holes-btn.active {
   margin-top: 1px;
 }
 
-/* Auth screen: match app text sizing */
-#screen-auth .field > label {
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--muted2);
-  text-transform: none;
-  letter-spacing: 0.02em;
-}
-#screen-auth input {
-  font-size: 1.1rem;
-}
-.btn-forgot {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--muted2);
-  font-size: 0.95rem;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 
 /* ── Screen pencil footer ─────────────────────────────────────── */
 .screen-pencil svg {
@@ -3076,9 +2952,6 @@ html.light .holes-btn.active {
   50%      { box-shadow: 0 0 0 6px rgba(91,163,217,0); }
 }
 
-/* ── Local / multi-user visibility ─────────────────────────────── */
-body.local-mode .auth-only      { display: none !important; }
-body.local-mode .multiuser-only { display: none !important; }
 
 /* ================================================================
    SCORING SCREEN POLISH — build 20261010g
