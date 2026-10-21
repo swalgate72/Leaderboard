@@ -12315,17 +12315,17 @@ document.getElementById('prof-all-courses-btn')?.addEventListener('click', () =>
       No saved courses yet.</div>`;
   } else {
     listEl.innerHTML = allCourses.map(c => `
-      <div style="display:flex;align-items:center;gap:0.5rem;padding:0.65rem 0.75rem;
-                  background:var(--surface);border:1px solid var(--border);border-radius:10px;">
-        <div style="flex:1;min-width:0;">
-          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;
-                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</div>
-          ${c.tees?.length ? `<div style="font-size:0.75rem;color:var(--muted);">${c.tees.map(t=>t.name).join(' · ')}</div>` : ''}
+      <div style="padding:0.65rem 0.75rem;background:var(--surface);
+                  border:1px solid var(--border);border-radius:10px;">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</div>
+        ${c.tees?.length ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:2px;">${c.tees.map(t=>t.name).join(' · ')}</div>` : ''}
+        <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+          <button class="btn btn-ghost ac-edit" data-id="${c.id}"
+            style="font-size:0.8rem;padding:0.3rem 0.7rem;flex:1;">✏️ Edit</button>
+          <button class="btn btn-ghost ac-delete" data-id="${c.id}" data-name="${c.name}"
+            style="font-size:0.8rem;padding:0.3rem 0.7rem;flex:1;color:var(--red);">🗑 Delete</button>
         </div>
-        <button class="btn btn-ghost ac-edit" data-id="${c.id}"
-          style="font-size:0.8rem;padding:0.3rem 0.6rem;">Edit</button>
-        <button class="btn btn-ghost ac-delete" data-id="${c.id}" data-name="${c.name}"
-          style="font-size:0.8rem;padding:0.3rem 0.6rem;color:var(--red);">Delete</button>
       </div>`).join('');
   }
 
