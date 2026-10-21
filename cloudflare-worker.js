@@ -53,6 +53,15 @@ function isAdmin(request, env) {
   return request.headers.get('X-Admin-Key') === env.ADMIN_SECRET;
 }
 
+// ── Generate a random share code ─────────────────────────────────
+// Format: N uppercase alphanumeric chars, no 0/O/1/I ambiguity
+function makeCode(n) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const arr   = new Uint8Array(n);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, b => chars[b % chars.length]).join('');
+}
+
 // ================================================================
 // MAIN HANDLER
 // ================================================================
