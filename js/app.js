@@ -13931,26 +13931,25 @@ function _renderExploreResults(courses) {
 
   list.innerHTML = courses.map(c => {
     const added    = localSharedIds.has(c.id);
-    const teeCount = (c.tees ?? []).length;
-    const holes    = Math.max(...(c.tees ?? []).map(t => (t.par ?? []).filter(v => v != null && v !== '').length), 0);
+    const teeNames = (c.tees ?? []).map(t => t.name).join(' · ');
     const location = [c.location, c.town, c.country].filter(Boolean).join(', ');
-    return `<div class="explore-course-card" style="background:var(--surface2);border:1px solid var(--border);border-radius:0.6rem;padding:0.75rem 0.85rem;margin-bottom:0.65rem;">
-      <div style="display:flex;align-items:flex-start;gap:0.5rem;">
-        <div style="flex:1;">
-          <div style="font-weight:700;font-size:0.95rem;">${c.name}</div>
-          <div style="font-size:0.75rem;color:var(--muted);margin-top:2px;">${location || ''}</div>
-          <div style="font-size:0.7rem;color:var(--muted);margin-top:3px;">${holes || '?'} holes · ${teeCount} tee${teeCount === 1 ? '' : 's'}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:0.35rem;align-items:flex-end;">
-          <button class="btn btn-sm explore-add-btn" data-sid="${c.id}"
-            ${added ? 'disabled style="opacity:0.5;"' : 'style="background:var(--gold);color:#111;"'}>
-            ${added ? '✓ My Courses' : '＋ My Courses'}
-          </button>
-          <button class="btn btn-sm explore-edit-btn" data-sid="${c.id}"
-            style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:0.75rem;">
-            ✏️ Suggest Edit
-          </button>
-        </div>
+    return `<div style="padding:0.65rem 0.75rem;background:var(--surface);
+                        border:1px solid var(--border);border-radius:10px;">
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:1rem;
+                  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</div>
+      ${location ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:2px;">${location}</div>` : ''}
+      ${teeNames ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:1px;">${teeNames}</div>` : ''}
+      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+        <button class="btn btn-ghost explore-add-btn" data-sid="${c.id}"
+          style="font-size:0.8rem;padding:0.3rem 0.7rem;flex:1;
+                 ${added ? 'opacity:0.5;' : 'background:var(--gold);color:#111;border-color:var(--gold);'}"
+          ${added ? 'disabled' : ''}>
+          ${added ? '✓ My Courses' : '＋ My Courses'}
+        </button>
+        <button class="btn btn-ghost explore-edit-btn" data-sid="${c.id}"
+          style="font-size:0.8rem;padding:0.3rem 0.7rem;flex:1;">
+          ✏️ Suggest Edit
+        </button>
       </div>
     </div>`;
   }).join('');
