@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261020av)
-window.APP_BUILD = '20261020av';
+// LEADERBOARD - app.js  (v3.2 · build 20261021a)
+window.APP_BUILD = '20261021a';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -9,7 +9,7 @@ import {
   authSignIn, authSignUp, authSignOut,
   authForgotPassword, authUpdatePassword, authOnStateChange, authGetUser,
   profileLoad, profileSave, profileFindByEmail, profileFindByUsername,
-  coursesLoadAll, courseLoadById, courseSave, courseDelete, coursesEnsureDefaults,
+  coursesLoadAll, courseLoadById, courseSave, courseDelete, coursesEnsureDefaults, courseSubmitToLibrary,
   roundCreate, roundSaveState, roundPlayerClaimScorer, roundComplete, roundAbandon, roundReactivate, roundDelete,
   roundsLoadActive, roundLoadById, roundsLoadHistory,
   roundPlayersSave, roundPlayersLoad,
@@ -26,7 +26,7 @@ import {
   exportBackup, importBackup,
   competitionCreate, competitionFindBySharedId,
   MULTI_USER,
-} from '../provider.js?v=20261020av';
+} from '../provider.js?v=20261021a';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
@@ -39,7 +39,7 @@ import {
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
 } from '../game.js?v=20260704l';
-import { idbSave, idbSaveSeq, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20261020av';
+import { idbSave, idbSaveSeq, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20261021a';
 
 
 // ================================================================
@@ -13264,7 +13264,12 @@ function openCourseWizard(courseId) {
       document.getElementById('cwiz-name').value     = course.name;
       document.getElementById('cwiz-location').value = course.location ?? '';
       cwiz.name = course.name; cwiz.location = course.location ?? '';
-      cwiz.tees = (course.tees ?? []).map(t => ({ name: t.name, color: t.color }));
+      cwiz.tees = (course.tees ?? []).map(t => ({
+        name: t.name, color: t.color,
+        courseRating: t.courseRating ?? null,
+        slopeRating:  t.slopeRating  ?? null,
+        yards:        t.yards        ?? Array(18).fill(null),
+      }));
       cwiz.holes = Array.from({ length: 18 }, (_, i) => {
         const si = {}; course.tees?.forEach(t => { si[t.name] = t.si[i]; });
         return { par: course.tees?.[0]?.par?.[i] ?? 4, si };
@@ -13311,6 +13316,18 @@ function renderCwizTeesList() {
                  padding:0.35rem 0.6rem;color:#111;font-size:0.9rem;">
         <button class="btn btn-ghost" style="font-size:0.72rem;padding:2px 8px;flex-shrink:0;" data-del="${i}">✕</button>
       </div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;">
+        <label style="flex:1;font-size:0.65rem;color:var(--muted);">Course Rating
+          <input type="number" step="0.1" min="50" max="85" value="${t.courseRating ?? ''}" data-rating="${i}"
+            placeholder="e.g. 71.2"
+            style="display:block;width:100%;margin-top:2px;background:#fff;border:1px solid #ccc;border-radius:0.4rem;padding:0.3rem 0.5rem;color:#111;font-size:0.88rem;">
+        </label>
+        <label style="flex:1;font-size:0.65rem;color:var(--muted);">Slope Rating
+          <input type="number" step="1" min="55" max="155" value="${t.slopeRating ?? ''}" data-slope="${i}"
+            placeholder="e.g. 124"
+            style="display:block;width:100%;margin-top:2px;background:#fff;border:1px solid #ccc;border-radius:0.4rem;padding:0.3rem 0.5rem;color:#111;font-size:0.88rem;">
+        </label>
+      </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;" data-palette="${i}">
         ${TEE_PALETTE.map(p => `
           <button data-swatch="${i}" data-swcolor="${p.color}" data-swname="${p.name}" title="${p.name}"
@@ -13324,6 +13341,18 @@ function renderCwizTeesList() {
   });
   listEl.querySelectorAll('[data-name]').forEach(inp => {
     inp.addEventListener('input', e => { cwiz.tees[parseInt(e.target.dataset.name)].name = e.target.value; updateCwizStartBtn(); });
+  });
+  listEl.querySelectorAll('[data-rating]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const v = parseFloat(e.target.value);
+      cwiz.tees[parseInt(e.target.dataset.rating)].courseRating = isNaN(v) ? null : v;
+    });
+  });
+  listEl.querySelectorAll('[data-slope]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const v = parseInt(e.target.value, 10);
+      cwiz.tees[parseInt(e.target.dataset.slope)].slopeRating = isNaN(v) ? null : v;
+    });
   });
   listEl.querySelectorAll('[data-swatch]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -13465,9 +13494,13 @@ document.getElementById('cwiz-save-btn')?.addEventListener('click', async () => 
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
     const tees = cwiz.tees.map(t => ({
-      name: t.name, color: t.color,
-      si:  cwiz.holes.map(h => h.si[t.name] ?? 1),
-      par: cwiz.holes.map(h => h.par),
+      name:         t.name,
+      color:        t.color,
+      courseRating: t.courseRating ?? null,
+      slopeRating:  t.slopeRating  ?? null,
+      yards:        t.yards        ?? Array(18).fill(null),
+      si:           cwiz.holes.map(h => h.si[t.name] ?? 1),
+      par:          cwiz.holes.map(h => h.par),
     }));
     const savedId = await courseSave({
       id: cwiz.courseId ?? undefined, name: cwiz.name, location: cwiz.location,
@@ -13484,11 +13517,144 @@ document.getElementById('cwiz-save-btn')?.addEventListener('click', async () => 
     }
     // Prompt to back up after adding a course — key moment for cross-device sync
     _promptBackup('Course saved! Back up now so it\'s available on your other devices?');
+    // Offer to share to the library
+    _promptShareToLibrary(savedId);
   } catch (err) { alert('Could not save course: ' + err.message); }
   finally { btn.disabled = false; btn.textContent = '✅ SAVE COURSE'; }
 });
 
 document.getElementById('cwiz-cancel')?.addEventListener('click', () => document.getElementById('modal-course-wizard').classList.remove('open'));
+
+// ── Share-to-library prompt (shown after saving a user-created course) ──
+function _promptShareToLibrary(courseId) {
+  // Only show if navigator.onLine — gracefully skip offline
+  if (!navigator.onLine) return;
+  const course = allCourses.find(c => c.id === courseId);
+  if (!course) return;
+  if (course.sharedId) return; // already shared
+
+  const el = document.getElementById('modal-share-library');
+  if (!el) return;
+  el.querySelector('#share-library-course-name').textContent = course.name;
+  el.classList.add('open');
+
+  const yesBtn = el.querySelector('#share-library-yes');
+  const noBtn  = el.querySelector('#share-library-no');
+
+  function cleanup() {
+    yesBtn?.removeEventListener('click', onYes);
+    noBtn?.removeEventListener('click', onNo);
+  }
+  async function onYes() {
+    cleanup();
+    yesBtn.disabled = true; yesBtn.textContent = 'Sharing…';
+    try {
+      await courseSubmitToLibrary(courseId);
+      allCourses = await coursesLoadAll();
+      el.classList.remove('open');
+      const toast = document.createElement('div');
+      toast.textContent = '✅ Course submitted for review — thanks!';
+      toast.style.cssText = 'position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:var(--green,#38a169);color:#fff;padding:0.7rem 1.3rem;border-radius:0.6rem;font-size:0.85rem;z-index:9999;pointer-events:none;';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3500);
+    } catch (e) {
+      alert('Could not submit course: ' + e.message);
+    } finally {
+      yesBtn.disabled = false; yesBtn.textContent = 'Yes, share it';
+    }
+  }
+  function onNo() { cleanup(); el.classList.remove('open'); }
+
+  yesBtn?.addEventListener('click', onYes);
+  noBtn?.addEventListener('click', onNo);
+}
+
+// ── Explore course library ────────────────────────────────────────────────
+async function openExploreLibrary() {
+  const modal = document.getElementById('modal-explore-library');
+  if (!modal) return;
+  modal.classList.add('open');
+  _renderExploreResults([]);
+  document.getElementById('explore-search-input').value = '';
+  document.getElementById('explore-status').textContent = 'Loading…';
+  await _searchLibrary('');
+}
+
+async function _searchLibrary(q) {
+  const statusEl = document.getElementById('explore-status');
+  const url      = SYNC_WORKER_URL + '/courses' + (q ? '?q=' + encodeURIComponent(q) : '');
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data    = await resp.json();
+    const courses = data.courses ?? [];
+    statusEl.textContent = courses.length ? '' : 'No courses found.';
+    _renderExploreResults(courses);
+  } catch (e) {
+    statusEl.textContent = 'Could not load library — check your connection.';
+    _renderExploreResults([]);
+  }
+}
+
+function _renderExploreResults(courses) {
+  const list = document.getElementById('explore-results-list');
+  if (!list) return;
+  if (!courses.length) { list.innerHTML = ''; return; }
+
+  const localSharedIds = new Set(allCourses.map(c => c.sharedId).filter(Boolean));
+
+  list.innerHTML = courses.map(c => {
+    const added    = localSharedIds.has(c.id);
+    const teeCount = (c.tees ?? []).length;
+    return `<div class="explore-course-card" style="background:var(--surface2);border:1px solid var(--border);border-radius:0.6rem;padding:0.75rem 0.85rem;margin-bottom:0.65rem;">
+      <div style="display:flex;align-items:flex-start;gap:0.5rem;">
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:0.95rem;">${c.name}</div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-top:2px;">${c.location ?? ''}${c.country ? ' · ' + c.country : ''}</div>
+          <div style="font-size:0.65rem;color:var(--muted);margin-top:3px;">${teeCount} tee${teeCount === 1 ? '' : 's'}</div>
+        </div>
+        <button class="btn btn-sm explore-add-btn" data-sid="${c.id}"
+          ${added ? 'disabled style="opacity:0.5;"' : ''}>
+          ${added ? '✓ Added' : '+ Add'}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.explore-add-btn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const sid    = btn.dataset.sid;
+      const course = courses.find(x => x.id === sid);
+      if (!course) return;
+      btn.disabled = true; btn.textContent = 'Adding…';
+      try {
+        await courseSave({
+          name: course.name, location: course.location,
+          town: course.town ?? null, country: course.country ?? null,
+          tees: course.tees, isDefault: false,
+          createdBy: currentUser?.id,
+          sharedId: course.id, version: course.version ?? 1,
+        });
+        allCourses = await coursesLoadAll();
+        btn.textContent = '✓ Added';
+        btn.style.opacity = '0.5';
+      } catch (e) {
+        btn.disabled = false; btn.textContent = '+ Add';
+        alert('Could not add course: ' + e.message);
+      }
+    });
+  });
+}
+
+let _exploreSearchTimer = null;
+document.getElementById('explore-search-input')?.addEventListener('input', e => {
+  clearTimeout(_exploreSearchTimer);
+  _exploreSearchTimer = setTimeout(() => _searchLibrary(e.target.value.trim()), 400);
+});
+document.getElementById('explore-library-btn')?.addEventListener('click', openExploreLibrary);
+document.getElementById('explore-close-btn')?.addEventListener('click', () => {
+  document.getElementById('modal-explore-library')?.classList.remove('open');
+});
 
 // ================================================================
 // JOIN FLOW

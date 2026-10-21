@@ -1,4 +1,4 @@
-// Leaderboard Service Worker  (build 20261020av)
+// Leaderboard Service Worker  (build 20261021a)
 // Handles offline app-shell caching and Web Push notifications.
 //
 // CACHE STRATEGY
@@ -33,7 +33,7 @@
 
 // ── Version — bump this string on every deployment ───────────────────
 // Must match the build tag used in app.js, index.html and the ?v= tags.
-const CACHE_NAME = 'leaderboard-v20261020av';
+const CACHE_NAME = 'leaderboard-v20261021a';
 
 // ── App shell — URLs listed in ESSENTIAL_URLS and OPTIONAL_URLS below ─
 // All versioned ?v= query strings must exactly match index.html and
@@ -70,11 +70,11 @@ const ESSENTIAL_URLS = [
   '/index.html',
   '/styles.css?v=20261015c',
   '/jsQR.min.js?v=1.4.0',
-  '/js/app.js?v=20261020av',
+  '/js/app.js?v=20261021a',
   '/game.js?v=20260704l',
-  '/db.js?v=20261020av',
-  '/provider.js?v=20261020av',
-  '/local.js?v=20261020av',
+  '/db.js?v=20261021a',
+  '/provider.js?v=20261021a',
+  '/local.js?v=20261021a',
 ];
 
 // Optional assets — cached if available, but a fetch failure does not

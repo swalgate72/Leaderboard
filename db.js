@@ -15,7 +15,7 @@
 // ================================================================
 
 const DB_NAME    = 'leaderboard_local';
-const DB_VERSION = 3;          // v3: adds competitions store
+const DB_VERSION = 4;          // v4: adds sharedId/version/yards/courseRating/slopeRating to courses
 const STORE_ACTIVE       = 'active_rounds';
 const STORE_PLAYERS      = 'players';
 const STORE_COURSES      = 'courses';
@@ -69,6 +69,35 @@ function openDB() {
           comp.createIndex('competitionId', 'competitionId', { unique: false });
           comp.createIndex('createdAt',     'createdAt',     { unique: false });
         }
+      }
+
+      // Version 4 migration — add sharedId, version, courseRating/slopeRating/yards to courses
+      // Safe additive-only migration: new fields default to null/1, existing data untouched
+      if (oldVer < 4 && oldVer > 0) {
+        const tx        = e.target.transaction;
+        const courseObj = tx.objectStore(STORE_COURSES);
+        const curReq    = courseObj.openCursor();
+        curReq.onsuccess = ev => {
+          const cursor = ev.target.result;
+          if (!cursor) return;
+          const c = cursor.value;
+          // Migrate tees: add courseRating, slopeRating, yards if missing
+          const migratedTees = (c.tees ?? []).map(t => ({
+            ...t,
+            courseRating:  t.courseRating  ?? null,
+            slopeRating:   t.slopeRating   ?? null,
+            yards:         t.yards         ?? Array(18).fill(null),
+          }));
+          cursor.update({
+            ...c,
+            sharedId: c.sharedId ?? null,
+            version:  c.version  ?? 1,
+            town:     c.town     ?? null,
+            country:  c.country  ?? null,
+            tees:     migratedTees,
+          });
+          cursor.continue();
+        };
       }
     };
 

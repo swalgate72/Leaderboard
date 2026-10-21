@@ -142,7 +142,7 @@ export async function courseLoadById(id) {
   return coursesStore.get(id);
 }
 
-export async function courseSave({ id, name, location, tees, isDefault, createdBy }) {
+export async function courseSave({ id, name, location, town, country, tees, isDefault, createdBy, sharedId, version }) {
   const all = await coursesStore.getAll();
 
   // If setting default, clear existing default first
@@ -155,16 +155,60 @@ export async function courseSave({ id, name, location, tees, isDefault, createdB
   const courseId = id ?? crypto.randomUUID();
   const existing = id ? (await coursesStore.get(id)) : null;
 
+  // Ensure each tee has the v4 fields (courseRating, slopeRating, yards)
+  const normTees = (tees ?? existing?.tees ?? []).map(t => ({
+    name:         t.name,
+    color:        t.color,
+    courseRating: t.courseRating ?? null,
+    slopeRating:  t.slopeRating  ?? null,
+    yards:        t.yards        ?? Array(18).fill(null),
+    si:           t.si  ?? [],
+    par:          t.par ?? [],
+  }));
+
   await coursesStore.put({
     id:        courseId,
-    name:      name ?? existing?.name ?? '',
-    location:  location ?? existing?.location ?? null,
-    tees:      tees ?? existing?.tees ?? [],
+    name:      name      ?? existing?.name      ?? '',
+    location:  location  ?? existing?.location  ?? null,
+    town:      town      ?? existing?.town      ?? null,
+    country:   country   ?? existing?.country   ?? null,
+    tees:      normTees,
     isDefault: isDefault ?? false,
+    sharedId:  sharedId  ?? existing?.sharedId  ?? null,
+    version:   version   ?? existing?.version   ?? 1,
     createdAt: existing?.createdAt ?? now(),
     updatedAt: now(),
   });
   return courseId;
+}
+
+// Submit a local course to the shared library pending queue
+export async function courseSubmitToLibrary(courseId) {
+  const WORKER = 'https://leaderboardsync.sw-77d.workers.dev';
+  const course = await coursesStore.get(courseId);
+  if (!course) throw new Error('Course not found: ' + courseId);
+
+  const resp = await fetch(WORKER + '/courses/submit', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({
+      name:      course.name,
+      location:  course.location,
+      town:      course.town    ?? null,
+      country:   course.country ?? null,
+      tees:      course.tees,
+      submittedAt: new Date().toISOString(),
+    }),
+  });
+  if (!resp.ok) {
+    const msg = await resp.text().catch(() => resp.status);
+    throw new Error('Submit failed: ' + msg);
+  }
+  const { id: newSharedId, version: newVersion } = await resp.json();
+
+  // Store the assigned sharedId so we can show "submitted" state in the UI
+  await coursesStore.put({ ...course, sharedId: newSharedId, version: newVersion ?? 1, updatedAt: now() });
+  return newSharedId;
 }
 
 export async function courseDelete(id) {

@@ -26,7 +26,7 @@ export const MULTI_USER = false;
 // Static import of local.js — always safe, no network dependency.
 // data.js is NOT statically imported here to prevent Supabase client
 // initialisation when MULTI_USER = false.
-import * as localProvider from './local.js?v=20261020av';
+import * as localProvider from './local.js?v=20261021a';
 
 // In multi-user mode, data.js needs to be statically imported.
 // The conditional below handles both cases cleanly.
@@ -59,7 +59,8 @@ export const coursesLoadAll      = (...a) => provider.coursesLoadAll(...a);
 export const courseLoadById      = (...a) => provider.courseLoadById(...a);
 export const courseSave          = (...a) => provider.courseSave(...a);
 export const courseDelete        = (...a) => provider.courseDelete(...a);
-export const coursesEnsureDefaults = (...a) => provider.coursesEnsureDefaults(...a);
+export const coursesEnsureDefaults    = (...a) => provider.coursesEnsureDefaults(...a);
+export const courseSubmitToLibrary    = (...a) => provider.courseSubmitToLibrary(...a);
 
 // Rounds
 export const roundCreate         = (...a) => provider.roundCreate(...a);
