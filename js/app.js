@@ -26,7 +26,7 @@ import {
   exportBackup, importBackup, exportFromSupabase,
   competitionCreate, competitionFindBySharedId,
   MULTI_USER,
-} from '../provider.js';
+} from '../provider.js?v=20261020av';
 
 import {
   FORMAT_LABELS, FORMAT_DESCS, FORMAT_MIN_PLAYERS, formatsForPlayerCount,
