@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Course Admin</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --surface2: #22263a;
+    --border:   #2e3349;
+    --gold:     #d4af37;
+    --gold-dim: rgba(212,175,55,0.15);
+    --text:     #e8eaf0;
+    --muted:    #8890a8;
+    --green:    #48bb78;
+    --amber:    #f6ad55;
+    --red:      #fc8181;
+    --blue:     #63b3ed;
+    --radius:   0.5rem;
+    --font:     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; min-height: 100vh; }
+
+  /* ── Auth gate ── */
+  #auth-gate { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1.5rem; }
+  #auth-box  { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+               padding: 2rem; width: 100%; max-width: 360px; text-align: center; }
+  #auth-box h1 { font-size: 1.3rem; margin-bottom: 0.4rem; color: var(--gold); }
+  #auth-box p  { font-size: 0.9rem; color: var(--muted); margin-bottom: 1.25rem; }
+  #auth-key  { width: 100%; padding: 0.7rem 0.9rem; background: var(--bg); border: 1px solid var(--border);
+               border-radius: var(--radius); color: var(--text); font-size: 1rem; margin-bottom: 0.75rem; }
+  #auth-key:focus { outline: none; border-color: var(--gold); }
+  #auth-error { color: var(--red); font-size: 0.85rem; margin-top: 0.5rem; min-height: 1.1em; }
+
+  /* ── App ── */
+  #app { display: none; max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+
+  header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  header h1 { font-size: 1.4rem; color: var(--gold); flex: 1; }
+  #search   { padding: 0.5rem 0.85rem; background: var(--surface); border: 1px solid var(--border);
+              border-radius: var(--radius); color: var(--text); font-size: 0.9rem; width: 220px; }
+  #search:focus { outline: none; border-color: var(--gold); }
+
+  /* ── Stats bar ── */
+  .stats { display: flex; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .stat  { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+           padding: 0.6rem 1rem; font-size: 0.85rem; }
+  .stat strong { display: block; font-size: 1.25rem; color: var(--gold); line-height: 1.2; }
+
+  /* ── Section labels ── */
+  .section-label { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+                   color: var(--muted); margin: 1.25rem 0 0.5rem; padding-bottom: 0.4rem;
+                   border-bottom: 1px solid var(--border); }
+
+  /* ── Course list ── */
+  .course-row { display: grid; grid-template-columns: 1fr auto; align-items: center;
+                background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+                padding: 0.65rem 0.85rem; margin-bottom: 0.4rem; gap: 0.5rem; cursor: default; }
+  .course-row.pending { border-color: var(--amber); background: rgba(246,173,85,0.06); }
+  .course-row:hover   { border-color: var(--border); background: var(--surface2); }
+
+  .course-main  { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; min-width: 0; }
+  .course-name  { font-weight: 700; font-size: 0.97rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+  .badge-pending { background: var(--amber); color: #1a1200; font-size: 0.7rem; font-weight: 800;
+                   padding: 0.1rem 0.45rem; border-radius: 999px; white-space: nowrap; }
+  .course-meta  { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+  .course-meta span { margin-right: 0.75rem; }
+
+  .btn { padding: 0.4rem 0.9rem; border-radius: var(--radius); border: none; cursor: pointer;
+         font-size: 0.82rem; font-weight: 700; transition: opacity .15s; }
+  .btn:hover { opacity: 0.82; }
+  .btn-edit   { background: var(--gold); color: #111; }
+  .btn-sm     { padding: 0.3rem 0.65rem; font-size: 0.78rem; }
+  .btn-primary { background: var(--gold); color: #111; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-approve { background: var(--green); color: #111; }
+  .btn-back    { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+  /* ── Detail view ── */
+  #detail { display: none; }
+  .detail-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .detail-header h2 { font-size: 1.25rem; color: var(--gold); flex: 1; }
+  .detail-sub { font-size: 0.85rem; color: var(--muted); margin-top: 0.15rem; }
+
+  /* ── Tee cards ── */
+  .tees-wrap { display: flex; gap: 0.75rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .tee-card  { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+               padding: 0.6rem 0.9rem; min-width: 160px; }
+  .tee-name  { font-weight: 800; font-size: 0.95rem; margin-bottom: 0.25rem; }
+  .tee-stats { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+
+  /* ── Hole table ── */
+  .hole-table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th, td { padding: 0.35rem 0.5rem; text-align: center; border: 1px solid var(--border); white-space: nowrap; }
+  th { background: var(--surface2); font-weight: 700; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  td.hole-num { background: var(--surface2); font-weight: 700; color: var(--muted); }
+  td.row-label { text-align: left; font-weight: 700; padding-left: 0.75rem; background: var(--surface); }
+  tr:hover td { background: rgba(212,175,55,0.04); }
+  td.changed { background: rgba(246,173,85,0.18) !important; color: var(--amber); font-weight: 700; }
+  td.total-cell { font-weight: 800; background: var(--surface2); }
+
+  /* ── Approve panel ── */
+  .approve-bar { background: rgba(246,173,85,0.08); border: 1px solid rgba(246,173,85,0.3);
+                 border-radius: var(--radius); padding: 0.85rem 1rem; margin-bottom: 1.25rem;
+                 display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .approve-bar p { flex: 1; font-size: 0.88rem; color: var(--amber); }
+
+  .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid var(--border);
+             border-top-color: var(--gold); border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty { text-align: center; padding: 2.5rem; color: var(--muted); font-size: 0.9rem; }
+  .error-msg { color: var(--red); font-size: 0.85rem; padding: 0.5rem; }
+</style>
+</head>
+<body>
+
+<!-- ── Auth gate ──────────────────────────────────────────────── -->
+<div id="auth-gate">
+  <div id="auth-box">
+    <h1>⛳ Course Admin</h1>
+    <p>Enter your admin key to continue.</p>
+    <input id="auth-key" type="password" placeholder="Admin key" autocomplete="off"
+           onkeydown="if(event.key==='Enter') login()">
+    <br>
+    <button class="btn btn-primary" style="width:100%;padding:0.65rem;" onclick="login()">Sign In</button>
+    <div id="auth-error"></div>
+  </div>
+</div>
+
+<!-- ── Main app ───────────────────────────────────────────────── -->
+<div id="app">
+
+  <!-- List view -->
+  <div id="list-view">
+    <header>
+      <h1>⛳ Course Admin</h1>
+      <input id="search" type="search" placeholder="Search courses…" oninput="filterCourses(this.value)">
+      <button class="btn btn-outline btn-sm" onclick="logout()">Sign out</button>
+    </header>
+
+    <div class="stats">
+      <div class="stat"><strong id="stat-approved">–</strong>Approved</div>
+      <div class="stat"><strong id="stat-pending">–</strong>Pending review</div>
+      <div class="stat"><strong id="stat-total">–</strong>Total</div>
+    </div>
+
+    <div id="load-msg" style="text-align:center;padding:2rem;color:var(--muted);">
+      <span class="spinner"></span> Loading courses…
+    </div>
+    <div id="load-error" class="error-msg" style="display:none;"></div>
+
+    <div id="pending-section" style="display:none;">
+      <div class="section-label">⚠️ Pending Review</div>
+      <div id="pending-list"></div>
+    </div>
+
+    <div id="approved-section" style="display:none;">
+      <div class="section-label">✅ Approved Courses</div>
+      <div id="approved-list"></div>
+    </div>
+  </div>
+
+  <!-- Detail view -->
+  <div id="detail">
+    <div class="detail-header">
+      <div>
+        <h2 id="detail-name"></h2>
+        <div class="detail-sub" id="detail-sub"></div>
+      </div>
+      <button class="btn btn-back" onclick="showList()">← Back</button>
+    </div>
+
+    <div id="approve-bar" class="approve-bar" style="display:none;">
+      <p>⚠️ This course is <strong>pending approval</strong>. Review the details below then approve or discard.</p>
+      <button class="btn btn-approve" onclick="approveCourse()">✅ Approve</button>
+      <button class="btn btn-outline" style="border-color:var(--red);color:var(--red);" onclick="discardPending()">🗑 Discard</button>
+    </div>
+
+    <div id="diff-notice" style="display:none;background:rgba(246,173,85,0.08);border:1px solid rgba(246,173,85,0.3);border-radius:var(--radius);padding:0.65rem 1rem;margin-bottom:1rem;font-size:0.85rem;color:var(--amber);">
+      🔶 Cells highlighted in amber have changed from the current approved version.
+    </div>
+
+    <div class="tees-wrap" id="detail-tees"></div>
+    <div class="hole-table-wrap" id="detail-table"></div>
+
+    <div style="margin-top:1.25rem;display:flex;gap:0.75rem;flex-wrap:wrap;">
+      <button id="btn-edit-approved" class="btn btn-edit" style="display:none;" onclick="editApproved()">✏️ Edit this course</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ================================================================
+const WORKER = 'https://leaderboardsync.sw-77d.workers.dev';
+let ADMIN_KEY = '';
+
+// ── Auth ─────────────────────────────────────────────────────────
+async function login() {
+  const key = document.getElementById('auth-key').value.trim();
+  if (!key) return;
+  document.getElementById('auth-error').textContent = '';
+
+  // Quick test — fetch pending list
+  const r = await fetch(WORKER + '/admin/courses/pending', {
+    headers: { 'X-Admin-Key': key }
+  });
+  if (r.status === 401) {
+    document.getElementById('auth-error').textContent = 'Invalid admin key.';
+    return;
+  }
+  if (!r.ok) {
+    document.getElementById('auth-error').textContent = 'Worker error: ' + r.status;
+    return;
+  }
+
+  ADMIN_KEY = key;
+  sessionStorage.setItem('admin_key', key);
+  document.getElementById('auth-gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadCourses();
+}
+
+function logout() {
+  ADMIN_KEY = '';
+  sessionStorage.removeItem('admin_key');
+  location.reload();
+}
+
+// ── Data ──────────────────────────────────────────────────────────
+let allApproved = [];
+let allPending  = [];
+
+async function loadCourses() {
+  try {
+    const [aRes, pRes] = await Promise.all([
+      fetch(WORKER + '/courses?limit=200'),
+      fetch(WORKER + '/admin/courses/pending?limit=200', { headers: { 'X-Admin-Key': ADMIN_KEY } }),
+    ]);
+    if (!aRes.ok || !pRes.ok) throw new Error('Fetch failed');
+    const [aData, pData] = await Promise.all([aRes.json(), pRes.json()]);
+
+    allApproved = (aData.courses ?? []).sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+    allPending  = (pData.courses ?? []).sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+
+    renderList();
+  } catch (e) {
+    document.getElementById('load-msg').style.display = 'none';
+    document.getElementById('load-error').style.display = 'block';
+    document.getElementById('load-error').textContent = 'Failed to load: ' + e.message;
+  }
+}
+
+function renderList(filter = '') {
+  document.getElementById('load-msg').style.display = 'none';
+
+  const q = filter.toLowerCase().trim();
+
+  const filtered_a = q ? allApproved.filter(c =>
+    (c.name??'').toLowerCase().includes(q) ||
+    (c.location??'').toLowerCase().includes(q) ||
+    (c.town??'').toLowerCase().includes(q)
+  ) : allApproved;
+
+  const filtered_p = q ? allPending.filter(c =>
+    (c.name??'').toLowerCase().includes(q) ||
+    (c.location??'').toLowerCase().includes(q) ||
+    (c.town??'').toLowerCase().includes(q)
+  ) : allPending;
+
+  document.getElementById('stat-approved').textContent = allApproved.length;
+  document.getElementById('stat-pending').textContent  = allPending.length;
+  document.getElementById('stat-total').textContent    = allApproved.length + allPending.length;
+
+  // Pending
+  const pendEl = document.getElementById('pending-list');
+  pendEl.innerHTML = '';
+  filtered_p.forEach(c => pendEl.appendChild(courseRow(c, true)));
+  document.getElementById('pending-section').style.display = filtered_p.length ? '' : 'none';
+
+  // Approved
+  const appEl = document.getElementById('approved-list');
+  appEl.innerHTML = '';
+  filtered_a.forEach(c => appEl.appendChild(courseRow(c, false)));
+  document.getElementById('approved-section').style.display = filtered_a.length ? '' : 'none';
+
+  if (!filtered_a.length && !filtered_p.length) {
+    appEl.innerHTML = '<div class="empty">No courses found.</div>';
+    document.getElementById('approved-section').style.display = '';
+  }
+}
+
+function filterCourses(val) { renderList(val); }
+
+function courseRow(c, isPending) {
+  const holeCount = holeCountFor(c);
+  const location  = [c.location, c.town, c.country].filter(Boolean).join(', ');
+  const dateStr   = fmtDate(c.approvedAt ?? c.updatedAt ?? c.submittedAt ?? c.createdAt);
+
+  const row = document.createElement('div');
+  row.className = 'course-row' + (isPending ? ' pending' : '');
+  row.innerHTML = `
+    <div>
+      <div class="course-main">
+        <span class="course-name">${esc(c.name ?? '—')}</span>
+        ${isPending ? '<span class="badge-pending">⚠ PENDING</span>' : ''}
+      </div>
+      <div class="course-meta">
+        <span>${esc(location || 'No location')}</span>
+        <span>${holeCount} holes</span>
+        <span>${dateStr}</span>
+      </div>
+    </div>
+    <button class="btn btn-edit btn-sm" onclick='openCourse(${JSON.stringify(c.id)}, ${isPending})'>Edit</button>
+  `;
+  return row;
+}
+
+// ── Detail view ───────────────────────────────────────────────────
+let _currentCourse  = null;
+let _isPending      = false;
+let _approvedVersion = null; // approved copy when viewing pending
+
+async function openCourse(id, isPending) {
+  _isPending      = isPending;
+  _currentCourse  = null;
+  _approvedVersion = null;
+
+  if (isPending) {
+    _currentCourse = allPending.find(c => c.id === id);
+    // Try to find matching approved version (same sharedId or name match)
+    _approvedVersion = allApproved.find(c => c.id === id || c.name?.toLowerCase() === _currentCourse?.name?.toLowerCase()) ?? null;
+  } else {
+    _currentCourse = allApproved.find(c => c.id === id);
+  }
+
+  if (!_currentCourse) return;
+
+  document.getElementById('list-view').style.display = 'none';
+  document.getElementById('detail').style.display    = '';
+
+  const location = [_currentCourse.location, _currentCourse.town, _currentCourse.country].filter(Boolean).join(', ');
+  const dateStr  = fmtDate(_currentCourse.approvedAt ?? _currentCourse.updatedAt ?? _currentCourse.submittedAt);
+
+  document.getElementById('detail-name').textContent = _currentCourse.name ?? '—';
+  document.getElementById('detail-sub').textContent  =
+    [location, `v${_currentCourse.version ?? 1}`, dateStr].filter(Boolean).join(' · ');
+
+  document.getElementById('approve-bar').style.display     = isPending ? '' : 'none';
+  document.getElementById('btn-edit-approved').style.display = isPending ? 'none' : '';
+  document.getElementById('diff-notice').style.display     = (isPending && _approvedVersion) ? '' : 'none';
+
+  renderTeeCards(_currentCourse.tees ?? []);
+  renderHoleTable(_currentCourse, _approvedVersion);
+}
+
+function showList() {
+  document.getElementById('detail').style.display    = 'none';
+  document.getElementById('list-view').style.display = '';
+}
+
+// ── Tee cards ─────────────────────────────────────────────────────
+function renderTeeCards(tees) {
+  const wrap = document.getElementById('detail-tees');
+  wrap.innerHTML = '';
+  tees.forEach(t => {
+    const yards = totalYards(t.yards);
+    const card = document.createElement('div');
+    card.className = 'tee-card';
+    card.style.borderColor = teeBorderColor(t.color);
+    card.innerHTML = `
+      <div class="tee-name" style="color:${teeTextColor(t.color)}">${esc(t.name ?? 'Tee')} ${colorSwatch(t.color)}</div>
+      <div class="tee-stats">
+        ${t.courseRating != null ? `Course rating: <strong>${t.courseRating}</strong><br>` : ''}
+        ${t.slopeRating  != null ? `Slope rating: <strong>${t.slopeRating}</strong><br>`  : ''}
+        ${yards           > 0    ? `Total yards: <strong>${yards.toLocaleString()}</strong>` : ''}
+      </div>`;
+    wrap.appendChild(card);
+  });
+}
+
+// ── Hole table ────────────────────────────────────────────────────
+function renderHoleTable(course, oldCourse) {
+  const tees = course.tees ?? [];
+  if (!tees.length) { document.getElementById('detail-table').innerHTML = '<div class="empty">No tee data.</div>'; return; }
+
+  const holes = holeCountFor(course);
+  const nums  = Array.from({length: holes}, (_, i) => i + 1);
+  const hasBack = holes === 18;
+
+  // Build column sets for front / back / total
+  const front = nums.slice(0, 9);
+  const back  = hasBack ? nums.slice(9) : [];
+
+  let html = '<table>';
+
+  // Header row — hole numbers
+  html += '<thead><tr><th>Tee</th><th>Row</th>';
+  front.forEach(n => html += `<th>${n}</th>`);
+  html += '<th class="total-cell">Out</th>';
+  if (hasBack) {
+    back.forEach(n => html += `<th>${n}</th>`);
+    html += '<th class="total-cell">In</th><th class="total-cell">Total</th>';
+  }
+  html += '</tr></thead><tbody>';
+
+  tees.forEach((tee, ti) => {
+    const oldTee = oldCourse?.tees?.[ti];
+    const rowspan = 3; // yards, par, SI
+
+    // Yards row
+    html += `<tr>`;
+    html += `<td class="row-label" rowspan="${rowspan}" style="border-right:3px solid ${teeBorderColor(tee.color)}">${esc(tee.name ?? 'Tee')}</td>`;
+    html += `<td class="row-label">Yards</td>`;
+    let frontYards = 0, backYards = 0;
+    front.forEach(n => {
+      const val = tee.yards?.[n-1] ?? '';
+      const old = oldTee?.yards?.[n-1] ?? '';
+      const changed = oldCourse && String(val) !== String(old);
+      frontYards += Number(val) || 0;
+      html += `<td class="${changed ? 'changed' : ''}">${val !== null && val !== '' ? val : '–'}</td>`;
+    });
+    html += `<td class="total-cell">${frontYards || '–'}</td>`;
+    if (hasBack) {
+      back.forEach(n => {
+        const val = tee.yards?.[n-1] ?? '';
+        const old = oldTee?.yards?.[n-1] ?? '';
+        const changed = oldCourse && String(val) !== String(old);
+        backYards += Number(val) || 0;
+        html += `<td class="${changed ? 'changed' : ''}">${val !== null && val !== '' ? val : '–'}</td>`;
+      });
+      html += `<td class="total-cell">${backYards || '–'}</td><td class="total-cell">${(frontYards + backYards) || '–'}</td>`;
+    }
+    html += '</tr>';
+
+    // Par row
+    html += '<tr><td class="row-label">Par</td>';
+    let frontPar = 0, backPar = 0;
+    front.forEach(n => {
+      const val = tee.par?.[n-1] ?? '';
+      const old = oldTee?.par?.[n-1] ?? '';
+      const changed = oldCourse && String(val) !== String(old);
+      frontPar += Number(val) || 0;
+      html += `<td class="${changed ? 'changed' : ''}">${val !== '' && val != null ? val : '–'}</td>`;
+    });
+    html += `<td class="total-cell">${frontPar || '–'}</td>`;
+    if (hasBack) {
+      back.forEach(n => {
+        const val = tee.par?.[n-1] ?? '';
+        const old = oldTee?.par?.[n-1] ?? '';
+        const changed = oldCourse && String(val) !== String(old);
+        backPar += Number(val) || 0;
+        html += `<td class="${changed ? 'changed' : ''}">${val !== '' && val != null ? val : '–'}</td>`;
+      });
+      html += `<td class="total-cell">${backPar || '–'}</td><td class="total-cell">${(frontPar + backPar) || '–'}</td>`;
+    }
+    html += '</tr>';
+
+    // SI row
+    html += '<tr><td class="row-label">SI</td>';
+    front.forEach(n => {
+      const val = tee.si?.[n-1] ?? '';
+      const old = oldTee?.si?.[n-1] ?? '';
+      const changed = oldCourse && String(val) !== String(old);
+      html += `<td class="${changed ? 'changed' : ''}">${val !== '' && val != null ? val : '–'}</td>`;
+    });
+    html += `<td class="total-cell">–</td>`;
+    if (hasBack) {
+      back.forEach(n => {
+        const val = tee.si?.[n-1] ?? '';
+        const old = oldTee?.si?.[n-1] ?? '';
+        const changed = oldCourse && String(val) !== String(old);
+        html += `<td class="${changed ? 'changed' : ''}">${val !== '' && val != null ? val : '–'}</td>`;
+      });
+      html += `<td class="total-cell">–</td><td class="total-cell">–</td>`;
+    }
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('detail-table').innerHTML = html;
+}
+
+// ── Approve / discard ─────────────────────────────────────────────
+async function approveCourse() {
+  if (!_currentCourse) return;
+  const id = _currentCourse.id;
+  const btn = document.querySelector('#approve-bar .btn-approve');
+  btn.disabled = true; btn.textContent = 'Approving…';
+
+  const r = await fetch(`${WORKER}/admin/courses/approve/${id}`, {
+    method:  'POST',
+    headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+    body:    JSON.stringify({}),
+  });
+
+  if (r.ok) {
+    // Move from pending → approved in local data
+    allPending  = allPending.filter(c => c.id !== id);
+    allApproved = [...allApproved, { ..._currentCourse, status: 'approved', approvedAt: new Date().toISOString() }]
+                    .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+    showList();
+    renderList(document.getElementById('search').value);
+  } else {
+    btn.disabled = false; btn.textContent = '✅ Approve';
+    alert('Approve failed: ' + r.status);
+  }
+}
+
+async function discardPending() {
+  if (!_currentCourse || !confirm(`Discard pending submission for "${_currentCourse.name}"?`)) return;
+  const id = _currentCourse.id;
+
+  const r = await fetch(`${WORKER}/admin/courses/approve/${id}`, {
+    method:  'POST',
+    headers: { 'X-Admin-Key': ADMIN_KEY, 'Content-Type': 'application/json' },
+  });
+  // There's no delete route yet, so we just delete the pending key directly
+  // via approve then immediately delete — for now we'll just remove from local view
+  // TODO: add DELETE /admin/courses/pending/:id to worker if needed
+  allPending = allPending.filter(c => c.id !== id);
+  showList();
+  renderList(document.getElementById('search').value);
+}
+
+function editApproved() {
+  // Placeholder — full inline editing to come in next stage
+  alert('Inline editing coming in Stage 9.\n\nFor now use the app to edit and re-submit.');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function holeCountFor(c) {
+  const maxLen = Math.max(...(c.tees ?? []).map(t => Math.max(
+    (t.yards ?? []).filter(v => v != null && v !== '').length,
+    (t.par   ?? []).filter(v => v != null && v !== '').length,
+  )), 0);
+  return maxLen > 9 ? 18 : 9;
+}
+
+function totalYards(arr) {
+  return (arr ?? []).reduce((s, v) => s + (Number(v) || 0), 0);
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function colorSwatch(color) {
+  if (!color) return '';
+  const map = { yellow:'#f6e05e', red:'#fc8181', blue:'#63b3ed', white:'#e2e8f0', black:'#1a202c', green:'#68d391', gold:'#d4af37' };
+  const hex = map[color?.toLowerCase()] ?? color;
+  return `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${hex};border:1px solid rgba(255,255,255,0.2);vertical-align:middle;margin-left:3px;"></span>`;
+}
+
+function teeBorderColor(color) {
+  const map = { yellow:'#f6e05e', red:'#fc8181', blue:'#63b3ed', white:'#555', black:'#888', green:'#68d391', gold:'#d4af37' };
+  return map[color?.toLowerCase()] ?? '#2e3349';
+}
+
+function teeTextColor(color) {
+  const map = { yellow:'#f6e05e', red:'#fc8181', blue:'#63b3ed', white:'#e2e8f0', black:'#aaa', green:'#68d391', gold:'#d4af37' };
+  return map[color?.toLowerCase()] ?? '#e8eaf0';
+}
+
+// ── Auto-login from session storage ──────────────────────────────
+(function init() {
+  const saved = sessionStorage.getItem('admin_key');
+  if (saved) {
+    document.getElementById('auth-key').value = saved;
+    login();
+  }
+})();
+</script>
+</body>
+</html>
