@@ -850,8 +850,11 @@ async function _syncTick() {
   }
 }
 
-// Force-flush current round to Supabase immediately (used at end/abandon)
-async function flushToSupabase() {
+// Persist current round state to the active data provider immediately.
+// Called at round end, abandon and on dirty-flag detection.
+// Previously named flushToSupabase — the underlying call routes to
+// local.js (IndexedDB) when MULTI_USER = false.
+async function _persistNow() {
   if (!roundId || !gameState) return;
   const state = _buildStateToSave();
   if (!state) return;
@@ -8332,15 +8335,15 @@ async function recordHole() {
     if (matchPlayIsOver(gameState.matchScore, played, total) && !gameState.matchDecided) {
       gameState.matchDecided = true;
       showMatchWonModal();
-      // Force-flush to Supabase at match end
-      flushToSupabase().catch(e => console.warn('[sync] flush at match end failed', e));
+      // Persist state at match end
+      _persistNow().catch(e => console.warn('[sync] flush at match end failed', e));
       return;
     }
   }
 
   // Advance UI immediately — no waiting for network
   if (gameState.hole >= (gameState.numHoles ?? 18)) {
-    await flushToSupabase(); // ensure Supabase is up to date before end screen
+    await _persistNow(); // persist state before showing end screen
     showEndRound();
     return;
   }
@@ -10589,7 +10592,7 @@ async function doAbandon(shouldDelete) {
       // Only flush any unsynced dirty state to rounds store before leaving.
       try {
         const local = await idbLoad(targetRoundId);
-        if (local?.dirty) await flushToSupabase();
+        if (local?.dirty) await _persistNow();
       } catch {}
       // Keep lb-active-round pointer for recovery on next open.
       // Do NOT clear active_rounds IDB entry — it is the recovery record.
