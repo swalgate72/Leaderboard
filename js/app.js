@@ -2910,7 +2910,12 @@ function renderNewPlayerTeeTable() {
   // Fields default to empty (--) — user fills them in manually
 }
 
-document.getElementById('game-manual-course-select')?.addEventListener('change', renderNewPlayerTeeTable);
+document.getElementById('game-manual-course-select')?.addEventListener('change', () => {
+  // Skip tee table render when modal is in edit mode (tee section is hidden)
+  const modal = document.getElementById('modal-add-game-player');
+  if (modal?.dataset.friendsMode === '1') return;
+  renderNewPlayerTeeTable();
+});
 
 // Returns an alert string if adding `adding` more players would exceed the format cap, else null.
 // `pending` = friends already ticked in the picker but not yet in setup.players
@@ -2992,7 +2997,7 @@ document.getElementById('modal-add-game-player-close')?.addEventListener('click'
     if (row) row.style.display = '';
   }
   const teeSectionEl = document.getElementById('game-manual-tee-section');
-  if (teeSectionEl) teeSectionEl.style.display = '';
+  if (teeSectionEl) { teeSectionEl.style.display = ''; teeSectionEl.classList.remove('hidden'); }
   const emailFieldEl = document.getElementById('game-manual-email')?.closest('.field');
   if (emailFieldEl) emailFieldEl.style.display = '';
 });
@@ -12795,17 +12800,7 @@ function openEditGuestModal(f) {
       (allCourses ?? []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
     crsSelect.value = f.home_course_id ?? '';
   }
-  renderNewPlayerTeeTable();
-
-  // Pre-fill tee values from stored home_course_handicaps
-  if (f.home_course_handicaps && typeof f.home_course_handicaps === 'object') {
-    setTimeout(() => {
-      Object.entries(f.home_course_handicaps).forEach(([teeName, vals]) => {
-        const crsEl = document.querySelector(`.np-tee-input[data-tee="${teeName}"][data-type="course"]`);
-        if (crsEl && vals?.course != null) crsEl.value = vals.course;
-      });
-    }, 50);
-  }
+  // Do NOT call renderNewPlayerTeeTable() here — tee section is hidden in edit mode
 
   // Update modal title to "Edit Player"
   const titleEl = document.querySelector('#modal-add-game-player .modal-header div');
@@ -12813,7 +12808,7 @@ function openEditGuestModal(f) {
 
   // Hide tee section and email field — not relevant when editing a saved player
   const teeSectionEl = document.getElementById('game-manual-tee-section');
-  if (teeSectionEl) teeSectionEl.style.display = 'none';
+  if (teeSectionEl) { teeSectionEl.style.display = 'none'; teeSectionEl.classList.add('hidden'); }
   const emailFieldEl = document.getElementById('game-manual-email')?.closest('.field');
   if (emailFieldEl) emailFieldEl.style.display = 'none';
 

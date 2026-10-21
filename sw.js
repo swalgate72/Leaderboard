@@ -1,4 +1,4 @@
-// Leaderboard Service Worker  (build 20261021b)
+// Leaderboard Service Worker  (build 20261021c)
 // Handles offline app-shell caching and Web Push notifications.
 //
 // CACHE STRATEGY
@@ -33,7 +33,7 @@
 
 // ── Version — bump this string on every deployment ───────────────────
 // Must match the build tag used in app.js, index.html and the ?v= tags.
-const CACHE_NAME = 'leaderboard-v20261021b';
+const CACHE_NAME = 'leaderboard-v20261021c';
 
 // ── App shell — URLs listed in ESSENTIAL_URLS and OPTIONAL_URLS below ─
 // All versioned ?v= query strings must exactly match index.html and
@@ -119,9 +119,6 @@ async function precache() {
 }
 
 self.addEventListener('install', event => {
-  // TEMPORARY: skipWaiting to force stuck PWAs onto the new version (20261021b).
-  // Remove this line on the next deployment once all clients have updated.
-  self.skipWaiting();
   event.waitUntil(precache());
 });
 
