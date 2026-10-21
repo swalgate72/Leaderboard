@@ -183,22 +183,27 @@ export async function courseSave({ id, name, location, town, country, tees, isDe
 }
 
 // Submit a local course to the shared library pending queue
-export async function courseSubmitToLibrary(courseId) {
+export async function courseSubmitToLibrary(courseId, existingSharedId) {
   const WORKER = 'https://leaderboardsync.sw-77d.workers.dev';
   const course = await coursesStore.get(courseId);
   if (!course) throw new Error('Course not found: ' + courseId);
 
+  const payload = {
+    name:      course.name,
+    location:  course.location,
+    town:      course.town    ?? null,
+    country:   course.country ?? null,
+    tees:      course.tees,
+    submittedAt: new Date().toISOString(),
+  };
+  // If editing an existing library course, include the original sharedId so the
+  // worker can store it as a pending edit against the approved version
+  if (existingSharedId) payload.editOf = existingSharedId;
+
   const resp = await fetch(WORKER + '/courses/submit', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({
-      name:      course.name,
-      location:  course.location,
-      town:      course.town    ?? null,
-      country:   course.country ?? null,
-      tees:      course.tees,
-      submittedAt: new Date().toISOString(),
-    }),
+    body:    JSON.stringify(payload),
   });
   if (!resp.ok) {
     const msg = await resp.text().catch(() => resp.status);

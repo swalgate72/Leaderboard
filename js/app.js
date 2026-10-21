@@ -13536,6 +13536,51 @@ function openCourseWizard(courseId) {
     cwiz.name = ''; cwiz.location = '';
   }
 
+  // Ensure save button shows normal label (may have been changed by library-edit flow)
+  const saveBtnNormal = document.getElementById('cwiz-save-btn');
+  if (saveBtnNormal) saveBtnNormal.textContent = '✅ SAVE COURSE';
+  cwiz.libraryEdit = false; cwiz.libraryId = null;
+
+  renderCwizTeesList();
+  document.getElementById('modal-course-wizard').classList.add('open');
+  show('cwiz-phase-name'); hide('cwiz-phase-holes'); hide('cwiz-phase-review');
+  updateCwizStartBtn();
+}
+
+// ── Open course wizard pre-populated from a Course Library entry (suggest-edit flow) ──
+function _openCourseWizardFromLibrary(course, libraryId) {
+  // Mark this as a library-edit so the save handler submits rather than stores locally
+  cwiz.courseId    = null;          // no local ID yet
+  cwiz.libraryEdit = true;
+  cwiz.libraryId   = libraryId;
+  cwiz.returnTo    = 'profile';     // return to profile after submit
+  cwiz.name        = course.name ?? '';
+  cwiz.location    = course.location ?? '';
+
+  document.getElementById('cwiz-name').value     = cwiz.name;
+  document.getElementById('cwiz-location').value = cwiz.location;
+  document.getElementById('cwiz-title').textContent = '✏️ Suggest Edit';
+
+  // Pre-populate tees from library course object
+  cwiz.tees = (course.tees ?? []).map(t => ({
+    name:         t.name  ?? '',
+    color:        t.color ?? '#888888',
+    courseRating: t.courseRating ?? null,
+    slopeRating:  t.slopeRating  ?? null,
+    yards:        t.yards        ?? Array(18).fill(null),
+  }));
+
+  // Pre-populate holes (par + SI per tee) from first tee's par array
+  cwiz.holes = Array.from({ length: 18 }, (_, i) => {
+    const si = {};
+    (course.tees ?? []).forEach(t => { si[t.name] = (t.si ?? [])[i] ?? 1; });
+    return { par: (course.tees?.[0]?.par ?? [])[i] ?? 4, si };
+  });
+
+  // Relabel save button for the suggest-edit context
+  const saveBtn = document.getElementById('cwiz-save-btn');
+  if (saveBtn) saveBtn.textContent = '📤 SUBMIT EDIT';
+
   renderCwizTeesList();
   document.getElementById('modal-course-wizard').classList.add('open');
   show('cwiz-phase-name'); hide('cwiz-phase-holes'); hide('cwiz-phase-review');
@@ -13755,6 +13800,28 @@ document.getElementById('cwiz-save-btn')?.addEventListener('click', async () => 
       si:           cwiz.holes.map(h => h.si[t.name] ?? 1),
       par:          cwiz.holes.map(h => h.par),
     }));
+    if (cwiz.libraryEdit && cwiz.libraryId) {
+      // Suggest-edit flow: save temporarily, submit as pending, then delete local copy
+      const tmpId = await courseSave({
+        id: undefined, name: cwiz.name, location: cwiz.location,
+        tees, isDefault: false, createdBy: currentUser.id,
+      });
+      try {
+        await courseSubmitToLibrary(tmpId, cwiz.libraryId);
+      } finally {
+        // Remove the temporary local copy regardless of submission outcome
+        try { await courseDelete(tmpId); } catch (_) {}
+        allCourses = await coursesLoadAll();
+      }
+      document.getElementById('modal-course-wizard').classList.remove('open');
+      cwiz.libraryEdit = false; cwiz.libraryId = null;
+      const toast = document.createElement('div');
+      toast.textContent = '✅ Edit submitted for review — thanks!';
+      toast.style.cssText = 'position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:var(--green,#38a169);color:#fff;padding:0.7rem 1.3rem;border-radius:0.6rem;font-size:0.85rem;z-index:9999;pointer-events:none;';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3500);
+      return;
+    }
     const savedId = await courseSave({
       id: cwiz.courseId ?? undefined, name: cwiz.name, location: cwiz.location,
       tees, isDefault: false, createdBy: currentUser.id,
@@ -13776,7 +13843,13 @@ document.getElementById('cwiz-save-btn')?.addEventListener('click', async () => 
   finally { btn.disabled = false; btn.textContent = '✅ SAVE COURSE'; }
 });
 
-document.getElementById('cwiz-cancel')?.addEventListener('click', () => document.getElementById('modal-course-wizard').classList.remove('open'));
+document.getElementById('cwiz-cancel')?.addEventListener('click', () => {
+  document.getElementById('modal-course-wizard').classList.remove('open');
+  // Reset any library-edit state so the button is clean for next open
+  cwiz.libraryEdit = false; cwiz.libraryId = null;
+  const saveBtn = document.getElementById('cwiz-save-btn');
+  if (saveBtn) saveBtn.textContent = '✅ SAVE COURSE';
+});
 
 // ── Share-to-library prompt (shown after saving a user-created course) ──
 function _promptShareToLibrary(courseId) {
@@ -13859,17 +13932,25 @@ function _renderExploreResults(courses) {
   list.innerHTML = courses.map(c => {
     const added    = localSharedIds.has(c.id);
     const teeCount = (c.tees ?? []).length;
+    const holes    = Math.max(...(c.tees ?? []).map(t => (t.par ?? []).filter(v => v != null && v !== '').length), 0);
+    const location = [c.location, c.town, c.country].filter(Boolean).join(', ');
     return `<div class="explore-course-card" style="background:var(--surface2);border:1px solid var(--border);border-radius:0.6rem;padding:0.75rem 0.85rem;margin-bottom:0.65rem;">
       <div style="display:flex;align-items:flex-start;gap:0.5rem;">
         <div style="flex:1;">
           <div style="font-weight:700;font-size:0.95rem;">${c.name}</div>
-          <div style="font-size:0.7rem;color:var(--muted);margin-top:2px;">${c.location ?? ''}${c.country ? ' · ' + c.country : ''}</div>
-          <div style="font-size:0.65rem;color:var(--muted);margin-top:3px;">${teeCount} tee${teeCount === 1 ? '' : 's'}</div>
+          <div style="font-size:0.75rem;color:var(--muted);margin-top:2px;">${location || ''}</div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-top:3px;">${holes || '?'} holes · ${teeCount} tee${teeCount === 1 ? '' : 's'}</div>
         </div>
-        <button class="btn btn-sm explore-add-btn" data-sid="${c.id}"
-          ${added ? 'disabled style="opacity:0.5;"' : ''}>
-          ${added ? '✓ Added' : '+ Add'}
-        </button>
+        <div style="display:flex;flex-direction:column;gap:0.35rem;align-items:flex-end;">
+          <button class="btn btn-sm explore-add-btn" data-sid="${c.id}"
+            ${added ? 'disabled style="opacity:0.5;"' : 'style="background:var(--gold);color:#111;"'}>
+            ${added ? '✓ My Courses' : '＋ My Courses'}
+          </button>
+          <button class="btn btn-sm explore-edit-btn" data-sid="${c.id}"
+            style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:0.75rem;">
+            ✏️ Suggest Edit
+          </button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -13889,12 +13970,23 @@ function _renderExploreResults(courses) {
           sharedId: course.id, version: course.version ?? 1,
         });
         allCourses = await coursesLoadAll();
-        btn.textContent = '✓ Added';
+        btn.textContent = '✓ My Courses';
         btn.style.opacity = '0.5';
       } catch (e) {
-        btn.disabled = false; btn.textContent = '+ Add';
+        btn.disabled = false; btn.textContent = '＋ My Courses';
         alert('Could not add course: ' + e.message);
       }
+    });
+  });
+
+  list.querySelectorAll('.explore-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sid    = btn.dataset.sid;
+      const course = courses.find(x => x.id === sid);
+      if (!course) return;
+      // Pre-populate the course wizard from the library course, flag for pending submission
+      document.getElementById('modal-explore-library')?.classList.remove('open');
+      _openCourseWizardFromLibrary(course, sid);
     });
   });
 }
