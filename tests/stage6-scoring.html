@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Leaderboard — Stage 6 Scoring Unit Tests</title>
+<style>
+  body { font-family: monospace; background: #1a1a1a; color: #e0e0e0; padding: 1rem; }
+  h1 { color: #f0c040; }
+  h2 { color: #aaa; margin-top: 1.5rem; font-size: 0.9rem; border-bottom: 1px solid #333; padding-bottom: 0.3rem; }
+  .pass { color: #2ecc71; }
+  .fail { color: #e74c3c; }
+  .skip { color: #888; }
+  .summary { margin-top: 1.5rem; font-size: 1.1rem; font-weight: bold; }
+  .section-total { margin-top: 0.3rem; color: #ccc; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<h1>Leaderboard — Stage 6 Scoring Unit Tests</h1>
+<p>Tests pure functions in <code>game.js</code>. File is never modified — these tests verify existing behaviour.</p>
+<p id="status">Running…</p>
+<div id="results"></div>
+<div class="summary" id="summary"></div>
+
+<script type="module">
+// ================================================================
+// IMPORT game.js — never modify this file
+// ================================================================
+import {
+  strokesOnHole,
+  indivStrokesOnHole,
+  calcHandicaps,
+  stablefordPoints,
+  calcStrokeHole,
+  matchPlayHoleResult,
+  matchPlayStatus,
+  matchPlayIsOver,
+  split6Points,
+  split6RunningTotals,
+  skinsHoleWinner,
+  skinsProcessHole,
+  itcHoleWinner,
+  itcProcessHole,
+  betterBallPairNet,
+  csmPairPoints,
+  foursomedPairHandicap,
+  greensomesPairHandicap,
+  betterBallExtras,
+  best2HolePoints,
+  texasTeamHandicap,
+  buildInitialState,
+  processHole,
+} from '../game.js?v=20261020av';
+
+// ================================================================
+// TEST HARNESS
+// ================================================================
+let totalPassed = 0, totalFailed = 0;
+const resultsEl = document.getElementById('results');
+let _currentSection = null;
+let _sectionPassed = 0, _sectionFailed = 0;
+
+function section(title) {
+  if (_currentSection) {
+    resultsEl.innerHTML += `<div class="section-total">${_sectionPassed} pass · ${_sectionFailed} fail in ${_currentSection}</div>`;
+    _sectionPassed = 0; _sectionFailed = 0;
+  }
+  _currentSection = title;
+  resultsEl.innerHTML += `<h2>${title}</h2>`;
+}
+
+function eq(actual, expected) {
+  if (typeof expected === 'object' && expected !== null) {
+    return JSON.stringify(actual) === JSON.stringify(expected);
+  }
+  return actual === expected;
+}
+
+function log(id, ok, detail) {
+  resultsEl.innerHTML += `<div class="${ok?'pass':'fail'}">${ok?'✓':'✗'} ${id}: ${detail}</div>`;
+  ok ? (totalPassed++, _sectionPassed++) : (totalFailed++, _sectionFailed++);
+}
+
+function assert(id, actual, expected, detail = '') {
+  const ok = eq(actual, expected);
+  log(id, ok, ok
+    ? (detail || `= ${JSON.stringify(expected)}`)
+    : `FAIL — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}${detail ? ' ('+detail+')' : ''}`);
+}
+
+// ================================================================
+// S1 — strokesOnHole / indivStrokesOnHole
+// ================================================================
+section('S1 — strokesOnHole');
+
+// matchHandicap 0 → never gets a shot
+assert('S1-01', strokesOnHole(0, 1),  0, 'hcp 0 vs SI 1');
+assert('S1-02', strokesOnHole(0, 18), 0, 'hcp 0 vs SI 18');
+
+// matchHandicap >= strokeIndex → 1 shot
+assert('S1-03', strokesOnHole(1, 1),  1, 'hcp=SI → 1 shot');
+assert('S1-04', strokesOnHole(5, 3),  1, 'hcp 5, SI 3');
+assert('S1-05', strokesOnHole(18, 18), 1, 'hcp 18, SI 18');
+
+// matchHandicap < strokeIndex → 0 shots
+assert('S1-06', strokesOnHole(4, 5),  0, 'hcp below SI');
+assert('S1-07', strokesOnHole(2, 5),  0, 'hcp 2, SI 5');
+
+// matchHandicap >= strokeIndex + 18 → 2 shots (only possible for 36-hcp-diff)
+assert('S1-08', strokesOnHole(36, 1),  2, 'hcp 36 SI 1 → 2 shots');
+assert('S1-09', strokesOnHole(19, 1),  2, 'hcp 19 SI 1 → 2 shots');
+assert('S1-10', strokesOnHole(19, 2),  1, 'hcp 19 SI 2 → 1 shot (not 2 because 19 < 20)');
+
+// indivStrokesOnHole — same logic, different field name
+assert('S1-11', indivStrokesOnHole(18, 18), 1, 'playing 18, SI 18');
+assert('S1-12', indivStrokesOnHole(0, 1),   0, 'playing 0');
+assert('S1-13', indivStrokesOnHole(20, 2),  2, 'playing 20 SI 2 → 2 shots');
+assert('S1-14', indivStrokesOnHole(28, 10), 2, 'playing 28 SI 10 → 2 shots (28 >= 28)');
+
+// ================================================================
+// S2 — calcHandicaps
+// ================================================================
+section('S2 — calcHandicaps');
+
+// All equal → matchHandicap all 0
+const h2a = calcHandicaps([10, 10, 10], 100);
+assert('S2-01', h2a[0].playingHandicap, 10, 'equal index all 10');
+assert('S2-02', h2a[0].matchHandicap,    0, 'equal → all matchHcp 0');
+assert('S2-03', h2a[2].matchHandicap,    0);
+
+// Different → lowest gets 0, others get difference
+const h2b = calcHandicaps([20, 10], 100);
+assert('S2-04', h2b[0].playingHandicap, 20);
+assert('S2-05', h2b[1].playingHandicap, 10);
+assert('S2-06', h2b[0].matchHandicap,  10, 'higher player gets 10 shots');
+assert('S2-07', h2b[1].matchHandicap,   0, 'lower player off scratch');
+
+// Allowance 75%
+const h2c = calcHandicaps([20, 10], 75);
+assert('S2-08', h2c[0].playingHandicap, 15, 'round(20*0.75)=15');
+assert('S2-09', h2c[1].playingHandicap,  8, 'round(10*0.75)=8 (rounds 7.5→8)');
+assert('S2-10', h2c[0].matchHandicap,    7, '15-8=7');
+assert('S2-11', h2c[1].matchHandicap,    0);
+
+// 4 players
+const h2d = calcHandicaps([5, 12, 18, 28], 100);
+assert('S2-12', h2d[0].matchHandicap,  0,  'lowest = 0');
+assert('S2-13', h2d[1].matchHandicap,  7,  '12-5=7');
+assert('S2-14', h2d[2].matchHandicap, 13, '18-5=13');
+assert('S2-15', h2d[3].matchHandicap, 23, '28-5=23');
+
+// ================================================================
+// S3 — stablefordPoints
+// ================================================================
+section('S3 — stablefordPoints');
+
+// Points table: diff = net - par
+// >=+2 → 0, +1 → 1, 0 → 2, -1 → 3, -2 → 4, <=-3 → 5
+
+// Par 4, no extra shots
+assert('S3-01', stablefordPoints(7, 0, 4),  0, 'triple bogey → 0');
+assert('S3-02', stablefordPoints(6, 0, 4),  0, 'double bogey → 0');
+assert('S3-03', stablefordPoints(5, 0, 4),  1, 'bogey → 1');
+assert('S3-04', stablefordPoints(4, 0, 4),  2, 'par → 2');
+assert('S3-05', stablefordPoints(3, 0, 4),  3, 'birdie → 3');
+assert('S3-06', stablefordPoints(2, 0, 4),  4, 'eagle → 4');
+assert('S3-07', stablefordPoints(1, 0, 4),  5, 'hole-in-one on par4 → 5');
+
+// With extra shots
+assert('S3-08', stablefordPoints(5, 1, 4),  2, 'gross 5, 1 shot, par 4 → net 4 = par → 2pts');
+assert('S3-09', stablefordPoints(4, 1, 4),  3, 'gross 4, 1 shot → net 3 = birdie → 3pts');
+assert('S3-10', stablefordPoints(3, 1, 4),  4, 'gross 3, 1 shot → net 2 = eagle → 4pts');
+assert('S3-11', stablefordPoints(4, 2, 4),  4, 'gross 4, 2 shots → net 2 = eagle → 4pts');
+assert('S3-12', stablefordPoints(6, 1, 4),  1, 'gross 6, 1 shot → net 5 = bogey → 1pt');
+assert('S3-13', stablefordPoints(7, 1, 4),  0, 'gross 7, 1 shot → net 6 = dbl bogey → 0pts');
+
+// Par 3
+assert('S3-14', stablefordPoints(3, 0, 3),  2, 'par 3, par → 2');
+assert('S3-15', stablefordPoints(1, 0, 3),  5, 'hole in one on par 3 → 5');
+
+// Par 5
+assert('S3-16', stablefordPoints(5, 0, 5),  2, 'par 5, eagle (net 5) → 2');
+assert('S3-17', stablefordPoints(3, 0, 5),  4, 'par 5, eagle → 4');
+
+// ================================================================
+// S4 — calcStrokeHole
+// ================================================================
+section('S4 — calcStrokeHole');
+
+assert('S4-01', calcStrokeHole(5, 1), 4, 'gross 5, 1 shot → net 4');
+assert('S4-02', calcStrokeHole(4, 0), 4, 'no shots → same');
+assert('S4-03', calcStrokeHole(3, 2), 1, 'gross 3, 2 shots → net 1');
+
+// ================================================================
+// S5 — matchPlayHoleResult
+// ================================================================
+section('S5 — matchPlayHoleResult');
+
+assert('S5-01', matchPlayHoleResult(3, 4),  1, 'A wins (lower is better)');
+assert('S5-02', matchPlayHoleResult(4, 3), -1, 'B wins');
+assert('S5-03', matchPlayHoleResult(4, 4),  0, 'halved');
+assert('S5-04', matchPlayHoleResult(2, 5),  1, 'A wins convincingly');
+assert('S5-05', matchPlayHoleResult(5, 2), -1, 'B wins convincingly');
+
+// ================================================================
+// S6 — matchPlayStatus / matchPlayIsOver
+// ================================================================
+section('S6 — matchPlayStatus / matchPlayIsOver');
+
+// All square mid-round
+const ms1 = matchPlayStatus(0, 9, 18);
+assert('S6-01', ms1.text,   'ALL SQ', 'all square');
+assert('S6-02', ms1.leader, null);
+assert('S6-03', ms1.detail, '9 to play');
+
+// 2 UP after 14, 4 to play
+const ms2 = matchPlayStatus(2, 14, 18);
+assert('S6-04', ms2.text,   '2 UP');
+assert('S6-05', ms2.leader, 'A');
+assert('S6-06', ms2.detail, '4 to play');
+
+// Dormie
+const ms3 = matchPlayStatus(3, 15, 18);
+assert('S6-07', ms3.text,   'DORMIE 3', '3 up 3 to play');
+assert('S6-08', ms3.leader, 'A');
+
+// Match won (3&2)
+const ms4 = matchPlayStatus(3, 16, 18);
+assert('S6-09', ms4.text,   '3&2', '3 up 2 to play = won');
+assert('S6-10', ms4.leader, 'A');
+
+// B winning
+const ms5 = matchPlayStatus(-2, 14, 18);
+assert('S6-11', ms5.leader, 'B');
+assert('S6-12', ms5.text,   '2 UP');
+
+// All square after all holes
+const ms6 = matchPlayStatus(0, 18, 18);
+assert('S6-13', ms6.detail, 'All square');
+
+// After last hole, winner by 1
+const ms7 = matchPlayStatus(1, 18, 18);
+assert('S6-14', ms7.text,   '1 UP');
+assert('S6-15', ms7.detail, 'Player A wins');
+
+// matchPlayIsOver
+assert('S6-16', matchPlayIsOver(3, 16, 18), true,  '3 up 2 to play → over');
+assert('S6-17', matchPlayIsOver(3, 15, 18), false, '3 up 3 to play → dormie, not over');
+assert('S6-18', matchPlayIsOver(2, 14, 18), false, '2 up 4 to play → not over');
+assert('S6-19', matchPlayIsOver(0, 9, 18),  false, 'all square → not over');
+assert('S6-20', matchPlayIsOver(1, 18, 18), true,  '1 up after all 18 holes → over (holesLeft=0, 1>0)');
+
+// ================================================================
+// S7 — split6Points
+// ================================================================
+section('S7 — split6Points');
+
+// All different — winner gets 4, middle 2, worst 0
+assert('S7-01', split6Points([3, 4, 5]), [4, 2, 0], 'A wins clear');
+assert('S7-02', split6Points([5, 3, 4]), [0, 4, 2], 'B wins clear');
+assert('S7-03', split6Points([5, 4, 3]), [0, 2, 4], 'C wins clear');
+
+// All tied
+assert('S7-04', split6Points([4, 4, 4]), [2, 2, 2], 'all tied');
+
+// Two tied for best (share 3 each), worst gets 0
+assert('S7-05', split6Points([3, 3, 5]), [3, 3, 0], 'A&B tied best');
+assert('S7-06', split6Points([3, 5, 3]), [3, 0, 3], 'A&C tied best');
+assert('S7-07', split6Points([5, 3, 3]), [0, 3, 3], 'B&C tied best');
+
+// Two tied for worst (best gets 4, two worst share 1 each)
+assert('S7-08', split6Points([3, 5, 5]), [4, 1, 1], 'A wins, B&C tied worst');
+assert('S7-09', split6Points([5, 3, 5]), [1, 4, 1], 'B wins, A&C tied worst');
+assert('S7-10', split6Points([5, 5, 3]), [1, 1, 4], 'C wins, A&B tied worst');
+
+// ================================================================
+// S8 — split6RunningTotals
+// ================================================================
+section('S8 — split6RunningTotals');
+
+// Empty log → zeros
+assert('S8-01', split6RunningTotals([]), [0, 0, 0], 'empty log');
+
+// One hole, A wins clear: raw [4,2,0], min=0 → [4,2,0]
+const log1 = [{ holePts: [4, 2, 0] }];
+assert('S8-02', split6RunningTotals(log1), [4, 2, 0]);
+
+// Two holes: A wins then C wins
+// After hole 1: raw [4,2,0] → [4,2,0]
+// After hole 2: raw [4+0, 2+2, 0+4] = [4,4,4] → min=4 → [0,0,0]
+const log2 = [{ holePts: [4, 2, 0] }, { holePts: [0, 2, 4] }];
+assert('S8-03', split6RunningTotals(log2), [0, 0, 0], 'A then C wins → level');
+
+// ================================================================
+// S9 — skinsHoleWinner / skinsProcessHole
+// ================================================================
+section('S9 — Skins');
+
+// skinsHoleWinner
+assert('S9-01', skinsHoleWinner([4, 5, 6], [1, 0, 0]),  0, 'A nets 3, wins');
+assert('S9-02', skinsHoleWinner([4, 3, 5], [0, 0, 0]),  1, 'B gross 3, wins');
+assert('S9-03', skinsHoleWinner([4, 4, 5], [0, 0, 0]), -1, 'A&B tied, halved');
+assert('S9-04', skinsHoleWinner([4, 4, 4], [0, 0, 0]), -1, 'all tied');
+// A nets 4 (5-1), B nets 4 (4-0) — tie → -1
+assert('S9-05', skinsHoleWinner([5, 4, 6], [1, 0, 0]), -1, 'A nets 4, B nets 4 → halved');
+assert('S9-06', skinsHoleWinner([3, 4, 4], [0, 0, 0]),  0, 'A gross 3 wins outright');
+
+// skinsProcessHole — winner takes pot
+const sp1 = skinsProcessHole({ skins: [0, 0, 0], pot: 1, grosses: [3, 4, 5], extras: [0, 0, 0] });
+assert('S9-07', sp1.winner, 0, 'A wins');
+assert('S9-08', sp1.skins,  [1, 0, 0], 'A gets skin');
+assert('S9-09', sp1.pot,    1, 'pot resets to 1');
+assert('S9-10', sp1.potWon, 1);
+
+// Halved — pot accumulates
+const sp2 = skinsProcessHole({ skins: [0, 0, 0], pot: 1, grosses: [4, 4, 5], extras: [0, 0, 0] });
+assert('S9-11', sp2.winner, -1, 'halved');
+assert('S9-12', sp2.pot,     2, 'pot grows to 2');
+assert('S9-13', sp2.skins, [0, 0, 0], 'nobody wins a skin');
+
+// Next hole someone wins accumulated pot
+const sp3 = skinsProcessHole({ skins: [0, 0, 0], pot: 3, grosses: [3, 5, 5], extras: [0, 0, 0] });
+assert('S9-14', sp3.winner, 0, 'A wins');
+assert('S9-15', sp3.skins,  [3, 0, 0], 'A wins 3 skins');
+assert('S9-16', sp3.pot,    1, 'pot resets');
+
+// ================================================================
+// S10 — itcHoleWinner / itcProcessHole
+// ================================================================
+section('S10 — In The Chair');
+
+assert('S10-01', itcHoleWinner([4, 5, 6], [0, 0, 0]),  0, 'A wins');
+assert('S10-02', itcHoleWinner([5, 4, 6], [0, 0, 0]),  1, 'B wins');
+assert('S10-03', itcHoleWinner([4, 4, 6], [0, 0, 0]), -1, 'tied');
+
+// No chair → A wins hole → A takes chair, no point
+const itc1 = itcProcessHole({ chair: null, grosses: [4, 5, 6], extras: [0, 0, 0] });
+assert('S10-04', itc1.winner,       0,    'A wins hole');
+assert('S10-05', itc1.newChair,     0,    'A takes chair');
+assert('S10-06', itc1.pointScoredBy, null, 'no point — first to chair');
+
+// A in chair, A wins again → A scores a point
+const itc2 = itcProcessHole({ chair: 0, grosses: [4, 5, 6], extras: [0, 0, 0] });
+assert('S10-07', itc2.pointScoredBy, 0, 'A defends chair → scores');
+assert('S10-08', itc2.newChair,      0, 'A stays in chair');
+
+// A in chair, B wins → B takes chair, no point
+const itc3 = itcProcessHole({ chair: 0, grosses: [5, 4, 6], extras: [0, 0, 0] });
+assert('S10-09', itc3.pointScoredBy, null, 'chair changes, no point');
+assert('S10-10', itc3.newChair,       1,   'B takes chair');
+
+// Halved — chair empties
+const itc4 = itcProcessHole({ chair: 0, grosses: [4, 4, 6], extras: [0, 0, 0] });
+assert('S10-11', itc4.winner,   -1,  'halved');
+assert('S10-12', itc4.newChair, null, 'chair empties');
+
+// ================================================================
+// S11 — betterBallPairNet / csmPairPoints
+// ================================================================
+section('S11 — Better Ball / CSM');
+
+// betterBallPairNet: pair [0,1], each gets their match handicap shots
+// SI array: [1..18] in order
+const si18 = Array.from({ length: 18 }, (_, i) => i + 1);
+const mh4  = [0, 5, 0, 3]; // matchHandicaps for 4 players
+
+// Hole 0 (SI=1): player 1 (mh=5) gets 1 shot; player 0 (mh=0) gets 0
+// grosses [5,5,5,5]: player 0 net=5, player 1 net=4 → best is player 1
+const bb1 = betterBallPairNet([0, 1], [5, 5, 5, 5], mh4, si18, 0);
+assert('S11-01', bb1.net, 4, 'player 1 gets shot, net=4');
+assert('S11-02', bb1.pi,  1, 'player 1 is best');
+
+// Both equal net → returns first (lower index)
+const bb2 = betterBallPairNet([0, 1], [5, 6, 5, 5], mh4, si18, 0);
+// player 0: net=5 (no shot), player 1: net=5 (6-1). Equal → first in array
+assert('S11-03', bb2.net, 5, 'tied, returns min net');
+
+// csmPairPoints: sum stableford pts for a pair
+// Par 4, SI 1, player 0 mh=0 (0 shots), player 1 mh=5 (1 shot)
+// grosses [5,5,...]: player 0 net=5→bogey→1pt, player 1 net=4→par→2pts → total 3
+const csm1 = csmPairPoints([0, 1], [5, 5, 5, 5], mh4, si18, 0, 4);
+assert('S11-04', csm1, 3, 'pair A: 1+2=3 stableford pts');
+
+// ================================================================
+// S12 — foursomedPairHandicap / greensomesPairHandicap
+// ================================================================
+section('S12 — Pair Handicaps');
+
+// Foursomes: average, rounded
+assert('S12-01', foursomedPairHandicap(10, 10), 10, 'equal');
+assert('S12-02', foursomedPairHandicap(10, 12), 11, 'average 11');
+assert('S12-03', foursomedPairHandicap(9,  12), 11, 'round(10.5)=11 (rounds half up? JS Math.round)');
+assert('S12-04', foursomedPairHandicap(0,  0),   0);
+
+// Greensomes: 0.6*lower + 0.4*higher (which equals lower + 0.6*(higher-lower))
+// lower=10, higher=18: 10 + 0.6*8 = 10+4.8 = 14.8 → round = 15
+assert('S12-05', greensomesPairHandicap(10, 18), 15, '0.6*lower+0.4*higher variant');
+// Equal: 10+0.6*0 = 10
+assert('S12-06', greensomesPairHandicap(10, 10), 10);
+// lower=5, higher=15: 5 + 0.6*10 = 11
+assert('S12-07', greensomesPairHandicap(5, 15), 11);
+
+// ================================================================
+// S13 — betterBallExtras / best2HolePoints / texasTeamHandicap
+// ================================================================
+section('S13 — Utility functions');
+
+// betterBallExtras: returns shots per player in pair for a single SI
+// betterBallExtras(pairIndexes, matchHandicaps, si) where si is a single number
+const bba = betterBallExtras([0, 1], [0, 5], 1); // SI=1, mh=[0,5]
+// player 0: mh=0 → 0 shots (0 < 1). player 1: mh=5 → 1 shot (5>=1)
+assert('S13-01', bba, [0, 1], 'shots for each player in pair');
+
+// best2HolePoints
+const b2a = best2HolePoints([4, 3, 2, 1]);
+assert('S13-02', b2a.points, 7, 'best two: 4+3=7');
+
+const b2b = best2HolePoints([2, 2, 2, 2]);
+assert('S13-03', b2b.points, 4, 'best two of equal: 2+2=4');
+
+const b2c = best2HolePoints([0, 0, 4, 2]);
+assert('S13-04', b2c.points, 6, 'C 4, D 2 = 6');
+
+// texasTeamHandicap
+// Average mode: [10,20] → avg=15, allowance 100% → ceil(15)=15
+assert('S13-05', texasTeamHandicap([10, 20], 'average', 100), 15, 'average mode');
+// Average mode with 75%: 15*0.75=11.25 → ceil=12
+assert('S13-06', texasTeamHandicap([10, 20], 'average', 75), 12);
+// Weighted mode: [5,10,15,20] sorted ascending [5,10,15,20]
+// 5*0.25 + 10*0.20 + 15*0.15 + 20*0.10 = 1.25+2+2.25+2 = 7.5 → ceil=8
+assert('S13-07', texasTeamHandicap([5, 10, 15, 20], 'weighted', 100), 8);
+
+// ================================================================
+// S14 — processHole (stableford, full 3-hole simulation)
+// ================================================================
+section('S14 — processHole (stableford)');
+
+// Two players: hcp 0 and 18, par [4,3,5,...], SI [1,2,3,...]
+const si = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18];
+const par = [4,3,5,4,4,4,4,3,4,4,4,4,4,3,4,4,4,5];
+const state0 = buildInitialState({
+  format:           'stableford',
+  names:            ['Alice', 'Bob'],
+  handicapIndexes:  [0, 18],
+  playingHandicaps: [0, 18],
+  matchHandicaps:   [0, 18],
+  allowancePct:     100,
+  si, par,
+  numHoles:         18,
+  holeOffset:       0,
+  courseName:       'Test',
+  teeName:          'White',
+});
+
+// Hole 1 (index 0): SI=1, par=4. Alice (hcp 0) no shots, Bob (hcp 18) gets 1 shot.
+// Alice gross 4 → net 4 → par → 2pts. Bob gross 5 → net 4 → par → 2pts.
+let state = processHole(state0, [4, 5]);
+assert('S14-01', state.totals[0], 2, 'Alice 2pts after hole 1');
+assert('S14-02', state.totals[1], 2, 'Bob 2pts after hole 1');
+assert('S14-03', state.hole, 1, 'hole advanced to 1');
+assert('S14-04', state.log.length, 1, 'log has 1 entry');
+
+// Hole 2 (index 1): SI=2, par=3. Alice no shots, Bob gets 1 shot (hcp 18 >= SI 2).
+// Alice gross 3 → net 3 → par → 2pts. Bob gross 2 → net 1 → eagle → 5pts.
+state = processHole(state, [3, 2]);
+assert('S14-05', state.totals[0], 4, 'Alice 4pts after 2 holes');
+assert('S14-06', state.totals[1], 7, 'Bob 7pts after 2 holes (2+5)');
+assert('S14-07', state.hole, 2);
+assert('S14-08', state.log.length, 2);
+
+// Hole 3 (index 2): SI=3, par=5. Bob gets 1 shot.
+// Alice gross 7 → net 7 → double bogey → 0pts. Bob gross 6 → net 5 → par → 2pts.
+state = processHole(state, [7, 6]);
+assert('S14-09', state.totals[0], 4,  'Alice still 4 (0pts on hole 3)');
+assert('S14-10', state.totals[1], 9,  'Bob 9pts after 3 holes');
+
+// ================================================================
+// S15 — processHole (match play)
+// ================================================================
+section('S15 — processHole (match play)');
+
+const mState0 = buildInitialState({
+  format:           'match',
+  names:            ['A', 'B'],
+  handicapIndexes:  [10, 20],
+  playingHandicaps: [10, 20],
+  matchHandicaps:   [0, 10],
+  allowancePct:     100,
+  si, par,
+  numHoles: 18,
+  holeOffset: 0,
+  courseName: 'Test',
+  teeName: 'White',
+});
+
+// Hole 1: SI=1, par=4. A: mh=0 → 0 shots, net=gross. B: mh=10 → 1 shot (10>=1).
+// A gross 4 → net 4. B gross 5 → net 4. Halved.
+let mState = processHole(mState0, [4, 5]);
+assert('S15-01', mState.matchScore, 0, 'halved → still 0');
+assert('S15-02', mState.log[0].result, 0, 'hole result 0 (halved)');
+
+// Hole 2: SI=2. A: 0 shots. B: 1 shot (10>=2).
+// A gross 3 → net 3. B gross 5 → net 4. A wins hole.
+mState = processHole(mState, [3, 5]);
+assert('S15-03', mState.matchScore, 1, 'A 1UP');
+assert('S15-04', mState.log[1].result, 1);
+
+// Hole 3: SI=3. A: 0 shots. B: 1 shot.
+// A gross 5 → net 5. B gross 5 → net 4. B wins.
+mState = processHole(mState, [5, 5]);
+assert('S15-05', mState.matchScore, 0, 'back to all square');
+
+// ================================================================
+// S16 — processHole (stroke play)
+// ================================================================
+section('S16 — processHole (stroke play)');
+
+const sState0 = buildInitialState({
+  format:           'stroke',
+  names:            ['A', 'B'],
+  handicapIndexes:  [0, 18],
+  playingHandicaps: [0, 18],
+  matchHandicaps:   [0, 18],
+  allowancePct:     100,
+  si, par,
+  numHoles: 18, holeOffset: 0,
+  courseName: 'Test', teeName: 'White',
+});
+
+// Hole 1: SI=1, par=4. A: 0 shots. B: 1 shot.
+// A net = 5-0 = 5. B net = 6-1 = 5.
+let sState = processHole(sState0, [5, 6]);
+assert('S16-01', sState.totals[0], 5, 'A net 5 after hole 1');
+assert('S16-02', sState.totals[1], 5, 'B net 5 (6-1) after hole 1');
+assert('S16-03', sState.log[0].nets, [5, 5]);
+
+// ================================================================
+// S17 — processHole (skins)
+// ================================================================
+section('S17 — processHole (skins)');
+
+const skState0 = buildInitialState({
+  format:           'skins',
+  names:            ['A', 'B', 'C'],
+  handicapIndexes:  [0, 0, 0],
+  playingHandicaps: [0, 0, 0],
+  matchHandicaps:   [0, 0, 0],
+  allowancePct:     100,
+  si, par,
+  numHoles: 18, holeOffset: 0,
+  courseName: 'Test', teeName: 'White',
+});
+
+// A wins hole 1
+let skState = processHole(skState0, [3, 4, 5]);
+assert('S17-01', skState.skins, [1, 0, 0], 'A wins skin');
+assert('S17-02', skState.pot, 1, 'pot resets');
+
+// Hole 2 halved between B and C (both net 3, A grosses 5)
+skState = processHole(skState, [5, 4, 4]);
+assert('S17-03', skState.skins, [1, 0, 0], 'still A has 1 skin');
+assert('S17-04', skState.pot, 2, 'pot grows to 2');
+
+// Hole 3 B wins and takes accumulated 2 skins
+skState = processHole(skState, [5, 3, 5]);
+assert('S17-05', skState.skins, [1, 2, 0], 'B wins 2 skins');
+assert('S17-06', skState.pot, 1, 'pot resets');
+
+// ================================================================
+// FINISH
+// ================================================================
+if (_currentSection) {
+  resultsEl.innerHTML += `<div class="section-total">${_sectionPassed} pass · ${_sectionFailed} fail in ${_currentSection}</div>`;
+}
+
+const allOk = totalFailed === 0;
+document.getElementById('status').textContent = allOk ? 'All tests done.' : 'Some tests FAILED.';
+document.getElementById('summary').innerHTML =
+  `<span class="${allOk?'pass':'fail'}">${totalPassed} passed · ${totalFailed} failed</span>`;
+
+console.log(`[stage6] ${totalPassed} passed, ${totalFailed} failed`);
+</script>
+</body>
+</html>

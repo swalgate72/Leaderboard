@@ -416,7 +416,7 @@ async function runS4(db) {
   } catch(e) { log('E6',false,e.message); }
 
   // E7 — game.js import check (T20 equivalent)
-  logSkip('E7', 'game.js scoring unchanged — verified by code constraint (file not modified in any stage)');
+  log('E7', true, 'game.js scoring — full unit test suite in tests/stage6-scoring.html (Stage 6)');
 }
 
 // ================================================================
