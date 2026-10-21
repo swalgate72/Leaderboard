@@ -35,28 +35,13 @@
 // Must match the build tag used in app.js, index.html and the ?v= tags.
 const CACHE_NAME = 'leaderboard-v20261020av';
 
-// ── App shell — every URL that must be available offline ─────────────
+// ── App shell — URLs listed in ESSENTIAL_URLS and OPTIONAL_URLS below ─
 // All versioned ?v= query strings must exactly match index.html and
 // the import() calls in app.js. If a URL here differs from what the
 // page requests, the SW cache will be a miss and the browser fetches
 // from the network (degraded offline, not broken).
-const PRECACHE_URLS = [
-  '/',                                  // navigation fallback
-  '/index.html',                        // explicit fallback alias
-  '/styles.css?v=20261015c',
-  '/jsQR.min.js?v=1.4.0',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/apple-touch-icon.png',
-  // JS modules — versioned to guarantee consistency across files
-  '/js/app.js?v=20261020av',
-  '/js/qr.js',
-  '/game.js?v=20260704l',
-  '/db.js?v=20261020av',
-  '/provider.js?v=20261020av',
-  '/local.js?v=20261020av',
-];
+//
+// See ESSENTIAL_URLS and OPTIONAL_URLS in the install handler below.
 
 // ── Paths that must NEVER be cached ──────────────────────────────────
 // Cloudflare Worker origin (game sharing, live leaderboard, scores).
@@ -70,19 +55,71 @@ const PASSTHROUGH_PREFIXES = [
   '/onboard',   // onboard.html — Supabase-dependent, useless offline
 ];
 
-// ── Install — precache app shell atomically ───────────────────────────
-// cache.addAll() is all-or-nothing: if any URL fails, the install
-// fails and the previous working SW remains in control.
+// ── Install — precache app shell ─────────────────────────────────────
+// Essential assets (HTML, JS modules, CSS) are fetched individually so
+// that a failure on any one URL is logged with its exact URL rather than
+// swallowed by cache.addAll(). The install is aborted if any essential
+// asset cannot be fetched, so the old SW remains active and the user
+// is never left with a broken partial cache.
+//
 // skipWaiting() is deliberately absent — see safety notes above.
+
+// Essential assets — install fails if any of these cannot be fetched.
+const ESSENTIAL_URLS = [
+  '/',
+  '/index.html',
+  '/styles.css?v=20261015c',
+  '/jsQR.min.js?v=1.4.0',
+  '/js/app.js?v=20261020av',
+  '/game.js?v=20260704l',
+  '/db.js?v=20261020av',
+  '/provider.js?v=20261020av',
+  '/local.js?v=20261020av',
+];
+
+// Optional assets — cached if available, but a fetch failure does not
+// abort the install. Icons and manifest are not required to run offline.
+const OPTIONAL_URLS = [
+  '/js/qr.js',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png',
+];
+
+async function precache() {
+  const cache = await caches.open(CACHE_NAME);
+
+  // Cache essential assets — abort install on any failure.
+  await Promise.all(ESSENTIAL_URLS.map(async url => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} for ${url}`);
+      }
+      await cache.put(url, response);
+      console.log('[SW] Cached:', url);
+    } catch (err) {
+      console.error('[SW] ESSENTIAL precache failed:', url, err);
+      throw err; // re-throw — aborts install, old SW stays active
+    }
+  }));
+
+  // Cache optional assets — log failures but continue.
+  await Promise.allSettled(OPTIONAL_URLS.map(async url => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      await cache.put(url, response);
+      console.log('[SW] Cached (optional):', url);
+    } catch (err) {
+      console.warn('[SW] Optional precache skipped:', url, err.message);
+    }
+  }));
+}
+
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(PRECACHE_URLS))
-      .catch(err => {
-        console.error('[SW] Precache failed — install aborted, old SW remains active:', err);
-        throw err; // re-throw so the install is marked failed
-      })
-  );
+  event.waitUntil(precache());
 });
 
 // ── Activate — delete stale caches, then claim new tabs only ─────────
