@@ -346,7 +346,7 @@ async function openCourse(id, isPending) {
   }
 
   document.getElementById('list-view').style.display = 'none';
-  document.getElementById('detail').style.display    = '';
+  document.getElementById('detail').style.display    = 'block';
 
   const location = [_currentCourse.location, _currentCourse.town, _currentCourse.country].filter(Boolean).join(', ');
   const dateStr  = fmtDate(_currentCourse.approvedAt ?? _currentCourse.updatedAt ?? _currentCourse.submittedAt);
