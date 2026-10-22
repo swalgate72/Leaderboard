@@ -2566,10 +2566,11 @@ function openFriendsPickerModal() {
                            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameStr}</span>
               ${playBadge}
             </div>
-            ${f.hcp != null ? `<div style="font-size:0.75rem;color:var(--muted);">Index ${fmtHandicap(f.hcp)}</div>` : ''}
+            ${f.hcp != null ? `<div style="font-size:0.75rem;color:var(--muted);">Index</div>` : ''}
           </div>
-          <div style="display:flex;gap:0.3rem;flex-shrink:0;">
-            ${pill('Index','index')}${pill('Course','course')}
+          <div style="flex-shrink:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
+                       font-size:1.4rem;color:var(--muted2);min-width:2.8rem;text-align:right;">
+            ${f.hcp != null ? fmtHandicap(f.hcp) : '—'}
           </div>
         </div>
         ${nudgeHtml}
