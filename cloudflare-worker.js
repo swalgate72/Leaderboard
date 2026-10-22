@@ -119,7 +119,13 @@ export default {
         return handleAdminApprove(id, request, env);
       }
 
-      // PUT /admin/courses/:id
+      // PUT /admin/courses/pending/:id — edit a pending course
+      if (method === 'PUT' && path.match(/^\/admin\/courses\/pending\/[^/]+$/)) {
+        const id = path.split('/').pop();
+        return handleAdminEditPending(id, request, env);
+      }
+
+      // PUT /admin/courses/:id — edit an approved course
       if (method === 'PUT' && path.match(/^\/admin\/courses\/[^/]+$/)) {
         const id = path.split('/').pop();
         return handleAdminEdit(id, request, env);
@@ -295,6 +301,29 @@ async function handleAdminEdit(id, request, env) {
   await env.COURSE_LIBRARY.put('course:approved:' + id, JSON.stringify(updated));
 
   return json({ id, version: updated.version });
+}
+
+async function handleAdminEditPending(id, request, env) {
+  if (!env.COURSE_LIBRARY) return err('KV not configured', 503);
+
+  const existing = await env.COURSE_LIBRARY.get('course:pending:' + id, { type: 'json' });
+  if (!existing) return err('Pending course not found', 404);
+
+  let updates;
+  try { updates = await request.json(); }
+  catch { return err('Invalid JSON'); }
+
+  const updated = {
+    ...existing,
+    ...updates,
+    id,
+    status:    'pending',
+    updatedAt: new Date().toISOString(),
+  };
+
+  await env.COURSE_LIBRARY.put('course:pending:' + id, JSON.stringify(updated));
+
+  return json({ id });
 }
 
 // ================================================================
