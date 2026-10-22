@@ -130,15 +130,30 @@
   .tee-card .edit-section input:focus { outline: none; border-color: var(--blue); }
   .tee-card .rating-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
-  /* Colour palette picker */
-  .colour-palette { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.1rem; }
-  .colour-swatch  { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent;
-                    cursor: pointer; transition: transform .1s; }
-  .colour-swatch:hover   { transform: scale(1.18); }
+  /* Colour button + popover */
+  .colour-btn { display: flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.6rem;
+                background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+                cursor: pointer; font-size: 0.82rem; color: var(--text); width: 100%; }
+  .colour-btn:hover { border-color: var(--blue); }
+  .colour-btn .btn-dot { width: 14px; height: 14px; border-radius: 50%;
+                         border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; }
+  .colour-popover { position: absolute; z-index: 99; background: var(--surface2);
+                    border: 1px solid var(--border); border-radius: var(--radius);
+                    padding: 0.6rem; display: flex; gap: 0.4rem; flex-wrap: wrap;
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.4); width: 180px; }
+  .colour-swatch  { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent;
+                    cursor: pointer; transition: transform .1s; flex-shrink: 0; }
+  .colour-swatch:hover   { transform: scale(1.15); }
   .colour-swatch.selected { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
-  .colour-swatch.none-swatch { background: var(--surface2); border: 2px dashed var(--border);
-                                font-size: 10px; color: var(--muted); display: flex; align-items: center;
-                                justify-content: center; line-height: 1; }
+  .colour-swatch.none-swatch { background: var(--surface); border: 2px dashed var(--border);
+                                font-size: 11px; color: var(--muted); display: flex; align-items: center;
+                                justify-content: center; }
+
+  /* Add-tee card */
+  .tee-card.add-tee-card { border: 2px dashed var(--border); display: flex; align-items: center;
+                            justify-content: center; min-width: 80px; cursor: pointer;
+                            color: var(--muted); font-size: 1.6rem; min-height: 80px; }
+  .tee-card.add-tee-card:hover { border-color: var(--blue); color: var(--blue); }
 
   td input.cell-input { width: 100%; min-width: 36px; padding: 0.15rem 0.2rem;
                         background: transparent; border: none; border-bottom: 1px solid var(--border);
@@ -425,13 +440,20 @@ function renderTeeCards(tees) {
     card.style.borderColor = teeBorderColor(t.color);
 
     if (_editMode) {
+      const col = t.color ?? '';
+      const colHex = colourHex(col);
       card.innerHTML = `
         <div class="edit-section">
           <label>Tee name
             <input type="text" id="tn-${ti}" value="${esc(t.name ?? '')}" placeholder="e.g. White">
           </label>
-          <label>Colour
-            <div class="colour-palette" id="cp-${ti}"></div>
+          <label style="position:relative;">
+            <button type="button" class="colour-btn" id="cbtn-${ti}" onclick="toggleColourPopover(${ti},this)">
+              <span class="btn-dot" id="cdot-${ti}" style="background:${colHex || 'var(--surface2)'};${!colHex?'border-style:dashed':''}"></span>
+              <span id="clabel-${ti}">${col ? col.charAt(0).toUpperCase()+col.slice(1) : 'None'}</span>
+              <span style="margin-left:auto;opacity:.5;font-size:0.75rem;">▾</span>
+            </button>
+            <div class="colour-popover" id="cp-${ti}" style="display:none;margin-top:0.25rem;"></div>
           </label>
           <div class="rating-row">
             <label>Course rating
@@ -446,8 +468,7 @@ function renderTeeCards(tees) {
           ${yards > 0 ? `<div class="tee-stats">Total yards: <strong>${yards.toLocaleString()}</strong></div>` : ''}
         </div>
       `;
-      // Build colour palette after innerHTML is set
-      buildColourPalette('cp-' + ti, ti, t.color ?? '');
+      _selectedColour[ti] = col;
     } else {
       card.innerHTML = `
         <div class="tee-name" style="color:${teeTextColor(t.color)}">${esc(t.name ?? 'Tee')} ${colorSwatch(t.color)}</div>
@@ -459,6 +480,78 @@ function renderTeeCards(tees) {
     }
     wrap.appendChild(card);
   });
+
+  // Add-tee button (edit mode only)
+  if (_editMode) {
+    const addCard = document.createElement('div');
+    addCard.className = 'tee-card add-tee-card';
+    addCard.title = 'Add a tee';
+    addCard.textContent = '+';
+    addCard.onclick = addTee;
+    wrap.appendChild(addCard);
+  }
+}
+
+// ── Colour popover ────────────────────────────────────────────────
+function toggleColourPopover(ti, btn) {
+  // Close any other open popovers first
+  document.querySelectorAll('.colour-popover').forEach(p => {
+    if (p.id !== 'cp-' + ti) p.style.display = 'none';
+  });
+  const pop = document.getElementById('cp-' + ti);
+  if (!pop) return;
+  if (pop.style.display !== 'none') { pop.style.display = 'none'; return; }
+
+  // Build swatches if empty
+  if (!pop.children.length) {
+    COLOURS.forEach(c => {
+      const sw = document.createElement('span');
+      sw.className = 'colour-swatch' + (c.key === '' ? ' none-swatch' : '') +
+                     (c.key === (_selectedColour[ti] ?? '') ? ' selected' : '');
+      sw.title = c.label;
+      if (c.key) sw.style.background = c.hex;
+      else sw.textContent = '×';
+      sw.onclick = (e) => {
+        e.stopPropagation();
+        _selectedColour[ti] = c.key;
+        pop.style.display = 'none';
+        // Update button appearance
+        const dot = document.getElementById('cdot-' + ti);
+        const lbl = document.getElementById('clabel-' + ti);
+        if (dot) { dot.style.background = c.hex || 'var(--surface2)'; dot.style.borderStyle = c.key ? 'solid' : 'dashed'; }
+        if (lbl) lbl.textContent = c.label;
+        // Update card border
+        const card = btn.closest('.tee-card');
+        if (card) card.style.borderColor = c.key ? teeBorderColor(c.key) : 'var(--border)';
+      };
+      pop.appendChild(sw);
+    });
+  }
+  pop.style.display = 'flex';
+}
+
+// Close popovers when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('.colour-btn') && !e.target.closest('.colour-popover')) {
+    document.querySelectorAll('.colour-popover').forEach(p => p.style.display = 'none');
+  }
+});
+
+// ── Add tee ───────────────────────────────────────────────────────
+function addTee() {
+  if (!_currentCourse) return;
+  const newTee = {
+    name: 'New Tee',
+    color: '',
+    par:   Array(18).fill(null),
+    si:    Array(18).fill(null),
+    yards: Array(18).fill(null),
+    courseRating: null,
+    slopeRating:  null,
+  };
+  _currentCourse = { ..._currentCourse, tees: [...(_currentCourse.tees ?? []), newTee] };
+  renderTeeCards(_currentCourse.tees);
+  renderHoleTable(_currentCourse, _approvedVersion);
 }
 
 // ── Hole table ────────────────────────────────────────────────────
@@ -765,8 +858,17 @@ function colorSwatch(color) {
   return `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${hex};border:1px solid rgba(255,255,255,0.2);vertical-align:middle;margin-left:3px;"></span>`;
 }
 
+function colourHex(color) {
+  if (!color) return '';
+  const map = { white:'#e2e8f0', yellow:'#f6e05e', red:'#fc8181', blue:'#63b3ed',
+                black:'#4a5568', green:'#68d391', gold:'#d4af37', silver:'#a0aec0',
+                orange:'#f6ad55', purple:'#b794f4' };
+  return map[color?.toLowerCase()] ?? '';
+}
+
 function teeBorderColor(color) {
-  const map = { yellow:'#f6e05e', red:'#fc8181', blue:'#63b3ed', white:'#555', black:'#888', green:'#68d391', gold:'#d4af37' };
+  const map = { yellow:'#f6e05e', red:'#fc8181', blue:'#63b3ed', white:'#555', black:'#888',
+                green:'#68d391', gold:'#d4af37', silver:'#a0aec0', orange:'#f6ad55', purple:'#b794f4' };
   return map[color?.toLowerCase()] ?? '#2e3349';
 }
 
