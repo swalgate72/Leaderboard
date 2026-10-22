@@ -318,7 +318,7 @@ function courseRow(c, isPending) {
         <span>${dateStr}</span>
       </div>
     </div>
-    <button class="btn btn-edit btn-sm" onclick='openCourse(${JSON.stringify(c.id)}, ${isPending})'>Edit</button>
+    <button class="btn btn-edit btn-sm" data-id="${esc(c.id)}" data-pending="${isPending}" onclick="openCourse(this.dataset.id, this.dataset.pending==='true')">Edit</button>
   `;
   return row;
 }
@@ -335,13 +335,15 @@ async function openCourse(id, isPending) {
 
   if (isPending) {
     _currentCourse = allPending.find(c => c.id === id);
-    // Try to find matching approved version (same sharedId or name match)
     _approvedVersion = allApproved.find(c => c.id === id || c.name?.toLowerCase() === _currentCourse?.name?.toLowerCase()) ?? null;
   } else {
     _currentCourse = allApproved.find(c => c.id === id);
   }
 
-  if (!_currentCourse) return;
+  if (!_currentCourse) {
+    alert('Course not found — try refreshing the page.');
+    return;
+  }
 
   document.getElementById('list-view').style.display = 'none';
   document.getElementById('detail').style.display    = '';

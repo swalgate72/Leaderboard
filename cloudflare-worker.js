@@ -234,7 +234,8 @@ async function handleAdminPending(env, url) {
   const limit  = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 200);
 
   const listResult = await env.COURSE_LIBRARY.list({ prefix: 'course:pending:', cursor, limit });
-  const keys       = listResult.keys.map(k => k.name);
+  // Exclude the index key — it's a JSON array, not a course record
+  const keys       = listResult.keys.map(k => k.name).filter(k => k !== 'course:pending:index');
 
   const courses = await Promise.all(
     keys.map(k => env.COURSE_LIBRARY.get(k, { type: 'json' }))
