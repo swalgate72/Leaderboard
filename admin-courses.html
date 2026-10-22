@@ -119,12 +119,26 @@
   .btn-save   { background: var(--blue); color: #111; }
   .btn-cancel { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
 
-  .tee-card .rating-row { display: flex; gap: 0.5rem; margin-top: 0.4rem; flex-wrap: wrap; }
-  .tee-card .rating-row label { font-size: 0.75rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.2rem; }
-  .tee-card .rating-row input { width: 64px; padding: 0.25rem 0.4rem; background: var(--bg);
+  .tee-card .edit-section { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  .tee-card .edit-section label { font-size: 0.75rem; color: var(--muted); display: flex; flex-direction: column; gap: 0.2rem; }
+  .tee-card .edit-section input[type=text],
+  .tee-card .edit-section input[type=number] { padding: 0.25rem 0.4rem; background: var(--bg);
                                  border: 1px solid var(--border); border-radius: 4px;
-                                 color: var(--text); font-size: 0.85rem; text-align: center; }
-  .tee-card .rating-row input:focus { outline: none; border-color: var(--blue); }
+                                 color: var(--text); font-size: 0.85rem; }
+  .tee-card .edit-section input[type=number] { width: 72px; text-align: center; }
+  .tee-card .edit-section input[type=text]   { width: 100%; }
+  .tee-card .edit-section input:focus { outline: none; border-color: var(--blue); }
+  .tee-card .rating-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+  /* Colour palette picker */
+  .colour-palette { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.1rem; }
+  .colour-swatch  { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent;
+                    cursor: pointer; transition: transform .1s; }
+  .colour-swatch:hover   { transform: scale(1.18); }
+  .colour-swatch.selected { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+  .colour-swatch.none-swatch { background: var(--surface2); border: 2px dashed var(--border);
+                                font-size: 10px; color: var(--muted); display: flex; align-items: center;
+                                justify-content: center; line-height: 1; }
 
   td input.cell-input { width: 100%; min-width: 36px; padding: 0.15rem 0.2rem;
                         background: transparent; border: none; border-bottom: 1px solid var(--border);
@@ -412,19 +426,28 @@ function renderTeeCards(tees) {
 
     if (_editMode) {
       card.innerHTML = `
-        <div class="tee-name" style="color:${teeTextColor(t.color)}">${esc(t.name ?? 'Tee')} ${colorSwatch(t.color)}</div>
-        <div class="rating-row">
-          <label>Course Rating
-            <input type="number" step="0.1" min="55" max="85"
-              id="cr-${ti}" value="${t.courseRating ?? ''}" placeholder="e.g. 69.4">
+        <div class="edit-section">
+          <label>Tee name
+            <input type="text" id="tn-${ti}" value="${esc(t.name ?? '')}" placeholder="e.g. White">
           </label>
-          <label>Slope Rating
-            <input type="number" step="1" min="55" max="155"
-              id="sr-${ti}" value="${t.slopeRating ?? ''}" placeholder="e.g. 125">
+          <label>Colour
+            <div class="colour-palette" id="cp-${ti}"></div>
           </label>
+          <div class="rating-row">
+            <label>Course rating
+              <input type="number" step="0.1" min="55" max="85"
+                id="cr-${ti}" value="${t.courseRating ?? ''}" placeholder="e.g. 69.4">
+            </label>
+            <label>Slope rating
+              <input type="number" step="1" min="55" max="155"
+                id="sr-${ti}" value="${t.slopeRating ?? ''}" placeholder="e.g. 125">
+            </label>
+          </div>
+          ${yards > 0 ? `<div class="tee-stats">Total yards: <strong>${yards.toLocaleString()}</strong></div>` : ''}
         </div>
-        ${yards > 0 ? `<div class="tee-stats" style="margin-top:0.35rem;">Total yards: <strong>${yards.toLocaleString()}</strong></div>` : ''}
       `;
+      // Build colour palette after innerHTML is set
+      buildColourPalette('cp-' + ti, ti, t.color ?? '');
     } else {
       card.innerHTML = `
         <div class="tee-name" style="color:${teeTextColor(t.color)}">${esc(t.name ?? 'Tee')} ${colorSwatch(t.color)}</div>
@@ -606,12 +629,16 @@ function cancelEdits() {
 async function saveEdits() {
   if (!_currentCourse) return;
 
-  // Collect tee rating inputs from tee cards
+  // Collect tee edits from tee cards
   const tees = _currentCourse.tees.map((t, ti) => {
-    const cr = document.getElementById('cr-' + ti)?.value.trim();
-    const sr = document.getElementById('sr-' + ti)?.value.trim();
+    const cr   = document.getElementById('cr-' + ti)?.value.trim();
+    const sr   = document.getElementById('sr-' + ti)?.value.trim();
+    const name = document.getElementById('tn-' + ti)?.value.trim();
+    const col  = _selectedColour[ti] ?? t.color ?? '';
     return {
       ...t,
+      name:         name !== '' && name != null ? name : t.name,
+      color:        col,
       courseRating: cr !== '' && cr != null ? parseFloat(cr) : (t.courseRating ?? null),
       slopeRating:  sr !== '' && sr != null ? parseInt(sr)   : (t.slopeRating  ?? null),
     };
@@ -664,6 +691,48 @@ async function saveEdits() {
     alert('Save failed (' + r.status + '): ' + body);
     saveBtn.disabled = false; saveBtn.textContent = '💾 Save Changes';
   }
+}
+
+// ── Colour palette ────────────────────────────────────────────────
+const COLOURS = [
+  { key: 'white',  hex: '#e2e8f0', label: 'White'  },
+  { key: 'yellow', hex: '#f6e05e', label: 'Yellow' },
+  { key: 'red',    hex: '#fc8181', label: 'Red'    },
+  { key: 'blue',   hex: '#63b3ed', label: 'Blue'   },
+  { key: 'black',  hex: '#4a5568', label: 'Black'  },
+  { key: 'green',  hex: '#68d391', label: 'Green'  },
+  { key: 'gold',   hex: '#d4af37', label: 'Gold'   },
+  { key: 'silver', hex: '#a0aec0', label: 'Silver' },
+  { key: 'orange', hex: '#f6ad55', label: 'Orange' },
+  { key: 'purple', hex: '#b794f4', label: 'Purple' },
+  { key: '',       hex: '',        label: 'None'   },
+];
+
+// Track selected colours per tee index
+const _selectedColour = {};
+
+function buildColourPalette(containerId, ti, currentColour) {
+  _selectedColour[ti] = currentColour ?? '';
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  COLOURS.forEach(c => {
+    const sw = document.createElement('span');
+    sw.className = 'colour-swatch' + (c.key === '' ? ' none-swatch' : '') +
+                   (c.key === _selectedColour[ti] ? ' selected' : '');
+    sw.title = c.label;
+    if (c.key !== '') sw.style.background = c.hex;
+    else sw.textContent = '×';
+    sw.onclick = () => {
+      _selectedColour[ti] = c.key;
+      wrap.querySelectorAll('.colour-swatch').forEach(s => s.classList.remove('selected'));
+      sw.classList.add('selected');
+      // Update the card border live
+      const card = wrap.closest('.tee-card');
+      if (card) card.style.borderColor = c.key ? teeBorderColor(c.key) : 'var(--border)';
+    };
+    wrap.appendChild(sw);
+  });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
