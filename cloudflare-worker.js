@@ -22,7 +22,7 @@
 // ── CORS headers ─────────────────────────────────────────────────
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
 };
 
@@ -129,6 +129,18 @@ export default {
       if (method === 'PUT' && path.match(/^\/admin\/courses\/[^/]+$/)) {
         const id = path.split('/').pop();
         return handleAdminEdit(id, request, env);
+      }
+
+      // DELETE /admin/courses/pending/:id — delete a pending course
+      if (method === 'DELETE' && path.match(/^\/admin\/courses\/pending\/[^/]+$/)) {
+        const id = path.split('/').pop();
+        return handleAdminDeletePending(id, env);
+      }
+
+      // DELETE /admin/courses/:id — delete an approved course
+      if (method === 'DELETE' && path.match(/^\/admin\/courses\/[^/]+$/)) {
+        const id = path.split('/').pop();
+        return handleAdminDeleteApproved(id, env);
       }
 
       return err('Not found', 404);
@@ -324,6 +336,22 @@ async function handleAdminEditPending(id, request, env) {
   await env.COURSE_LIBRARY.put('course:pending:' + id, JSON.stringify(updated));
 
   return json({ id });
+}
+
+async function handleAdminDeletePending(id, env) {
+  if (!env.COURSE_LIBRARY) return err('KV not configured', 503);
+  const existing = await env.COURSE_LIBRARY.get('course:pending:' + id, { type: 'json' });
+  if (!existing) return err('Pending course not found', 404);
+  await env.COURSE_LIBRARY.delete('course:pending:' + id);
+  return json({ id, deleted: true });
+}
+
+async function handleAdminDeleteApproved(id, env) {
+  if (!env.COURSE_LIBRARY) return err('KV not configured', 503);
+  const existing = await env.COURSE_LIBRARY.get('course:approved:' + id, { type: 'json' });
+  if (!existing) return err('Approved course not found', 404);
+  await env.COURSE_LIBRARY.delete('course:approved:' + id);
+  return json({ id, deleted: true });
 }
 
 // ================================================================

@@ -246,8 +246,9 @@
     <div class="tees-wrap" id="detail-tees"></div>
     <div class="hole-table-wrap" id="detail-table"></div>
 
-    <div style="margin-top:1.25rem;display:flex;gap:0.75rem;flex-wrap:wrap;">
+    <div style="margin-top:1.25rem;display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
       <button id="btn-edit-approved" class="btn btn-edit" style="display:none;" onclick="enterEditMode()">✏️ Edit this course</button>
+      <button id="btn-delete" class="btn" style="display:none;border:1px solid var(--red);color:var(--red);background:transparent;" onclick="deleteCourse()">🗑 Delete course</button>
     </div>
   </div>
 
@@ -414,7 +415,8 @@ async function openCourse(id, isPending) {
   _editMode = false;
   document.getElementById('edit-bar').style.display        = 'none';
   document.getElementById('approve-bar').style.display     = isPending ? '' : 'none';
-  document.getElementById('btn-edit-approved').style.display = '';
+  document.getElementById('btn-edit-approved').style.display = isPending ? 'none' : '';
+  document.getElementById('btn-delete').style.display        = '';
   document.getElementById('diff-notice').style.display     = (isPending && _approvedVersion) ? '' : 'none';
 
   renderTeeCards(_currentCourse.tees ?? []);
@@ -706,6 +708,7 @@ async function discardPending() {
 function enterEditMode() {
   _editMode = true;
   document.getElementById('btn-edit-approved').style.display = 'none';
+  document.getElementById('btn-delete').style.display        = 'none';
   document.getElementById('edit-bar').style.display = '';
   renderTeeCards(_currentCourse.tees ?? []);
   renderHoleTable(_currentCourse, null);
@@ -714,7 +717,8 @@ function enterEditMode() {
 function cancelEdits() {
   _editMode = false;
   document.getElementById('edit-bar').style.display = 'none';
-  document.getElementById('btn-edit-approved').style.display = '';
+  document.getElementById('btn-edit-approved').style.display = _isPending ? 'none' : '';
+  document.getElementById('btn-delete').style.display        = '';
   renderTeeCards(_currentCourse.tees ?? []);
   renderHoleTable(_currentCourse, _approvedVersion);
 }
@@ -775,7 +779,8 @@ async function saveEdits() {
     }
     _editMode = false;
     document.getElementById('edit-bar').style.display = 'none';
-    document.getElementById('btn-edit-approved').style.display = '';
+    document.getElementById('btn-edit-approved').style.display = _isPending ? 'none' : '';
+    document.getElementById('btn-delete').style.display        = '';
     renderTeeCards(_currentCourse.tees ?? []);
     renderHoleTable(_currentCourse, _approvedVersion);
     saveBtn.disabled = false; saveBtn.textContent = '💾 Save Changes';
@@ -783,6 +788,42 @@ async function saveEdits() {
     const body = await r.text();
     alert('Save failed (' + r.status + '): ' + body);
     saveBtn.disabled = false; saveBtn.textContent = '💾 Save Changes';
+  }
+}
+
+// ── Delete course ─────────────────────────────────────────────────
+async function deleteCourse() {
+  if (!_currentCourse) return;
+  const label = _isPending ? 'pending' : 'approved';
+  const confirmed = confirm(
+    `Delete ${label} course "${_currentCourse.name}"?\n\nThis cannot be undone.`
+  );
+  if (!confirmed) return;
+
+  const endpoint = _isPending
+    ? `${WORKER}/admin/courses/pending/${_currentCourse.id}`
+    : `${WORKER}/admin/courses/${_currentCourse.id}`;
+
+  const delBtn = document.getElementById('btn-delete');
+  delBtn.disabled = true; delBtn.textContent = 'Deleting…';
+
+  const r = await fetch(endpoint, {
+    method:  'DELETE',
+    headers: { 'X-Admin-Key': ADMIN_KEY },
+  });
+
+  if (r.ok) {
+    if (_isPending) {
+      allPending = allPending.filter(c => c.id !== _currentCourse.id);
+    } else {
+      allApproved = allApproved.filter(c => c.id !== _currentCourse.id);
+    }
+    showList();
+    renderList(document.getElementById('search').value);
+  } else {
+    const body = await r.text();
+    alert('Delete failed (' + r.status + '): ' + body);
+    delBtn.disabled = false; delBtn.textContent = '🗑 Delete course';
   }
 }
 
