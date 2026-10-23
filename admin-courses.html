@@ -267,7 +267,7 @@
 
     <div id="approve-bar" class="approve-bar" style="display:none;">
       <p>⚠️ This course is <strong>pending approval</strong>. Review the details below then approve or discard.</p>
-      <button class="btn btn-approve" onclick="approveCourse()">✅ Approve</button>
+      <button class="btn btn-approve" onclick="approveCourse()">✅ Approve &amp; Edit</button>
       <button class="btn btn-outline" style="border-color:var(--red);color:var(--red);" onclick="discardPending()">🗑 Discard</button>
     </div>
 
@@ -769,15 +769,21 @@ async function approveCourse() {
   });
 
   if (r.ok) {
-    btn.disabled = false; btn.textContent = '✅ Approve';
+    btn.disabled = false; btn.textContent = '✅ Approve & Edit';
     // Move from pending → approved in local data
     allPending  = allPending.filter(c => c.id !== id);
-    allApproved = [...allApproved, { ..._currentCourse, status: 'approved', approvedAt: new Date().toISOString() }]
-                    .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
-    showList();
-    renderList(document.getElementById('search').value);
+    const approved = { ..._currentCourse, status: 'approved', approvedAt: new Date().toISOString() };
+    allApproved = [...allApproved, approved].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+    // Open the now-approved course straight into edit mode
+    _currentCourse  = approved;
+    _isPending      = false;
+    _approvedVersion = null;
+    document.getElementById('approve-bar').style.display      = 'none';
+    document.getElementById('btn-edit-approved').style.display = 'none';
+    document.getElementById('btn-delete').style.display        = 'none';
+    enterEditMode();
   } else {
-    btn.disabled = false; btn.textContent = '✅ Approve';
+    btn.disabled = false; btn.textContent = '✅ Approve & Edit';
     alert('Approve failed: ' + r.status);
   }
 }
