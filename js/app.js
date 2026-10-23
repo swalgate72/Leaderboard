@@ -1120,17 +1120,14 @@ async function toggleTournamentMode() {
     _saveTournState({ ...s, active: true });
     refreshTournamentUI();
     try {
-      const result = await shareGameSetup({ ttlHours: 2160 }); // 90 days
-      if (!result?.code) throw new Error('No code returned');
-      const newState = { ..._tournState(), code: result.code };
+      const code = await _tournGenerateCode();
+      const newState = { ..._tournState(), code };
       _saveTournState(newState);
-      try { localStorage.setItem('lb-game-code', result.code); } catch {}
-      if (gameState) gameState.gameCode = result.code;
+      try { localStorage.setItem('lb-game-code', code); } catch {}
+      if (gameState) gameState.gameCode = code;
     } catch (e) {
       console.warn('Tournament code generation failed:', e.message ?? e);
-      // Save a sentinel so the UI shows a retry prompt
-      const errState = { ..._tournState(), code: '__error__' };
-      _saveTournState(errState);
+      _saveTournState({ ..._tournState(), code: '__error__' });
     }
   }
   refreshTournamentUI();
@@ -1165,17 +1162,41 @@ function tournNewRound() {
   // The existing game code is already set, so setup will reuse it
 }
 
+async function _tournGenerateCode() {
+  // Try shareGameSetup first (needs course selected); fall back to a minimal worker call
+  try {
+    const result = await shareGameSetup({ ttlHours: 2160 });
+    if (!result?.code) throw new Error('No code returned');
+    return result.code;
+  } catch (e1) {
+    console.warn('shareGameSetup failed:', e1.message ?? e1);
+    // Fallback: post minimal payload directly to worker
+    try {
+      const result = await _workerFetch('/game', 'POST', {
+        course:  { name: 'Tournament', tees: [{ name: 'White', par: 72, si: [] }] },
+        format:  { type: setup.scoring ?? 'stableford', groups: setup.numGroups ?? 1, holesCount: setup.holes ?? 18 },
+        players: [],
+        ttlHours: 2160,
+      });
+      if (!result?.code) throw new Error('No code from fallback');
+      return result.code;
+    } catch (e2) {
+      console.warn('Fallback worker call failed:', e2.message ?? e2);
+      throw e2;
+    }
+  }
+}
+
 async function _tournRetryCode() {
   const s = _tournState();
   if (!s.active) return;
   _saveTournState({ ...s, code: null });
   refreshTournamentUI();
   try {
-    const result = await shareGameSetup({ ttlHours: 2160 });
-    if (!result?.code) throw new Error('No code returned');
-    _saveTournState({ ..._tournState(), code: result.code });
-    try { localStorage.setItem('lb-game-code', result.code); } catch {}
-    if (gameState) gameState.gameCode = result.code;
+    const code = await _tournGenerateCode();
+    _saveTournState({ ..._tournState(), code });
+    try { localStorage.setItem('lb-game-code', code); } catch {}
+    if (gameState) gameState.gameCode = code;
   } catch (e) {
     console.warn('Tournament code retry failed:', e.message ?? e);
     _saveTournState({ ..._tournState(), code: '__error__' });
