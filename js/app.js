@@ -1053,13 +1053,9 @@ function _saveTournState(s) {
 function refreshTournamentUI() {
   const s = _tournState();
 
-  // Toggle button halo
   const btn = document.getElementById('btn-tourn-mode');
   const btnWrap = document.getElementById('btn-tourn-mode-wrap');
   const panel = document.getElementById('tourn-mode-panel');
-  const homeCodeRow = document.getElementById('home-tourn-code-row');
-  const homeCodePill = document.getElementById('hero-code-pill-home');
-  const homeRoundLabel = document.getElementById('home-tourn-round-label');
   const roundsVal = document.getElementById('tourn-rounds-val');
   const homeCode = document.getElementById('tourn-home-code');
   const roundBadge = document.getElementById('tourn-round-badge');
@@ -1087,11 +1083,6 @@ function refreshTournamentUI() {
       newRoundBtn.style.display = (s.code && s.currentRound < s.rounds) ? '' : 'none';
     }
 
-    // Hero banner pill in home screen
-    if (homeCodeRow) homeCodeRow.style.display = '';
-    if (homeCodePill) { homeCodePill.textContent = codeText; homeCodePill.style.display = ''; }
-    if (homeRoundLabel) homeRoundLabel.textContent = s.rounds > 1 ? `Round ${s.currentRound} of ${s.rounds}` : '';
-
     // Propagate to all hero banners
     if (s.code) updateHeroCodePills(s.code);
 
@@ -1102,7 +1093,6 @@ function refreshTournamentUI() {
     }
     if (btn) btn.style.color = '';
     if (panel) panel.style.display = 'none';
-    if (homeCodeRow) homeCodeRow.style.display = 'none';
   }
 }
 
@@ -1705,15 +1695,11 @@ function renderLogos() {
 async function boot() {
   applyTheme(theme);
   renderLogos();
-  // Restore tournament mode UI (also restores game code pill if tournament mode was active)
-  try { refreshTournamentUI(); } catch {}
-  // Fallback: restore game code pill from bare localStorage if tournament mode not active
+  // Restore game code pill if a code was active from a previous session
   try {
     const ts = _tournState();
-    if (!ts.active) {
-      const savedCode = localStorage.getItem('lb-game-code');
-      if (savedCode) updateHeroCodePills(savedCode);
-    }
+    const savedCode = ts.active ? ts.code : localStorage.getItem('lb-game-code');
+    if (savedCode) updateHeroCodePills(savedCode);
   } catch {}
 
 
@@ -5391,6 +5377,12 @@ function buildSetupReview() {
       named.filter(p => (p.groupNumber ?? 1) === g).forEach(p => { p.teamName = inp.value.trim(); });
     });
   });
+
+  // Show tournament mode panel for eligible formats
+  const TOURN_FORMATS = new Set(['stableford','stroke','betterball','csm','best2','foursomes','greensomes']);
+  const tournBar = document.getElementById('tourn-mode-bar');
+  if (tournBar) tournBar.style.display = TOURN_FORMATS.has(setup.scoring) ? '' : 'none';
+  refreshTournamentUI();
 }
 
 function reviewBackScreen() {

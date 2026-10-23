@@ -39,12 +39,6 @@
         </div>
       </div>
 
-      <!-- Tournament code pill — shown in home hero when tournament mode is active -->
-      <div id="home-tourn-code-row" style="display:none;text-align:center;margin-bottom:0.5rem;">
-        <span id="hero-code-pill-home" class="hero-game-code-pill" onclick="openShareGameModal()" style="display:inline-block;"></span>
-        <span id="home-tourn-round-label" style="font-size:0.72rem;font-weight:700;color:rgba(255,255,255,0.55);margin-left:0.5rem;"></span>
-      </div>
-
       <!-- Setup draft reminder (only shown if a game setup is in progress) -->
       <div id="home-draft-row" style="display:none;margin-bottom:0.75rem;"></div>
 
@@ -275,57 +269,6 @@
         </div>
 
       </div><!-- /fmt-grid -->
-
-      <!-- Tournament Mode bar -->
-      <div id="tourn-mode-bar" style="display:flex;align-items:stretch;gap:0.5rem;margin-top:0.75rem;">
-
-        <!-- Tournament Mode toggle button -->
-        <div class="fmt-col" id="btn-tourn-mode-wrap" style="flex:0 0 80px;height:auto;min-height:4.5rem;">
-          <button id="btn-tourn-mode" onclick="toggleTournamentMode()"
-            style="width:100%;height:100%;background:transparent;border:none;cursor:pointer;
-                   font-family:'Plus Jakarta Sans',sans-serif;font-size:0.75rem;font-weight:700;
-                   color:var(--white);line-height:1.25;text-align:center;padding:0.5rem 0.3rem;
-                   transition:color 0.15s;">
-            🏆<br>Tournament<br>Mode
-          </button>
-        </div>
-
-        <!-- Rounds stepper + code — shown only when tournament mode is on -->
-        <div id="tourn-mode-panel" style="display:none;flex:1;
-             background:rgba(255,255,255,0.06);border:1.5px solid rgba(212,168,67,0.45);
-             border-radius:0.65rem;padding:0.5rem 0.75rem;
-             display:none;flex-direction:column;justify-content:space-between;gap:0.35rem;">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="font-size:0.72rem;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:0.04em;text-transform:uppercase;">No. Rounds</span>
-            <div style="display:flex;align-items:center;gap:0.4rem;">
-              <button onclick="tournRoundsAdj(-1)"
-                style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.12);
-                       border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:1rem;
-                       font-weight:700;line-height:1;cursor:pointer;">−</button>
-              <span id="tourn-rounds-val" style="font-size:1.1rem;font-weight:800;color:#fff;min-width:18px;text-align:center;">2</span>
-              <button onclick="tournRoundsAdj(+1)"
-                style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.12);
-                       border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:1rem;
-                       font-weight:700;line-height:1;cursor:pointer;">+</button>
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
-            <span style="font-size:0.72rem;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:0.04em;text-transform:uppercase;">Code</span>
-            <span id="tourn-home-code" onclick="openShareGameModal()"
-              style="font-size:1rem;font-weight:800;letter-spacing:0.15em;color:var(--gold,#d4a843);cursor:pointer;">…</span>
-            <span id="tourn-round-badge"
-              style="font-size:0.65rem;font-weight:700;background:rgba(212,168,67,0.2);
-                     border:1px solid rgba(212,168,67,0.4);border-radius:0.3rem;
-                     padding:0.15rem 0.4rem;color:var(--gold,#d4a843);display:none;">RND 1</span>
-            <button onclick="tournNewRound()"
-              id="btn-tourn-new-round" style="display:none;
-              font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;
-              background:rgba(212,168,67,0.2);border:1px solid rgba(212,168,67,0.4);
-              border-radius:0.35rem;color:var(--gold,#d4a843);cursor:pointer;">+ New Round</button>
-          </div>
-        </div>
-
-      </div><!-- /tourn-mode-bar -->
 
     </div>
   </div>
@@ -773,7 +716,61 @@
       <div id="review-content"></div>
     </div>
 
-    <button class="btn btn-play" id="btn-tee-off" style="display:flex;align-items:center;justify-content:center;gap:0.6rem;margin-top:0.25rem;">
+    <!-- Tournament Mode panel — shown/hidden by JS based on format eligibility -->
+    <div id="tourn-mode-bar" style="display:none;margin-top:0.75rem;">
+      <div style="display:flex;align-items:stretch;gap:0.5rem;">
+
+        <!-- Toggle button -->
+        <div class="card" id="btn-tourn-mode-wrap"
+          style="flex:0 0 84px;padding:0;border-radius:var(--radius);overflow:hidden;cursor:pointer;"
+          onclick="toggleTournamentMode()">
+          <div id="btn-tourn-mode"
+            style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;
+                   justify-content:center;gap:0.2rem;padding:0.6rem 0.3rem;
+                   font-family:'Plus Jakarta Sans',sans-serif;font-size:0.72rem;font-weight:700;
+                   color:var(--text-muted,#6b7280);line-height:1.25;text-align:center;
+                   transition:color 0.15s;">
+            <span style="font-size:1.2rem;">🏆</span>
+            Tournament<br>Mode
+          </div>
+        </div>
+
+        <!-- Rounds + code panel — shown when active -->
+        <div id="tourn-mode-panel" class="card" style="display:none;flex:1;padding:0.65rem 0.85rem;
+             border:1.5px solid rgba(212,168,67,0.5);flex-direction:column;gap:0.45rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;">No. Rounds</span>
+            <div style="display:flex;align-items:center;gap:0.4rem;">
+              <button onclick="tournRoundsAdj(-1)"
+                style="width:28px;height:28px;border-radius:50%;background:var(--surface2,#e5e7eb);
+                       border:1px solid var(--border,#d1d5db);color:var(--text);font-size:1rem;
+                       font-weight:700;line-height:1;cursor:pointer;">−</button>
+              <span id="tourn-rounds-val" style="font-size:1.1rem;font-weight:800;color:var(--text);min-width:18px;text-align:center;">2</span>
+              <button onclick="tournRoundsAdj(+1)"
+                style="width:28px;height:28px;border-radius:50%;background:var(--surface2,#e5e7eb);
+                       border:1px solid var(--border,#d1d5db);color:var(--text);font-size:1rem;
+                       font-weight:700;line-height:1;cursor:pointer;">+</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+            <span style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;">Code</span>
+            <span id="tourn-home-code" onclick="openShareGameModal()"
+              style="font-size:1rem;font-weight:800;letter-spacing:0.15em;color:var(--gold,#d4a843);cursor:pointer;flex:1;">…</span>
+            <span id="tourn-round-badge"
+              style="display:none;font-size:0.65rem;font-weight:700;background:rgba(212,168,67,0.15);
+                     border:1px solid rgba(212,168,67,0.4);border-radius:0.3rem;
+                     padding:0.15rem 0.4rem;color:var(--gold,#d4a843);">RND 1</span>
+            <button onclick="tournNewRound()" id="btn-tourn-new-round"
+              style="display:none;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;
+              background:rgba(212,168,67,0.15);border:1px solid rgba(212,168,67,0.4);
+              border-radius:0.35rem;color:var(--gold,#d4a843);cursor:pointer;">+ New Round</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <button class="btn btn-play" id="btn-tee-off" style="display:flex;align-items:center;justify-content:center;gap:0.6rem;margin-top:0.75rem;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;flex-shrink:0;" aria-hidden="true"><line x1="6" y1="3" x2="6" y2="21"/><path d="M6 3 L18 8 L6 13" fill="currentColor" stroke="none"/></svg>
       TEE OFF →
     </button>
