@@ -161,6 +161,16 @@ export default {
       return handleGameGet(path.split('/')[2].toUpperCase(), env);
     }
 
+    // ── PUT /scores/:code — push/merge group scores for a game ────
+    if (method === 'PUT' && path.startsWith('/scores/') && path.split('/').length === 3) {
+      return handleScoresPut(path.split('/')[2].toUpperCase(), request, env);
+    }
+
+    // ── GET /scores/:code — retrieve all group scores for a game ──
+    if (method === 'GET' && path.startsWith('/scores/') && path.split('/').length === 3) {
+      return handleScoresGet(path.split('/')[2].toUpperCase(), env);
+    }
+
     return err('Not found', 404);
   },
 };
@@ -389,6 +399,59 @@ async function handleGameGet(code, env) {
   const raw = await env.GAMES.get('game:' + code);
   if (!raw) return err('Code not found or expired', 404);
   return json(JSON.parse(raw));
+}
+
+// ================================================================
+// SCORES HANDLERS
+// ================================================================
+// Scores are stored per-group under: scores:<code>:<groupId>
+// Each group's record: { code, round, group, players:[...], updatedAt }
+// TTL matches the game's ttlHours (default 90 days) but we use a fixed
+// 90-day TTL here since we don't look up the game record on every push.
+
+const SCORES_TTL = 90 * 24 * 3600; // 90 days in seconds
+
+async function handleScoresPut(code, request, env) {
+  if (!env.GAMES) return err('KV not configured', 503);
+
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON'); }
+
+  const rounds = body.rounds;
+  if (!Array.isArray(rounds) || rounds.length === 0) return err('rounds array required');
+
+  // Store each group's scores separately so multiple groups can push independently
+  await Promise.all(rounds.map(r => {
+    const groupId = String(r.group ?? r.round ?? 'default').slice(0, 60);
+    const record = {
+      code,
+      round:     r.round   ?? 1,
+      group:     groupId,
+      players:   r.players ?? [],
+      updatedAt: new Date().toISOString(),
+    };
+    return env.GAMES.put(
+      `scores:${code}:${groupId}`,
+      JSON.stringify(record),
+      { expirationTtl: SCORES_TTL }
+    );
+  }));
+
+  return json({ ok: true, stored: rounds.length });
+}
+
+async function handleScoresGet(code, env) {
+  if (!env.GAMES) return err('KV not configured', 503);
+
+  // List all group entries for this code
+  const listResult = await env.GAMES.list({ prefix: `scores:${code}:` });
+  if (!listResult.keys.length) return err('No scores found for this code', 404);
+
+  const records = await Promise.all(
+    listResult.keys.map(k => env.GAMES.get(k.name, { type: 'json' }))
+  );
+
+  return json({ rounds: records.filter(Boolean) });
 }
 
 // ================================================================
