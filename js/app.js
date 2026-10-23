@@ -416,7 +416,7 @@ function restorePushBtn(btn) {
  * @param {string|null} code
  */
 function updateHeroCodePills(code) {
-  const ids = ['hero-code-pill-1','hero-code-pill-2','hero-code-pill-3','hero-code-pill-review','hero-code-pill-home'];
+  const ids = ['hero-code-pill-1','hero-code-pill-2','hero-code-pill-3','hero-code-pill-home'];
   for (const id of ids) {
     const el = document.getElementById(id);
     if (!el) continue;
@@ -1080,93 +1080,206 @@ function _saveTournState(s) {
 function refreshTournamentUI() {
   const s = _tournState();
 
-  const btn = document.getElementById('btn-tourn-mode');
   const btnWrap = document.getElementById('btn-tourn-mode-wrap');
-  const panel = document.getElementById('tourn-mode-panel');
-  const roundsVal = document.getElementById('tourn-rounds-val');
-  const homeCode = document.getElementById('tourn-home-code');
+  const btnLabel = document.getElementById('btn-tourn-mode');
+  const statusLine = document.getElementById('tourn-status-line');
   const roundBadge = document.getElementById('tourn-round-badge');
   const newRoundBtn = document.getElementById('btn-tourn-new-round');
-  const roundsRow = document.getElementById('tourn-rounds-row');
+  const heroBlock = document.getElementById('hero-tourn-code-block');
+  const heroPill = document.getElementById('hero-code-pill-review');
 
   if (s.active) {
+    // Halo the button
     if (btnWrap) {
       btnWrap.style.border = '1.5px solid var(--gold,#d4a843)';
-      btnWrap.style.background = 'rgba(212,168,67,0.12)';
+      btnWrap.style.background = 'rgba(212,168,67,0.1)';
     }
-    if (btn) btn.style.color = 'var(--gold,#d4a843)';
-    if (panel) panel.style.display = 'flex';
-    if (roundsVal) roundsVal.textContent = s.rounds;
+    if (btnLabel) btnLabel.style.color = 'var(--gold,#d4a843)';
 
-    // Once tournament is underway (has a real code), hide the rounds stepper
-    const hasRealCode = s.code && s.code !== '__error__';
-    if (roundsRow) roundsRow.style.display = hasRealCode ? 'none' : '';
-
-    const isError = s.code === '__error__';
-    const codeText = isError ? 'tap to retry ↺' : (s.code ?? 'generating…');
-    if (homeCode) {
-      homeCode.textContent = codeText;
-      homeCode.style.color = isError ? 'var(--muted,#6b7280)' : 'var(--gold,#d4a843)';
-      homeCode.onclick = isError ? () => _tournRetryCode() : () => openShareGameModal();
+    // Status line under label
+    if (statusLine) {
+      const hasRealCode = s.code && s.code !== '__error__';
+      const isError = s.code === '__error__';
+      statusLine.style.display = '';
+      if (isError) {
+        statusLine.textContent = 'Code error — tap to retry';
+        statusLine.style.color = 'var(--muted,#6b7280)';
+        if (btnWrap) btnWrap.onclick = () => _tournRetryCode();
+      } else if (hasRealCode) {
+        statusLine.textContent = `${s.rounds} round${s.rounds !== 1 ? 's' : ''} · ${s.sameClub ? 'Same club' : 'Multi-club'}`;
+        statusLine.style.color = 'var(--gold,#d4a843)';
+        if (btnWrap) btnWrap.onclick = toggleTournamentMode;
+      } else {
+        statusLine.textContent = 'Generating code…';
+        statusLine.style.color = 'var(--muted,#6b7280)';
+        if (btnWrap) btnWrap.onclick = toggleTournamentMode;
+      }
     }
 
-    // Round badge — show "Round X of Y"
+    // Round badge
     if (roundBadge) {
       roundBadge.textContent = `Round ${s.currentRound} of ${s.rounds}`;
       roundBadge.style.display = '';
     }
-    // "New Round" button — show when we have a real code and haven't reached max rounds
+
+    // Next round button
+    const hasRealCode2 = s.code && s.code !== '__error__';
     if (newRoundBtn) {
-      newRoundBtn.style.display = (s.code && !isError && s.currentRound < s.rounds) ? '' : 'none';
+      newRoundBtn.style.display = (hasRealCode2 && s.currentRound < s.rounds) ? '' : 'none';
     }
 
-    // Propagate to all hero banners (only real codes)
-    if (s.code && !isError) updateHeroCodePills(s.code);
+    // Hero code block — large white text in the green banner
+    if (hasRealCode2) {
+      if (heroPill) heroPill.textContent = s.code;
+      if (heroBlock) heroBlock.style.display = '';
+    } else {
+      if (heroBlock) heroBlock.style.display = 'none';
+    }
+
+    // Also push to other hero pills (scoring screens etc.)
+    if (hasRealCode2) updateHeroCodePills(s.code);
 
   } else {
     if (btnWrap) {
       btnWrap.style.border = '';
       btnWrap.style.background = '';
+      btnWrap.onclick = toggleTournamentMode;
     }
-    if (btn) btn.style.color = '';
-    if (panel) panel.style.display = 'none';
+    if (btnLabel) btnLabel.style.color = '';
+    if (statusLine) statusLine.style.display = 'none';
+    if (roundBadge) roundBadge.style.display = 'none';
+    if (newRoundBtn) newRoundBtn.style.display = 'none';
+    if (heroBlock) heroBlock.style.display = 'none';
   }
 }
 
 /**
- * Toggle tournament mode on/off.
+ * Show the Tournament setup popup — choose rounds count and same/multi-club.
+ * Called when pressing Tournament Mode button while inactive.
+ */
+function _showTournamentSetupModal() {
+  const s = _tournState();
+  let pendingRounds = s.rounds ?? 2;
+  let pendingSameClub = s.sameClub !== false; // default same club
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.72);
+    z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;`;
+
+  const render = () => {
+    overlay.innerHTML = `
+      <div style="background:var(--surface,#1e2a3a);border:1.5px solid rgba(212,168,67,0.4);
+        border-radius:0.85rem;padding:1.5rem;max-width:320px;width:100%;">
+        <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
+          <span style="font-size:1.5rem;">🏆</span>
+          <span style="font-weight:800;font-size:1.1rem;color:var(--text);">Tournament Mode</span>
+        </div>
+
+        <div style="margin-bottom:1rem;">
+          <div style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;
+            text-transform:uppercase;margin-bottom:0.5rem;">Number of Rounds</div>
+          <div style="display:flex;align-items:center;gap:0.75rem;">
+            <button id="tp-rounds-dec" style="width:36px;height:36px;border-radius:50%;
+              background:var(--surface2,#273447);border:1px solid var(--border,#374151);
+              color:var(--text);font-size:1.2rem;font-weight:700;cursor:pointer;line-height:1;">−</button>
+            <span id="tp-rounds-val" style="font-size:1.6rem;font-weight:900;color:var(--text);
+              min-width:2ch;text-align:center;">${pendingRounds}</span>
+            <button id="tp-rounds-inc" style="width:36px;height:36px;border-radius:50%;
+              background:var(--surface2,#273447);border:1px solid var(--border,#374151);
+              color:var(--text);font-size:1.2rem;font-weight:700;cursor:pointer;line-height:1;">+</button>
+          </div>
+        </div>
+
+        <div style="margin-bottom:1.25rem;">
+          <div style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;
+            text-transform:uppercase;margin-bottom:0.5rem;">Venue</div>
+          <div style="display:flex;flex-direction:column;gap:0.4rem;">
+            <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;
+              padding:0.55rem 0.75rem;border-radius:0.5rem;
+              background:${pendingSameClub ? 'rgba(212,168,67,0.12)' : 'var(--surface2,#273447)'};
+              border:1.5px solid ${pendingSameClub ? 'rgba(212,168,67,0.5)' : 'var(--border,#374151)'};
+              transition:all 0.15s;">
+              <input type="radio" name="tp-venue" id="tp-same" value="same" ${pendingSameClub ? 'checked' : ''}
+                style="accent-color:var(--gold,#d4a843);">
+              <div>
+                <div style="font-weight:700;font-size:0.9rem;color:var(--text);">Same Club</div>
+                <div style="font-size:0.75rem;color:var(--muted);">Players carry over automatically</div>
+              </div>
+            </label>
+            <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;
+              padding:0.55rem 0.75rem;border-radius:0.5rem;
+              background:${!pendingSameClub ? 'rgba(212,168,67,0.12)' : 'var(--surface2,#273447)'};
+              border:1.5px solid ${!pendingSameClub ? 'rgba(212,168,67,0.5)' : 'var(--border,#374151)'};
+              transition:all 0.15s;">
+              <input type="radio" name="tp-venue" id="tp-multi" value="multi" ${!pendingSameClub ? 'checked' : ''}
+                style="accent-color:var(--gold,#d4a843);">
+              <div>
+                <div style="font-weight:700;font-size:0.9rem;color:var(--text);">Multi-Club Tour</div>
+                <div style="font-size:0.75rem;color:var(--muted);">Choose a different course each round</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:0.5rem;">
+          <button id="tp-cancel" class="btn btn-ghost" style="flex:1;">Cancel</button>
+          <button id="tp-start" class="btn btn-gold" style="flex:1;">Start Tournament</button>
+        </div>
+      </div>`;
+
+    overlay.querySelector('#tp-rounds-dec').onclick = () => {
+      pendingRounds = Math.max(2, pendingRounds - 1); render();
+    };
+    overlay.querySelector('#tp-rounds-inc').onclick = () => {
+      pendingRounds = Math.min(10, pendingRounds + 1); render();
+    };
+    overlay.querySelectorAll('input[name="tp-venue"]').forEach(r => {
+      r.onchange = () => { pendingSameClub = r.value === 'same'; render(); };
+    });
+    overlay.querySelector('#tp-cancel').onclick = () => overlay.remove();
+    overlay.querySelector('#tp-start').onclick = async () => {
+      overlay.remove();
+      _saveTournState({ ...s, active: true, rounds: pendingRounds, sameClub: pendingSameClub, currentRound: 1, code: null });
+      refreshTournamentUI();
+      try {
+        const code = await _tournGenerateCode();
+        const newState = { ..._tournState(), code };
+        _saveTournState(newState);
+        try { localStorage.setItem('lb-game-code', code); } catch {}
+        if (gameState) gameState.gameCode = code;
+      } catch (e) {
+        console.warn('Tournament code generation failed:', e.message ?? e);
+        _saveTournState({ ..._tournState(), code: '__error__' });
+      }
+      refreshTournamentUI();
+    };
+  };
+
+  render();
+  document.body.appendChild(overlay);
+  // Close on backdrop click
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+/**
+ * Toggle tournament mode on/off (called by button click).
  */
 async function toggleTournamentMode() {
   const s = _tournState();
   if (s.active) {
-    // Turn off — ask for confirmation if a code exists
-    if (s.code) {
-      if (!confirm('End tournament mode? The code will be cleared.')) return;
-    }
-    _saveTournState({ active: false, rounds: 1, currentRound: 1, code: null });
-    // Clear game code from hero pills
+    // Turn off — ask for confirmation
+    if (!confirm('End tournament mode? The code will be cleared.')) return;
+    _saveTournState({ active: false, rounds: 1, currentRound: 1, code: null, sameClub: true });
     updateHeroCodePills(null);
     try { localStorage.removeItem('lb-game-code'); } catch {}
-  } else {
-    // Turn on — generate a long-lived code immediately
-    _saveTournState({ ...s, active: true });
     refreshTournamentUI();
-    try {
-      const code = await _tournGenerateCode();
-      const newState = { ..._tournState(), code };
-      _saveTournState(newState);
-      try { localStorage.setItem('lb-game-code', code); } catch {}
-      if (gameState) gameState.gameCode = code;
-    } catch (e) {
-      console.warn('Tournament code generation failed:', e.message ?? e);
-      _saveTournState({ ..._tournState(), code: '__error__' });
-    }
+  } else {
+    _showTournamentSetupModal();
   }
-  refreshTournamentUI();
 }
 
 /**
- * Adjust number of rounds by delta (+1 or -1).
+ * Adjust number of rounds — kept for any legacy calls.
  */
 function tournRoundsAdj(delta) {
   const s = _tournState();
@@ -1192,6 +1305,7 @@ function tournNewRound() {
   const notice = document.createElement('div');
   notice.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);
     z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;`;
+  const goesToCourse = !s.sameClub; // multi-club: pick course; same club: skip to players
   notice.innerHTML = `
     <div style="background:var(--surface,#1e2a3a);border:1px solid rgba(212,168,67,0.4);
       border-radius:0.75rem;padding:1.5rem;max-width:320px;text-align:center;">
@@ -1203,7 +1317,7 @@ function tournNewRound() {
         Tournament code <strong style="color:var(--gold,#d4a843);letter-spacing:0.1em;">${s.code}</strong> stays the same.
       </div>
       <div style="font-size:0.82rem;color:var(--muted,#6b7280);margin-bottom:1.1rem;line-height:1.5;">
-        You can select a different course for this round.
+        ${goesToCourse ? 'Choose the course for this round.' : 'Players carry straight over — check the list on the next screen.'}
       </div>
       <div style="display:flex;gap:0.5rem;">
         <button id="tourn-next-cancel" class="btn btn-ghost" style="flex:1;">Cancel</button>
@@ -1217,9 +1331,15 @@ function tournNewRound() {
     notice.remove();
     _saveTournState({ ...s, currentRound: next });
     refreshTournamentUI();
-    // Go straight to course select — format stays the same
-    await populateCourseSelect();
-    showScreen('screen-setup-course');
+    if (goesToCourse) {
+      // Multi-club: let them pick a new course
+      await populateCourseSelect();
+      showScreen('screen-setup-course');
+    } else {
+      // Same club: skip straight to players
+      renderSetupPlayerList();
+      showScreen('screen-setup-players');
+    }
   };
 }
 
