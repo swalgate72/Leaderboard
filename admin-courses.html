@@ -756,6 +756,7 @@ async function approveCourse() {
   });
 
   if (r.ok) {
+    btn.disabled = false; btn.textContent = '✅ Approve';
     // Move from pending → approved in local data
     allPending  = allPending.filter(c => c.id !== id);
     allApproved = [...allApproved, { ..._currentCourse, status: 'approved', approvedAt: new Date().toISOString() }]
