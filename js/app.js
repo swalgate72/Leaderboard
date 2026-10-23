@@ -5830,6 +5830,15 @@ async function teeOff() {
   gameState = groupStates[0];
   gameState.allGroupStates = groupStates;
 
+  // Carry tournament code into gameState so end-round screen can show push/live buttons
+  try {
+    const ts = _tournState();
+    if (ts.active && ts.code && ts.code !== '__error__') {
+      gameState.gameCode = ts.code;
+      localStorage.setItem('lb-game-code', ts.code);
+    }
+  } catch {}
+
   // Store profileIds per group. scorerProfileId starts as '__unclaimed__' —
   // first person to tap Score in the invite banner claims it.
   for (let g = 0; g < setup.numGroups; g++) {
@@ -11283,7 +11292,17 @@ async function showEndRound() {
   // Wire push-scores + live-leaderboard buttons on end-round screen
   const pushEndBtn = document.getElementById('btn-push-scores-end');
   const liveEndBtn = document.getElementById('btn-live-end');
-  const code = (() => { try { return gameState?.gameCode ?? localStorage.getItem('lb-game-code'); } catch { return null; } })();
+  const code = (() => {
+    try {
+      if (gameState?.gameCode) return gameState.gameCode;
+      const stored = localStorage.getItem('lb-game-code');
+      if (stored) return stored;
+      // Tournament fallback — code lives in tournament state even after round save
+      const ts = _tournState();
+      if (ts.active && ts.code && ts.code !== '__error__') return ts.code;
+      return null;
+    } catch { return null; }
+  })();
   if (pushEndBtn) {
     pushEndBtn.onclick = () => pushScoresToCloud(pushEndBtn);
     pushEndBtn.style.display = code ? '' : 'none';
