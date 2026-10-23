@@ -1087,6 +1087,7 @@ function refreshTournamentUI() {
   const homeCode = document.getElementById('tourn-home-code');
   const roundBadge = document.getElementById('tourn-round-badge');
   const newRoundBtn = document.getElementById('btn-tourn-new-round');
+  const roundsRow = document.getElementById('tourn-rounds-row');
 
   if (s.active) {
     if (btnWrap) {
@@ -1097,6 +1098,10 @@ function refreshTournamentUI() {
     if (panel) panel.style.display = 'flex';
     if (roundsVal) roundsVal.textContent = s.rounds;
 
+    // Once tournament is underway (has a real code), hide the rounds stepper
+    const hasRealCode = s.code && s.code !== '__error__';
+    if (roundsRow) roundsRow.style.display = hasRealCode ? 'none' : '';
+
     const isError = s.code === '__error__';
     const codeText = isError ? 'tap to retry ↺' : (s.code ?? 'generating…');
     if (homeCode) {
@@ -1105,9 +1110,9 @@ function refreshTournamentUI() {
       homeCode.onclick = isError ? () => _tournRetryCode() : () => openShareGameModal();
     }
 
-    // Round badge
+    // Round badge — show "Round X of Y"
     if (roundBadge) {
-      roundBadge.textContent = `RND ${s.currentRound}`;
+      roundBadge.textContent = `Round ${s.currentRound} of ${s.rounds}`;
       roundBadge.style.display = '';
     }
     // "New Round" button — show when we have a real code and haven't reached max rounds
@@ -1182,11 +1187,40 @@ function tournNewRound() {
     return;
   }
   const next = s.currentRound + 1;
-  if (!confirm(`Start Round ${next} of ${s.rounds}?\n\nThe same tournament code (${s.code}) will be kept. You can pick a different course on the next screen.`)) return;
-  _saveTournState({ ...s, currentRound: next });
-  refreshTournamentUI();
-  // Take organiser to the home screen format picker — they choose format then course as normal
-  // The existing game code is already set, so setup will reuse it
+
+  // Show a friendly info notice (not a blocking confirm)
+  const notice = document.createElement('div');
+  notice.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);
+    z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;`;
+  notice.innerHTML = `
+    <div style="background:var(--surface,#1e2a3a);border:1px solid rgba(212,168,67,0.4);
+      border-radius:0.75rem;padding:1.5rem;max-width:320px;text-align:center;">
+      <div style="font-size:2rem;margin-bottom:0.5rem;">🏆</div>
+      <div style="font-weight:800;font-size:1.1rem;margin-bottom:0.4rem;color:var(--text);">
+        Starting Round ${next} of ${s.rounds}
+      </div>
+      <div style="font-size:0.85rem;color:var(--muted,#6b7280);margin-bottom:0.25rem;line-height:1.5;">
+        Tournament code <strong style="color:var(--gold,#d4a843);letter-spacing:0.1em;">${s.code}</strong> stays the same.
+      </div>
+      <div style="font-size:0.82rem;color:var(--muted,#6b7280);margin-bottom:1.1rem;line-height:1.5;">
+        You can select a different course for this round.
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        <button id="tourn-next-cancel" class="btn btn-ghost" style="flex:1;">Cancel</button>
+        <button id="tourn-next-go" class="btn btn-gold" style="flex:1;">Let's Go →</button>
+      </div>
+    </div>`;
+  document.body.appendChild(notice);
+
+  document.getElementById('tourn-next-cancel').onclick = () => notice.remove();
+  document.getElementById('tourn-next-go').onclick = async () => {
+    notice.remove();
+    _saveTournState({ ...s, currentRound: next });
+    refreshTournamentUI();
+    // Go straight to course select — format stays the same
+    await populateCourseSelect();
+    showScreen('screen-setup-course');
+  };
 }
 
 async function _tournGenerateCode() {
@@ -5238,6 +5272,14 @@ function buildSetupReview() {
     ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
     : '';
 
+  const ts = _tournState();
+  const tournActive = ts.active && ts.code && ts.code !== '__error__';
+  const roundOfY = tournActive
+    ? `<div style="display:flex;justify-content:space-between;">
+         <span style="color:var(--muted2);">Round</span>
+         <span style="color:var(--gold,#d4a843);font-weight:800;">${ts.currentRound} of ${ts.rounds}</span>
+       </div>` : '';
+
   let html = `
     <div style="display:grid;gap:0.5rem;font-size:1.05rem;font-weight:700;margin-bottom:1rem;">
       ${course ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Course</span><span style="text-align:right;max-width:60%;">${course.name}</span></div>` : ''}
@@ -5245,6 +5287,7 @@ function buildSetupReview() {
       ${reviewDateStr ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Date</span><span>${reviewDateStr}</span></div>` : ''}
       ${reviewOrganiser ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Organiser</span><span>${reviewOrganiser}</span></div>` : ''}
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Format</span><span>${fmtLabel(setup.scoring)}</span></div>
+      ${roundOfY}
       ${isTeamFmt2 ? `
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Scoring</span><span>${teamScoreLabel2}</span></div>
       ${isTexas ? `
