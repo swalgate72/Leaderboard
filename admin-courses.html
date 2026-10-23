@@ -314,13 +314,13 @@ async function submitCourseJson() {
   try { data = JSON.parse(raw); }
   catch (e) { msg.style.color = 'var(--red)'; msg.textContent = 'Invalid JSON: ' + e.message; return; }
 
-  // Auto-assign colour from tee name where it matches a palette key
+  // Auto-assign colour from tee name — match first word, ignoring "(Men)"/"(Women)" suffix
   const PALETTE_KEYS = new Set(['white','yellow','red','blue','black','green','gold','silver','orange','purple']);
   if (Array.isArray(data.tees)) {
     data.tees = data.tees.map(t => {
       if (!t.color) {
-        const key = (t.name ?? '').toLowerCase().trim();
-        if (PALETTE_KEYS.has(key)) t = { ...t, color: key };
+        const firstWord = (t.name ?? '').toLowerCase().trim().split(/[\s(]/)[0];
+        if (PALETTE_KEYS.has(firstWord)) t = { ...t, color: firstWord };
       }
       return t;
     });
@@ -969,16 +969,22 @@ function buildColourPalette(containerId, ti, currentColour) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
+function asArray(v) {
+  // Handles both per-hole arrays and legacy single-number totals
+  return Array.isArray(v) ? v : [];
+}
+
 function holeCountFor(c) {
   const maxLen = Math.max(...(c.tees ?? []).map(t => Math.max(
-    (t.yards ?? []).filter(v => v != null && v !== '').length,
-    (t.par   ?? []).filter(v => v != null && v !== '').length,
+    asArray(t.yards).filter(v => v != null && v !== '').length,
+    asArray(t.par  ).filter(v => v != null && v !== '').length,
   )), 0);
   return maxLen > 9 ? 18 : 9;
 }
 
 function totalYards(arr) {
-  return (arr ?? []).reduce((s, v) => s + (Number(v) || 0), 0);
+  if (!Array.isArray(arr)) return Number(arr) || 0;
+  return arr.reduce((s, v) => s + (Number(v) || 0), 0);
 }
 
 function fmtDate(iso) {
