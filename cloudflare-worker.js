@@ -404,10 +404,14 @@ async function handleGameGet(code, env) {
 // ================================================================
 // SCORES HANDLERS
 // ================================================================
-// Scores are stored per-group under: scores:<code>:<groupId>
+// Scores are stored per-group under: scores:<code>:<round>:<groupId>
+// (round is included in the key so multi-round tournaments don't overwrite)
 // Each group's record: { code, round, group, players:[...], updatedAt }
 // TTL matches the game's ttlHours (default 90 days) but we use a fixed
 // 90-day TTL here since we don't look up the game record on every push.
+//
+// Legacy keys (scores:<code>:<groupId>) are also listed on GET so old data
+// still appears — they lack a round prefix and are treated as round 1.
 
 const SCORES_TTL = 90 * 24 * 3600; // 90 days in seconds
 
@@ -420,18 +424,20 @@ async function handleScoresPut(code, request, env) {
   const rounds = body.rounds;
   if (!Array.isArray(rounds) || rounds.length === 0) return err('rounds array required');
 
-  // Store each group's scores separately so multiple groups can push independently
+  // Store each group's scores separately so multiple groups can push independently.
+  // Key includes round number so tournament rounds never overwrite each other.
   await Promise.all(rounds.map(r => {
-    const groupId = String(r.group ?? r.round ?? 'default').slice(0, 60);
+    const roundNum = r.round ?? 1;
+    const groupId  = String(r.group ?? 'default').slice(0, 60);
     const record = {
       code,
-      round:     r.round   ?? 1,
+      round:     roundNum,
       group:     groupId,
       players:   r.players ?? [],
       updatedAt: new Date().toISOString(),
     };
     return env.GAMES.put(
-      `scores:${code}:${groupId}`,
+      `scores:${code}:r${roundNum}:${groupId}`,
       JSON.stringify(record),
       { expirationTtl: SCORES_TTL }
     );

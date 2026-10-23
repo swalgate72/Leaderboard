@@ -11759,12 +11759,11 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     gameState = null;
     // Clear game code so a new game never pushes scores to this completed game
     try { localStorage.removeItem('lb-game-code'); } catch {}
-    if (wasTournament) {
-      await showHome();
-    } else {
-      await showHome();
-    }
+    // Clear the safety timeout BEFORE navigating away — showHome() can trigger
+    // screen transitions that re-render DOM, and clearing afterwards risks the
+    // timeout firing mid-navigation and showing a spurious alert.
     clearTimeout(saveTimeout);
+    await showHome();
     // Prompt to back up after every completed round
     _promptBackup('Round saved! Back up your data to iCloud Drive or Google Drive?');
   } catch (err) {
