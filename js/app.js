@@ -1070,21 +1070,26 @@ function refreshTournamentUI() {
     if (panel) panel.style.display = 'flex';
     if (roundsVal) roundsVal.textContent = s.rounds;
 
-    const codeText = s.code ?? '…';
-    if (homeCode) homeCode.textContent = codeText;
+    const isError = s.code === '__error__';
+    const codeText = isError ? 'tap to retry ↺' : (s.code ?? 'generating…');
+    if (homeCode) {
+      homeCode.textContent = codeText;
+      homeCode.style.color = isError ? 'var(--muted,#6b7280)' : 'var(--gold,#d4a843)';
+      homeCode.onclick = isError ? () => _tournRetryCode() : () => openShareGameModal();
+    }
 
     // Round badge
     if (roundBadge) {
       roundBadge.textContent = `RND ${s.currentRound}`;
       roundBadge.style.display = '';
     }
-    // "New Round" button — show when we have a code and haven't reached max rounds
+    // "New Round" button — show when we have a real code and haven't reached max rounds
     if (newRoundBtn) {
-      newRoundBtn.style.display = (s.code && s.currentRound < s.rounds) ? '' : 'none';
+      newRoundBtn.style.display = (s.code && !isError && s.currentRound < s.rounds) ? '' : 'none';
     }
 
-    // Propagate to all hero banners
-    if (s.code) updateHeroCodePills(s.code);
+    // Propagate to all hero banners (only real codes)
+    if (s.code && !isError) updateHeroCodePills(s.code);
 
   } else {
     if (btnWrap) {
@@ -1122,10 +1127,10 @@ async function toggleTournamentMode() {
       try { localStorage.setItem('lb-game-code', result.code); } catch {}
       if (gameState) gameState.gameCode = result.code;
     } catch (e) {
-      console.warn('Tournament code generation failed:', e);
-      // Show error in the code display so user knows
-      const homeCode = document.getElementById('tourn-home-code');
-      if (homeCode) homeCode.textContent = 'retry ↺';
+      console.warn('Tournament code generation failed:', e.message ?? e);
+      // Save a sentinel so the UI shows a retry prompt
+      const errState = { ..._tournState(), code: '__error__' };
+      _saveTournState(errState);
     }
   }
   refreshTournamentUI();
@@ -1158,6 +1163,24 @@ function tournNewRound() {
   refreshTournamentUI();
   // Take organiser to the home screen format picker — they choose format then course as normal
   // The existing game code is already set, so setup will reuse it
+}
+
+async function _tournRetryCode() {
+  const s = _tournState();
+  if (!s.active) return;
+  _saveTournState({ ...s, code: null });
+  refreshTournamentUI();
+  try {
+    const result = await shareGameSetup({ ttlHours: 2160 });
+    if (!result?.code) throw new Error('No code returned');
+    _saveTournState({ ..._tournState(), code: result.code });
+    try { localStorage.setItem('lb-game-code', result.code); } catch {}
+    if (gameState) gameState.gameCode = result.code;
+  } catch (e) {
+    console.warn('Tournament code retry failed:', e.message ?? e);
+    _saveTournState({ ..._tournState(), code: '__error__' });
+  }
+  refreshTournamentUI();
 }
 
 window.toggleTournamentMode = toggleTournamentMode;
@@ -12604,8 +12627,7 @@ document.getElementById('btn-profile-home')?.addEventListener('click', () => sho
 // with fallback to plain download. Call from any user-gesture context.
 async function shareBackupFile() {
   const json    = await exportBackup();
-  const dateStr = new Date().toISOString().slice(0, 10);
-  const fname   = `leaderboard-backup-${dateStr}.json`;
+  const fname   = `leaderboard-backup.json`;
   const blob    = new Blob([json], { type: 'application/json' });
   const file    = new File([blob], fname, { type: 'application/json' });
 
@@ -12640,7 +12662,7 @@ async function shareBackupFile() {
         resolve();
       });
     });
-    await navigator.share({ files: [file], title: 'Leaderboard Backup', text: `Leaderboard backup ${dateStr}` });
+    await navigator.share({ files: [file], title: 'Leaderboard Backup', text: 'Leaderboard backup' });
     return;
   }
 
