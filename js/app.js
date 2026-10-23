@@ -1055,6 +1055,7 @@ function refreshTournamentUI() {
 
   // Toggle button halo
   const btn = document.getElementById('btn-tourn-mode');
+  const btnWrap = document.getElementById('btn-tourn-mode-wrap');
   const panel = document.getElementById('tourn-mode-panel');
   const homeCodeRow = document.getElementById('home-tourn-code-row');
   const homeCodePill = document.getElementById('hero-code-pill-home');
@@ -1065,11 +1066,11 @@ function refreshTournamentUI() {
   const newRoundBtn = document.getElementById('btn-tourn-new-round');
 
   if (s.active) {
-    if (btn) {
-      btn.style.border = '1.5px solid var(--gold,#d4a843)';
-      btn.style.color = 'var(--gold,#d4a843)';
-      btn.style.background = 'rgba(212,168,67,0.12)';
+    if (btnWrap) {
+      btnWrap.style.border = '1.5px solid var(--gold,#d4a843)';
+      btnWrap.style.background = 'rgba(212,168,67,0.12)';
     }
+    if (btn) btn.style.color = 'var(--gold,#d4a843)';
     if (panel) panel.style.display = 'flex';
     if (roundsVal) roundsVal.textContent = s.rounds;
 
@@ -1095,11 +1096,11 @@ function refreshTournamentUI() {
     if (s.code) updateHeroCodePills(s.code);
 
   } else {
-    if (btn) {
-      btn.style.border = '1.5px solid rgba(255,255,255,0.18)';
-      btn.style.color = 'rgba(255,255,255,0.7)';
-      btn.style.background = 'rgba(255,255,255,0.06)';
+    if (btnWrap) {
+      btnWrap.style.border = '';
+      btnWrap.style.background = '';
     }
+    if (btn) btn.style.color = '';
     if (panel) panel.style.display = 'none';
     if (homeCodeRow) homeCodeRow.style.display = 'none';
   }
