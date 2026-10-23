@@ -553,19 +553,29 @@ function openJoinGameModal() {
   if (hasActiveTournament) {
     const roundsLeft = ts.rounds - ts.currentRound;
     const statusText = roundsLeft > 0
-      ? `Round ${ts.currentRound} of ${ts.rounds} played · ${roundsLeft} round${roundsLeft !== 1 ? 's' : ''} remaining`
+      ? `Round ${ts.currentRound} of ${ts.rounds} · ${roundsLeft} round${roundsLeft !== 1 ? 's' : ''} remaining`
       : `All ${ts.rounds} round${ts.rounds !== 1 ? 's' : ''} complete`;
     const canStartNext = ts.currentRound < ts.rounds;
 
     tournSection = `
       <div style="border:1px solid rgba(212,168,67,0.35);border-radius:0.6rem;padding:0.85rem;margin-bottom:1rem;text-align:left;background:rgba(212,168,67,0.06);">
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">
           <span style="font-size:1rem;">🏆</span>
           <span style="font-weight:700;font-size:0.9rem;color:var(--text);">Active Tournament</span>
           <span style="margin-left:auto;font-family:monospace;font-size:0.85rem;font-weight:800;letter-spacing:0.12em;color:var(--gold,#d4a843);">${ts.code}</span>
         </div>
-        <div style="font-size:0.78rem;color:var(--muted,#6b7280);margin-bottom:${canStartNext ? '0.65rem' : '0'};">${statusText}</div>
-        ${canStartNext ? `<button id="join-modal-next-round-btn" class="btn btn-gold" style="width:100%;padding:0.5rem;">▶ Start Round ${ts.currentRound + 1} of ${ts.rounds}</button>` : ''}
+        <div style="font-size:0.78rem;color:var(--muted,#6b7280);margin-bottom:0.75rem;">${statusText}</div>
+        <div style="display:flex;flex-direction:column;gap:0.45rem;">
+          <button id="join-modal-rejoin-btn" class="btn" style="width:100%;padding:0.55rem 0.75rem;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:var(--text);font-size:0.88rem;text-align:left;display:flex;align-items:center;gap:0.5rem;border-radius:0.45rem;">
+            <span style="font-size:1.1rem;">🔄</span><span>Rejoin current game</span>
+          </button>
+          ${canStartNext ? `<button id="join-modal-next-round-btn" class="btn" style="width:100%;padding:0.55rem 0.75rem;background:rgba(212,168,67,0.12);border:1px solid rgba(212,168,67,0.4);color:var(--gold,#d4a843);font-size:0.88rem;text-align:left;display:flex;align-items:center;gap:0.5rem;border-radius:0.45rem;">
+            <span style="font-size:1.1rem;">▶</span><span>Start Round ${ts.currentRound + 1} of ${ts.rounds}</span>
+          </button>` : ''}
+          <button id="join-modal-live-btn" class="btn" style="width:100%;padding:0.55rem 0.75rem;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:var(--text);font-size:0.88rem;text-align:left;display:flex;align-items:center;gap:0.5rem;border-radius:0.45rem;">
+            <span style="font-size:1.1rem;">📊</span><span>Go to Live Leaderboard</span>
+          </button>
+        </div>
       </div>`;
   }
 
@@ -603,10 +613,41 @@ function openJoinGameModal() {
   document.getElementById('join-game-close').addEventListener('click', () => modal.classList.remove('open'));
   modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
 
-  // "Start Next Round" button inside the active tournament section
+  // Active tournament action buttons
+  document.getElementById('join-modal-rejoin-btn')?.addEventListener('click', () => {
+    modal.classList.remove('open');
+    // Attempt to restore the in-progress game; if no saved state just go to scoring
+    try {
+      const saved = localStorage.getItem('lb-saved-game');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        gameState = parsed;
+        // Ensure gameCode is set from tournament state
+        const tts = _tournState();
+        if (tts.active && tts.code && tts.code !== '__error__') {
+          gameState.gameCode = tts.code;
+        }
+        enterGameScreen();
+        return;
+      }
+    } catch {}
+    // No saved game — go to end-round or scoring screen if game is live
+    if (gameState) {
+      enterGameScreen();
+    } else {
+      // Nothing to rejoin — show a gentle notice
+      alert('No active game found. Start a new round from the tournament setup.');
+    }
+  });
+
   document.getElementById('join-modal-next-round-btn')?.addEventListener('click', () => {
     modal.classList.remove('open');
     tournNewRound();
+  });
+
+  document.getElementById('join-modal-live-btn')?.addEventListener('click', () => {
+    modal.classList.remove('open');
+    openLiveLeaderboard();
   });
 
   inp.addEventListener('input', () => {
