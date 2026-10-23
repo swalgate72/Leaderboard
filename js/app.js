@@ -1036,11 +1036,11 @@ function _tournState() {
   try {
     return JSON.parse(localStorage.getItem('lb-tourn-state') ?? 'null') ?? {
       active: false,
-      rounds: 2,
+      rounds: 1,
       currentRound: 1,
       code: null,
     };
-  } catch { return { active: false, rounds: 2, currentRound: 1, code: null }; }
+  } catch { return { active: false, rounds: 1, currentRound: 1, code: null }; }
 }
 
 function _saveTournState(s) {
@@ -1106,7 +1106,7 @@ async function toggleTournamentMode() {
     if (s.code) {
       if (!confirm('End tournament mode? The code will be cleared.')) return;
     }
-    _saveTournState({ active: false, rounds: 2, currentRound: 1, code: null });
+    _saveTournState({ active: false, rounds: 1, currentRound: 1, code: null });
     // Clear game code from hero pills
     updateHeroCodePills(null);
     try { localStorage.removeItem('lb-game-code'); } catch {}
@@ -1116,12 +1116,16 @@ async function toggleTournamentMode() {
     refreshTournamentUI();
     try {
       const result = await shareGameSetup({ ttlHours: 2160 }); // 90 days
+      if (!result?.code) throw new Error('No code returned');
       const newState = { ..._tournState(), code: result.code };
       _saveTournState(newState);
       try { localStorage.setItem('lb-game-code', result.code); } catch {}
       if (gameState) gameState.gameCode = result.code;
     } catch (e) {
       console.warn('Tournament code generation failed:', e);
+      // Show error in the code display so user knows
+      const homeCode = document.getElementById('tourn-home-code');
+      if (homeCode) homeCode.textContent = 'retry ↺';
     }
   }
   refreshTournamentUI();
@@ -1132,7 +1136,7 @@ async function toggleTournamentMode() {
  */
 function tournRoundsAdj(delta) {
   const s = _tournState();
-  const newRounds = Math.max(2, Math.min(10, (s.rounds ?? 2) + delta));
+  const newRounds = Math.max(1, Math.min(10, (s.rounds ?? 1) + delta));
   _saveTournState({ ...s, rounds: newRounds });
   refreshTournamentUI();
 }
