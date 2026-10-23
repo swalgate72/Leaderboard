@@ -2494,10 +2494,10 @@ function openFriendsPickerModal() {
     return;
   }
 
-  const initVals = (f) => f._pickerVals ?? {
-    index:  Math.round(f.hcp ?? 0),
-    course: Math.round(f.hcp ?? 0),
-  };
+  const initVals = (f) => f._pickerVals ?? (() => {
+    const v = playerHcpValues(f);
+    return { index: v.index, course: v.course };
+  })();
 
   const renderFriendsList = () => {
     listEl.innerHTML = friends.map((f, fi) => {
