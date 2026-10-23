@@ -146,19 +146,20 @@ export default {
       return err('Not found', 404);
     }
 
-    // ── EXISTING game-code routes (preserved exactly) ─────────────
-    // These handle /game-codes, /leaderboard, /competitions, /push etc.
-    // All existing logic below is unchanged from the original worker.
-
     // ── Route: health check ───────────────────────────────────────
     if (path === '/' || path === '/health') {
       return json({ ok: true, service: 'leaderboardsync' });
     }
 
-    // ── EXISTING ROUTES ──────────────────────────────────────────
-    // (The original worker code for game codes, leaderboard sync,
-    //  push notifications etc. continues here unchanged.
-    //  Paste the full original worker body after this comment.)
+    // ── POST /game — store a game setup, return a share code ──────
+    if (method === 'POST' && path === '/game') {
+      return handleGameCreate(request, env);
+    }
+
+    // ── GET /game/:code — retrieve a stored game setup ────────────
+    if (method === 'GET' && path.startsWith('/game/') && path.split('/').length === 3) {
+      return handleGameGet(path.split('/')[2].toUpperCase(), env);
+    }
 
     return err('Not found', 404);
   },
@@ -352,6 +353,42 @@ async function handleAdminDeleteApproved(id, env) {
   if (!existing) return err('Approved course not found', 404);
   await env.COURSE_LIBRARY.delete('course:approved:' + id);
   return json({ id, deleted: true });
+}
+
+// ================================================================
+// GAME SETUP HANDLERS
+// ================================================================
+
+async function handleGameCreate(request, env) {
+  if (!env.GAMES) return err('KV not configured', 503);
+
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON'); }
+
+  const ttlHours = typeof body.ttlHours === 'number' && body.ttlHours > 0
+    ? body.ttlHours
+    : 24;
+  const ttlSecs = Math.min(ttlHours * 3600, 90 * 24 * 3600); // cap at 90 days
+
+  const code = makeCode(6);
+  const record = {
+    code,
+    course:    body.course  ?? null,
+    format:    body.format  ?? null,
+    players:   body.players ?? [],
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + ttlSecs * 1000).toISOString(),
+  };
+
+  await env.GAMES.put('game:' + code, JSON.stringify(record), { expirationTtl: ttlSecs });
+  return json({ code, expiresAt: record.expiresAt }, 201);
+}
+
+async function handleGameGet(code, env) {
+  if (!env.GAMES) return err('KV not configured', 503);
+  const raw = await env.GAMES.get('game:' + code);
+  if (!raw) return err('Code not found or expired', 404);
+  return json(JSON.parse(raw));
 }
 
 // ================================================================
