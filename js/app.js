@@ -1344,7 +1344,22 @@ function _tournCarryPlayers() {
       return;
     }
   } catch {}
-  // gameState gone — leave setup.players as-is (may already have profile prefilled)
+  // gameState gone — prefill from currentProfile just like the course-next button does
+  if (!setup.players?.some(p => p.name)) {
+    try {
+      const myName      = currentProfile ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim() : '';
+      const myHcp       = currentProfile?.hcp ?? 0;
+      const myCourseHcp = getMyCourseHandicapDefault();
+      setup.players = [{
+        name: myName, hcpIndex: myHcp,
+        courseHandicap: myCourseHcp ?? myHcp,
+        groupNumber: 1, profileId: currentUser?.id ?? null,
+        mobile: currentProfile?.mobile ?? '', isScorer: true,
+        hcpSource: 'course',
+        gameHandicap: Math.round(myCourseHcp ?? myHcp ?? 0),
+      }];
+    } catch {}
+  }
 }
 
 function tournNewRound() {
