@@ -537,88 +537,115 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
 }
 
 /**
- * Show the "Join Game" modal — text box for entering a code.
+ * Show the "Join Tournament" modal — code input + active/recent tournaments.
  * On success, imports course + format into setup.
  */
 function openJoinGameModal() {
-  let modal = document.getElementById('modal-join-game');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'modal-join-game';
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-      <div class="modal-box" style="max-width:340px;padding:1.5rem;text-align:center;">
-        <h3 style="margin:0 0 0.25rem;font-size:1.1rem;">📥 Join a Game</h3>
-        <p style="color:var(--text-muted,#a0aec0);font-size:0.85rem;margin:0 0 1rem;line-height:1.5;">
-          Enter the 6-character code from the game organiser
-        </p>
-        <input id="join-game-input" maxlength="6" autocomplete="off" spellcheck="false"
-          placeholder="e.g. X7K2AB"
-          style="display:block;width:100%;background:#1a2535 !important;
-            border:1px solid rgba(212,168,67,0.5);
-            color:#f0f4f8 !important;border-radius:0.5rem;padding:0.65rem 0.75rem;
-            font-size:1.4rem;font-weight:700;letter-spacing:0.2em;text-align:center;
-            text-transform:uppercase;margin-bottom:0.75rem;outline:none;
-            -webkit-text-fill-color:#f0f4f8 !important;">
-        <div id="join-game-status" style="font-size:0.82rem;color:var(--text-muted,#a0aec0);
-          min-height:1.2em;margin-bottom:0.75rem;"></div>
-        <div style="display:flex;gap:0.5rem;">
-          <button id="join-game-btn" class="btn btn-gold" style="flex:1;" disabled>Join</button>
-          <button id="join-game-close" class="btn btn-ghost" style="flex:0 0 auto;padding:0.5rem 1rem;">Cancel</button>
+  // Always rebuild so tournament state is fresh
+  const existing = document.getElementById('modal-join-game');
+  if (existing) existing.remove();
+
+  const ts = _tournState();
+  const hasActiveTournament = ts.active && ts.code && ts.code !== '__error__';
+
+  // Build active tournament section
+  let tournSection = '';
+  if (hasActiveTournament) {
+    const roundsLeft = ts.rounds - ts.currentRound;
+    const statusText = roundsLeft > 0
+      ? `Round ${ts.currentRound} of ${ts.rounds} played · ${roundsLeft} round${roundsLeft !== 1 ? 's' : ''} remaining`
+      : `All ${ts.rounds} round${ts.rounds !== 1 ? 's' : ''} complete`;
+    const canStartNext = ts.currentRound < ts.rounds;
+
+    tournSection = `
+      <div style="border:1px solid rgba(212,168,67,0.35);border-radius:0.6rem;padding:0.85rem;margin-bottom:1rem;text-align:left;background:rgba(212,168,67,0.06);">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+          <span style="font-size:1rem;">🏆</span>
+          <span style="font-weight:700;font-size:0.9rem;color:var(--text);">Active Tournament</span>
+          <span style="margin-left:auto;font-family:monospace;font-size:0.85rem;font-weight:800;letter-spacing:0.12em;color:var(--gold,#d4a843);">${ts.code}</span>
         </div>
+        <div style="font-size:0.78rem;color:var(--muted,#6b7280);margin-bottom:${canStartNext ? '0.65rem' : '0'};">${statusText}</div>
+        ${canStartNext ? `<button id="join-modal-next-round-btn" class="btn btn-gold" style="width:100%;padding:0.5rem;">▶ Start Round ${ts.currentRound + 1} of ${ts.rounds}</button>` : ''}
       </div>`;
-    document.body.appendChild(modal);
-
-    const inp    = document.getElementById('join-game-input');
-    const btn    = document.getElementById('join-game-btn');
-    const status = document.getElementById('join-game-status');
-
-    document.getElementById('join-game-close').addEventListener('click', () => modal.classList.remove('open'));
-    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
-
-    inp.addEventListener('input', () => {
-      const v = inp.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6);
-      inp.value = v;
-      btn.disabled = v.length !== 6;
-      status.textContent = '';
-    });
-    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !btn.disabled) btn.click(); });
-
-    btn.addEventListener('click', async () => {
-      const code = inp.value.toUpperCase().slice(0, 6);
-      if (code.length !== 6) return;
-      btn.disabled = true;
-      btn.textContent = '⏳';
-      status.textContent = 'Looking up code…';
-      try {
-        const rec = await fetchGameByCode(code);
-        await importGameRecord(rec);
-
-        // Store for later score upload, and embed in gameState for history
-        try { localStorage.setItem('lb-game-code', code); } catch {}
-        if (gameState) gameState.gameCode = code;
-
-        status.textContent = `✅ Joined: ${rec.course?.name ?? 'game'}`;
-        modal.classList.remove('open');
-
-        // Re-render course select to reflect imported course
-        await populateCourseSelect();
-        showScreen('screen-setup-course');
-
-      } catch (err) {
-        status.textContent = '❌ ' + (err.message ?? 'Code not found');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Join';
-      }
-    });
   }
 
-  // Reset state
-  const inp = document.getElementById('join-game-input');
-  const btn = document.getElementById('join-game-btn');
-  if (inp) { inp.value = ''; btn.disabled = true; }
-  document.getElementById('join-game-status').textContent = '';
+  const modal = document.createElement('div');
+  modal.id = 'modal-join-game';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-box" style="max-width:340px;padding:1.5rem;text-align:center;">
+      <h3 style="margin:0 0 0.25rem;font-size:1.1rem;">🏆 Join Tournament</h3>
+      <p style="color:var(--text-muted,#a0aec0);font-size:0.85rem;margin:0 0 1rem;line-height:1.5;">
+        Enter a code to join a game, or continue your tournament below
+      </p>
+      ${tournSection}
+      <input id="join-game-input" maxlength="6" autocomplete="off" spellcheck="false"
+        placeholder="Enter 6-char code"
+        style="display:block;width:100%;background:#1a2535 !important;
+          border:1px solid rgba(212,168,67,0.5);
+          color:#f0f4f8 !important;border-radius:0.5rem;padding:0.65rem 0.75rem;
+          font-size:1.4rem;font-weight:700;letter-spacing:0.2em;text-align:center;
+          text-transform:uppercase;margin-bottom:0.75rem;outline:none;
+          -webkit-text-fill-color:#f0f4f8 !important;">
+      <div id="join-game-status" style="font-size:0.82rem;color:var(--text-muted,#a0aec0);
+        min-height:1.2em;margin-bottom:0.75rem;"></div>
+      <div style="display:flex;gap:0.5rem;">
+        <button id="join-game-btn" class="btn btn-gold" style="flex:1;" disabled>Join</button>
+        <button id="join-game-close" class="btn btn-ghost" style="flex:0 0 auto;padding:0.5rem 1rem;">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  const inp    = document.getElementById('join-game-input');
+  const btn    = document.getElementById('join-game-btn');
+  const status = document.getElementById('join-game-status');
+
+  document.getElementById('join-game-close').addEventListener('click', () => modal.classList.remove('open'));
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+
+  // "Start Next Round" button inside the active tournament section
+  document.getElementById('join-modal-next-round-btn')?.addEventListener('click', () => {
+    modal.classList.remove('open');
+    tournNewRound();
+  });
+
+  inp.addEventListener('input', () => {
+    const v = inp.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6);
+    inp.value = v;
+    btn.disabled = v.length !== 6;
+    status.textContent = '';
+  });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !btn.disabled) btn.click(); });
+
+  btn.addEventListener('click', async () => {
+    const code = inp.value.toUpperCase().slice(0, 6);
+    if (code.length !== 6) return;
+    btn.disabled = true;
+    btn.textContent = '⏳';
+    status.textContent = 'Looking up code…';
+    try {
+      const rec = await fetchGameByCode(code);
+      await importGameRecord(rec);
+
+      // Store for later score upload, and embed in gameState for history
+      try { localStorage.setItem('lb-game-code', code); } catch {}
+      if (gameState) gameState.gameCode = code;
+
+      status.textContent = `✅ Joined: ${rec.course?.name ?? 'game'}`;
+      modal.classList.remove('open');
+
+      // Re-render course select to reflect imported course
+      await populateCourseSelect();
+      showScreen('screen-setup-course');
+
+    } catch (err) {
+      status.textContent = '❌ ' + (err.message ?? 'Code not found');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Join';
+    }
+  });
+
   modal.classList.add('open');
   setTimeout(() => inp?.focus(), 100);
 }
@@ -13225,11 +13252,12 @@ async function loadHistory() {
       const summary  = state ? getResultSummary(state) : null;
       const numGroups = state?.allGroupStates?.length ?? (state?.combinedGroups ?? 0);
       const multiGroup = numGroups > 1;
+      const histCode = state?.gameCode ?? null;
       return `
         <div class="history-card" data-rid="${r.id}">
           <div class="history-card-icon">${multiGroup ? '👥' : '⛳'}</div>
           <div class="history-card-body">
-            <div class="history-card-date">${date}</div>
+            <div class="history-card-date">${date}${histCode ? ` <span style="font-size:0.68rem;font-weight:800;letter-spacing:0.08em;color:var(--gold,#d4a843);background:rgba(212,168,67,0.12);border:1px solid rgba(212,168,67,0.3);border-radius:0.25rem;padding:0.05rem 0.3rem;vertical-align:middle;">🏆 ${histCode}</span>` : ''}</div>
             <div class="history-card-title">${r.course_name ?? '--'}${multiGroup ? ` <span style="font-size:0.72rem;color:var(--accent,#b8963e);font-weight:700;">${numGroups} groups</span>` : ''}</div>
             <div class="history-card-winner">${fmtLabel(r.game_format)} · ${r.tee_name ?? ''} Tees${summary?.winner ? ` · 🏆 ${summary.winner}` : ''}</div>
           </div>
@@ -13570,24 +13598,13 @@ function showHistoryDetail(rid, rounds) {
     liveBtn.style.display = '';
     liveBtn.textContent = cachedCode ? `📊 Live Leaderboard · ${cachedCode}` : '📊 View Live Leaderboard';
 
+    liveBtn.style.display = cachedCode ? '' : 'none';
     liveBtn.onclick = () => {
-      const code = cachedCode;
-      if (code) {
-        const url = location.origin + '/live?code=' + code;
-        const a = document.createElement('a');
-        a.href = url; a.target = '_blank'; a.rel = 'noreferrer';
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      } else {
-        // Prompt for code inline
-        const entered = prompt('Enter the 6-character game code:');
-        if (!entered) return;
-        const clean = entered.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-        if (clean.length < 4) { alert('Invalid code.'); return; }
-        const url = location.origin + '/live?code=' + clean;
-        const a = document.createElement('a');
-        a.href = url; a.target = '_blank'; a.rel = 'noreferrer';
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      }
+      if (!cachedCode) return;
+      const url = location.origin + '/live?code=' + cachedCode;
+      const a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.rel = 'noreferrer';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
     };
   }
 
