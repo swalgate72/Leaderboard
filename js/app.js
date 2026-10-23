@@ -6952,9 +6952,25 @@ function renderHolePanel() {
     });
   }
 
-  // Show/hide the action row (finish early + push scores) together
+  // Show/hide the action row (finish early + push scores + live leaderboard) together
   const holesPlayed = (gameState.log?.length ?? 0) > 0;
   const actionRow = document.getElementById('game-action-row');
+  const liveGameBtn = document.getElementById('btn-live-game');
+  const gameCode = (() => {
+    try {
+      if (gameState?.gameCode) return gameState.gameCode;
+      const stored = localStorage.getItem('lb-game-code');
+      if (stored) return stored;
+      const ts = _tournState();
+      if (ts.active && ts.code && ts.code !== '__error__') return ts.code;
+      return null;
+    } catch { return null; }
+  })();
+  if (liveGameBtn) {
+    const showLive = !!gameCode;
+    liveGameBtn.style.display = showLive ? '' : 'none';
+    if (actionRow) actionRow.style.gridTemplateColumns = showLive ? '1fr 1fr 1fr' : '1fr 1fr';
+  }
   if (actionRow) {
     actionRow.style.display = holesPlayed ? 'grid' : 'none';
     actionRow.classList.toggle('hidden', !holesPlayed);
@@ -12937,7 +12953,25 @@ async function shareBackupFile() {
     return;
   }
 
-  // Desktop fallback — plain download
+  // Desktop: use File System Access API (showSaveFilePicker) if available —
+  // this lets the user pick a fixed location and truly overwrite the same file each time.
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fname,
+        types: [{ description: 'JSON backup', accept: { 'application/json': ['.json'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // user cancelled
+      // Fall through to plain download
+    }
+  }
+
+  // Fallback — plain download (browser may add numeric suffix on repeated saves)
   const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');
   a.href = url; a.download = fname;
