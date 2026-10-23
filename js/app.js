@@ -1325,9 +1325,17 @@ function tournRoundsAdj(delta) {
  * Start the next round in the tournament — keeps same code, increments round counter.
  * Prompts organiser to verify/change course before proceeding.
  */
-// Carry players from the just-finished gameState into setup.players for the next round.
-// Falls back to the user's saved friends/profile if gameState is gone.
+// Carry players (and setup fields) from the just-finished round into setup for the next round.
 function _tournCarryPlayers() {
+  // Restore scoring/course from the snapshot saved at end-of-round
+  try {
+    const ts = _tournState();
+    if (ts._lastScoring  && !setup.scoring)  setup.scoring  = ts._lastScoring;
+    if (ts._lastCourseId && !setup.courseId) setup.courseId = ts._lastCourseId;
+    if (ts._lastTeeIdx   != null)            setup.teeIdx   = ts._lastTeeIdx;
+    if (ts._lastHoles    != null)            setup.holes    = ts._lastHoles;
+  } catch {}
+
   try {
     const gs = gameState;
     if (gs?.names?.length > 0) {
@@ -11244,6 +11252,20 @@ async function doAbandon(shouldDelete) {
 // END ROUND SCREEN
 // ================================================================
 async function showEndRound() {
+  // Snapshot setup fields into tournament state so next round can restore them
+  try {
+    const ts = _tournState();
+    if (ts.active) {
+      _saveTournState({
+        ...ts,
+        _lastScoring:  setup.scoring  ?? gameState?.format ?? ts._lastScoring ?? null,
+        _lastCourseId: setup.courseId ?? gameState?.courseId ?? ts._lastCourseId ?? null,
+        _lastTeeIdx:   setup.teeIdx   ?? ts._lastTeeIdx   ?? 0,
+        _lastHoles:    setup.holes    ?? gameState?.holesCount ?? ts._lastHoles ?? 18,
+      });
+    }
+  } catch {}
+
   // Fetch latest state from DB to ensure we have all groups' data
   if (roundId && gameState?.allGroupStates?.length > 1) {
     try {
