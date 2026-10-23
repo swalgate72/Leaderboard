@@ -313,6 +313,18 @@ async function submitCourseJson() {
   try { data = JSON.parse(raw); }
   catch (e) { msg.style.color = 'var(--red)'; msg.textContent = 'Invalid JSON: ' + e.message; return; }
 
+  // Auto-assign colour from tee name where it matches a palette key
+  const PALETTE_KEYS = new Set(['white','yellow','red','blue','black','green','gold','silver','orange','purple']);
+  if (Array.isArray(data.tees)) {
+    data.tees = data.tees.map(t => {
+      if (!t.color) {
+        const key = (t.name ?? '').toLowerCase().trim();
+        if (PALETTE_KEYS.has(key)) t = { ...t, color: key };
+      }
+      return t;
+    });
+  }
+
   msg.style.color = 'var(--muted)'; msg.textContent = 'Submitting…';
 
   try {
