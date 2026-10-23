@@ -616,28 +616,14 @@ function openJoinGameModal() {
   // Active tournament action buttons
   document.getElementById('join-modal-rejoin-btn')?.addEventListener('click', () => {
     modal.classList.remove('open');
-    // Attempt to restore the in-progress game; if no saved state just go to scoring
-    try {
-      const saved = localStorage.getItem('lb-saved-game');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        gameState = parsed;
-        // Ensure gameCode is set from tournament state
-        const tts = _tournState();
-        if (tts.active && tts.code && tts.code !== '__error__') {
-          gameState.gameCode = tts.code;
-        }
-        enterGameScreen();
-        return;
-      }
-    } catch {}
-    // No saved game — go to end-round or scoring screen if game is live
+    // If game is already live in memory, go straight back to scoring
     if (gameState) {
       enterGameScreen();
-    } else {
-      // Nothing to rejoin — show a gentle notice
-      alert('No active game found. Start a new round from the tournament setup.');
+      return;
     }
+    // Otherwise let the home screen's Active Games recovery card handle it
+    // (it reads IndexedDB + lb-game-state-cache and offers resume)
+    showHome();
   });
 
   document.getElementById('join-modal-next-round-btn')?.addEventListener('click', () => {
@@ -1339,6 +1325,28 @@ function tournRoundsAdj(delta) {
  * Start the next round in the tournament — keeps same code, increments round counter.
  * Prompts organiser to verify/change course before proceeding.
  */
+// Carry players from the just-finished gameState into setup.players for the next round.
+// Falls back to the user's saved friends/profile if gameState is gone.
+function _tournCarryPlayers() {
+  try {
+    const gs = gameState;
+    if (gs?.names?.length > 0) {
+      // Re-use the player objects from the finished round's setup data if available,
+      // otherwise build minimal objects from names alone.
+      const existingByName = {};
+      (setup.players ?? []).forEach(p => { if (p.name) existingByName[p.name] = p; });
+
+      setup.players = gs.names.map(name => {
+        // Try to find the rich player object from the previous setup pass
+        const prev = existingByName[name];
+        return prev ? { ...prev } : { name };
+      });
+      return;
+    }
+  } catch {}
+  // gameState gone — leave setup.players as-is (may already have profile prefilled)
+}
+
 function tournNewRound() {
   const s = _tournState();
   if (!s.active || !s.code) return;
@@ -1383,7 +1391,8 @@ function tournNewRound() {
       await populateCourseSelect();
       showScreen('screen-setup-course');
     } else {
-      // Same club: skip straight to players
+      // Same club: skip straight to players, carrying last round's players forward
+      _tournCarryPlayers();
       renderSetupPlayerList();
       showScreen('screen-setup-players');
     }
