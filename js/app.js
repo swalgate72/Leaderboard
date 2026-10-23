@@ -1080,7 +1080,13 @@ function openAddFriendByCodeModal() {
 window.openShareGameModal   = openShareGameModal;
 window.openLiveLeaderboard  = function() {
   let code = null;
-  try { code = gameState?.gameCode ?? localStorage.getItem('lb-game-code'); } catch {}
+  try {
+    code = gameState?.gameCode ?? localStorage.getItem('lb-game-code') ?? null;
+    if (!code) {
+      const ts = _tournState();
+      if (ts.active && ts.code && ts.code !== '__error__') code = ts.code;
+    }
+  } catch {}
   if (code) {
     const a = document.createElement('a');
     a.href = `${APP_BASE_URL}live?code=${code}`; a.target = '_blank'; a.rel = 'noreferrer';
