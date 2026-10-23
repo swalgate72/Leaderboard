@@ -416,7 +416,7 @@ function restorePushBtn(btn) {
  * @param {string|null} code
  */
 function updateHeroCodePills(code) {
-  const ids = ['hero-code-pill-1','hero-code-pill-2','hero-code-pill-3','hero-code-pill-review'];
+  const ids = ['hero-code-pill-1','hero-code-pill-2','hero-code-pill-3','hero-code-pill-review','hero-code-pill-home'];
   for (const id of ids) {
     const el = document.getElementById(id);
     if (!el) continue;
@@ -1026,6 +1026,150 @@ window.openShareProfileModal = openShareProfileModal;
 window.openAddFriendByCodeModal = openAddFriendByCodeModal;
 
 // ================================================================
+// TOURNAMENT MODE
+// ================================================================
+
+/**
+ * Returns the persisted tournament mode state from localStorage.
+ */
+function _tournState() {
+  try {
+    return JSON.parse(localStorage.getItem('lb-tourn-state') ?? 'null') ?? {
+      active: false,
+      rounds: 2,
+      currentRound: 1,
+      code: null,
+    };
+  } catch { return { active: false, rounds: 2, currentRound: 1, code: null }; }
+}
+
+function _saveTournState(s) {
+  try { localStorage.setItem('lb-tourn-state', JSON.stringify(s)); } catch {}
+}
+
+/**
+ * Refresh all tournament mode UI from current state.
+ */
+function refreshTournamentUI() {
+  const s = _tournState();
+
+  // Toggle button halo
+  const btn = document.getElementById('btn-tourn-mode');
+  const panel = document.getElementById('tourn-mode-panel');
+  const homeCodeRow = document.getElementById('home-tourn-code-row');
+  const homeCodePill = document.getElementById('hero-code-pill-home');
+  const homeRoundLabel = document.getElementById('home-tourn-round-label');
+  const roundsVal = document.getElementById('tourn-rounds-val');
+  const homeCode = document.getElementById('tourn-home-code');
+  const roundBadge = document.getElementById('tourn-round-badge');
+  const newRoundBtn = document.getElementById('btn-tourn-new-round');
+
+  if (s.active) {
+    if (btn) {
+      btn.style.border = '1.5px solid var(--gold,#d4a843)';
+      btn.style.color = 'var(--gold,#d4a843)';
+      btn.style.background = 'rgba(212,168,67,0.12)';
+    }
+    if (panel) panel.style.display = 'flex';
+    if (roundsVal) roundsVal.textContent = s.rounds;
+
+    const codeText = s.code ?? '…';
+    if (homeCode) homeCode.textContent = codeText;
+
+    // Round badge
+    if (roundBadge) {
+      roundBadge.textContent = `RND ${s.currentRound}`;
+      roundBadge.style.display = '';
+    }
+    // "New Round" button — show when we have a code and haven't reached max rounds
+    if (newRoundBtn) {
+      newRoundBtn.style.display = (s.code && s.currentRound < s.rounds) ? '' : 'none';
+    }
+
+    // Hero banner pill in home screen
+    if (homeCodeRow) homeCodeRow.style.display = '';
+    if (homeCodePill) { homeCodePill.textContent = codeText; homeCodePill.style.display = ''; }
+    if (homeRoundLabel) homeRoundLabel.textContent = s.rounds > 1 ? `Round ${s.currentRound} of ${s.rounds}` : '';
+
+    // Propagate to all hero banners
+    if (s.code) updateHeroCodePills(s.code);
+
+  } else {
+    if (btn) {
+      btn.style.border = '1.5px solid rgba(255,255,255,0.18)';
+      btn.style.color = 'rgba(255,255,255,0.7)';
+      btn.style.background = 'rgba(255,255,255,0.06)';
+    }
+    if (panel) panel.style.display = 'none';
+    if (homeCodeRow) homeCodeRow.style.display = 'none';
+  }
+}
+
+/**
+ * Toggle tournament mode on/off.
+ */
+async function toggleTournamentMode() {
+  const s = _tournState();
+  if (s.active) {
+    // Turn off — ask for confirmation if a code exists
+    if (s.code) {
+      if (!confirm('End tournament mode? The code will be cleared.')) return;
+    }
+    _saveTournState({ active: false, rounds: 2, currentRound: 1, code: null });
+    // Clear game code from hero pills
+    updateHeroCodePills(null);
+    try { localStorage.removeItem('lb-game-code'); } catch {}
+  } else {
+    // Turn on — generate a long-lived code immediately
+    _saveTournState({ ...s, active: true });
+    refreshTournamentUI();
+    try {
+      const result = await shareGameSetup({ ttlHours: 2160 }); // 90 days
+      const newState = { ..._tournState(), code: result.code };
+      _saveTournState(newState);
+      try { localStorage.setItem('lb-game-code', result.code); } catch {}
+      if (gameState) gameState.gameCode = result.code;
+    } catch (e) {
+      console.warn('Tournament code generation failed:', e);
+    }
+  }
+  refreshTournamentUI();
+}
+
+/**
+ * Adjust number of rounds by delta (+1 or -1).
+ */
+function tournRoundsAdj(delta) {
+  const s = _tournState();
+  const newRounds = Math.max(2, Math.min(10, (s.rounds ?? 2) + delta));
+  _saveTournState({ ...s, rounds: newRounds });
+  refreshTournamentUI();
+}
+
+/**
+ * Start the next round in the tournament — keeps same code, increments round counter.
+ * Prompts organiser to verify/change course before proceeding.
+ */
+function tournNewRound() {
+  const s = _tournState();
+  if (!s.active || !s.code) return;
+  if (s.currentRound >= s.rounds) {
+    alert('All rounds complete for this tournament.');
+    return;
+  }
+  const next = s.currentRound + 1;
+  if (!confirm(`Start Round ${next} of ${s.rounds}?\n\nThe same tournament code (${s.code}) will be kept. You can pick a different course on the next screen.`)) return;
+  _saveTournState({ ...s, currentRound: next });
+  refreshTournamentUI();
+  // Take organiser to the home screen format picker — they choose format then course as normal
+  // The existing game code is already set, so setup will reuse it
+}
+
+window.toggleTournamentMode = toggleTournamentMode;
+window.tournRoundsAdj = tournRoundsAdj;
+window.tournNewRound = tournNewRound;
+
+// ================================================================
 // LOCAL-FIRST SYNC — IndexedDB primary, Supabase every 30s
 // ================================================================
 let _syncTimer     = null;   // setInterval handle
@@ -1560,10 +1704,15 @@ function renderLogos() {
 async function boot() {
   applyTheme(theme);
   renderLogos();
-  // Restore game code pill if a code was active from a previous session
+  // Restore tournament mode UI (also restores game code pill if tournament mode was active)
+  try { refreshTournamentUI(); } catch {}
+  // Fallback: restore game code pill from bare localStorage if tournament mode not active
   try {
-    const savedCode = localStorage.getItem('lb-game-code');
-    if (savedCode) updateHeroCodePills(savedCode);
+    const ts = _tournState();
+    if (!ts.active) {
+      const savedCode = localStorage.getItem('lb-game-code');
+      if (savedCode) updateHeroCodePills(savedCode);
+    }
   } catch {}
 
 

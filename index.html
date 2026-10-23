@@ -39,6 +39,12 @@
         </div>
       </div>
 
+      <!-- Tournament code pill — shown in home hero when tournament mode is active -->
+      <div id="home-tourn-code-row" style="display:none;text-align:center;margin-bottom:0.5rem;">
+        <span id="hero-code-pill-home" class="hero-game-code-pill" onclick="openShareGameModal()" style="display:inline-block;"></span>
+        <span id="home-tourn-round-label" style="font-size:0.72rem;font-weight:700;color:rgba(255,255,255,0.55);margin-left:0.5rem;"></span>
+      </div>
+
       <!-- Setup draft reminder (only shown if a game setup is in progress) -->
       <div id="home-draft-row" style="display:none;margin-bottom:0.75rem;"></div>
 
@@ -270,6 +276,55 @@
 
       </div><!-- /fmt-grid -->
 
+      <!-- Tournament Mode bar -->
+      <div id="tourn-mode-bar" style="display:flex;align-items:stretch;gap:0.5rem;margin-top:0.75rem;">
+
+        <!-- Tournament Mode toggle button -->
+        <button id="btn-tourn-mode" onclick="toggleTournamentMode()"
+          style="flex:0 0 auto;width:80px;min-height:64px;
+                 background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.18);
+                 border-radius:0.65rem;color:rgba(255,255,255,0.7);
+                 font-size:0.7rem;font-weight:700;line-height:1.25;text-align:center;
+                 padding:0.4rem 0.3rem;cursor:pointer;transition:all 0.15s;">
+          🏆<br>Tournament<br>Mode
+        </button>
+
+        <!-- Rounds stepper + code — shown only when tournament mode is on -->
+        <div id="tourn-mode-panel" style="display:none;flex:1;
+             background:rgba(255,255,255,0.06);border:1.5px solid rgba(212,168,67,0.45);
+             border-radius:0.65rem;padding:0.5rem 0.75rem;
+             display:none;flex-direction:column;justify-content:space-between;gap:0.35rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:0.72rem;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:0.04em;text-transform:uppercase;">No. Rounds</span>
+            <div style="display:flex;align-items:center;gap:0.4rem;">
+              <button onclick="tournRoundsAdj(-1)"
+                style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.12);
+                       border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:1rem;
+                       font-weight:700;line-height:1;cursor:pointer;">−</button>
+              <span id="tourn-rounds-val" style="font-size:1.1rem;font-weight:800;color:#fff;min-width:18px;text-align:center;">2</span>
+              <button onclick="tournRoundsAdj(+1)"
+                style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.12);
+                       border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:1rem;
+                       font-weight:700;line-height:1;cursor:pointer;">+</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
+            <span style="font-size:0.72rem;font-weight:700;color:rgba(255,255,255,0.65);letter-spacing:0.04em;text-transform:uppercase;">Code</span>
+            <span id="tourn-home-code" onclick="openShareGameModal()"
+              style="font-size:1rem;font-weight:800;letter-spacing:0.15em;color:var(--gold,#d4a843);cursor:pointer;">…</span>
+            <span id="tourn-round-badge"
+              style="font-size:0.65rem;font-weight:700;background:rgba(212,168,67,0.2);
+                     border:1px solid rgba(212,168,67,0.4);border-radius:0.3rem;
+                     padding:0.15rem 0.4rem;color:var(--gold,#d4a843);display:none;">RND 1</span>
+            <button onclick="tournNewRound()"
+              id="btn-tourn-new-round" style="display:none;
+              font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;
+              background:rgba(212,168,67,0.2);border:1px solid rgba(212,168,67,0.4);
+              border-radius:0.35rem;color:var(--gold,#d4a843);cursor:pointer;">+ New Round</button>
+          </div>
+        </div>
+
+      </div><!-- /tourn-mode-bar -->
 
     </div>
   </div>
