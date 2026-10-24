@@ -1195,6 +1195,7 @@ function _showTournamentSetupModal() {
   const s = _tournState();
   let pendingRounds = s.rounds ?? 2;
   let pendingSameClub = s.sameClub !== false; // default same club
+  let pendingTtlHours = s.ttlHours ?? 168; // default 1 week
 
   const overlay = document.createElement('div');
   overlay.style.cssText = `position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.72);
@@ -1255,6 +1256,29 @@ function _showTournamentSetupModal() {
           </div>
         </div>
 
+        <div style="margin-bottom:1.25rem;">
+          <div style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;
+            text-transform:uppercase;margin-bottom:0.5rem;">Keep scores for</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;">
+            ${[
+              { label: '1 Day',    hours: 24   },
+              { label: '1 Week',   hours: 168  },
+              { label: '1 Month',  hours: 720  },
+              { label: '3 Months', hours: 2160 },
+            ].map(opt => `
+              <label style="display:flex;align-items:center;justify-content:center;gap:0.4rem;
+                cursor:pointer;padding:0.5rem 0.4rem;border-radius:0.5rem;text-align:center;
+                background:${pendingTtlHours === opt.hours ? 'rgba(212,168,67,0.15)' : 'var(--surface2,#273447)'};
+                border:1.5px solid ${pendingTtlHours === opt.hours ? 'rgba(212,168,67,0.6)' : 'var(--border,#374151)'};
+                transition:all 0.15s;">
+                <input type="radio" name="tp-ttl" value="${opt.hours}" ${pendingTtlHours === opt.hours ? 'checked' : ''}
+                  style="display:none;">
+                <span style="font-weight:${pendingTtlHours === opt.hours ? '800' : '600'};
+                  font-size:0.85rem;color:${pendingTtlHours === opt.hours ? 'var(--gold)' : 'var(--text)'};">${opt.label}</span>
+              </label>`).join('')}
+          </div>
+        </div>
+
         <div style="display:flex;gap:0.5rem;">
           <button id="tp-cancel" class="btn btn-ghost" style="flex:1;">Cancel</button>
           <button id="tp-start" class="btn btn-gold" style="flex:1;">Start Tournament</button>
@@ -1270,13 +1294,22 @@ function _showTournamentSetupModal() {
     overlay.querySelectorAll('input[name="tp-venue"]').forEach(r => {
       r.onchange = () => { pendingSameClub = r.value === 'same'; render(); };
     });
+    overlay.querySelectorAll('input[name="tp-ttl"]').forEach(r => {
+      r.onchange = () => { pendingTtlHours = Number(r.value); render(); };
+    });
+    // Allow clicking the label itself (since radio is hidden)
+    overlay.querySelectorAll('label[style*="tp-ttl"], label').forEach(lbl => {
+      const radio = lbl.querySelector('input[name="tp-ttl"]');
+      if (radio) lbl.onclick = () => { pendingTtlHours = Number(radio.value); render(); };
+    });
     overlay.querySelector('#tp-cancel').onclick = () => overlay.remove();
     overlay.querySelector('#tp-start').onclick = async () => {
       overlay.remove();
-      _saveTournState({ ...s, active: true, rounds: pendingRounds, sameClub: pendingSameClub, currentRound: 1, code: null });
+      _saveTournState({ ...s, active: true, rounds: pendingRounds, sameClub: pendingSameClub,
+        currentRound: 1, code: null, ttlHours: pendingTtlHours, startedAt: new Date().toISOString() });
       refreshTournamentUI();
       try {
-        const code = await _tournGenerateCode();
+        const code = await _tournGenerateCode(pendingTtlHours);
         const newState = { ..._tournState(), code };
         _saveTournState(newState);
         try { localStorage.setItem('lb-game-code', code); } catch {}
@@ -1423,10 +1456,10 @@ function tournNewRound() {
   };
 }
 
-async function _tournGenerateCode() {
+async function _tournGenerateCode(ttlHours = 168) {
   // Try shareGameSetup first (needs course selected); fall back to a minimal worker call
   try {
-    const result = await shareGameSetup({ ttlHours: 2160 });
+    const result = await shareGameSetup({ ttlHours });
     if (!result?.code) throw new Error('No code returned');
     return result.code;
   } catch (e1) {
@@ -1437,7 +1470,7 @@ async function _tournGenerateCode() {
         course:  { name: 'Tournament', tees: [{ name: 'White', par: 72, si: [] }] },
         format:  { type: setup.scoring ?? 'stableford', groups: setup.numGroups ?? 1, holesCount: setup.holes ?? 18 },
         players: [],
-        ttlHours: 2160,
+        ttlHours,
       });
       if (!result?.code) throw new Error('No code from fallback');
       return result.code;
@@ -9056,19 +9089,23 @@ function showLeaderboard() {
   if (copyBtn)   copyBtn.style.display   = code ? '' : 'none';
   // Show "By Round" toggle only when a tournament is active (multi-round)
   const ts = (() => { try { return _tournState(); } catch { return {}; } })();
+  const isTournActive     = ts.active;
   const isTournMultiRound = ts.active && ts.rounds > 1;
   if (toggleBtn) toggleBtn.style.display = isTournMultiRound ? '' : 'none';
   // Reset view mode to total each time we open
   _lbViewMode = 'total';
   if (toggleBtn) toggleBtn.textContent = '📊 By Round';
   renderLeaderboard();
-  // In tournament mode, silently fetch cloud scores in the background so
-  // Total and By Round both reflect all rounds without needing to press Update
-  if (isTournMultiRound && code) {
-    _workerFetch(`/scores/${code.toUpperCase()}`).then(data => {
-      _lbCloudScores = data;
-      renderLeaderboard();
-    }).catch(() => {});
+  // In tournament mode, push current scores then fetch all cloud scores so the
+  // leaderboard shows all rounds — runs silently in the background
+  if (isTournActive && code) {
+    const silentBtn = { textContent: '', style: {}, disabled: false };
+    pushScoresToCloud(silentBtn).catch(() => {}).finally(() => {
+      _workerFetch(`/scores/${code.toUpperCase()}`).then(data => {
+        _lbCloudScores = data;
+        renderLeaderboard();
+      }).catch(() => {});
+    });
   }
   // Subscribe to all group states for live updates
   if (leaderboardChannel) realtimeUnsubscribe(leaderboardChannel);
@@ -9135,7 +9172,9 @@ function renderLdNtpLeaderboardCard() {
 
 function renderLeaderboard() {
   const fmt       = gameState.format;
-  const isTourney = !!gameState.tournamentId;
+  // Use offline-first tournament state; fall back to Supabase tournamentId for legacy
+  const _ts       = (() => { try { return _tournState(); } catch { return {}; } })();
+  const isTourney = _ts.active || !!gameState.tournamentId;
   const tableEl   = document.getElementById('leaderboard-table');
   const metaEl    = document.getElementById('leaderboard-meta');
   if (!tableEl) return;
