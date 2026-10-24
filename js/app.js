@@ -15913,13 +15913,19 @@ async function showTournamentDetail(code) {
   showScreen('screen-tournament-detail');
 
   try {
-    // Try IDB first, fallback to Worker
-    let t = await idbTournaments.get(code);
-    if (!t) {
-      t = await _tournWorkerFetch(`/tournament/${code}`);
-      t = { ...t, code, isOrganiser: false, rosterCachedAt: null };
+    // Always fetch fresh from Worker so round statuses are up to date.
+    // Merge with IDB to preserve isOrganiser flag and cached fields.
+    let t = await idbTournaments.get(code).catch(() => null);
+    try {
+      const fresh = await _tournWorkerFetch(`/tournament/${code}`);
+      t = { ...(t ?? {}), ...fresh, code,
+            isOrganiser: t?.isOrganiser ?? false,
+            rosterCachedAt: t?.rosterCachedAt ?? null };
       await idbTournaments.put(t);
       await _flushTournamentCache();
+    } catch {
+      // Worker unreachable — fall back to cached IDB data
+      if (!t) throw new Error('Tournament not found');
     }
 
     const isOrganiser = !!(t.isOrganiser || _getOrganiserSecret(code));

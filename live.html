@@ -383,8 +383,24 @@ function setCodeInURL(code) {
 // ── Fetch from worker ─────────────────────────────────────────────────────────
 async function fetchGame(code) {
   const r = await fetch(`${WORKER}/game/${code}`);
-  if (!r.ok) throw new Error(r.status === 404 ? 'Game not found' : `Error ${r.status}`);
-  return r.json();
+  if (r.ok) return r.json();
+  if (r.status !== 404) throw new Error(`Error ${r.status}`);
+  // Not a regular game — try hub tournament endpoint
+  const t = await fetch(`${WORKER}/tournament/${code}`);
+  if (t.ok) {
+    const d = await t.json();
+    // Build a game-compatible object from tournament metadata
+    return {
+      name: d.name ?? code,
+      organiser: d.organiser ?? null,
+      createdAt: d.createdAt ?? null,
+      format: { type: d.format ?? 'stableford' },
+      players: [],
+      _isTournament: true,
+      _tournamentData: d,
+    };
+  }
+  throw new Error('Game not found');
 }
 
 async function fetchScores(code) {
