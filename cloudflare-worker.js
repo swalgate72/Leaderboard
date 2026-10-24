@@ -390,7 +390,7 @@ async function handleGameCreate(request, env) {
   const ttlHours = typeof body.ttlHours === 'number' && body.ttlHours > 0
     ? body.ttlHours
     : 24;
-  const ttlSecs = Math.min(ttlHours * 3600, 90 * 24 * 3600); // cap at 90 days
+  const ttlSecs = Math.min(ttlHours * 3600, 366 * 24 * 3600); // cap at 366 days
 
   const code = makeCode(6);
   const record = {

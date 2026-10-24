@@ -1259,12 +1259,13 @@ function _showTournamentSetupModal() {
         <div style="margin-bottom:1.25rem;">
           <div style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;
             text-transform:uppercase;margin-bottom:0.5rem;">Keep scores for</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.4rem;">
             ${[
-              { label: '1 Day',    hours: 24   },
               { label: '1 Week',   hours: 168  },
               { label: '1 Month',  hours: 720  },
               { label: '3 Months', hours: 2160 },
+              { label: '6 Months', hours: 4380 },
+              { label: '1 Year',   hours: 8760 },
             ].map(opt => `
               <label style="display:flex;align-items:center;justify-content:center;gap:0.4rem;
                 cursor:pointer;padding:0.5rem 0.4rem;border-radius:0.5rem;text-align:center;
