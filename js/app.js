@@ -5769,59 +5769,58 @@ async function teeOff() {
         }
       }
 
-      // Build tournGroups from setup.players
-      const namedPlayers = setup.players.filter(p => p.name);
-      const maxGroup     = Math.max(1, ...namedPlayers.map(p => p.groupNumber ?? 1));
-      const isPairsFmt   = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
+      if (_isHubTourn) {
+        // ── Hub tournament: skip legacy tournGroups entirely ──────────
+        // Just tee off as a normal round; tournament context already
+        // stored in setup.tournamentId / setup.tournRoundNumber.
+        await _teeOffRound(setup.tournamentId, setup.courseId, tee.name, new Date().toISOString().split('T')[0]);
+      } else {
+        // ── Legacy UUID tournament path ───────────────────────────────
+        const namedPlayers = setup.players.filter(p => p.name);
+        const maxGroup     = Math.max(1, ...namedPlayers.map(p => p.groupNumber ?? 1));
+        const isPairsFmt   = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
 
-      tournGroups = Array.from({ length: maxGroup }, (_, g) => {
-        const groupNum = g + 1;
-        // Resolve team name for this group:
-        // - Pairs formats: from setup.pairs[*].teamName (set on review screen)
-        // - Best2/Texas: from setup.players[*].teamName (set on review screen)
-        let teamName = null;
-        if (isPairsFmt && setup.pairs?.length) {
-          const pair = setup.pairs.find(pr => (pr.groupNumber ?? 1) === groupNum);
-          teamName = pair?.teamName ?? pair?.name ?? null;
-        } else {
-          const gp = namedPlayers.find(p => (p.groupNumber ?? 1) === groupNum);
-          teamName = gp?.teamName ?? null;
+        const localTournGroups = Array.from({ length: maxGroup }, (_, g) => {
+          const groupNum = g + 1;
+          let teamName = null;
+          if (isPairsFmt && setup.pairs?.length) {
+            const pair = setup.pairs.find(pr => (pr.groupNumber ?? 1) === groupNum);
+            teamName = pair?.teamName ?? pair?.name ?? null;
+          } else {
+            const gp = namedPlayers.find(p => (p.groupNumber ?? 1) === groupNum);
+            teamName = gp?.teamName ?? null;
+          }
+          return {
+            groupNumber: groupNum,
+            teamName,
+            players: namedPlayers
+              .filter(p => (p.groupNumber ?? 1) === groupNum)
+              .map(p => {
+                const tp = activeTournPlayers.find(tp =>
+                  (p.tournamentPlayerId && tp.id === p.tournamentPlayerId) ||
+                  (p.profileId && tp.profile_id === p.profileId) ||
+                  tp.name === p.name
+                );
+                return tp?.id ?? null;
+              })
+              .filter(Boolean),
+          };
+        });
+
+        if (!localTournGroups.some(g => g.players.length > 0)) {
+          alert('Could not match players to tournament roster. Please go back and check the player list.');
+          return;
         }
-        return {
-          groupNumber: groupNum,
-          teamName,
-          players: namedPlayers
-            .filter(p => (p.groupNumber ?? 1) === groupNum)
-            .map(p => {
-              if (_isHubTourn) {
-                // Hub tournament: use tournamentPlayerId directly (P-xxxxx code)
-                return p.tournamentPlayerId ?? null;
-              }
-              // Legacy UUID tournament: match via activeTournPlayers
-              const tp = activeTournPlayers.find(tp =>
-                (p.tournamentPlayerId && tp.id === p.tournamentPlayerId) ||
-                (p.profileId && tp.profile_id === p.profileId) ||
-                tp.name === p.name
-              );
-              return tp?.id ?? null;
-            })
-            .filter(Boolean),
-        };
-      });
 
-      if (!_isHubTourn && !tournGroups.some(g => g.players.length > 0)) {
-        alert('Could not match players to tournament roster. Please go back and check the player list.');
-        return;
+        // Save group state for next round
+        localStorage.setItem(`lb-tround-${setup.tournamentId}`, JSON.stringify({
+          courseId: setup.courseId, teeName: tee.name,
+          date: new Date().toISOString().split('T')[0],
+          numGroups: maxGroup, groups: localTournGroups,
+        }));
+
+        await _teeOffRound(setup.tournamentId, setup.courseId, tee.name, new Date().toISOString().split('T')[0]);
       }
-
-      // Save group state for next round
-      localStorage.setItem(`lb-tround-${setup.tournamentId}`, JSON.stringify({
-        courseId: setup.courseId, teeName: tee.name,
-        date: new Date().toISOString().split('T')[0],
-        numGroups: maxGroup, groups: tournGroups,
-      }));
-
-      await _teeOffRound(setup.tournamentId, setup.courseId, tee.name, new Date().toISOString().split('T')[0]);
     } catch (err) {
       console.error('[teeOff] tournament branch failed:', err);
       alert('Could not start the round: ' + (err.message || 'Unknown error. Please try again.'));
