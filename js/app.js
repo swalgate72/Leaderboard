@@ -369,6 +369,7 @@ async function uploadScores(gameCode, roundsArr) {
 async function pushScoresToCloud(btn) {
   let code = null;
   try { code = localStorage.getItem('lb-game-code'); } catch {}
+  console.log('[push] lb-game-code=', code, 'gameState?', !!gameState);
   if (!code) {
     // No game code yet — open the share modal so they can generate one, then push
     openShareGameModal().catch(() => {});
@@ -11965,12 +11966,21 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     // Capture hub tournament context before clearing gameState
     const _hubCode  = gameState?._hubTournamentCode ?? setup?._hubTournamentCode ?? null;
     const _hubRound = gameState?._hubTournRound     ?? setup?._hubTournRound     ?? 1;
+    console.log('[hub-end] _hubCode=', _hubCode, '_hubRound=', _hubRound,
+      'gs._hubTournamentCode=', gameState?._hubTournamentCode,
+      'setup._hubTournamentCode=', setup?._hubTournamentCode,
+      'lb-game-code=', localStorage.getItem('lb-game-code'));
     // Auto-push scores for hub tournaments while gameState is still live
     if (_hubCode) {
       try {
         const silentBtn = { textContent: '', style: {}, disabled: false };
         await pushScoresToCloud(silentBtn);
-      } catch {}
+        console.log('[hub-end] pushScoresToCloud completed');
+      } catch (pushErr) {
+        console.error('[hub-end] pushScoresToCloud failed:', pushErr);
+      }
+    } else {
+      console.warn('[hub-end] no _hubCode — will go to home instead of leaderboard');
     }
     const wasTournament = !!gameState.tournamentId;
     const tournId = gameState.tournamentId;
@@ -16346,7 +16356,9 @@ async function showTournamentHubLeaderboard(code, roundNum) {
 
     try {
       // Fetch raw scores
+      console.log('[lb] fetching scores for code=', code, 'roundNum=', roundNum, 'secret=', !!secret);
       const data = await _workerFetch(`/scores/${code.toUpperCase()}`);
+      console.log('[lb] scores response:', JSON.stringify(data).slice(0, 300));
 
       // Check if all players have completed 18 holes for this round
       const thisRoundEntries = (data?.rounds ?? []).filter(r => (r.round ?? 1) === roundNum);
@@ -16354,28 +16366,40 @@ async function showTournamentHubLeaderboard(code, roundNum) {
         thisRoundEntries.every(r =>
           (r.players ?? []).every(p => (p.holesPlayed ?? 18) >= 18)
         );
+      console.log('[lb] thisRoundEntries=', thisRoundEntries.length, 'allIn=', allIn);
+      if (thisRoundEntries.length) {
+        thisRoundEntries.forEach(r => r.players?.forEach(p =>
+          console.log('[lb] player', p.name, 'holesPlayed=', p.holesPlayed)));
+      }
 
       // Auto-finalise if organiser and all scores are in
       let adjustments = null;
       if (allIn && secret) {
         try {
           if (statusEl) { statusEl.textContent = 'All scores in — applying adjustments…'; statusEl.style.display = ''; }
+          console.log('[lb] calling finalise for round', roundNum);
           const resp = await _tournWorkerFetch(`/tournament/${code}/finalise/${roundNum}`, 'POST', {}, secret);
+          console.log('[lb] finalise response:', JSON.stringify(resp).slice(0, 300));
           if (resp?.adjustments?.length) {
-            adjustments = resp.adjustments; // [{ name, before, after, delta, mean, excluded }]
+            adjustments = resp.adjustments;
           }
           // Update local IDB tournament record with new state
           try {
             const fresh = await _tournWorkerFetch(`/tournament/${code}`);
             await idbTournaments.put({ ...fresh, code, isOrganiser: true, rosterCachedAt: null });
           } catch {}
-        } catch {}
+        } catch (finErr) {
+          console.error('[lb] finalise error:', finErr);
+        }
+      } else {
+        console.log('[lb] skipping finalise: allIn=', allIn, 'hasSecret=', !!secret);
       }
 
       if (statusEl) statusEl.style.display = 'none';
       _renderHubLbTable(tableEl, data, adjustments, roundNum);
 
-    } catch {
+    } catch (fetchErr) {
+      console.error('[lb] load error:', fetchErr);
       if (statusEl) { statusEl.textContent = '⚠ Could not load scores — check connection and refresh.'; }
     }
   }
