@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Active Codes · Leaderboard Admin</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --surface2: #22263a;
+    --border:   #2e3349;
+    --gold:     #d4af37;
+    --gold-dim: rgba(212,175,55,0.15);
+    --text:     #e8eaf0;
+    --muted:    #8890a8;
+    --green:    #48bb78;
+    --amber:    #f6ad55;
+    --red:      #fc8181;
+    --blue:     #63b3ed;
+    --radius:   0.5rem;
+    --font:     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; min-height: 100vh; }
+
+  /* ── Auth gate ── */
+  #auth-gate { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1.5rem; }
+  .auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; max-width: 360px; width: 100%; }
+  .auth-card h2 { font-size: 1.2rem; margin-bottom: 0.5rem; }
+  .auth-card p  { color: var(--muted); font-size: 0.875rem; margin-bottom: 1.25rem; }
+  .auth-input { width: 100%; padding: 0.6rem 0.75rem; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 1rem; font-family: monospace; letter-spacing: 0.05em; }
+  .auth-input:focus { outline: none; border-color: var(--gold); }
+  .auth-btn   { margin-top: 0.75rem; width: 100%; padding: 0.65rem; background: var(--gold); color: #000; font-weight: 700; border: none; border-radius: var(--radius); cursor: pointer; font-size: 0.95rem; }
+  .auth-btn:hover { opacity: 0.88; }
+  .auth-error { margin-top: 0.6rem; color: var(--red); font-size: 0.82rem; min-height: 1.1em; }
+
+  /* ── App shell ── */
+  #app { display: none; max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+
+  /* ── Header ── */
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.75rem; flex-wrap: wrap; gap: 0.75rem; }
+  .page-header h1 { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; }
+  .page-header h1 span { color: var(--gold); }
+  .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .btn-ghost { padding: 0.45rem 0.85rem; background: none; border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); font-size: 0.82rem; cursor: pointer; font-family: var(--font); transition: border-color 0.15s, color 0.15s; }
+  .btn-ghost:hover { border-color: var(--gold); color: var(--text); }
+  .btn-gold { padding: 0.45rem 0.85rem; background: var(--gold); color: #000; border: none; border-radius: var(--radius); font-size: 0.82rem; font-weight: 700; cursor: pointer; font-family: var(--font); }
+  .btn-gold:hover { opacity: 0.88; }
+
+  /* ── Summary bar ── */
+  .summary-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem 1rem; }
+  .stat-card .label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.3rem; }
+  .stat-card .value { font-size: 1.6rem; font-weight: 900; line-height: 1; }
+  .stat-card .sub   { font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; }
+  .clean-green  { color: var(--green); }
+  .clean-amber  { color: var(--amber); }
+  .clean-red    { color: var(--red);   }
+
+  /* ── Cleanliness meter ── */
+  .meter-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; margin-bottom: 1.5rem; }
+  .meter-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+  .meter-track { height: 10px; border-radius: 99px; background: var(--surface2); overflow: hidden; }
+  .meter-fill  { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
+  .meter-legend { display: flex; gap: 1rem; margin-top: 0.5rem; flex-wrap: wrap; }
+  .meter-legend span { font-size: 0.72rem; color: var(--muted); display: flex; align-items: center; gap: 0.3rem; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Filters ── */
+  .filters { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+  .filter-btn { padding: 0.35rem 0.75rem; background: none; border: 1px solid var(--border); border-radius: 99px; color: var(--muted); font-size: 0.78rem; cursor: pointer; font-family: var(--font); transition: all 0.15s; }
+  .filter-btn.active, .filter-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+  .filter-search { flex: 1; min-width: 160px; padding: 0.35rem 0.65rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 99px; color: var(--text); font-size: 0.82rem; font-family: var(--font); }
+  .filter-search:focus { outline: none; border-color: var(--gold); }
+
+  /* ── Table ── */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .table-header { display: grid; grid-template-columns: 5.5rem 1fr 7rem 7rem 5rem 5.5rem; gap: 0; padding: 0.55rem 1rem; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  .table-header span { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+  .table-row { display: grid; grid-template-columns: 5.5rem 1fr 7rem 7rem 5rem 5.5rem; gap: 0; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); align-items: center; transition: background 0.1s; }
+  .table-row:last-child { border-bottom: none; }
+  .table-row:hover { background: var(--surface2); }
+  .code-chip { font-family: monospace; font-size: 1.05rem; font-weight: 800; letter-spacing: 0.1em; color: var(--gold); }
+  .tag { display: inline-block; padding: 0.18rem 0.5rem; border-radius: 99px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+  .tag-green  { background: rgba(72,187,120,0.15); color: var(--green); }
+  .tag-amber  { background: rgba(246,173,85,0.15);  color: var(--amber); }
+  .tag-red    { background: rgba(252,129,129,0.15); color: var(--red);   }
+  .tag-muted  { background: var(--surface2); color: var(--muted); }
+  .countdown { font-size: 0.78rem; font-weight: 700; }
+  .action-cell { display: flex; gap: 0.3rem; }
+  .btn-tiny { padding: 0.25rem 0.5rem; background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-size: 0.7rem; cursor: pointer; font-family: var(--font); transition: all 0.15s; white-space: nowrap; }
+  .btn-tiny:hover { border-color: var(--blue); color: var(--blue); }
+  .btn-tiny.danger:hover { border-color: var(--red); color: var(--red); }
+
+  .empty-state { padding: 3rem 1rem; text-align: center; color: var(--muted); font-size: 0.9rem; }
+
+  /* ── Mobile ── */
+  @media (max-width: 600px) {
+    .table-header, .table-row { grid-template-columns: 5rem 1fr 5.5rem 4.5rem; }
+    .table-header span:nth-child(5),
+    .table-header span:nth-child(6),
+    .table-row    > *:nth-child(5),
+    .table-row    > *:nth-child(6) { display: none; }
+  }
+
+  /* ── Toast ── */
+  #toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.65rem 1.1rem; font-size: 0.85rem; color: var(--text); box-shadow: 0 4px 20px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap; z-index: 9999; }
+  #toast.show { opacity: 1; }
+
+  /* ── Spinner ── */
+  .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- Auth gate -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <h2>🔐 Admin Access</h2>
+    <p>Enter the admin key to view active game codes.</p>
+    <input id="auth-input" class="auth-input" type="password" placeholder="Admin key" autocomplete="current-password">
+    <button class="auth-btn" id="auth-btn">Sign In</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- Main app -->
+<div id="app">
+  <div class="page-header">
+    <h1>🎯 Active <span>Codes</span></h1>
+    <div class="header-actions">
+      <span id="last-refresh-label" style="font-size:0.75rem;color:var(--muted);"></span>
+      <button class="btn-ghost" id="btn-refresh">↻ Refresh</button>
+      <a href="admin-courses.html" class="btn-ghost" style="text-decoration:none;">⛳ Courses</a>
+    </div>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="summary-bar" id="summary-bar">
+    <div class="stat-card">
+      <div class="label">Total Active</div>
+      <div class="value" id="stat-total">—</div>
+      <div class="sub">game codes</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">With Scores</div>
+      <div class="value clean-green" id="stat-scored">—</div>
+      <div class="sub">have uploaded data</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Expiring Soon</div>
+      <div class="value clean-amber" id="stat-expiring">—</div>
+      <div class="sub">within 24 hours</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Expired</div>
+      <div class="value clean-red" id="stat-expired">—</div>
+      <div class="sub">past expiry</div>
+    </div>
+  </div>
+
+  <!-- Cleanliness meter -->
+  <div class="meter-wrap" id="meter-wrap">
+    <div class="meter-label">
+      <span>KV Health</span>
+      <span id="meter-pct" style="font-weight:800;"></span>
+    </div>
+    <div class="meter-track">
+      <div class="meter-fill" id="meter-fill"></div>
+    </div>
+    <div class="meter-legend">
+      <span><span class="dot" style="background:var(--green)"></span>Active with scores</span>
+      <span><span class="dot" style="background:var(--blue)"></span>Active, no scores yet</span>
+      <span><span class="dot" style="background:var(--amber)"></span>Expiring soon (&lt;24h)</span>
+      <span><span class="dot" style="background:var(--red)"></span>Expired / stale</span>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="active">Active</button>
+    <button class="filter-btn" data-filter="scored">Has Scores</button>
+    <button class="filter-btn" data-filter="expiring">Expiring Soon</button>
+    <button class="filter-btn" data-filter="expired">Expired</button>
+    <input class="filter-search" id="filter-search" placeholder="Search code…" maxlength="6">
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="table-header">
+      <span>Code</span>
+      <span>Course / Format</span>
+      <span>Created</span>
+      <span>Expires</span>
+      <span>Scores</span>
+      <span>Actions</span>
+    </div>
+    <div id="table-body">
+      <div class="empty-state"><span class="spinner"></span></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const WORKER = 'https://leaderboardsync.sw-77d.workers.dev';
+const APP    = 'https://ldrbd.app/';
+
+let adminKey = '';
+let allRows  = [];
+let scoreMap = {}; // code -> array of score records
+let activeFilter = 'all';
+let searchQuery  = '';
+
+// ── Auth ─────────────────────────────────────────────────────────
+document.getElementById('auth-btn').onclick = tryAuth;
+document.getElementById('auth-input').onkeydown = e => { if (e.key === 'Enter') tryAuth(); };
+
+async function tryAuth() {
+  const key = document.getElementById('auth-input').value.trim();
+  if (!key) return;
+  document.getElementById('auth-error').textContent = '';
+  document.getElementById('auth-btn').textContent = 'Checking…';
+  try {
+    const res = await fetch(`${WORKER}/admin/courses/pending?limit=1`, {
+      headers: { 'X-Admin-Key': key }
+    });
+    if (res.status === 401) throw new Error('Invalid key');
+    adminKey = key;
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadData();
+  } catch (e) {
+    document.getElementById('auth-error').textContent = e.message === 'Invalid key' ? 'Incorrect admin key.' : 'Could not reach server.';
+  } finally {
+    document.getElementById('auth-btn').textContent = 'Sign In';
+  }
+}
+
+// ── Load data ─────────────────────────────────────────────────────
+document.getElementById('btn-refresh').onclick = loadData;
+
+async function loadData() {
+  const btn = document.getElementById('btn-refresh');
+  btn.textContent = '⏳';
+  btn.disabled = true;
+  try {
+    // Fetch all game keys + all score keys in parallel
+    const [gameList, scoreList] = await Promise.all([
+      workerList('game:'),
+      workerList('scores:'),
+    ]);
+
+    // Build score map: code -> [records]
+    scoreMap = {};
+    for (const key of scoreList) {
+      // key format: scores:<CODE>:r<round>:<group>  or  scores:<CODE>:<group>
+      const parts = key.split(':');
+      const code = parts[1];
+      if (!code) continue;
+      if (!scoreMap[code]) scoreMap[code] = [];
+      scoreMap[code].push(key);
+    }
+
+    // Fetch game records
+    const records = await Promise.all(
+      gameList.map(k => workerGet(k))
+    );
+
+    allRows = records.filter(Boolean).map(r => ({
+      ...r,
+      _scoreCount: (scoreMap[r.code] ?? []).length,
+    }));
+
+    allRows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    updateStats();
+    renderTable();
+    document.getElementById('last-refresh-label').textContent =
+      'Updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    showToast('⚠ ' + (e.message ?? 'Load failed'));
+  } finally {
+    btn.textContent = '↻ Refresh';
+    btn.disabled = false;
+  }
+}
+
+async function workerList(prefix) {
+  const res = await fetch(`${WORKER}/admin/kv-list?prefix=${encodeURIComponent(prefix)}`, {
+    headers: { 'X-Admin-Key': adminKey }
+  });
+  if (!res.ok) {
+    // Fallback: if admin kv-list not implemented, return empty
+    return [];
+  }
+  const data = await res.json();
+  return data.keys ?? [];
+}
+
+async function workerGet(key) {
+  const res = await fetch(`${WORKER}/admin/kv-get?key=${encodeURIComponent(key)}`, {
+    headers: { 'X-Admin-Key': adminKey }
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+// ── Stats & meter ─────────────────────────────────────────────────
+function updateStats() {
+  const now = Date.now();
+  const soon = now + 24 * 3600 * 1000;
+
+  let total = 0, scored = 0, expiring = 0, expired = 0;
+  for (const r of allRows) {
+    total++;
+    const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
+    if (exp < now) expired++;
+    else if (exp < soon) expiring++;
+    if (r._scoreCount > 0) scored++;
+  }
+
+  qs('#stat-total').textContent    = total;
+  qs('#stat-scored').textContent   = scored;
+  qs('#stat-expiring').textContent = expiring;
+  qs('#stat-expired').textContent  = expired;
+
+  // Cleanliness = % that are active (not expired)
+  const active = total - expired;
+  const pct = total ? Math.round(100 * active / total) : 100;
+  const fill = qs('#meter-fill');
+  const pctEl = qs('#meter-pct');
+  fill.style.width = pct + '%';
+  fill.style.background = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+  pctEl.textContent = pct + '% clean';
+  pctEl.className = pct >= 80 ? 'clean-green' : pct >= 50 ? 'clean-amber' : 'clean-red';
+}
+
+// ── Filters ───────────────────────────────────────────────────────
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    renderTable();
+  };
+});
+document.getElementById('filter-search').oninput = e => {
+  searchQuery = e.target.value.trim().toUpperCase();
+  renderTable();
+};
+
+function filteredRows() {
+  const now = Date.now();
+  const soon = now + 24 * 3600 * 1000;
+  return allRows.filter(r => {
+    if (searchQuery && !r.code?.toUpperCase().includes(searchQuery)) return false;
+    const exp = r.expiresAt ? new Date(r.expiresAt).getTime() : Infinity;
+    if (activeFilter === 'active')   return exp >= now;
+    if (activeFilter === 'scored')   return r._scoreCount > 0;
+    if (activeFilter === 'expiring') return exp >= now && exp < soon;
+    if (activeFilter === 'expired')  return exp < now;
+    return true;
+  });
+}
+
+// ── Table ─────────────────────────────────────────────────────────
+function renderTable() {
+  const rows = filteredRows();
+  const tbody = qs('#table-body');
+  if (!rows.length) {
+    tbody.innerHTML = `<div class="empty-state">No codes match this filter.</div>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const now    = Date.now();
+    const exp    = r.expiresAt ? new Date(r.expiresAt).getTime() : null;
+    const created = r.createdAt ? fmtDate(r.createdAt) : '—';
+
+    // Status tag
+    let tag;
+    if (!exp)           tag = `<span class="tag tag-muted">No expiry</span>`;
+    else if (exp < now) tag = `<span class="tag tag-red">Expired</span>`;
+    else if (exp < now + 24*3600*1000) tag = `<span class="tag tag-amber">Soon</span>`;
+    else                tag = `<span class="tag tag-green">Active</span>`;
+
+    // Countdown
+    let countdown = '—';
+    if (exp) {
+      if (exp < now) {
+        countdown = `<span class="countdown clean-red">−${humanDuration(now - exp)} ago</span>`;
+      } else {
+        const color = (exp < now + 24*3600*1000) ? 'clean-amber' : 'clean-green';
+        countdown = `<span class="countdown ${color}">${humanDuration(exp - now)}</span>`;
+      }
+    }
+
+    // Course / format summary
+    const courseName = r.course?.name ?? '—';
+    const fmt        = r.format?.type ?? '—';
+    const groups     = r.format?.groups ?? 1;
+    const sub        = `<div style="font-size:0.78rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${courseName}</div>
+      <div style="font-size:0.7rem;color:var(--muted);">${fmt} · ${groups} grp${groups !== 1 ? 's' : ''}</div>`;
+
+    // Score indicator
+    const sc = r._scoreCount;
+    const scEl = sc > 0
+      ? `<span class="tag tag-green">${sc} grp${sc !== 1 ? 's' : ''}</span>`
+      : `<span class="tag tag-muted">none</span>`;
+
+    const liveUrl = `${APP}live?code=${r.code}`;
+
+    return `<div class="table-row">
+      <div>
+        <div class="code-chip">${r.code ?? '—'}</div>
+        ${tag}
+      </div>
+      <div>${sub}</div>
+      <div style="font-size:0.75rem;color:var(--muted);">${created}</div>
+      <div>${countdown}</div>
+      <div>${scEl}</div>
+      <div class="action-cell">
+        <button class="btn-tiny" onclick="copyLink('${liveUrl}')">🔗</button>
+        <button class="btn-tiny" onclick="viewLive('${liveUrl}')">↗</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function humanDuration(ms) {
+  const s = Math.floor(ms / 1000);
+  if (s < 3600)  return `${Math.floor(s/60)}m`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  return h ? `${d}d ${h}h` : `${d}d`;
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' +
+         d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function qs(sel) { return document.querySelector(sel); }
+
+function copyLink(url) {
+  navigator.clipboard.writeText(url).then(() => showToast('✓ Link copied'));
+}
+
+function viewLive(url) {
+  window.open(url, '_blank');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const el = qs('#toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── Note about Worker admin routes ────────────────────────────────
+// The current Worker doesn't expose /admin/kv-list or /admin/kv-get.
+// Until those are added, we use a fallback that reads codes from
+// localStorage in the admin's own browser (if they've played games),
+// plus shows a notice.
+//
+// For full functionality, add these routes to the Worker:
+//   GET /admin/kv-list?prefix=<p>  → { keys: ['game:XXX', ...] }
+//   GET /admin/kv-get?key=<k>      → the stored JSON value
+//
+// ── Demo / fallback mode ──────────────────────────────────────────
+// Override loadData to use the direct /game/:code endpoint for known
+// codes, and expose a manual code lookup.
+const _originalLoadData = loadData;
+
+async function loadData() {
+  const btn = document.getElementById('btn-refresh');
+  btn.textContent = '⏳'; btn.disabled = true;
+
+  try {
+    // We can't list all keys without a Worker admin route.
+    // Instead, collect codes from: localStorage, URL params, and manual input.
+    const knownCodes = new Set();
+
+    // From URL ?codes=ABC,DEF
+    new URLSearchParams(location.search).get('codes')?.split(',')
+      .map(c => c.trim().toUpperCase()).filter(c => c.length === 6)
+      .forEach(c => knownCodes.add(c));
+
+    // From local storage (any lb-game-code or lb-tourn-state entries)
+    try {
+      const stored = localStorage.getItem('lb-game-code');
+      if (stored) knownCodes.add(stored.toUpperCase());
+      const ts = JSON.parse(localStorage.getItem('lb-tourn-state') ?? 'null');
+      if (ts?.code && ts.code !== '__error__') knownCodes.add(ts.code.toUpperCase());
+    } catch {}
+
+    // Fetch records for known codes
+    const records = await Promise.all(
+      [...knownCodes].map(async code => {
+        try {
+          const res = await fetch(`${WORKER}/game/${code}`);
+          if (!res.ok) return null;
+          return res.json();
+        } catch { return null; }
+      })
+    );
+
+    // Fetch score info for known codes
+    scoreMap = {};
+    await Promise.all([...knownCodes].map(async code => {
+      try {
+        const res = await fetch(`${WORKER}/scores/${code}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        scoreMap[code] = (data.rounds ?? []).map((_, i) => `scores:${code}:${i}`);
+      } catch {}
+    }));
+
+    allRows = records.filter(Boolean).map(r => ({
+      ...r,
+      _scoreCount: (scoreMap[r.code] ?? []).length,
+    }));
+    allRows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    updateStats();
+    renderTable();
+    renderNotice(knownCodes.size);
+    document.getElementById('last-refresh-label').textContent =
+      'Updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    showToast('⚠ ' + (e.message ?? 'Load failed'));
+  } finally {
+    btn.textContent = '↻ Refresh'; btn.disabled = false;
+  }
+}
+
+function renderNotice(count) {
+  let el = document.getElementById('worker-notice');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'worker-notice';
+    el.style.cssText = `background:rgba(246,173,85,0.08);border:1px solid rgba(246,173,85,0.3);
+      border-radius:var(--radius);padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.82rem;
+      color:var(--amber);line-height:1.5;`;
+    qs('#app').insertBefore(el, qs('.summary-bar'));
+  }
+
+  el.innerHTML = `<strong>ℹ Limited view:</strong> Showing ${count} code${count !== 1 ? 's' : ''} found in your browser's local storage.
+    To see <em>all</em> active codes, add <code style="background:var(--surface2);padding:0.1em 0.3em;border-radius:3px;">/admin/kv-list</code>
+    and <code style="background:var(--surface2);padding:0.1em 0.3em;border-radius:3px;">/admin/kv-get</code> routes to the Cloudflare Worker.
+    Or paste a code below to look it up manually.
+    <div style="display:flex;gap:0.5rem;margin-top:0.6rem;">
+      <input id="manual-code-input" placeholder="Enter code (e.g. X7K2AB)"
+        style="flex:1;padding:0.35rem 0.6rem;background:var(--surface2);border:1px solid var(--border);
+        border-radius:4px;color:var(--text);font-family:monospace;font-size:0.9rem;letter-spacing:0.08em;text-transform:uppercase;"
+        maxlength="6">
+      <button onclick="lookupManual()" class="btn-gold" style="font-size:0.8rem;padding:0.35rem 0.75rem;">Look up</button>
+    </div>`;
+}
+
+async function lookupManual() {
+  const code = (document.getElementById('manual-code-input')?.value ?? '').trim().toUpperCase();
+  if (code.length !== 6) { showToast('Enter a 6-character code'); return; }
+  try {
+    const [gameRes, scoreRes] = await Promise.all([
+      fetch(`${WORKER}/game/${code}`),
+      fetch(`${WORKER}/scores/${code}`),
+    ]);
+    if (!gameRes.ok) { showToast(`Code ${code} not found`); return; }
+    const game   = await gameRes.json();
+    const scores = scoreRes.ok ? await scoreRes.json() : { rounds: [] };
+    const existing = allRows.findIndex(r => r.code === code);
+    const row = { ...game, _scoreCount: (scores.rounds ?? []).length };
+    if (existing >= 0) allRows[existing] = row;
+    else allRows.unshift(row);
+    updateStats();
+    renderTable();
+    showToast(`✓ ${code} loaded`);
+  } catch { showToast('Lookup failed'); }
+}
+
+// Auto-refresh every 60s
+setInterval(() => { if (adminKey) loadData(); }, 60_000);
+</script>
+</body>
+</html>

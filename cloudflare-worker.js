@@ -104,6 +104,18 @@ export default {
       return handlePlayersDownload(path.split('/')[2].toUpperCase(), env);
     }
 
+    // ── Admin: KV key listing (for admin-codes.html) ──────────────
+    if (path === '/admin/kv-list') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      return handleAdminKvList(request, env, url);
+    }
+
+    // ── Admin: KV single-key read (for admin-codes.html) ─────────
+    if (path === '/admin/kv-get') {
+      if (!isAdmin(request, env)) return err('Unauthorized', 401);
+      return handleAdminKvGet(request, env, url);
+    }
+
     // Admin routes
     if (path.startsWith('/admin/courses')) {
       if (!isAdmin(request, env)) return err('Unauthorized', 401);
@@ -487,4 +499,55 @@ async function handlePlayersDownload(code, env) {
   if (!raw) return err('Code not found or expired', 404);
   const record = JSON.parse(raw);
   return json({ players: record.players, expiresAt: record.expiresAt });
+}
+
+// ================================================================
+// ADMIN KV INSPECTION HANDLERS (for admin-codes.html)
+// ================================================================
+
+// GET /admin/kv-list?prefix=<prefix>
+// Returns all KV keys under the given prefix (no values).
+// Used by admin-codes.html to enumerate game: and scores: keys.
+async function handleAdminKvList(request, env, url) {
+  if (!env.GAMES) return err('KV not configured', 503);
+
+  const prefix = url.searchParams.get('prefix') ?? '';
+  // Only allow safe prefixes — prevent full KV dumps
+  const allowed = ['game:', 'scores:', 'players:'];
+  if (!allowed.some(p => prefix.startsWith(p) || prefix === p.replace(':', '') || prefix === '')) {
+    return err('Prefix not allowed', 400);
+  }
+
+  const keys   = [];
+  let cursor   = undefined;
+  let complete = false;
+
+  // Page through all keys (up to 1000)
+  while (!complete && keys.length < 1000) {
+    const result = await env.GAMES.list({ prefix, cursor, limit: 200 });
+    result.keys.forEach(k => keys.push(k.name));
+    complete = result.list_complete;
+    cursor   = result.cursor;
+  }
+
+  return json({ keys, count: keys.length });
+}
+
+// GET /admin/kv-get?key=<full-kv-key>
+// Returns the JSON value stored at a single KV key.
+// Only game: keys are allowed (scores: are too large to be useful individually).
+async function handleAdminKvGet(request, env, url) {
+  if (!env.GAMES) return err('KV not configured', 503);
+
+  const key = url.searchParams.get('key') ?? '';
+  if (!key.startsWith('game:')) return err('Only game: keys can be retrieved', 400);
+
+  const raw = await env.GAMES.get(key);
+  if (!raw) return err('Key not found', 404);
+
+  try {
+    return json(JSON.parse(raw));
+  } catch {
+    return json({ raw });
+  }
 }
