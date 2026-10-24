@@ -6991,34 +6991,7 @@ function renderHolePanel() {
     });
   }
 
-  // Show/hide the action row (finish early + push scores + live leaderboard) together
-  const holesPlayed = (gameState.log?.length ?? 0) > 0;
-  const actionRow = document.getElementById('game-action-row');
-  const liveGameBtn = document.getElementById('btn-live-game');
-  const gameCode = (() => {
-    try {
-      if (gameState?.gameCode) return gameState.gameCode;
-      const stored = localStorage.getItem('lb-game-code');
-      if (stored) return stored;
-      const ts = _tournState();
-      if (ts.active && ts.code && ts.code !== '__error__') return ts.code;
-      return null;
-    } catch { return null; }
-  })();
-  if (liveGameBtn) {
-    const showLive = !!gameCode;
-    liveGameBtn.style.display = showLive ? '' : 'none';
-    if (actionRow) actionRow.style.gridTemplateColumns = showLive ? '1fr 1fr 1fr' : '1fr 1fr';
-  }
-  if (actionRow) {
-    actionRow.style.display = holesPlayed ? 'grid' : 'none';
-    actionRow.classList.toggle('hidden', !holesPlayed);
-  }
-  const pushGameBtn = document.getElementById('btn-push-scores-game');
-  if (pushGameBtn && !pushGameBtn._wired) {
-    pushGameBtn._wired = true;
-    pushGameBtn.addEventListener('click', () => pushScoresToCloud(pushGameBtn));
-  }
+  // Action row removed from scoring screen — push/view scores via Leaderboard button
 
   // Texas Scramble: show running driver usage tally
   if (isTexas) {
@@ -9005,9 +8978,73 @@ document.getElementById('btn-game-leaderboard')?.addEventListener('click', () =>
 document.getElementById('leaderboard-back')   ?.addEventListener('click', () => showScreen('screen-game'));
 
 let leaderboardChannel = null;
+let _lbViewMode    = 'total';    // 'total' | 'byround'
+let _lbCloudScores = null;       // last fetched cloud scores payload
+
+// Wire leaderboard action buttons (once)
+(function _wireLbActions() {
+  document.getElementById('btn-lb-update')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-lb-update');
+    if (btn) { btn.textContent = '⏳ Updating…'; btn.disabled = true; }
+    try {
+      // Push current scores first
+      const pushBtn = { textContent: '', style: {}, disabled: false };
+      await pushScoresToCloud(pushBtn);
+      // Then pull cloud scores
+      const code = _lbGetCode();
+      if (code) {
+        const data = await _workerFetch(`/scores/${code.toUpperCase()}`);
+        _lbCloudScores = data;
+      }
+      renderLeaderboard();
+      if (btn) { btn.textContent = '✓ Updated'; setTimeout(() => { if (btn) btn.textContent = '⟳ Update'; }, 2000); }
+    } catch (e) {
+      if (btn) { btn.textContent = '✗ Failed'; setTimeout(() => { if (btn) btn.textContent = '⟳ Update'; }, 2000); }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
+
+  document.getElementById('btn-lb-view-toggle')?.addEventListener('click', () => {
+    _lbViewMode = _lbViewMode === 'total' ? 'byround' : 'total';
+    const btn = document.getElementById('btn-lb-view-toggle');
+    if (btn) btn.textContent = _lbViewMode === 'total' ? '📊 By Round' : '🏆 Total';
+    renderLeaderboard();
+  });
+
+  document.getElementById('btn-lb-copy-url')?.addEventListener('click', async () => {
+    const code = _lbGetCode();
+    if (!code) return;
+    const url = `${APP_BASE_URL}live?code=${code}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      const btn = document.getElementById('btn-lb-copy-url');
+      if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { if (btn) btn.textContent = '🔗 Copy URL'; }, 2000); }
+    } catch {}
+  });
+})();
+
+function _lbGetCode() {
+  try {
+    if (gameState?.gameCode) return gameState.gameCode;
+    const stored = localStorage.getItem('lb-game-code');
+    if (stored) return stored;
+    const ts = _tournState();
+    if (ts.active && ts.code && ts.code !== '__error__') return ts.code;
+  } catch {}
+  return null;
+}
 
 function showLeaderboard() {
   showScreen('screen-leaderboard');
+  // Show/hide action bar buttons based on whether a code exists
+  const code = _lbGetCode();
+  const copyBtn   = document.getElementById('btn-lb-copy-url');
+  const toggleBtn = document.getElementById('btn-lb-view-toggle');
+  if (copyBtn)   copyBtn.style.display   = code ? '' : 'none';
+  // Show "By Round" toggle only when a tournament is active (multi-round)
+  const ts = (() => { try { return _tournState(); } catch { return {}; } })();
+  if (toggleBtn) toggleBtn.style.display = (ts.active && ts.rounds > 1) ? '' : 'none';
   renderLeaderboard();
   // Subscribe to all group states for live updates
   if (leaderboardChannel) realtimeUnsubscribe(leaderboardChannel);
@@ -9257,39 +9294,124 @@ function renderLeaderboard() {
     return;
   }
 
-  // ── Tournament mode, individual format (Stableford/Stroke) ────────
-  const scoringMode      = 'cumulative';
-  const completedRnds    = (activeTournRounds ?? []).filter(r => r.status === 'completed');
+  // ── Tournament mode, individual format ──────────────────────────
   const numHolesPerRound = gameState.numHoles ?? 18;
   const liveHoles        = gameState.log?.length ?? 0;
   const liveStates       = gameState.allGroupStates ?? [gameState];
+  const ts               = (() => { try { return _tournState(); } catch { return {}; } })();
 
-  // Build a map of live player scores from current round (all groups)
+  // Build live scores from current round (all groups)
   const liveScoreByName = {};
   liveStates.forEach(gs => {
     (gs.names ?? []).forEach((name, pi) => {
-      const pts  = isPoints ? (gs.totals?.[pi] ?? 0) : null;
-      const net  = isStroke ? (gs.totals?.[pi] ?? 0) : null;
-      liveScoreByName[name] = { pts, net, holes: gs.log?.length ?? 0 };
+      liveScoreByName[name] = {
+        pts:  isPoints ? (gs.totals?.[pi] ?? 0) : null,
+        net:  isStroke ? (gs.totals?.[pi] ?? 0) : null,
+        holes: gs.log?.length ?? 0,
+        group: String(gs.groupNumber ?? 1),
+      };
     });
   });
 
-  const standings = [];
-  const rows = standings.map((row, idx) => {
-    const live  = liveScoreByName[row.name] ?? {};
-    const historical = row.total ?? 0;
-    const liveAdd    = isStroke ? (live.net ?? 0) : (live.pts ?? 0);
-    const total      = historical + liveAdd;
-    return {
-      rank:   idx + 1,
-      label:  row.name,
-      sub:    null,
-      score:  total || '--',
-      thru:   completedRnds.length * numHolesPerRound + liveHoles,
-      isLead: idx === 0,
+  // Merge cloud scores + live scores for tournament total view
+  // _lbCloudScores format: { rounds: [ { round, group, players: [{name,pts,net,gross,holesPlayed}] } ] }
+  const byName   = {};  // name -> { pts, net, roundScores: {r: pts} }
+  const cloudRounds = new Set();
+
+  if (_lbCloudScores?.rounds) {
+    for (const grp of _lbCloudScores.rounds) {
+      const rn = grp.round ?? 1;
+      cloudRounds.add(rn);
+      for (const p of (grp.players ?? [])) {
+        if (!p.name) continue;
+        if (!byName[p.name]) byName[p.name] = { pts: 0, net: 0, roundScores: {} };
+        byName[p.name].pts += p.pts  ?? 0;
+        byName[p.name].net += p.net  ?? 0;
+        byName[p.name].roundScores[rn] = { pts: p.pts ?? 0, net: p.net ?? 0, gross: p.gross ?? 0 };
+      }
+    }
+  }
+
+  // Add live round scores on top (current round)
+  const liveRound = ts.currentRound ?? 1;
+  for (const [name, live] of Object.entries(liveScoreByName)) {
+    if (!byName[name]) byName[name] = { pts: 0, net: 0, roundScores: {} };
+    // Only add live if not already covered by cloud for this round
+    if (!byName[name].roundScores[liveRound]) {
+      byName[name].pts += isStroke ? (live.net ?? 0) : (live.pts ?? 0);
+      byName[name].net += live.net ?? 0;
+    }
+    byName[name].roundScores[liveRound] = {
+      pts:   live.pts ?? 0,
+      net:   live.net ?? 0,
+      holes: live.holes ?? 0,
     };
-  });
-  tableEl.innerHTML = buildLeaderboardTable(rows, scoreLabel);
+  }
+
+  // If no cloud or live data, fall back to live-only
+  if (!Object.keys(byName).length) {
+    const rows2 = buildMultiGroupLeaderboard(liveStates);
+    tableEl.innerHTML = rows2.length
+      ? buildLeaderboardTable(rows2.map((r,rank) => ({
+          rank: rank+1, label: r.name, sub: null,
+          score: isStroke ? (r.net ?? '--') : (r.pts ?? '--'),
+          extraScore: r.gross ?? undefined, thru: r.holesPlayed, isLead: rank===0,
+        })), scoreLabel, 'Shots')
+      : '<div style="padding:2rem;text-align:center;color:var(--muted);">No scores yet. Press ⟳ Update to load.</div>';
+    return;
+  }
+
+  // Sort
+  const sortedPlayers = Object.entries(byName)
+    .map(([name, d]) => ({ name, ...d }))
+    .sort((a, b) => isStroke ? a.net - b.net : b.pts - a.pts);
+
+  if (_lbViewMode === 'total') {
+    // ── Total view: one combined score per player ──
+    tableEl.innerHTML = buildLeaderboardTable(
+      sortedPlayers.map((p, i) => ({
+        rank:   i + 1,
+        label:  p.name,
+        sub:    null,
+        score:  isStroke ? p.net : p.pts,
+        thru:   numHolesPerRound * (ts.rounds ?? 1),
+        isLead: i === 0,
+      })),
+      scoreLabel
+    );
+  } else {
+    // ── By Round view: per-round columns + total ──
+    const allRounds = Array.from(new Set([...cloudRounds, liveRound])).sort((a,b)=>a-b);
+    const colW      = `${Math.floor(60 / allRounds.length)}%`;
+
+    let html = `<div style="font-family:'Plus Jakarta Sans',sans-serif;">`;
+    // Header
+    html += `<div style="display:grid;grid-template-columns:1fr ${allRounds.map(()=>colW).join(' ')} 3.5rem;
+      gap:0;padding:0.35rem 0.75rem;border-bottom:1.5px solid var(--border2);
+      font-size:0.6rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);">
+      <div>Player</div>${allRounds.map(r=>`<div style="text-align:center">R${r}</div>`).join('')}
+      <div style="text-align:center">${scoreLabel}</div></div>`;
+
+    sortedPlayers.forEach((p, i) => {
+      const isLd  = i === 0;
+      const total = isStroke ? p.net : p.pts;
+      html += `<div style="display:grid;grid-template-columns:1fr ${allRounds.map(()=>colW).join(' ')} 3.5rem;
+        gap:0;padding:0.6rem 0.75rem;border-bottom:1px solid var(--border2);
+        background:${isLd ? 'rgba(212,168,67,0.07)' : 'transparent'};">
+        <div style="font-size:0.85rem;font-weight:${isLd?'800':'600'};
+          color:${isLd?'var(--gold)':'var(--text)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+        ${allRounds.map(r => {
+          const rs = p.roundScores[r];
+          const s  = rs ? (isStroke ? rs.net : rs.pts) : '–';
+          return `<div style="text-align:center;font-size:0.8rem;color:var(--muted);">${s}</div>`;
+        }).join('')}
+        <div style="text-align:center;font-size:0.85rem;font-weight:800;color:${isLd?'var(--gold)':'var(--text)'};">${total}</div>
+      </div>`;
+    });
+
+    html += '</div>';
+    tableEl.innerHTML = html;
+  }
 }
 
 

@@ -871,24 +871,12 @@
       <button class="btn-record" id="btn-record-hole">Confirm &amp; Next →</button>
     </div>
 
-    <!-- Finish early + Push scores — side by side -->
-    <div id="game-action-row" class="hidden"
-      style="display:none;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:0.5rem;">
-      <button class="btn btn-outline" id="btn-finish-early"
-        style="font-size:0.82rem;padding:0.6rem 0.4rem;line-height:1.25;text-align:center;">
-        ✓ Finish<br>Round Early
-      </button>
-      <button class="btn btn-outline" id="btn-push-scores-game"
-        style="font-size:0.82rem;padding:0.6rem 0.4rem;line-height:1.25;text-align:center;
-               border-color:rgba(212,168,67,0.5);color:var(--gold);">
-        ⬆ Push Scores<br>to Leaderboard
-      </button>
-      <button class="btn btn-outline" id="btn-live-game"
-        style="display:none;font-size:0.82rem;padding:0.6rem 0.4rem;line-height:1.25;text-align:center;
-               border-color:rgba(212,168,67,0.5);color:var(--gold);"
-        onclick="openLiveLeaderboard()">
-        📊 Live<br>Leaderboard
-      </button>
+    <!-- action row removed — use Leaderboard button in bottom bar to push/view scores -->
+    <div id="game-action-row" style="display:none;">
+      <!-- kept for JS compatibility; hidden permanently -->
+      <button id="btn-finish-early" style="display:none;"></button>
+      <button id="btn-push-scores-game" style="display:none;"></button>
+      <button id="btn-live-game" style="display:none;"></button>
     </div>
 
   </div><!-- /hole-panel -->
@@ -898,7 +886,7 @@
     flex-shrink:0;
     border-top:1px solid var(--border);
     background:var(--bg);
-    padding:0.35rem 0.5rem 0.3rem;">
+    padding:0.5rem 0.5rem 0.4rem;">
 
     <!-- Single row: 3 compact icon+label buttons -->
     <button class="btn btn-outline" id="btn-game-scorecard" style="display:none;"></button>
@@ -1000,6 +988,29 @@
       <div class="lb-hero-name-b" id="lb-name-b"></div>
     </div>
 
+    <!-- Action bar: Update + toggle + copy URL -->
+    <div id="lb-action-bar" style="display:flex;gap:0.5rem;padding:0.6rem 1rem 0.25rem;flex-wrap:wrap;">
+      <button id="btn-lb-update"
+        style="flex:1;min-width:0;padding:0.55rem 0.5rem;font-family:'Plus Jakarta Sans',sans-serif;
+               font-size:0.82rem;font-weight:800;background:none;border:1.5px solid var(--gold-border);
+               border-radius:10px;color:var(--gold);cursor:pointer;display:flex;align-items:center;
+               justify-content:center;gap:0.35rem;">
+        ⟳ Update
+      </button>
+      <button id="btn-lb-view-toggle"
+        style="flex:1;min-width:0;padding:0.55rem 0.5rem;font-family:'Plus Jakarta Sans',sans-serif;
+               font-size:0.82rem;font-weight:800;background:none;border:1.5px solid var(--border2);
+               border-radius:10px;color:var(--muted2);cursor:pointer;display:none;">
+        📊 By Round
+      </button>
+      <button id="btn-lb-copy-url"
+        style="flex:1;min-width:0;padding:0.55rem 0.5rem;font-family:'Plus Jakarta Sans',sans-serif;
+               font-size:0.82rem;font-weight:800;background:none;border:1.5px solid var(--border2);
+               border-radius:10px;color:var(--muted2);cursor:pointer;display:none;">
+        🔗 Copy URL
+      </button>
+    </div>
+
     <div style="padding:0 1rem;">
       <div id="leaderboard-ld-ntp"></div>
       <div id="leaderboard-table"></div>
@@ -1010,7 +1021,7 @@
       <div class="screen-pencil-footer">
         <div class="logo-wrap screen-pencil"></div>
       </div>
-  
+
 </div>
 
 <!-- ══════════════════════════════════════════
