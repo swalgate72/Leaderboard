@@ -531,6 +531,26 @@ async function handleScoresPut(code, request, env) {
     );
   }));
 
+  // If this is a hub tournament, mark the round as inProgress so the
+  // detail screen shows live status and finalise is allowed.
+  try {
+    const tournRecord = await env.GAMES.get('tourn:' + code, { type: 'json' });
+    if (tournRecord?.rounds) {
+      let changed = false;
+      const roundNums = [...new Set(rounds.map(r => r.round ?? 1))];
+      const updatedRounds = tournRecord.rounds.map(r => {
+        if (roundNums.includes(r.roundNum) && r.status === 'scheduled') {
+          changed = true;
+          return { ...r, status: 'inProgress', startedAt: Date.now() };
+        }
+        return r;
+      });
+      if (changed) {
+        await env.GAMES.put('tourn:' + code, JSON.stringify({ ...tournRecord, rounds: updatedRounds }), { expirationTtl: SCORES_TTL });
+      }
+    }
+  } catch {}
+
   return json({ ok: true, stored: rounds.length });
 }
 
@@ -746,7 +766,14 @@ async function handleRoundFinalise(code, roundNum, request, env) {
 
   const roundMeta = record.rounds?.find(r => r.roundNum === roundNum);
   if (!roundMeta) return err('Round not found', 404);
-  if (roundMeta.status === 'scheduled') return err('Round has not started', 400);
+  // Allow finalising even if still 'scheduled' — scores may have been pushed
+  // without an explicit round-start step (hub tournament flow).
+  if (roundMeta.status === 'finalised') {
+    // Already done — return cached result if available
+    const adjKey = `roster:${code}:adj:${roundNum}`;
+    const existingAdj = await env.GAMES.get(adjKey, { type: 'json' });
+    if (existingAdj) return json({ ok: true, adjustments: existingAdj.adjustments, cached: true });
+  }
 
   let body;
   try { body = await request.json(); } catch { body = {}; }
