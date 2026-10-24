@@ -15978,6 +15978,27 @@ async function showTournamentDetail(code) {
       navigator.clipboard.writeText(url).then(() => alert('URL copied!')).catch(() => alert(url));
     };
 
+    // Remove / leave tournament
+    const removeBtn = document.getElementById('btn-td-remove-tournament');
+    if (removeBtn) {
+      removeBtn.textContent = isOrganiser ? '🗑 Delete Tournament' : '🗑 Remove from My List';
+      removeBtn.onclick = async () => {
+        const msg = isOrganiser
+          ? `Delete "${t.name ?? code}" for everyone? This cannot be undone.`
+          : `Remove "${t.name ?? code}" from your tournament list?`;
+        if (!confirm(msg)) return;
+        // Remove from IDB and local cache
+        await idbTournaments.delete(code).catch(() => {});
+        try {
+          const cache = _readTournamentCache().filter(tc => tc.code !== code);
+          localStorage.setItem('lb-tournaments', JSON.stringify(cache));
+        } catch {}
+        // Remove organiser secret if present
+        try { localStorage.removeItem(`lb-organiser-secret-${code}`); } catch {}
+        showTournamentHub();
+      };
+    }
+
     // Back
     document.getElementById('tournament-detail-back').onclick = () => showTournamentHub();
 
