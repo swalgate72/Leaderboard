@@ -1038,6 +1038,51 @@
 </div>
 
 <!-- ══════════════════════════════════════════
+     TOURNAMENT HUB LEADERBOARD SCREEN
+     (shown after finishing a hub-tournament round)
+     ══════════════════════════════════════════ -->
+<div id="screen-tourn-hub-lb" class="screen">
+  <div style="max-width:520px;margin:0 auto;padding-bottom:calc(5.5rem + env(safe-area-inset-bottom,0px));">
+
+    <!-- Hero -->
+    <div class="lb-hero" style="padding-bottom:1.25rem;">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="btn-thbl-back-detail"
+          style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Tournament</button>
+      </div>
+      <div class="home-hero-title" id="thbl-tourn-name" style="font-size:1.4rem;">Leaderboard</div>
+      <div class="home-hero-club" style="margin-top:0.2rem;opacity:0.7;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.07em;">Live standings</div>
+    </div>
+
+    <div style="padding:0.75rem 1rem 0;">
+
+      <!-- Status / loading -->
+      <div id="thbl-status" style="display:none;text-align:center;padding:1rem;font-size:0.88rem;color:var(--text-muted);"></div>
+
+      <!-- Leaderboard table -->
+      <div id="thbl-table" style="margin-bottom:1.25rem;border-radius:12px;overflow:hidden;border:1px solid var(--border,rgba(0,0,0,0.1));"></div>
+
+      <!-- Action buttons -->
+      <div style="display:flex;flex-direction:column;gap:0.6rem;">
+        <button id="btn-thbl-refresh"
+          style="width:100%;padding:0.85rem;border-radius:12px;border:1.5px solid var(--gold-border,rgba(212,168,67,0.4));
+                 background:none;color:var(--gold,#b8963e);font-family:'Plus Jakarta Sans',sans-serif;
+                 font-size:1rem;font-weight:800;cursor:pointer;">
+          ⟳ Refresh Scores
+        </button>
+        <button id="btn-thbl-finish"
+          style="width:100%;padding:0.9rem;border-radius:12px;border:none;
+                 background:var(--green,#2d6a4f);color:#fff;font-family:'Plus Jakarta Sans',sans-serif;
+                 font-size:1rem;font-weight:800;cursor:pointer;">
+          ✓ Back to Home
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
      END ROUND SCREEN
      ══════════════════════════════════════════ -->
 <div id="screen-end-round" class="screen">

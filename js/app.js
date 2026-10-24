@@ -5963,6 +5963,17 @@ async function teeOff() {
     }
   } catch {}
 
+  // Carry hub tournament context into gameState for end-round handling
+  if (setup._hubTournamentCode) {
+    gameState._hubTournamentCode = setup._hubTournamentCode;
+    gameState._hubTournRound     = setup._hubTournRound ?? 1;
+    // Also use the hub code as the game code for score pushing
+    if (!gameState.gameCode) {
+      gameState.gameCode = setup._hubTournamentCode;
+      try { localStorage.setItem('lb-game-code', setup._hubTournamentCode); } catch {}
+    }
+  }
+
   // Store profileIds per group. scorerProfileId starts as '__unclaimed__' —
   // first person to tap Score in the invite banner claims it.
   for (let g = 0; g < setup.numGroups; g++) {
@@ -11950,6 +11961,15 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     try { localStorage.removeItem('lb-active-round'); } catch {}
     try { localStorage.removeItem('lb-game-state-cache'); } catch {}
     roundId = null;
+    // Capture hub tournament context before clearing gameState
+    const _hubCode = gameState?._hubTournamentCode ?? setup?._hubTournamentCode ?? null;
+    // Auto-push scores for hub tournaments while gameState is still live
+    if (_hubCode) {
+      try {
+        const silentBtn = { textContent: '', style: {}, disabled: false };
+        await pushScoresToCloud(silentBtn);
+      } catch {}
+    }
     const wasTournament = !!gameState.tournamentId;
     const tournId = gameState.tournamentId;
     gameState = null;
@@ -11959,9 +11979,14 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     // screen transitions that re-render DOM, and clearing afterwards risks the
     // timeout firing mid-navigation and showing a spurious alert.
     clearTimeout(saveTimeout);
-    await showHome();
-    // Prompt to back up after every completed round
-    _promptBackup('Round saved! Back up your data to iCloud Drive or Google Drive?');
+    if (_hubCode) {
+      // Hub tournament: go to tournament leaderboard instead of home
+      showTournamentHubLeaderboard(_hubCode);
+    } else {
+      await showHome();
+      // Prompt to back up after every completed round
+      _promptBackup('Round saved! Back up your data to iCloud Drive or Google Drive?');
+    }
   } catch (err) {
     clearTimeout(saveTimeout);
     alert('Could not save round: ' + err.message);
@@ -16268,3 +16293,146 @@ async function _organiserFinaliseRound(code, roundNum, secret, tournData, force 
 
 document.getElementById('btn-profile-friends')?.addEventListener('click', () => showFriends());
 
+
+// ================================================================
+// TOURNAMENT HUB LEADERBOARD  (post-round end screen)
+// ================================================================
+// Called after a hub tournament round is saved.
+// Pulls all scores from the worker, shows a ranked table per player
+// with their total pts and the handicap adjustment applied this round.
+// ================================================================
+
+async function showTournamentHubLeaderboard(code) {
+  if (!code) { showHome(); return; }
+
+  // Re-use the tournament detail screen (screen-tournament-hub)
+  // but override it with a dedicated leaderboard view.
+  // We show screen-tourn-hub-leaderboard if it exists,
+  // otherwise fall back to building over screen-tournament-hub.
+  showScreen('screen-tourn-hub-lb');
+
+  const nameEl    = document.getElementById('thbl-tourn-name');
+  const statusEl  = document.getElementById('thbl-status');
+  const tableEl   = document.getElementById('thbl-table');
+  const refreshBtn = document.getElementById('btn-thbl-refresh');
+  const finishBtn  = document.getElementById('btn-thbl-finish');
+
+  if (nameEl) {
+    // Try to get tournament name from IDB
+    try {
+      const t = await idbTournaments.get(code);
+      nameEl.textContent = t?.name ?? code;
+    } catch { nameEl.textContent = code; }
+  }
+
+  if (finishBtn) {
+    finishBtn.onclick = () => showHome();
+  }
+
+  async function _loadAndRender() {
+    if (statusEl) { statusEl.textContent = 'Loading scores…'; statusEl.style.display = ''; }
+    if (tableEl)  tableEl.innerHTML = '';
+    try {
+      const data = await _workerFetch(`/scores/${code.toUpperCase()}`);
+      if (statusEl) statusEl.style.display = 'none';
+      _renderHubLbTable(tableEl, data);
+    } catch (err) {
+      if (statusEl) { statusEl.textContent = '⚠ Could not load scores — check connection and refresh.'; }
+    }
+  }
+
+  if (refreshBtn) {
+    refreshBtn.onclick = () => _loadAndRender();
+  }
+
+  await _loadAndRender();
+}
+
+function _renderHubLbTable(tableEl, data) {
+  if (!tableEl) return;
+  // data.rounds = [{ round, group, players: [{name, hcp, pts, netTotal, grossTotal, holesPlayed, ...}] }]
+  const rounds = data?.rounds ?? [];
+  if (!rounds.length) {
+    tableEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted);">No scores yet — waiting for groups to finish.</p>';
+    return;
+  }
+
+  // Aggregate by player name across all rounds
+  const byPlayer = {};
+  for (const r of rounds) {
+    for (const p of (r.players ?? [])) {
+      if (!p.name) continue;
+      if (!byPlayer[p.name]) {
+        byPlayer[p.name] = { name: p.name, rounds: [], totalPts: 0, totalNet: 0, hcp: p.hcp ?? 0 };
+      }
+      const entry = byPlayer[p.name];
+      const pts  = p.pts  ?? p.total ?? 0;
+      const net  = p.netTotal ?? p.net ?? 0;
+      const hcp  = p.hcp ?? entry.hcp ?? 0;
+      entry.totalPts += pts;
+      entry.totalNet += net;
+      entry.hcp = hcp; // use most recent
+      entry.rounds.push({ round: r.round, pts, net, holesPlayed: p.holesPlayed ?? 18, hcp });
+    }
+  }
+
+  const players = Object.values(byPlayer);
+  // Sort by total points descending (stableford default)
+  players.sort((a, b) => b.totalPts - a.totalPts);
+
+  // Determine how many rounds have been played
+  const numRounds = Math.max(...rounds.map(r => r.round ?? 1), 1);
+
+  // Build table
+  const colHdr = numRounds > 1
+    ? Array.from({ length: numRounds }, (_, i) => `<th style="${_thStyle()}">R${i+1}</th>`).join('') + `<th style="${_thStyle()}">Tot</th>`
+    : `<th style="${_thStyle()}">Pts</th>`;
+
+  const rows = players.map((p, rank) => {
+    const badge = rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : `${rank+1}`;
+    // HCP cut: difference between index and playing handicap used
+    // We stored hcp as the playing handicap; show raw value as "Hcp"
+    const hcpStr = p.hcp != null ? `+${Math.round(p.hcp)}` : '–';
+
+    // Holes indicator: show "(thru X)" if any round incomplete
+    const incomplete = p.rounds.some(r => (r.holesPlayed ?? 18) < 18);
+    const thruNote = incomplete ? ` <span style="font-size:0.72rem;color:var(--text-muted);">(in progress)</span>` : '';
+
+    const roundCells = numRounds > 1
+      ? p.rounds.map(r => `<td style="${_tdStyle()}">${r.pts}</td>`).join('') +
+        `<td style="${_tdStyle(true)}">${p.totalPts}</td>`
+      : `<td style="${_tdStyle(true)}">${p.totalPts}</td>`;
+
+    return `<tr>
+      <td style="${_tdStyle()}">${badge}</td>
+      <td style="padding:0.65rem 0.5rem;font-size:0.9rem;font-weight:700;color:var(--text-dark);">
+        ${p.name}${thruNote}
+      </td>
+      <td style="${_tdStyle()}">${hcpStr}</td>
+      ${roundCells}
+    </tr>`;
+  }).join('');
+
+  tableEl.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-family:'Plus Jakarta Sans',sans-serif;">
+      <thead>
+        <tr style="background:var(--surface2,rgba(0,0,0,0.06));">
+          <th style="${_thStyle()}">#</th>
+          <th style="padding:0.5rem;text-align:left;font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);">Player</th>
+          <th style="${_thStyle()}">Hcp</th>
+          ${colHdr}
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function _thStyle() {
+  return 'padding:0.5rem;text-align:center;font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);';
+}
+function _tdStyle(bold) {
+  return `padding:0.65rem 0.5rem;text-align:center;font-size:${bold ? '1rem' : '0.88rem'};font-weight:${bold ? '800' : '600'};color:var(--text-dark);`;
+}
+
+// Wire the back button on the hub leaderboard screen
+document.getElementById('btn-thbl-back-detail')?.addEventListener('click', () => showTournamentHub());
