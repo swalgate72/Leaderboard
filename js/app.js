@@ -5751,7 +5751,17 @@ document.getElementById('btn-tee-off')       ?.addEventListener('click', async (
 document.getElementById('review-weather')    ?.addEventListener('input', function() { setup.weather = this.value; });
 
 async function teeOff() {
-  // Tournament mode: route through _teeOffRound
+  // ── Hub tournament: stash context then fall straight through to the
+  //    normal game-start path below. Hub tournament codes are non-UUID strings.
+  if (setup.tournamentId && !/^[0-9a-f-]{36}$/.test(setup.tournamentId)) {
+    setup._hubTournamentCode = setup.tournamentId;
+    setup._hubTournRound     = setup.tournRoundNumber ?? 1;
+    setup.tournamentId       = null;
+    setup.tournRoundNumber   = null;
+    // fall through to normal game-start code ↓
+  }
+
+  // ── Legacy UUID tournament mode ──────────────────────────────────
   if (setup.tournamentId) {
     const btn = document.getElementById('btn-tee-off');
     try {
@@ -5759,74 +5769,63 @@ async function teeOff() {
       const tee    = course?.tees?.[setup.teeIdx];
       if (!course || !tee) { alert('Please select a course and tee.'); return; }
 
-      // Determine if this is a new-hub tournament (code string) or legacy UUID tournament
-      const _isHubTourn = setup.tournamentId && !/^[0-9a-f-]{36}$/.test(setup.tournamentId);
-
-      // For legacy UUID tournaments, ensure activeTournPlayers is loaded
-      if (!_isHubTourn) {
-        if (!activeTournPlayers?.length) {
-          activeTournPlayers = await tournamentPlayersLoad(setup.tournamentId).catch(() => []);
-        }
+      if (!activeTournPlayers?.length) {
+        activeTournPlayers = await tournamentPlayersLoad(setup.tournamentId).catch(() => []);
       }
 
-      if (_isHubTourn) {
-        // ── Hub tournament: skip legacy tournGroups entirely ──────────
-        // Just tee off as a normal round; tournament context already
-        // stored in setup.tournamentId / setup.tournRoundNumber.
-        await _teeOffRound(setup.tournamentId, setup.courseId, tee.name, new Date().toISOString().split('T')[0]);
-      } else {
-        // ── Legacy UUID tournament path ───────────────────────────────
-        const namedPlayers = setup.players.filter(p => p.name);
-        const maxGroup     = Math.max(1, ...namedPlayers.map(p => p.groupNumber ?? 1));
-        const isPairsFmt   = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
+      const namedPlayers = setup.players.filter(p => p.name);
+      const maxGroup     = Math.max(1, ...namedPlayers.map(p => p.groupNumber ?? 1));
+      const isPairsFmt   = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
 
-        const localTournGroups = Array.from({ length: maxGroup }, (_, g) => {
-          const groupNum = g + 1;
-          let teamName = null;
-          if (isPairsFmt && setup.pairs?.length) {
-            const pair = setup.pairs.find(pr => (pr.groupNumber ?? 1) === groupNum);
-            teamName = pair?.teamName ?? pair?.name ?? null;
-          } else {
-            const gp = namedPlayers.find(p => (p.groupNumber ?? 1) === groupNum);
-            teamName = gp?.teamName ?? null;
-          }
-          return {
-            groupNumber: groupNum,
-            teamName,
-            players: namedPlayers
-              .filter(p => (p.groupNumber ?? 1) === groupNum)
-              .map(p => {
-                const tp = activeTournPlayers.find(tp =>
-                  (p.tournamentPlayerId && tp.id === p.tournamentPlayerId) ||
-                  (p.profileId && tp.profile_id === p.profileId) ||
-                  tp.name === p.name
-                );
-                return tp?.id ?? null;
-              })
-              .filter(Boolean),
-          };
-        });
-
-        if (!localTournGroups.some(g => g.players.length > 0)) {
-          alert('Could not match players to tournament roster. Please go back and check the player list.');
-          return;
+      const localTournGroups = Array.from({ length: maxGroup }, (_, g) => {
+        const groupNum = g + 1;
+        let teamName = null;
+        if (isPairsFmt && setup.pairs?.length) {
+          const pair = setup.pairs.find(pr => (pr.groupNumber ?? 1) === groupNum);
+          teamName = pair?.teamName ?? pair?.name ?? null;
+        } else {
+          const gp = namedPlayers.find(p => (p.groupNumber ?? 1) === groupNum);
+          teamName = gp?.teamName ?? null;
         }
+        return {
+          groupNumber: groupNum,
+          teamName,
+          players: namedPlayers
+            .filter(p => (p.groupNumber ?? 1) === groupNum)
+            .map(p => {
+              const tp = activeTournPlayers.find(tp =>
+                (p.tournamentPlayerId && tp.id === p.tournamentPlayerId) ||
+                (p.profileId && tp.profile_id === p.profileId) ||
+                tp.name === p.name
+              );
+              return tp?.id ?? null;
+            })
+            .filter(Boolean),
+        };
+      });
 
-        // Save group state for next round
-        localStorage.setItem(`lb-tround-${setup.tournamentId}`, JSON.stringify({
-          courseId: setup.courseId, teeName: tee.name,
-          date: new Date().toISOString().split('T')[0],
-          numGroups: maxGroup, groups: localTournGroups,
-        }));
-
-        await _teeOffRound(setup.tournamentId, setup.courseId, tee.name, new Date().toISOString().split('T')[0]);
+      if (!localTournGroups.some(g => g.players.length > 0)) {
+        alert('Could not match players to tournament roster. Please go back and check the player list.');
+        return;
       }
+
+      // Save group state for next round
+      localStorage.setItem(`lb-tround-${setup.tournamentId}`, JSON.stringify({
+        courseId: setup.courseId, teeName: tee.name,
+        date: new Date().toISOString().split('T')[0],
+        numGroups: maxGroup, groups: localTournGroups,
+      }));
+
+      // Legacy path complete — legacy _teeOffRound is no longer available;
+      // fall through to normal game-start below for now.
+      // TODO: restore legacy tournament round-start via API call if needed.
     } catch (err) {
       console.error('[teeOff] tournament branch failed:', err);
       alert('Could not start the round: ' + (err.message || 'Unknown error. Please try again.'));
       if (btn) { btn.disabled = false; btn.textContent = '⛳ TEE OFF →'; }
+      return;
     }
-    return;
+    // fall through to normal game-start code ↓
   }
 
   const course = allCourses.find(c => c.id === setup.courseId);
