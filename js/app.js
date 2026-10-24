@@ -5759,9 +5759,14 @@ async function teeOff() {
       const tee    = course?.tees?.[setup.teeIdx];
       if (!course || !tee) { alert('Please select a course and tee.'); return; }
 
-      // Ensure activeTournPlayers is loaded
-      if (!activeTournPlayers?.length) {
-        activeTournPlayers = await tournamentPlayersLoad(setup.tournamentId).catch(() => []);
+      // Determine if this is a new-hub tournament (code string) or legacy UUID tournament
+      const _isHubTourn = setup.tournamentId && !/^[0-9a-f-]{36}$/.test(setup.tournamentId);
+
+      // For legacy UUID tournaments, ensure activeTournPlayers is loaded
+      if (!_isHubTourn) {
+        if (!activeTournPlayers?.length) {
+          activeTournPlayers = await tournamentPlayersLoad(setup.tournamentId).catch(() => []);
+        }
       }
 
       // Build tournGroups from setup.players
@@ -5788,7 +5793,11 @@ async function teeOff() {
           players: namedPlayers
             .filter(p => (p.groupNumber ?? 1) === groupNum)
             .map(p => {
-              // Match by tournamentPlayerId first, then profileId, then name
+              if (_isHubTourn) {
+                // Hub tournament: use tournamentPlayerId directly (P-xxxxx code)
+                return p.tournamentPlayerId ?? null;
+              }
+              // Legacy UUID tournament: match via activeTournPlayers
               const tp = activeTournPlayers.find(tp =>
                 (p.tournamentPlayerId && tp.id === p.tournamentPlayerId) ||
                 (p.profileId && tp.profile_id === p.profileId) ||
@@ -5800,7 +5809,7 @@ async function teeOff() {
         };
       });
 
-      if (!tournGroups.some(g => g.players.length > 0)) {
+      if (!_isHubTourn && !tournGroups.some(g => g.players.length > 0)) {
         alert('Could not match players to tournament roster. Please go back and check the player list.');
         return;
       }
@@ -15397,6 +15406,15 @@ document.getElementById('btn-tournament-history')?.addEventListener('click', () 
 let _wiz = {};
 
 function showTournamentNew() {
+  // Auto-add the organiser (currentProfile) as first player
+  const orgName = currentProfile
+    ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+    : '';
+  const orgHcp  = currentProfile?.hcp ?? 0;
+  const initialPlayers = orgName
+    ? [{ friendId: currentProfile?.id ?? 'organiser', name: orgName, hcpIndex: orgHcp, isOrganiser: true }]
+    : [];
+
   _wiz = {
     step: 1,
     name: '',
@@ -15408,11 +15426,36 @@ function showTournamentNew() {
     courseMode: 'same',
     courseId: null,             // for same-course
     courseIds: [],              // per-round [{ roundNum, courseId }]
-    players: [],                // [{ friendId, name, hcpIndex }]
+    players: initialPlayers,   // [{ friendId, name, hcpIndex }]
   };
+
+  // Reset rounds stepper display
+  const dispEl = document.getElementById('tourn-rounds-display');
+  const hidEl  = document.getElementById('tourn-num-rounds');
+  if (dispEl) dispEl.textContent = '3';
+  if (hidEl)  hidEl.value = '3';
+
   _wizGoStep(1);
   showScreen('screen-tournament-new');
 }
+
+// Rounds +/- stepper
+document.getElementById('btn-rounds-dec')?.addEventListener('click', () => {
+  const hidEl  = document.getElementById('tourn-num-rounds');
+  const dispEl = document.getElementById('tourn-rounds-display');
+  const cur = parseInt(hidEl?.value ?? '3');
+  const next = Math.max(1, cur - 1);
+  if (hidEl)  hidEl.value = next;
+  if (dispEl) dispEl.textContent = next;
+});
+document.getElementById('btn-rounds-inc')?.addEventListener('click', () => {
+  const hidEl  = document.getElementById('tourn-num-rounds');
+  const dispEl = document.getElementById('tourn-rounds-display');
+  const cur = parseInt(hidEl?.value ?? '3');
+  const next = Math.min(52, cur + 1);
+  if (hidEl)  hidEl.value = next;
+  if (dispEl) dispEl.textContent = next;
+});
 
 function _wizGoStep(step) {
   _wiz.step = step;
@@ -15603,56 +15646,68 @@ document.getElementById('btn-tourn-add-player')?.addEventListener('click', () =>
 });
 
 function _openFriendPickerForWizard() {
-  // Simple quick-pick: pull from local players/friends store
-  (async () => {
-    try {
-      const { players: idbPlayers } = await import('../db.js?v=20261021a');
-      const all = await idbPlayers.getAll();
-      if (!all.length) { alert('No friends saved yet. Add players in the Friends & Players tab first.'); return; }
+  // Use allFriends (already loaded global) — field is .hcp, not .hcpIndex
+  const all = allFriends ?? [];
+  if (!all.length) {
+    alert('No friends saved yet. Add players in the Friends & Players tab first.');
+    return;
+  }
 
-      // Build a minimal modal
-      const existing = document.getElementById('modal-wiz-friend-pick');
-      if (existing) existing.remove();
-      const modal = document.createElement('div');
-      modal.id = 'modal-wiz-friend-pick';
-      modal.className = 'modal-overlay open';
-      modal.innerHTML = `
-        <div class="modal-box" style="max-width:360px;">
-          <div class="modal-header">
-            <div class="modal-title">Add Player</div>
-            <button class="btn-close" id="wiz-fp-close">✕</button>
-          </div>
-          <div id="wiz-fp-list" style="padding:0.5rem 0;max-height:60vh;overflow-y:auto;">
-            ${all.filter(p => !_wiz.players.some(wp => wp.friendId === p.id)).map(p => `
-              <button class="btn btn-ghost" data-fp-id="${_esc(p.id)}"
-                data-fp-name="${_esc(p.name ?? '')}"
-                data-fp-hcp="${_esc(String(p.hcpIndex ?? 0))}"
-                style="width:100%;text-align:left;padding:0.65rem 1rem;
-                       border-bottom:1px solid var(--border);border-radius:0;display:block;">
-                <div style="font-weight:700;">${_esc(p.name ?? '(no name)')}</div>
-                <div style="font-size:0.78rem;color:var(--text-muted);">HCP ${p.hcpIndex ?? '—'}</div>
-              </button>`).join('')}
-          </div>
-        </div>`;
-      document.body.appendChild(modal);
+  // Exclude already-added players (match by profileId or name)
+  const available = all.filter(f =>
+    !_wiz.players.some(wp =>
+      (f.profileId && wp.friendId === f.profileId) ||
+      (wp.name === (f.name || f.username))
+    )
+  );
 
-      document.getElementById('wiz-fp-close')?.addEventListener('click', () => modal.remove());
-      modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-      modal.querySelectorAll('[data-fp-id]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          _wiz.players.push({
-            friendId: btn.dataset.fpId,
-            name: btn.dataset.fpName,
-            hcpIndex: parseFloat(btn.dataset.fpHcp) || 0,
-          });
-          modal.remove();
-          _wizBuildPlayersStep();
-        });
+  if (!available.length) {
+    alert('All your friends are already in the tournament.');
+    return;
+  }
+
+  const existing = document.getElementById('modal-wiz-friend-pick');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'modal-wiz-friend-pick';
+  modal.className = 'modal-overlay open';
+  modal.innerHTML = `
+    <div class="modal-box" style="max-width:360px;">
+      <div class="modal-header">
+        <div class="modal-title">Add Player</div>
+        <button class="btn-close" id="wiz-fp-close">✕</button>
+      </div>
+      <div id="wiz-fp-list" style="padding:0.5rem 0;max-height:60vh;overflow-y:auto;">
+        ${available.map(f => {
+          const name = f.name || f.username || '(no name)';
+          const hcp  = f.hcp ?? 0;
+          const pid  = f.profileId ?? f.id ?? name;
+          return `<button class="btn btn-ghost" data-fp-id="${_esc(String(pid))}"
+            data-fp-name="${_esc(name)}"
+            data-fp-hcp="${hcp}"
+            style="width:100%;text-align:left;padding:0.65rem 1rem;
+                   border-bottom:1px solid var(--border);border-radius:0;display:block;">
+            <div style="font-weight:700;">${_esc(name)}</div>
+            <div style="font-size:0.78rem;color:var(--text-muted);">HCP ${hcp != null ? hcp : '—'}</div>
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  document.getElementById('wiz-fp-close')?.addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  modal.querySelectorAll('[data-fp-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _wiz.players.push({
+        friendId: btn.dataset.fpId,
+        name:     btn.dataset.fpName,
+        hcpIndex: parseFloat(btn.dataset.fpHcp) || 0,
       });
-    } catch (err) {
-      alert('Could not load friends: ' + err.message);
-    }
-  })();
+      modal.remove();
+      _wizBuildPlayersStep();
+    });
+  });
 }
 
 document.getElementById('btn-wizard-4-back')?.addEventListener('click', () => _wizGoStep(3));
