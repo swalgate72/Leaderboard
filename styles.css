@@ -4333,3 +4333,511 @@ html.light .holes-btn.active {
 }
 #leaderboard-table table { width: 100%; }
 #leaderboard-table:not(:empty) { margin-top: 0.85rem; }
+
+/* ================================================================
+   TOURNAMENT HUB  (Phase 5)
+   ================================================================ */
+
+/* ── Hub screen ─────────────────────────────────────────────────── */
+
+#screen-tournament-hub .screen-header {
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 1rem 0.75rem;
+}
+
+#hub-active-list,
+#hub-past-list {
+  padding: 0 1rem;
+  margin-top: 0.5rem;
+}
+
+#hub-empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: var(--text-muted);
+}
+
+#hub-empty-state .hub-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.5;
+}
+
+#hub-empty-state p {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+}
+
+#hub-past-section {
+  padding: 0 1rem 1rem;
+}
+
+#hub-past-section h3 {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 1rem 0 0.5rem;
+}
+
+.hub-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+/* ── Wizard ──────────────────────────────────────────────────────── */
+
+.wizard-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0.85rem 1rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card-bg);
+}
+
+.wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.wizard-step-dot {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  position: relative;
+  z-index: 1;
+}
+
+.wizard-step.active .wizard-step-dot {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #000;
+}
+
+.wizard-step.done .wizard-step-dot {
+  background: rgba(212, 168, 67, 0.25);
+  border-color: var(--gold-border);
+  color: var(--gold);
+}
+
+.wizard-step-line {
+  width: 3rem;
+  height: 2px;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.wizard-step.done + .wizard-step .wizard-step-line,
+.wizard-step-line.done {
+  background: var(--gold-border);
+}
+
+.wizard-panel {
+  padding: 1rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.wizard-panel h2 {
+  font-size: 1rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+/* ── Duration / Format / Mode selector buttons ───────────────────── */
+
+.btn-group-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.btn-group-row .btn-sel {
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.btn-group-row .btn-sel.active {
+  border-color: var(--gold);
+  background: rgba(212, 168, 67, 0.12);
+  color: var(--gold);
+}
+
+/* Format cards (larger) */
+.format-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.format-card {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: left;
+}
+
+.format-card.active {
+  border-color: var(--gold);
+  background: rgba(212, 168, 67, 0.1);
+}
+
+.format-card .fc-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 0.15rem;
+}
+
+.format-card .fc-desc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.format-card.active .fc-title { color: var(--gold); }
+
+/* HCP strength panel */
+#tourn-hcp-strength-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+#tourn-hcp-strength-panel label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+/* ── Course selector ─────────────────────────────────────────────── */
+
+.course-mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.course-mode-toggle .btn-sel {
+  flex: 1;
+}
+
+/* ── Player list (wizard step 4) ─────────────────────────────────── */
+
+#tourn-player-list {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 0.75rem;
+  margin-bottom: 0.75rem;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+#tourn-player-count-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+/* ── Join screen ─────────────────────────────────────────────────── */
+
+#join-code-input-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+#join-tournament-code {
+  flex: 1;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-family: monospace;
+  text-align: center;
+}
+
+#join-code-error {
+  font-size: 0.82rem;
+  color: var(--danger);
+  margin-bottom: 0.75rem;
+  min-height: 1.2em;
+}
+
+#join-preview-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+#join-preview-card h3 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin-bottom: 0.25rem;
+}
+
+#join-preview-card .preview-meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+#join-preview-players {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-bottom: 0.75rem;
+}
+
+#join-already-joined {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 0.5rem;
+}
+
+/* ── Tournament Detail ───────────────────────────────────────────── */
+
+#screen-tournament-detail .screen-content {
+  padding: 1rem;
+}
+
+#td-tournament-name {
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 0.2rem;
+}
+
+#td-meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+#td-awaiting-finalisation {
+  background: rgba(212, 168, 67, 0.1);
+  border: 1px solid var(--gold-border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 0.75rem;
+}
+
+#td-rounds h4,
+#td-standings h4 {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.td-secondary-actions {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ── Start Round screen ──────────────────────────────────────────── */
+
+#screen-tournament-start-round .screen-content {
+  padding: 1rem;
+}
+
+#tsr-round-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 0.25rem;
+}
+
+#tsr-tourn-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+}
+
+#tsr-course-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+#tsr-course-card label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 0.4rem;
+}
+
+#tsr-hcp-note {
+  font-size: 0.82rem;
+  color: var(--gold);
+  background: rgba(212, 168, 67, 0.08);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+#tsr-player-list {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 0.75rem;
+  margin-bottom: 1rem;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+/* ── Organiser Admin ─────────────────────────────────────────────── */
+
+#screen-tournament-organiser-admin .screen-content {
+  padding: 1rem;
+}
+
+#oa-tourn-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-bottom: 0.25rem;
+}
+
+.oa-section-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 1rem 0 0.5rem;
+}
+
+#oa-roster-table {
+  overflow-x: auto;
+}
+
+#oa-roster-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#oa-roster-table th {
+  background: var(--surface);
+}
+
+#oa-roster-table td,
+#oa-roster-table th {
+  border-bottom: 1px solid var(--border);
+}
+
+#oa-rounds-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ── HCP Info screen ─────────────────────────────────────────────── */
+
+#screen-tournament-hcp-info .screen-content {
+  padding: 1rem;
+}
+
+.hcp-info-formula {
+  font-family: monospace;
+  font-size: 0.88rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin: 0.75rem 0;
+  line-height: 1.6;
+}
+
+.hcp-info-example {
+  background: rgba(212, 168, 67, 0.07);
+  border: 1px solid var(--gold-border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 0.75rem 0;
+}
+
+.hcp-strength-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 0.75rem 0;
+}
+
+.hcp-strength-table th,
+.hcp-strength-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.hcp-strength-table th {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.hcp-info-rules {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding-left: 1.1rem;
+  line-height: 1.7;
+}
+

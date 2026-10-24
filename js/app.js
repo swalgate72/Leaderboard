@@ -40,7 +40,7 @@ import {
   texasTeamHandicap,
   gpsDistanceYards, buildSideCompResults,
 } from '../game.js?v=20260704l';
-import { idbSave, idbSaveSeq, idbLoad, idbMarkClean, idbClear, idbGetDirty } from '../db.js?v=20261021a';
+import { idbSave, idbSaveSeq, idbLoad, idbMarkClean, idbClear, idbGetDirty, tournaments as idbTournaments } from '../db.js?v=20261021a';
 
 
 // ================================================================
@@ -1648,10 +1648,12 @@ const SETUP_SCREENS = [
 // so backgrounding the app returns here, but fields/state are reset on return.
 const TOURNAMENT_SETUP_SCREENS = [
   'screen-tournament-setup', 'screen-tournament-format', 'screen-tournament-players',
+  'screen-tournament-new',   // new 4-step wizard
 ];
 
 const BOTTOM_NAV_SCREENS = [
   'screen-home', 'screen-history', 'screen-friends', 'screen-profile',
+  'screen-tournament-hub',   // Tournament tab
 ];
 
 function showScreen(id) {
@@ -2345,10 +2347,11 @@ document.querySelectorAll('.fmt-btn').forEach(btn => {
   });
 });
 
-document.getElementById('nav-profile')?.addEventListener('click', () => { setActiveBottomNav('nav-profile'); showProfile(); });
-document.getElementById('nav-friends')?.addEventListener('click', () => { setActiveBottomNav('nav-friends'); showFriends(); });
-document.getElementById('nav-history')?.addEventListener('click', () => { setActiveBottomNav('nav-history'); showHistory(); });
-document.getElementById('nav-play')   ?.addEventListener('click', () => { setActiveBottomNav('nav-play'); showHome(); });
+document.getElementById('nav-profile')   ?.addEventListener('click', () => { setActiveBottomNav('nav-profile');    showProfile(); });
+document.getElementById('nav-friends')   ?.addEventListener('click', () => { setActiveBottomNav('nav-friends');    showFriends(); });
+document.getElementById('nav-history')   ?.addEventListener('click', () => { setActiveBottomNav('nav-history');    showHistory(); });
+document.getElementById('nav-play')      ?.addEventListener('click', () => { setActiveBottomNav('nav-play');       showHome(); });
+document.getElementById('nav-tournament')?.addEventListener('click', () => { setActiveBottomNav('nav-tournament'); showTournamentHub(); });
 
 document.getElementById('coming-soon-close')?.addEventListener('click', () => hide('modal-coming-soon'));
 document.getElementById('btn-resume')?.addEventListener('click', async () => { if (roundId) await resumeRound(roundId); });
@@ -15225,3 +15228,969 @@ document.getElementById('btn-save-privacy')?.addEventListener('click', async () 
     btn.textContent = 'SAVE PREFERENCES';
   }
 });
+
+// ================================================================
+// TOURNAMENT HUB  (Phase 4)
+// ================================================================
+// LocalStorage keys used here:
+//   lb-tournaments          JSON array of { code, name, status, ... } — minimal hub-list cache
+//   lb-organiser-secret-<CODE>  organiser secret for a tournament this device created
+//   lb-round-state-<CODE>-<N>-<GID>  per-round-per-group state (used by start-round flow)
+// IndexedDB: idbTournaments (tournaments store, v5)
+// ================================================================
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+/** SHA-256 hex of a string */
+async function _sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Generate a 16-char random organiser secret */
+function _genOrganiserSecret() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  const arr = new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, b => chars[b % chars.length]).join('');
+}
+
+/** Worker fetch with optional organiser secret header */
+async function _tournWorkerFetch(path, method = 'GET', body = null, organiserSecret = null) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (organiserSecret) headers['X-Organiser-Secret'] = organiserSecret;
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(SYNC_WORKER_URL + path, opts);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
+}
+
+/** Load organiser secret for a code from localStorage */
+function _getOrganiserSecret(code) {
+  try { return localStorage.getItem(`lb-organiser-secret-${code}`) ?? null; } catch { return null; }
+}
+
+/** Persist all tournaments from IDB into the lightweight hub cache */
+async function _flushTournamentCache() {
+  try {
+    const all = await idbTournaments.getAll();
+    const slim = all.map(t => ({
+      code: t.code, name: t.name, status: t.status,
+      format: t.format, totalRounds: t.totalRounds, currentRound: t.currentRound,
+      isOrganiser: t.isOrganiser, expiresAt: t.expiresAt,
+    }));
+    localStorage.setItem('lb-tournaments', JSON.stringify(slim));
+  } catch {}
+}
+
+/** Read the hub-list cache, never throws */
+function _readTournamentCache() {
+  try { return JSON.parse(localStorage.getItem('lb-tournaments') ?? '[]'); } catch { return []; }
+}
+
+// Format label map for display
+const TOURN_FORMAT_LABELS = {
+  stableford: 'Stableford', strokeplay: 'Strokeplay',
+  betterball: 'Better Ball', combined: 'Combined', best2: 'Best 2',
+};
+const TOURN_HCP_LABELS = {
+  none: 'No Adjustment', manual: 'Manual', auto: 'Auto Adjust',
+};
+
+// ── Hub screen ───────────────────────────────────────────────────
+
+async function showTournamentHub() {
+  showScreen('screen-tournament-hub');
+  setActiveBottomNav('nav-tournament');
+  await renderTournamentHub();
+}
+
+async function renderTournamentHub() {
+  const listEl      = document.getElementById('hub-active-list');
+  const emptyEl     = document.getElementById('hub-empty-state');
+  const pastSection = document.getElementById('hub-past-section');
+  if (!listEl) return;
+
+  listEl.innerHTML = '<div style="padding:1rem;color:var(--text-muted);text-align:center;font-size:0.9rem;">Loading…</div>';
+
+  try {
+    // Merge IDB + cache: IDB is authoritative, cache fills gaps if IDB hasn't loaded yet
+    let tourneys = await idbTournaments.getAll().catch(() => []);
+    if (!tourneys.length) tourneys = _readTournamentCache();
+
+    const now = Date.now();
+    const active = tourneys.filter(t => t.status !== 'completed' && t.status !== 'expired' && (t.expiresAt ?? Infinity) > now);
+    const past   = tourneys.filter(t => t.status === 'completed' || t.status === 'expired' || (t.expiresAt ?? Infinity) <= now);
+
+    if (!active.length) {
+      listEl.innerHTML = '';
+      if (emptyEl) emptyEl.style.display = '';
+    } else {
+      if (emptyEl) emptyEl.style.display = 'none';
+      listEl.innerHTML = active.map(t => _renderHubCard(t)).join('');
+      listEl.querySelectorAll('[data-tourn-code]').forEach(card => {
+        card.addEventListener('click', () => showTournamentDetail(card.dataset.tournCode));
+      });
+    }
+
+    if (pastSection) {
+      if (past.length) {
+        pastSection.style.display = '';
+        const pastList = document.getElementById('hub-past-list');
+        if (pastList) {
+          pastList.innerHTML = past.map(t => _renderHubCard(t, true)).join('');
+          pastList.querySelectorAll('[data-tourn-code]').forEach(card => {
+            card.addEventListener('click', () => showTournamentDetail(card.dataset.tournCode));
+          });
+        }
+      } else {
+        pastSection.style.display = 'none';
+      }
+    }
+  } catch (err) {
+    listEl.innerHTML = `<div style="padding:1rem;color:var(--danger);font-size:0.85rem;">Could not load tournaments: ${err.message}</div>`;
+  }
+}
+
+function _renderHubCard(t, past = false) {
+  const fmt   = TOURN_FORMAT_LABELS[t.format] ?? t.format ?? '—';
+  const round = t.currentRound ?? 1;
+  const total = t.totalRounds ?? '?';
+  const badge = t.isOrganiser ? '<span style="font-size:0.7rem;font-weight:800;background:rgba(212,168,67,0.18);color:var(--gold);border:1px solid var(--gold-border);border-radius:4px;padding:0.1em 0.4em;vertical-align:middle;margin-left:0.4rem;">ORG</span>' : '';
+  const statusLabel = past
+    ? `<span style="color:var(--text-muted);font-size:0.78rem;">Completed</span>`
+    : `<span style="color:var(--gold);font-size:0.78rem;font-weight:700;">Round ${round} of ${total}</span>`;
+  return `
+    <div class="card" data-tourn-code="${t.code}" style="cursor:pointer;margin-bottom:0.5rem;
+         padding:0.85rem 1rem;border:1px solid var(--border);">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:800;font-size:1rem;margin-bottom:0.2rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            ${_esc(t.name ?? 'Tournament')}${badge}
+          </div>
+          <div style="font-size:0.82rem;color:var(--text-muted);">${fmt} · ${statusLabel}</div>
+        </div>
+        <div style="font-family:monospace;font-size:0.82rem;font-weight:800;letter-spacing:0.1em;
+                    color:var(--gold);flex-shrink:0;margin-top:0.2rem;">${t.code}</div>
+      </div>
+    </div>`;
+}
+
+function _esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Hub action buttons
+document.getElementById('btn-new-tournament')?.addEventListener('click', () => showTournamentNew());
+document.getElementById('btn-join-tournament')?.addEventListener('click', () => showTournamentJoin());
+document.getElementById('btn-tournament-history')?.addEventListener('click', () => {
+  // For now shows the past section; later can have a dedicated screen
+  const pastEl = document.getElementById('hub-past-section');
+  if (pastEl) pastEl.scrollIntoView({ behavior: 'smooth' });
+});
+
+// ── New Tournament Wizard ────────────────────────────────────────
+
+// State held for the duration of the wizard
+let _wiz = {};
+
+function showTournamentNew() {
+  _wiz = {
+    step: 1,
+    name: '',
+    duration: '3m',
+    totalRounds: 3,
+    format: 'stableford',
+    hcpMode: 'none',
+    hcpStrength: 3,
+    courseMode: 'same',
+    courseId: null,             // for same-course
+    courseIds: [],              // per-round [{ roundNum, courseId }]
+    players: [],                // [{ friendId, name, hcpIndex }]
+  };
+  _wizGoStep(1);
+  showScreen('screen-tournament-new');
+}
+
+function _wizGoStep(step) {
+  _wiz.step = step;
+  document.querySelectorAll('.wizard-panel').forEach(p => p.style.display = 'none');
+  const panel = document.getElementById(`wizard-step-${step}`);
+  if (panel) panel.style.display = '';
+  document.querySelectorAll('.wizard-step').forEach(el => {
+    const n = parseInt(el.dataset.step);
+    el.classList.toggle('active', n === step);
+    el.classList.toggle('done', n < step);
+  });
+}
+
+// Back button
+document.getElementById('tournament-new-back')?.addEventListener('click', () => {
+  if (_wiz.step > 1) _wizGoStep(_wiz.step - 1);
+  else showTournamentHub();
+});
+
+// ── Step 1 wiring ──
+
+// Duration buttons
+document.getElementById('tourn-duration-btns')?.querySelectorAll('[data-dur]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('tourn-duration-btns').querySelectorAll('[data-dur]')
+      .forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tourn-duration').value = btn.dataset.dur;
+    _wiz.duration = btn.dataset.dur;
+  });
+});
+
+document.getElementById('btn-wizard-1-next')?.addEventListener('click', () => {
+  const name = (document.getElementById('tourn-name')?.value ?? '').trim();
+  if (!name) { alert('Please enter a tournament name.'); return; }
+  _wiz.name        = name;
+  _wiz.duration    = document.getElementById('tourn-duration')?.value ?? '3m';
+  _wiz.totalRounds = parseInt(document.getElementById('tourn-num-rounds')?.value ?? '3') || 3;
+  _wizGoStep(2);
+});
+
+// ── Step 2 wiring ──
+
+document.getElementById('tourn-format-btns')?.querySelectorAll('[data-fmt]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('tourn-format-btns').querySelectorAll('[data-fmt]')
+      .forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tourn-format').value = btn.dataset.fmt;
+    _wiz.format = btn.dataset.fmt;
+  });
+});
+
+document.getElementById('tourn-hcp-mode-btns')?.querySelectorAll('[data-hcp]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('tourn-hcp-mode-btns').querySelectorAll('[data-hcp]')
+      .forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tourn-hcp-mode').value = btn.dataset.hcp;
+    _wiz.hcpMode = btn.dataset.hcp;
+    const strengthPanel = document.getElementById('tourn-hcp-strength-panel');
+    if (strengthPanel) strengthPanel.style.display = btn.dataset.hcp === 'auto' ? '' : 'none';
+  });
+});
+
+document.getElementById('tourn-strength-btns')?.querySelectorAll('[data-str]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('tourn-strength-btns').querySelectorAll('[data-str]')
+      .forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tourn-hcp-strength').value = btn.dataset.str;
+    _wiz.hcpStrength = parseInt(btn.dataset.str) || 3;
+  });
+});
+
+document.getElementById('btn-hcp-info')?.addEventListener('click', () => {
+  showScreen('screen-tournament-hcp-info');
+});
+document.getElementById('tournament-hcp-info-back')?.addEventListener('click', () => {
+  showScreen('screen-tournament-new');
+  _wizGoStep(2);
+});
+
+document.getElementById('btn-wizard-2-back')?.addEventListener('click', () => _wizGoStep(1));
+document.getElementById('btn-wizard-2-next')?.addEventListener('click', () => {
+  _wiz.format     = document.getElementById('tourn-format')?.value ?? 'stableford';
+  _wiz.hcpMode    = document.getElementById('tourn-hcp-mode')?.value ?? 'none';
+  _wiz.hcpStrength = parseInt(document.getElementById('tourn-hcp-strength')?.value ?? '3') || 3;
+  _wizBuildCourseStep();
+  _wizGoStep(3);
+});
+
+// ── Step 3 wiring ──
+
+function _wizBuildCourseStep() {
+  const singleEl   = document.getElementById('tourn-course-single');
+  const perRoundEl = document.getElementById('tourn-course-per-round');
+  const listEl     = document.getElementById('tourn-course-per-round-list');
+  const singleSel  = document.getElementById('tourn-course-select-single');
+
+  // Populate the single-course select
+  if (singleSel) {
+    singleSel.innerHTML = (allCourses ?? [])
+      .map(c => `<option value="${_esc(c.id)}">${_esc(c.name)}</option>`).join('');
+  }
+
+  const isSame = _wiz.courseMode === 'same';
+  if (singleEl)   singleEl.style.display   = isSame ? '' : 'none';
+  if (perRoundEl) perRoundEl.style.display  = isSame ? 'none' : '';
+
+  // Per-round: only build round 1 selector (rest set when starting each round)
+  if (!isSame && listEl) {
+    listEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="font-size:0.85rem;font-weight:700;white-space:nowrap;">Round 1</div>
+        <select id="tourn-course-r1" style="flex:1;font-size:0.95rem;">
+          ${(allCourses ?? []).map(c => `<option value="${_esc(c.id)}">${_esc(c.name)}</option>`).join('')}
+        </select>
+      </div>`;
+  }
+}
+
+// Same / different course toggle
+document.getElementById('btn-same-course')?.addEventListener('click', () => {
+  document.getElementById('btn-same-course')?.classList.add('active');
+  document.getElementById('btn-diff-courses')?.classList.remove('active');
+  document.getElementById('tourn-course-mode').value = 'same';
+  _wiz.courseMode = 'same';
+  _wizBuildCourseStep();
+});
+document.getElementById('btn-diff-courses')?.addEventListener('click', () => {
+  document.getElementById('btn-diff-courses')?.classList.add('active');
+  document.getElementById('btn-same-course')?.classList.remove('active');
+  document.getElementById('tourn-course-mode').value = 'different';
+  _wiz.courseMode = 'different';
+  _wizBuildCourseStep();
+});
+
+document.getElementById('btn-wizard-3-back')?.addEventListener('click', () => _wizGoStep(2));
+document.getElementById('btn-wizard-3-next')?.addEventListener('click', () => {
+  if (_wiz.courseMode === 'same') {
+    _wiz.courseId = document.getElementById('tourn-course-select-single')?.value ?? null;
+  } else {
+    const r1 = document.getElementById('tourn-course-r1')?.value ?? null;
+    _wiz.courseIds = r1 ? [{ roundNum: 1, courseId: r1 }] : [];
+  }
+  _wizBuildPlayersStep();
+  _wizGoStep(4);
+});
+
+// ── Step 4 wiring ──
+
+// _wiz.players = [{ friendId, name, hcpIndex }]
+function _wizBuildPlayersStep() {
+  _wizRenderPlayerList();
+  const countEl = document.getElementById('tourn-player-count-label');
+  if (countEl) countEl.textContent = `${_wiz.players.length} player${_wiz.players.length !== 1 ? 's' : ''} added`;
+}
+
+function _wizRenderPlayerList() {
+  const listEl = document.getElementById('tourn-player-list');
+  if (!listEl) return;
+  if (!_wiz.players.length) {
+    listEl.innerHTML = '<div style="padding:0.5rem 0;font-size:0.85rem;color:var(--text-muted);text-align:center;">No players added yet</div>';
+    return;
+  }
+  listEl.innerHTML = _wiz.players.map((p, i) => `
+    <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;
+                border-bottom:1px solid var(--border);">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:0.95rem;">${_esc(p.name)}</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);">HCP ${p.hcpIndex ?? '—'}</div>
+      </div>
+      <button data-wiz-remove="${i}" style="background:none;border:none;color:var(--danger);
+              font-size:1.1rem;cursor:pointer;padding:0.25rem 0.5rem;">✕</button>
+    </div>`).join('');
+
+  listEl.querySelectorAll('[data-wiz-remove]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _wiz.players.splice(parseInt(btn.dataset.wizRemove), 1);
+      _wizBuildPlayersStep();
+    });
+  });
+}
+
+document.getElementById('btn-tourn-add-player')?.addEventListener('click', () => {
+  _openFriendPickerForWizard();
+});
+
+function _openFriendPickerForWizard() {
+  // Simple quick-pick: pull from local players/friends store
+  (async () => {
+    try {
+      const { players: idbPlayers } = await import('../db.js?v=20261021a');
+      const all = await idbPlayers.getAll();
+      if (!all.length) { alert('No friends saved yet. Add players in the Friends & Players tab first.'); return; }
+
+      // Build a minimal modal
+      const existing = document.getElementById('modal-wiz-friend-pick');
+      if (existing) existing.remove();
+      const modal = document.createElement('div');
+      modal.id = 'modal-wiz-friend-pick';
+      modal.className = 'modal-overlay open';
+      modal.innerHTML = `
+        <div class="modal-box" style="max-width:360px;">
+          <div class="modal-header">
+            <div class="modal-title">Add Player</div>
+            <button class="btn-close" id="wiz-fp-close">✕</button>
+          </div>
+          <div id="wiz-fp-list" style="padding:0.5rem 0;max-height:60vh;overflow-y:auto;">
+            ${all.filter(p => !_wiz.players.some(wp => wp.friendId === p.id)).map(p => `
+              <button class="btn btn-ghost" data-fp-id="${_esc(p.id)}"
+                data-fp-name="${_esc(p.name ?? '')}"
+                data-fp-hcp="${_esc(String(p.hcpIndex ?? 0))}"
+                style="width:100%;text-align:left;padding:0.65rem 1rem;
+                       border-bottom:1px solid var(--border);border-radius:0;display:block;">
+                <div style="font-weight:700;">${_esc(p.name ?? '(no name)')}</div>
+                <div style="font-size:0.78rem;color:var(--text-muted);">HCP ${p.hcpIndex ?? '—'}</div>
+              </button>`).join('')}
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+
+      document.getElementById('wiz-fp-close')?.addEventListener('click', () => modal.remove());
+      modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+      modal.querySelectorAll('[data-fp-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          _wiz.players.push({
+            friendId: btn.dataset.fpId,
+            name: btn.dataset.fpName,
+            hcpIndex: parseFloat(btn.dataset.fpHcp) || 0,
+          });
+          modal.remove();
+          _wizBuildPlayersStep();
+        });
+      });
+    } catch (err) {
+      alert('Could not load friends: ' + err.message);
+    }
+  })();
+}
+
+document.getElementById('btn-wizard-4-back')?.addEventListener('click', () => _wizGoStep(3));
+document.getElementById('btn-wizard-4-create')?.addEventListener('click', () => _wizCreateTournament());
+
+async function _wizCreateTournament() {
+  if (!_wiz.players.length) {
+    if (!confirm('No players added. Create tournament anyway? (You can add players from Organiser Admin later.)')) return;
+  }
+
+  const btn = document.getElementById('btn-wizard-4-create');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+
+  try {
+    const secret = _genOrganiserSecret();
+    const hash   = await _sha256(secret);
+
+    // Build courses array for the Worker
+    let courses;
+    if (_wiz.courseMode === 'same' && _wiz.courseId) {
+      courses = Array.from({ length: _wiz.totalRounds }, (_, i) => ({ roundNum: i + 1, courseId: _wiz.courseId }));
+    } else {
+      courses = _wiz.courseIds ?? [];
+    }
+
+    const payload = {
+      name:         _wiz.name,
+      totalRounds:  _wiz.totalRounds,
+      format:       _wiz.format,
+      hcpMode:      _wiz.hcpMode,
+      hcpStrength:  _wiz.hcpMode === 'auto' ? _wiz.hcpStrength : null,
+      duration:     _wiz.duration,
+      organiserHash: hash,
+      courses,
+    };
+
+    // 1. Create tournament in Worker (gets code + expiresAt back)
+    const resp = await _tournWorkerFetch('/tournament', 'POST', payload, secret);
+    const code = resp.code;
+    if (!code) throw new Error('No code returned from server');
+
+    // 2. Persist organiser secret locally
+    try { localStorage.setItem(`lb-organiser-secret-${code}`, secret); } catch {}
+
+    // 3. Create roster (POST players)
+    if (_wiz.players.length) {
+      const rosterPlayers = _wiz.players.map(p => ({
+        name:          p.name,
+        handicapIndex: p.hcpIndex,
+        friendsId:     p.friendId ?? null,
+      }));
+      await _tournWorkerFetch(`/roster/${code}`, 'POST', { players: rosterPlayers }, secret);
+    }
+
+    // 4. Fetch fresh tournament record from Worker and store in IDB
+    const tournRecord = await _tournWorkerFetch(`/tournament/${code}`);
+    const toStore = {
+      ...tournRecord,
+      code,
+      isOrganiser:   true,
+      organiserHash: hash,  // store hash locally so we know we're organiser
+      rosterCachedAt: null,
+    };
+    await idbTournaments.put(toStore);
+    await _flushTournamentCache();
+
+    // 5. Navigate to detail screen
+    showTournamentDetail(code);
+
+  } catch (err) {
+    alert('Could not create tournament: ' + err.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'CREATE →'; }
+  }
+}
+
+// ── Join Tournament Screen ───────────────────────────────────────
+
+function showTournamentJoin() {
+  // Reset
+  const codeEl    = document.getElementById('join-tournament-code');
+  const errEl     = document.getElementById('join-code-error');
+  const previewEl = document.getElementById('join-preview-card');
+  if (codeEl)    { codeEl.value = ''; }
+  if (errEl)     { errEl.style.display = 'none'; errEl.textContent = ''; }
+  if (previewEl) { previewEl.style.display = 'none'; }
+  showScreen('screen-tournament-join');
+  setTimeout(() => codeEl?.focus(), 200);
+}
+
+document.getElementById('tournament-join-back')?.addEventListener('click', () => showTournamentHub());
+
+document.getElementById('join-tournament-code')?.addEventListener('input', e => {
+  e.target.value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+});
+
+document.getElementById('btn-join-lookup')?.addEventListener('click', async () => {
+  const code   = (document.getElementById('join-tournament-code')?.value ?? '').trim().toUpperCase();
+  const errEl  = document.getElementById('join-code-error');
+  const btn    = document.getElementById('btn-join-lookup');
+  if (!code) { if (errEl) { errEl.textContent = 'Enter a code.'; errEl.style.display = ''; } return; }
+
+  btn.disabled = true; btn.textContent = 'Looking up…';
+  if (errEl) errEl.style.display = 'none';
+
+  try {
+    const data = await _tournWorkerFetch(`/tournament/${code}`);
+    _renderJoinPreview(code, data);
+  } catch (err) {
+    if (errEl) { errEl.textContent = '❌ ' + (err.message ?? 'Not found'); errEl.style.display = ''; }
+  } finally {
+    btn.disabled = false; btn.textContent = 'LOOK UP →';
+  }
+});
+
+function _renderJoinPreview(code, t) {
+  const card   = document.getElementById('join-preview-card');
+  const nameEl = document.getElementById('join-preview-name');
+  const metaEl = document.getElementById('join-preview-meta');
+  const playEl = document.getElementById('join-preview-players');
+  const alrEl  = document.getElementById('join-already-joined');
+  if (!card) return;
+
+  if (nameEl) nameEl.textContent = t.name ?? code;
+  if (metaEl) {
+    const fmt = TOURN_FORMAT_LABELS[t.format] ?? t.format ?? '—';
+    const hcp = TOURN_HCP_LABELS[t.hcpMode] ?? t.hcpMode ?? '—';
+    metaEl.textContent = `${fmt} · ${t.totalRounds} round${t.totalRounds !== 1 ? 's' : ''} · ${hcp}`;
+  }
+
+  // Check if already joined
+  const existing = _readTournamentCache().find(tc => tc.code === code);
+  if (alrEl) alrEl.style.display = existing ? '' : 'none';
+
+  // Show roster preview (fetch from Worker)
+  if (playEl) {
+    playEl.textContent = 'Loading players…';
+    _tournWorkerFetch(`/roster/${code}`).then(r => {
+      const players = r.players ?? [];
+      playEl.textContent = players.length
+        ? players.map(p => p.name).join(', ')
+        : 'No players yet.';
+    }).catch(() => { playEl.textContent = '—'; });
+  }
+
+  card.style.display = '';
+
+  document.getElementById('btn-join-confirm').onclick = async () => {
+    const joinBtn = document.getElementById('btn-join-confirm');
+    joinBtn.disabled = true; joinBtn.textContent = 'Joining…';
+    try {
+      // Store the tournament record locally
+      const toStore = { ...t, code, isOrganiser: false, rosterCachedAt: null };
+      await idbTournaments.put(toStore);
+      await _flushTournamentCache();
+      showTournamentDetail(code);
+    } catch (err) {
+      alert('Could not join: ' + err.message);
+      joinBtn.disabled = false; joinBtn.textContent = 'JOIN TOURNAMENT →';
+    }
+  };
+}
+
+// ── Tournament Detail Screen ─────────────────────────────────────
+
+async function showTournamentDetail(code) {
+  const nameEl     = document.getElementById('td-tournament-name');
+  const metaEl     = document.getElementById('td-meta');
+  const standEl    = document.getElementById('td-standings');
+  const roundsEl   = document.getElementById('td-rounds');
+  const startBtn   = document.getElementById('btn-start-next-round');
+  const roundNumEl = document.getElementById('td-next-round-num');
+  const rejoinBtn  = document.getElementById('btn-view-leaderboard');
+  const adminBtn   = document.getElementById('btn-td-organiser-admin');
+  const awaitEl    = document.getElementById('td-awaiting-finalisation');
+
+  if (nameEl) nameEl.textContent = '…';
+  if (metaEl) metaEl.textContent = '';
+  showScreen('screen-tournament-detail');
+
+  try {
+    // Try IDB first, fallback to Worker
+    let t = await idbTournaments.get(code);
+    if (!t) {
+      t = await _tournWorkerFetch(`/tournament/${code}`);
+      t = { ...t, code, isOrganiser: false, rosterCachedAt: null };
+      await idbTournaments.put(t);
+      await _flushTournamentCache();
+    }
+
+    const isOrganiser = !!(t.isOrganiser || _getOrganiserSecret(code));
+    if (nameEl) nameEl.textContent = t.name ?? code;
+    if (metaEl) {
+      const fmt = TOURN_FORMAT_LABELS[t.format] ?? t.format ?? '—';
+      metaEl.textContent = `${fmt} · ${t.totalRounds} rounds`;
+    }
+
+    // Rounds list
+    const rounds = t.rounds ?? [];
+    if (roundsEl) {
+      roundsEl.innerHTML = rounds.length
+        ? rounds.map(r => {
+            const statusIcon = { scheduled:'📅', inProgress:'🟢', awaitingFinalisation:'⏳', finalised:'✅' }[r.status] ?? '—';
+            return `<div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;
+                                border-bottom:1px solid var(--border);">
+              <div style="font-size:1.1rem;">${statusIcon}</div>
+              <div>
+                <div style="font-weight:700;font-size:0.92rem;">Round ${r.roundNum}</div>
+                <div style="font-size:0.78rem;color:var(--text-muted);">
+                  ${r.status === 'finalised' ? 'Finalised' : r.status === 'inProgress' ? 'In progress' : r.status === 'awaitingFinalisation' ? 'Awaiting finalisation' : 'Scheduled'}
+                </div>
+              </div>
+            </div>`;
+          }).join('')
+        : '<div style="font-size:0.85rem;color:var(--text-muted);padding:0.5rem 0;">No rounds yet.</div>';
+    }
+
+    // Which round is next?
+    const nextRound = rounds.find(r => r.status === 'scheduled') ?? null;
+    const awaitingRound = rounds.find(r => r.status === 'awaitingFinalisation') ?? null;
+    const liveRound = rounds.find(r => r.status === 'inProgress') ?? null;
+
+    // Awaiting finalisation notice
+    if (awaitEl) {
+      if (awaitingRound) {
+        awaitEl.style.display = '';
+        const awn = document.getElementById('td-awaiting-round-num');
+        if (awn) awn.textContent = awaitingRound.roundNum;
+      } else {
+        awaitEl.style.display = 'none';
+      }
+    }
+
+    // Start next round button
+    if (startBtn) {
+      if (nextRound && !awaitingRound) {
+        startBtn.style.display = '';
+        if (roundNumEl) roundNumEl.textContent = nextRound.roundNum;
+        startBtn.onclick = () => showTournamentStartRound(code, nextRound.roundNum, t);
+      } else {
+        startBtn.style.display = 'none';
+      }
+    }
+
+    // Rejoin live round
+    if (rejoinBtn) {
+      if (liveRound) {
+        rejoinBtn.style.display = '';
+        rejoinBtn.onclick = () => {
+          // Check per-round localStorage for a saved group state
+          const key = `lb-round-state-${code}-${liveRound.roundNum}`;
+          const saved = (() => { try { return JSON.parse(localStorage.getItem(key) ?? 'null'); } catch { return null; } })();
+          if (saved && gameState) { enterGameScreen(); }
+          else showHome(); // fallback — Active Games card will handle it
+        };
+      } else {
+        rejoinBtn.style.display = 'none';
+      }
+    }
+
+    // Organiser Admin button
+    if (adminBtn) adminBtn.style.display = isOrganiser ? '' : 'none';
+    if (adminBtn) adminBtn.onclick = () => showTournamentOrganiserAdmin(code);
+
+    // Secondary buttons
+    document.getElementById('btn-td-view-leaderboard-full').onclick = () => openLiveLeaderboard();
+    document.getElementById('btn-td-copy-url').onclick = () => {
+      const url = `${SYNC_WORKER_URL}/leaderboard/${code}`;
+      navigator.clipboard.writeText(url).then(() => alert('URL copied!')).catch(() => alert(url));
+    };
+
+    // Back
+    document.getElementById('tournament-detail-back').onclick = () => showTournamentHub();
+
+    // Standings — minimal: just list round totals per player from KV (future enhancement)
+    if (standEl) {
+      standEl.innerHTML = '<div style="font-size:0.82rem;color:var(--text-muted);">Standings available after first round is finalised.</div>';
+    }
+
+  } catch (err) {
+    if (nameEl) nameEl.textContent = 'Error';
+    alert('Could not load tournament: ' + err.message);
+  }
+}
+
+// ── Start Round Screen ───────────────────────────────────────────
+
+async function showTournamentStartRound(code, roundNum, tournRecord) {
+  const numEl   = document.getElementById('tsr-round-num');
+  const nameEl  = document.getElementById('tsr-tourn-name');
+  const listEl  = document.getElementById('tsr-player-list');
+  const noteEl  = document.getElementById('tsr-hcp-note');
+  const crsCard = document.getElementById('tsr-course-card');
+  const crsSel  = document.getElementById('tsr-course-select');
+
+  if (numEl)  numEl.textContent  = roundNum;
+  if (nameEl) nameEl.textContent = tournRecord?.name ?? code;
+  if (listEl) listEl.innerHTML   = 'Loading roster…';
+  showScreen('screen-tournament-start-round');
+
+  try {
+    const secret  = _getOrganiserSecret(code);
+    const roster  = await _tournWorkerFetch(`/roster/${code}`, 'GET', null, secret);
+    const players = roster.players ?? [];
+
+    // Course: if same course for all rounds, pre-select; else show picker
+    const courses    = tournRecord?.courses ?? [];
+    const thisRound  = courses.find(c => c.roundNum === roundNum);
+    const hasCourse  = !!(thisRound?.courseId);
+
+    if (crsCard) crsCard.style.display = hasCourse ? 'none' : '';
+    if (crsSel && !hasCourse) {
+      crsSel.innerHTML = (allCourses ?? []).map(c => `<option value="${_esc(c.id)}">${_esc(c.name)}</option>`).join('');
+    }
+
+    // Handicap note
+    if (noteEl && tournRecord?.hcpMode !== 'none') {
+      noteEl.style.display = '';
+      const modeLabel = TOURN_HCP_LABELS[tournRecord.hcpMode] ?? tournRecord.hcpMode;
+      noteEl.textContent = `${modeLabel} handicaps will be applied. Adjusted indices are shown below.`;
+    } else if (noteEl) {
+      noteEl.style.display = 'none';
+    }
+
+    // Player checklist
+    if (listEl) {
+      if (!players.length) {
+        listEl.innerHTML = '<div style="font-size:0.85rem;color:var(--text-muted);">No players in roster yet.</div>';
+      } else {
+        listEl.innerHTML = players.map(p => {
+          const hcp = p.adjustedHcp ?? p.originalHcp ?? 0;
+          return `<label style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;
+                               cursor:pointer;border-bottom:1px solid var(--border);">
+            <input type="checkbox" data-player-id="${_esc(p.playerId ?? p.id)}"
+              data-player-name="${_esc(p.name)}" data-player-hcp="${hcp}"
+              checked style="width:1.2rem;height:1.2rem;accent-color:var(--gold);">
+            <div style="flex:1;">
+              <div style="font-weight:700;">${_esc(p.name)}</div>
+              <div style="font-size:0.78rem;color:var(--text-muted);">HCP index: ${hcp}</div>
+            </div>
+          </label>`;
+        }).join('');
+      }
+    }
+
+    // Launch button
+    const launchBtn = document.getElementById('btn-tsr-launch');
+    if (launchBtn) {
+      launchBtn.onclick = async () => {
+        const checked = [...(listEl?.querySelectorAll('input[type=checkbox]:checked') ?? [])];
+        if (!checked.length) { alert('Select at least one player.'); return; }
+        const selectedPlayers = checked.map(cb => ({
+          playerId: cb.dataset.playerId,
+          name:     cb.dataset.playerName,
+          hcpIndex: parseFloat(cb.dataset.playerHcp) || 0,
+        }));
+
+        // Determine course
+        let courseId = thisRound?.courseId ?? crsSel?.value ?? null;
+
+        // Build a group ID and save round state to localStorage
+        const groupId = `g${Date.now()}`;
+        const stateKey = `lb-round-state-${code}-${roundNum}-${groupId}`;
+        try {
+          localStorage.setItem(stateKey, JSON.stringify({
+            code, roundNum, groupId, courseId, players: selectedPlayers,
+            startedAt: new Date().toISOString(),
+          }));
+        } catch {}
+
+        // Import tournament context into the main setup flow and start a game
+        setup.tournamentId     = code;
+        setup.tournRoundNumber = roundNum;
+        setup.players = selectedPlayers.map(p => ({
+          name: p.name, hcpIndex: p.hcpIndex,
+          tournamentPlayerId: p.playerId,
+        }));
+        setup.courseId = courseId;
+        setup.scoring  = tournRecord?.format ?? 'stableford';
+        setup.holes    = 18;
+        setup.numGroups = 1;
+        setup.numPlayers = selectedPlayers.length;
+        showScreen('screen-setup-review');
+      };
+    }
+
+    document.getElementById('tournament-start-round-back').onclick = () => showTournamentDetail(code);
+
+  } catch (err) {
+    if (listEl) listEl.innerHTML = `<div style="color:var(--danger);font-size:0.85rem;">Error: ${err.message}</div>`;
+  }
+}
+
+// ── Organiser Admin Screen ───────────────────────────────────────
+
+async function showTournamentOrganiserAdmin(code) {
+  const nameEl     = document.getElementById('oa-tourn-name');
+  const rosterEl   = document.getElementById('oa-roster-table');
+  const roundsEl   = document.getElementById('oa-rounds-list');
+  const conflictsEl = document.getElementById('oa-conflicts');
+  if (nameEl) nameEl.textContent = code;
+  if (rosterEl)  rosterEl.innerHTML  = 'Loading…';
+  if (roundsEl)  roundsEl.innerHTML  = '';
+  showScreen('screen-tournament-organiser-admin');
+
+  const secret = _getOrganiserSecret(code);
+
+  try {
+    const [tournData, rosterData] = await Promise.all([
+      _tournWorkerFetch(`/tournament/${code}`),
+      _tournWorkerFetch(`/roster/${code}`, 'GET', null, secret),
+    ]);
+
+    if (nameEl) nameEl.textContent = tournData.name ?? code;
+
+    const players = rosterData.players ?? [];
+    const rounds  = tournData.rounds   ?? [];
+    const isAuto  = tournData.hcpMode === 'auto';
+
+    // ── Roster table ──
+    if (rosterEl) {
+      if (!players.length) {
+        rosterEl.innerHTML = '<div style="font-size:0.85rem;color:var(--text-muted);">No players in roster.</div>';
+      } else {
+        const hcpCols = isAuto
+          ? '<th style="padding:0.4rem 0.5rem;text-align:right;">Orig HCP</th><th style="padding:0.4rem 0.5rem;text-align:right;">Adj HCP</th>'
+          : '<th style="padding:0.4rem 0.5rem;text-align:right;">HCP</th>';
+
+        const rows = players.map(p => {
+          const hcpCells = isAuto
+            ? `<td style="padding:0.4rem 0.5rem;text-align:right;font-variant-numeric:tabular-nums;">${p.originalHcp ?? '—'}</td>
+               <td style="padding:0.4rem 0.5rem;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:var(--gold);">${p.adjustedHcp ?? p.originalHcp ?? '—'}</td>`
+            : `<td style="padding:0.4rem 0.5rem;text-align:right;">${p.originalHcp ?? '—'}</td>`;
+          return `<tr>
+            <td style="padding:0.4rem 0.5rem;font-weight:600;">${_esc(p.name)}</td>
+            ${hcpCells}
+            <td style="padding:0.4rem 0.5rem;font-size:0.75rem;color:var(--text-muted);">${_esc(p.playerId ?? '')}</td>
+          </tr>`;
+        }).join('');
+
+        rosterEl.innerHTML = `
+          <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+            <thead>
+              <tr style="font-size:0.72rem;font-weight:800;letter-spacing:0.05em;
+                         text-transform:uppercase;color:var(--text-muted);
+                         border-bottom:1px solid var(--border);">
+                <th style="padding:0.4rem 0.5rem;text-align:left;">Player</th>
+                ${hcpCols}
+                <th style="padding:0.4rem 0.5rem;text-align:left;">ID</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>`;
+      }
+    }
+
+    // ── Rounds list with finalise buttons ──
+    if (roundsEl) {
+      roundsEl.innerHTML = rounds.map(r => {
+        const canFinalise = r.status === 'inProgress' || r.status === 'awaitingFinalisation';
+        const statusLabel = { scheduled:'Scheduled', inProgress:'In progress', awaitingFinalisation:'Awaiting finalisation', finalised:'Finalised' }[r.status] ?? r.status;
+        return `
+          <div class="card" style="padding:0.75rem 1rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
+              <div>
+                <div style="font-weight:700;">Round ${r.roundNum}</div>
+                <div style="font-size:0.78rem;color:var(--text-muted);">${statusLabel}</div>
+              </div>
+              ${canFinalise && secret
+                ? `<button class="btn btn-outline" data-finalise-round="${r.roundNum}"
+                           style="padding:0.5rem 0.85rem;font-size:0.82rem;font-weight:800;
+                                  border-color:var(--gold-border);color:var(--gold);">
+                     Finalise
+                   </button>`
+                : (r.status === 'finalised' ? '<span style="color:var(--green);font-size:0.85rem;font-weight:700;">✅ Done</span>' : '')}
+            </div>
+          </div>`;
+      }).join('') || '<div style="font-size:0.85rem;color:var(--text-muted);">No rounds yet.</div>';
+
+      // Wire finalise buttons
+      roundsEl.querySelectorAll('[data-finalise-round]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const roundNum = parseInt(btn.dataset.finaliseRound);
+          await _organiserFinaliseRound(code, roundNum, secret, tournData);
+        });
+      });
+    }
+
+    // Conflicts placeholder
+    if (conflictsEl) conflictsEl.style.display = 'none';
+
+    // Back + late joiner
+    document.getElementById('tournament-organiser-admin-back').onclick = () => showTournamentDetail(code);
+    document.getElementById('btn-oa-add-late-joiner').onclick = () => alert('Late-joiner flow coming soon.');
+
+  } catch (err) {
+    if (rosterEl) rosterEl.innerHTML = `<div style="color:var(--danger);">Error: ${err.message}</div>`;
+  }
+}
+
+async function _organiserFinaliseRound(code, roundNum, secret, tournData, force = false) {
+  const btn = document.querySelector(`[data-finalise-round="${roundNum}"]`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Finalising…'; }
+
+  try {
+    const body = force ? { force: true } : {};
+    const resp = await _tournWorkerFetch(`/tournament/${code}/finalise/${roundNum}`, 'POST', body, secret);
+
+    if (resp.requiresConfirm) {
+      // Force-confirm gate: show excluded players and ask organiser to confirm
+      const excNames = (resp.excluded ?? []).join(', ') || 'some players';
+      const mean = resp.meanPreview != null ? ` (mean: ${resp.meanPreview.toFixed(1)} pts)` : '';
+      const msg = `${resp.validCount ?? 0} valid score${(resp.validCount ?? 0) !== 1 ? 's' : ''} received${mean}.\n\nExcluded (DNF or incomplete): ${excNames}\n\nFinalise anyway and exclude these players from this round's adjustment?`;
+      if (confirm(msg)) {
+        await _organiserFinaliseRound(code, roundNum, secret, tournData, true);
+      } else {
+        if (btn) { btn.disabled = false; btn.textContent = 'Finalise'; }
+      }
+      return;
+    }
+
+    // Success — refresh the screen
+    // Update IDB tournament record
+    try {
+      const fresh = await _tournWorkerFetch(`/tournament/${code}`);
+      await idbTournaments.put({ ...fresh, code, isOrganiser: true, rosterCachedAt: null });
+      await _flushTournamentCache();
+    } catch {}
+
+    alert(`Round ${roundNum} finalised! Adjustments applied.`);
+    showTournamentOrganiserAdmin(code);
+
+  } catch (err) {
+    alert('Finalise failed: ' + err.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Finalise'; }
+  }
+}
+
+// ── Profile screen: wire the Friends & Players button ────────────
+
+document.getElementById('btn-profile-friends')?.addEventListener('click', () => showFriends());
+

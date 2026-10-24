@@ -15,13 +15,14 @@
 // ================================================================
 
 const DB_NAME    = 'leaderboard_local';
-const DB_VERSION = 4;          // v4: adds sharedId/version/yards/courseRating/slopeRating to courses
-const STORE_ACTIVE       = 'active_rounds';
-const STORE_PLAYERS      = 'players';
-const STORE_COURSES      = 'courses';
-const STORE_ROUNDS       = 'rounds';
-const STORE_SETTINGS     = 'settings';
-const STORE_COMPETITIONS = 'competitions';
+const DB_VERSION = 5;          // v5: adds tournaments store for Tournament Hub
+const STORE_ACTIVE        = 'active_rounds';
+const STORE_PLAYERS       = 'players';
+const STORE_COURSES       = 'courses';
+const STORE_ROUNDS        = 'rounds';
+const STORE_SETTINGS      = 'settings';
+const STORE_COMPETITIONS  = 'competitions';
+const STORE_TOURNAMENTS   = 'tournaments';
 
 // ── Internal: open (or reuse) the database ──────────────────────
 let _db = null;
@@ -98,6 +99,32 @@ function openDB() {
           });
           cursor.continue();
         };
+      }
+
+      // Version 5 migration — add tournaments store
+      // Stores full tournament records locally, keyed by tournament code.
+      // Schema:
+      //   code         string (PK)  — e.g. "ABC123"
+      //   name         string
+      //   status       string       — "upcoming" | "active" | "completed" | "expired"
+      //   format       string       — "stableford" | "strokeplay" | "betterball" | "combined" | "best2"
+      //   hcpMode      string       — "none" | "manual" | "auto"
+      //   hcpStrength  number|null  — 2 | 3 | 4 (auto mode only)
+      //   totalRounds  number
+      //   currentRound number
+      //   courses      array        — [{ roundNum, courseId }]
+      //   expiresAt    number       — Unix ms
+      //   createdAt    number       — Unix ms
+      //   isOrganiser  boolean      — true if this device created the tournament
+      //   organiserHash string|null — SHA-256 of organiserSecret (organiser devices only)
+      //   rounds       array        — [{ roundNum, status, groupIds, courseId, startedAt, finalisedAt }]
+      //   rosterCachedAt number|null — Unix ms of last roster fetch
+      if (oldVer < 5) {
+        if (!db.objectStoreNames.contains(STORE_TOURNAMENTS)) {
+          const ts = db.createObjectStore(STORE_TOURNAMENTS, { keyPath: 'code' });
+          ts.createIndex('status',    'status',    { unique: false });
+          ts.createIndex('createdAt', 'createdAt', { unique: false });
+        }
       }
     };
 
@@ -337,4 +364,18 @@ export const competitions = {
   putMany: records => idbPutMany(STORE_COMPETITIONS, records),
   getByCompetitionId: competitionId =>
     idbGetByIndex(STORE_COMPETITIONS, 'competitionId', competitionId),
+};
+
+// ================================================================
+// TOURNAMENTS store  (v5)
+// ================================================================
+
+export const tournaments = {
+  get:         code    => idbGet(STORE_TOURNAMENTS, code),
+  getAll:      ()      => idbGetAll(STORE_TOURNAMENTS),
+  put:         record  => idbPut(STORE_TOURNAMENTS, record),
+  delete:      code    => idbDelete(STORE_TOURNAMENTS, code),
+  clear:       ()      => idbClearStore(STORE_TOURNAMENTS),
+  putMany:     records => idbPutMany(STORE_TOURNAMENTS, records),
+  getByStatus: status  => idbGetByIndex(STORE_TOURNAMENTS, 'status', status),
 };

@@ -80,18 +80,8 @@
           </span>
         </button>
 
-        <button id="btn-home-join-game" class="home-round-card" type="button"
-          onclick="openJoinGameModal()"
-          style="flex-direction:column;align-items:flex-start;gap:0.5rem;padding:0.85rem;">
-          <span style="display:flex;align-items:center;gap:0.5rem;width:100%;">
-            <span style="font-size:1.3rem;" aria-hidden="true">🏌️</span>
-            <svg style="margin-left:auto;" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>
-          </span>
-          <span style="display:flex;flex-direction:column;gap:2px;">
-            <span style="display:block;font-weight:700;font-size:0.95rem;">Join Tournament</span>
-            <span style="display:block;font-size:0.78rem;opacity:0.7;line-height:1.3;">Enter code or continue a round</span>
-          </span>
-        </button>
+        <!-- btn-home-join-game: hidden, Join is now in the Tournament tab. Kept for JS back-compat. -->
+        <button id="btn-home-join-game" type="button" style="display:none;" aria-hidden="true"></button>
 
       </div>
 
@@ -337,17 +327,17 @@
     </div>
     <div class="bottom-nav-label">Play</div>
   </button>
+  <button class="bottom-nav-btn" id="nav-tournament" data-screen="screen-tournament-hub">
+    <div class="bottom-nav-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+    </div>
+    <div class="bottom-nav-label">Tournament</div>
+  </button>
   <button class="bottom-nav-btn" id="nav-history" data-screen="screen-history">
     <div class="bottom-nav-icon">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
     </div>
     <div class="bottom-nav-label">History</div>
-  </button>
-  <button class="bottom-nav-btn" id="nav-friends" data-screen="screen-friends">
-    <div class="bottom-nav-icon">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-    </div>
-    <div class="bottom-nav-label">Friends</div>
   </button>
   <button class="bottom-nav-btn" id="nav-profile" data-screen="screen-profile">
     <div class="bottom-nav-icon">
@@ -355,6 +345,8 @@
     </div>
     <div class="bottom-nav-label">Profile</div>
   </button>
+  <!-- nav-friends: hidden, kept for JS back-compat -->
+  <button class="bottom-nav-btn" id="nav-friends" data-screen="screen-friends" style="display:none;" aria-hidden="true"></button>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -722,8 +714,8 @@
       <div id="review-content"></div>
     </div>
 
-    <!-- Tournament Mode button — shown/hidden by JS based on format eligibility -->
-    <div id="tourn-mode-bar" style="display:none;margin-top:0.75rem;">
+    <!-- Tournament Mode button — superseded by Tournament Hub tab. Hidden permanently; kept for JS back-compat. -->
+    <div id="tourn-mode-bar" style="display:none !important;margin-top:0.75rem;">
       <div class="card" id="btn-tourn-mode-wrap"
         style="padding:0.75rem 1rem;border-radius:var(--radius);cursor:pointer;
                display:flex;align-items:center;gap:0.75rem;"
@@ -1185,6 +1177,16 @@
     </div>
 
     <div class="page-pad-sm">
+
+    <!-- Friends access — moved here from the nav bar -->
+    <button class="btn btn-outline btn-full" id="btn-profile-friends"
+      style="margin-bottom:1rem;padding:1rem;font-size:1.05rem;font-weight:800;
+             display:flex;align-items:center;justify-content:center;gap:0.6rem;
+             border-color:var(--gold-border);color:var(--gold);"
+      onclick="showScreen('screen-friends')">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Friends &amp; Players
+    </button>
 
     <div class="card">
       <div class="card-title">Your Details</div>
@@ -1969,43 +1971,69 @@
 
 
 <!-- ══════════════════════════════════════════
-     TOURNAMENT LIST SCREEN
+     TOURNAMENT HUB SCREEN
      ══════════════════════════════════════════ -->
-<div id="screen-tournaments" class="screen">
-  <div style="padding:0 0 2rem;max-width:520px;margin:0 auto;">
+<div id="screen-tournament-hub" class="screen">
+  <div style="padding:0 0 calc(5.5rem + env(safe-area-inset-bottom,0px));max-width:520px;margin:0 auto;">
 
     <div class="home-hero">
       <div class="home-hero-top">
-        <button class="btn btn-ghost" id="tournaments-back"
-          style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+        <div class="home-hero-club">TOURNAMENT HUB</div>
       </div>
       <div class="home-hero-title">Tournaments</div>
     </div>
 
     <div class="page-pad-sm" style="padding-top:1rem;">
 
-      <!-- Big configure new tournament button -->
-      <button class="btn btn-green" id="btn-new-tournament"
-        style="width:100%;padding:1.1rem;font-size:1.25rem;font-weight:800;
-               font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:0.03em;margin-bottom:1.25rem;">
-        🏆 Configure New Tournament
-      </button>
+      <!-- Primary action buttons -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:1.5rem;">
+        <button class="btn btn-green" id="btn-new-tournament"
+          style="padding:1rem;font-size:1rem;font-weight:800;
+                 font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:0.02em;
+                 display:flex;align-items:center;justify-content:center;gap:0.5rem;">
+          🏆 New Tournament
+        </button>
+        <button class="btn btn-outline" id="btn-join-tournament"
+          style="padding:1rem;font-size:1rem;font-weight:800;
+                 font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:0.02em;
+                 border-color:var(--gold-border);color:var(--gold);
+                 display:flex;align-items:center;justify-content:center;gap:0.5rem;">
+          🔑 Join Tournament
+        </button>
+      </div>
 
-      <!-- Active tournaments list -->
-      <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
-                  color:var(--gold);margin-bottom:0.6rem;">Active Tournaments</div>
-      <div id="tournaments-list" style="display:grid;gap:0.6rem;margin-bottom:1.5rem;"></div>
+      <!-- Active / upcoming tournaments -->
+      <div id="hub-active-section">
+        <div class="hub-section-label">Active &amp; Upcoming</div>
+        <div id="hub-active-list" style="display:grid;gap:0.75rem;margin-bottom:1.5rem;">
+          <!-- populated by initTournamentHub() -->
+          <div id="hub-empty-state" class="card"
+            style="padding:1.5rem;text-align:center;color:var(--text-muted);">
+            <div style="font-size:2rem;margin-bottom:0.5rem;">🏆</div>
+            <div style="font-weight:700;margin-bottom:0.25rem;">No active tournaments</div>
+            <div style="font-size:0.85rem;">Create a new tournament or join one with a code.</div>
+          </div>
+        </div>
+      </div>
 
-      <!-- Tournament history -->
+      <!-- Past tournaments -->
+      <div id="hub-past-section" style="display:none;">
+        <div class="hub-section-label">Past Tournaments</div>
+        <div id="hub-past-list" style="display:grid;gap:0.6rem;margin-bottom:1rem;"></div>
+      </div>
+
       <button class="btn btn-outline" id="btn-tournament-history"
-        style="width:100%;padding:0.9rem;font-size:1.05rem;font-weight:800;
-               font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:0.03em;">
-        📜 Tournament History
+        style="width:100%;padding:0.9rem;font-size:0.95rem;font-weight:800;
+               font-family:'Plus Jakarta Sans',sans-serif;">
+        📜 View All Past Tournaments
       </button>
 
     </div>
   </div>
 </div>
+
+<!-- Legacy id alias — keeps any JS that references screen-tournaments working -->
+<div id="screen-tournaments" style="display:none;" aria-hidden="true"></div>
 
 <!-- ══ TOURNAMENT HISTORY ══ -->
 <div id="screen-tournament-history" class="screen">
@@ -2026,126 +2054,238 @@
 </div>
 
 <!-- ══════════════════════════════════════════
-     TOURNAMENT SETUP — STEP 1: DETAILS
+     TOURNAMENT NEW — 4-STEP WIZARD
      ══════════════════════════════════════════ -->
-<!-- ══ TOURNAMENT SETUP (lightweight config) ══ -->
-<div id="screen-tournament-setup" class="screen">
+<div id="screen-tournament-new" class="screen">
   <div style="padding:0 0 2rem;max-width:520px;margin:0 auto;">
+
     <div class="home-hero">
       <div class="home-hero-top">
-        <button class="btn btn-ghost" id="tournament-setup-back"
+        <button class="btn btn-ghost" id="tournament-new-back"
           style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
       </div>
       <div class="home-hero-title">New Tournament</div>
+      <!-- Step indicator -->
+      <div class="wizard-progress" id="wizard-progress" style="margin-top:0.6rem;">
+        <div class="wizard-step active" data-step="1">1</div>
+        <div class="wizard-step" data-step="2">2</div>
+        <div class="wizard-step" data-step="3">3</div>
+        <div class="wizard-step" data-step="4">4</div>
+      </div>
     </div>
 
     <div class="page-pad-sm" style="padding-top:1rem;">
-      <div class="card">
-        <div class="field">
-          <label>Tournament Name</label>
-          <input id="tourn-name" type="text" placeholder="e.g. Summer Cup 2026">
+
+      <!-- ── STEP 1: Basic details ── -->
+      <div id="wizard-step-1" class="wizard-panel">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:1rem;">Step 1 of 4 — Details</div>
+
+          <div class="field">
+            <label>Tournament Name</label>
+            <input id="tourn-name" type="text" placeholder="e.g. Algarve Trip 2027" autocomplete="off">
+          </div>
+
+          <div class="field">
+            <label>Duration</label>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.4rem;margin-bottom:0.25rem;" id="tourn-duration-btns">
+              <button type="button" class="holes-btn" data-dur="1w">1 Week</button>
+              <button type="button" class="holes-btn" data-dur="1m">1 Month</button>
+              <button type="button" class="holes-btn active" data-dur="3m">3 Months</button>
+              <button type="button" class="holes-btn" data-dur="6m">6 Months</button>
+              <button type="button" class="holes-btn" data-dur="12m">12 Months</button>
+            </div>
+            <input type="hidden" id="tourn-duration" value="3m">
+          </div>
+
+          <div class="field" style="margin-bottom:0;">
+            <label>Number of Rounds</label>
+            <select id="tourn-num-rounds">
+              <option value="1">1 round</option>
+              <option value="2">2 rounds</option>
+              <option value="3" selected>3 rounds</option>
+              <option value="4">4 rounds</option>
+              <option value="5">5 rounds</option>
+              <option value="6">6 rounds</option>
+              <option value="8">8 rounds</option>
+              <option value="10">10 rounds</option>
+            </select>
+          </div>
         </div>
 
-        <div class="field">
-          <label>Game Type</label>
-          <div style="display:grid;gap:0.5rem;">
-            <button type="button" class="tourn-mode-btn active" id="btn-mode-individual" data-mode="individual">
-              <div class="tourn-mode-btn-title">👤 Individual Games</div>
-              <div class="tourn-mode-btn-sub">Stableford or Stroke Play · everyone plays for themselves</div>
+        <button class="btn btn-green" id="btn-wizard-1-next"
+          style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;margin-top:0.75rem;">
+          NEXT: FORMAT &amp; HANDICAPS →
+        </button>
+      </div>
+
+      <!-- ── STEP 2: Format & handicaps ── -->
+      <div id="wizard-step-2" class="wizard-panel" style="display:none;">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:1rem;">Step 2 of 4 — Format &amp; Handicaps</div>
+
+          <div class="field">
+            <label>Scoring Format</label>
+            <div style="display:grid;gap:0.4rem;" id="tourn-format-btns">
+              <button type="button" class="tourn-mode-btn active" data-fmt="stableford">
+                <div class="tourn-mode-btn-title">⭐ Stableford</div>
+                <div class="tourn-mode-btn-sub">Points per hole · most points wins</div>
+              </button>
+              <button type="button" class="tourn-mode-btn" data-fmt="strokeplay">
+                <div class="tourn-mode-btn-title">✏️ Strokeplay</div>
+                <div class="tourn-mode-btn-sub">Total strokes · fewest strokes wins</div>
+              </button>
+              <button type="button" class="tourn-mode-btn" data-fmt="betterball">
+                <div class="tourn-mode-btn-title">🤝 Better Ball</div>
+                <div class="tourn-mode-btn-sub">Best score per hole counts for the pair</div>
+              </button>
+              <button type="button" class="tourn-mode-btn" data-fmt="combined">
+                <div class="tourn-mode-btn-title">➕ Combined Score</div>
+                <div class="tourn-mode-btn-sub">Combined team Stableford total</div>
+              </button>
+              <button type="button" class="tourn-mode-btn" data-fmt="best2">
+                <div class="tourn-mode-btn-title">🏅 Best 2</div>
+                <div class="tourn-mode-btn-sub">Best 2 scores from each group count</div>
+              </button>
+            </div>
+            <input type="hidden" id="tourn-format" value="stableford">
+          </div>
+
+          <div class="field" style="margin-bottom:0;">
+            <label>Handicap Adjustment</label>
+            <div style="display:grid;gap:0.4rem;" id="tourn-hcp-mode-btns">
+              <button type="button" class="tourn-mode-btn active" data-hcp="none">
+                <div class="tourn-mode-btn-title">🔒 No Adjustment</div>
+                <div class="tourn-mode-btn-sub">Handicap index unchanged throughout — recommended for monthly+</div>
+              </button>
+              <button type="button" class="tourn-mode-btn" data-hcp="manual">
+                <div class="tourn-mode-btn-title">✏️ Manual Adjustment</div>
+                <div class="tourn-mode-btn-sub">Organiser can update each player's index between rounds</div>
+              </button>
+              <button type="button" class="tourn-mode-btn" data-hcp="auto">
+                <div class="tourn-mode-btn-title">⚡ Auto Adjustment</div>
+                <div class="tourn-mode-btn-sub">Automatically adjust after each round based on round mean</div>
+              </button>
+            </div>
+            <input type="hidden" id="tourn-hcp-mode" value="none">
+          </div>
+        </div>
+
+        <!-- Auto-adjustment strength (shown only when auto selected) -->
+        <div id="tourn-hcp-strength-panel" class="card" style="display:none;margin-top:0.6rem;">
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+            <div class="card-title" style="margin:0;">Adjustment Strength</div>
+            <button type="button" id="btn-hcp-info"
+              style="background:none;border:1px solid var(--gold-border);color:var(--gold);
+                     border-radius:50%;width:26px;height:26px;font-size:0.85rem;font-weight:700;
+                     cursor:pointer;flex-shrink:0;line-height:1;" aria-label="How adjustment strength works">ⓘ</button>
+          </div>
+          <div style="display:grid;gap:0.4rem;" id="tourn-strength-btns">
+            <button type="button" class="tourn-mode-btn" data-str="2">
+              <div class="tourn-mode-btn-title">💪 Strong — 2 points</div>
+              <div class="tourn-mode-btn-sub">2 pts above/below mean = 1.0 index change</div>
             </button>
-            <button type="button" class="tourn-mode-btn" id="btn-mode-team-fixed" data-mode="team_fixed">
-              <div class="tourn-mode-btn-title">🤝 Team Games — Team Scores</div>
-              <div class="tourn-mode-btn-sub">Same teams all tournament · leaderboard shows team totals</div>
+            <button type="button" class="tourn-mode-btn active" data-str="3">
+              <div class="tourn-mode-btn-title">⚖️ Balanced — 3 points (Default)</div>
+              <div class="tourn-mode-btn-sub">3 pts above/below mean = 1.0 index change</div>
             </button>
-            <button type="button" class="tourn-mode-btn" id="btn-mode-team-individual" data-mode="team_individual">
-              <div class="tourn-mode-btn-title">🔀 Team/Pairs Games — Individual Scores</div>
-              <div class="tourn-mode-btn-sub">Teams can change each round · leaderboard shows player totals</div>
+            <button type="button" class="tourn-mode-btn" data-str="4">
+              <div class="tourn-mode-btn-title">🌿 Gentle — 4 points</div>
+              <div class="tourn-mode-btn-sub">4 pts above/below mean = 1.0 index change</div>
             </button>
           </div>
-          <input type="hidden" id="tourn-game-type" value="individual">
+          <input type="hidden" id="tourn-hcp-strength" value="3">
         </div>
 
-        <div class="field">
-          <label>Number of Rounds</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.5rem;">
-            <button type="button" id="btn-fixed-rounds" class="holes-btn active">Fixed number</button>
-            <button type="button" id="btn-open-ended" class="holes-btn">Open-ended ∞</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:0.75rem;">
+          <button class="btn btn-outline" id="btn-wizard-2-back"
+            style="padding:0.9rem;font-size:0.95rem;font-weight:800;">← Back</button>
+          <button class="btn btn-green" id="btn-wizard-2-next"
+            style="padding:0.9rem;font-size:0.95rem;font-weight:800;">NEXT: COURSES →</button>
+        </div>
+      </div>
+
+      <!-- ── STEP 3: Courses ── -->
+      <div id="wizard-step-3" class="wizard-panel" style="display:none;">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:0.75rem;">Step 3 of 4 — Courses</div>
+
+          <div class="field" style="margin-bottom:0.75rem;">
+            <label>Course Selection</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;margin-bottom:0.5rem;">
+              <button type="button" class="holes-btn active" id="btn-same-course">Same course</button>
+              <button type="button" class="holes-btn" id="btn-diff-courses">Different per round</button>
+            </div>
+            <input type="hidden" id="tourn-course-mode" value="same">
           </div>
-          <select id="tourn-num-rounds">
-            <option value="2">2 rounds</option>
-            <option value="3" selected>3 rounds</option>
-            <option value="4">4 rounds</option>
-            <option value="5">5 rounds</option>
-            <option value="6">6 rounds</option>
-            <option value="8">8 rounds</option>
-            <option value="10">10 rounds</option>
-          </select>
-          <input type="checkbox" id="tourn-open-ended" style="display:none;">
+
+          <!-- Same course: single selector -->
+          <div id="tourn-course-single" class="field" style="margin-bottom:0;">
+            <label>Course</label>
+            <select id="tourn-course-select-single" style="font-size:1.05rem;"></select>
+          </div>
+
+          <!-- Different courses: per-round selectors (built by JS) -->
+          <div id="tourn-course-per-round" style="display:none;">
+            <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;line-height:1.4;">
+              Select a course for Round 1 now. You can set later rounds when starting each round.
+            </div>
+            <div id="tourn-course-per-round-list" style="display:grid;gap:0.5rem;"></div>
+          </div>
         </div>
 
-        <div class="field" style="margin-bottom:0;">
-          <label>Handicap Mode</label>
-          <select id="tourn-hcp-mode">
-            <option value="fixed">Fixed — locked at tournament start</option>
-            <option value="adjustable">Adjustable — update before each round</option>
-            <option value="auto">Auto — adjust after each round</option>
-          </select>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:0.75rem;">
+          <button class="btn btn-outline" id="btn-wizard-3-back"
+            style="padding:0.9rem;font-size:0.95rem;font-weight:800;">← Back</button>
+          <button class="btn btn-green" id="btn-wizard-3-next"
+            style="padding:0.9rem;font-size:0.95rem;font-weight:800;">NEXT: PLAYERS →</button>
+        </div>
+      </div>
+
+      <!-- ── STEP 4: Players ── -->
+      <div id="wizard-step-4" class="wizard-panel" style="display:none;">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:0.75rem;">Step 4 of 4 — Players</div>
+          <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.75rem;line-height:1.4;">
+            Add players from your Friends list. Each player gets a permanent tournament ID.
+            You can add late joiners from Organiser Admin later.
+          </div>
+          <div id="tourn-player-list" style="display:grid;gap:0.5rem;margin-bottom:0.75rem;"></div>
+          <button class="btn btn-outline" id="btn-tourn-add-player"
+            style="width:100%;padding:0.9rem;font-size:1rem;font-weight:800;
+                   border-style:dashed;border-color:var(--gold-border);color:var(--gold);">
+            ＋ Add Player from Friends
+          </button>
+          <div id="tourn-player-count-label"
+            style="margin-top:0.5rem;font-size:0.8rem;font-weight:700;
+                   text-align:center;color:var(--text-muted);">0 players added</div>
         </div>
 
-        <!-- Hidden fields kept for JS compat -->
-        <input type="hidden" id="tourn-type" value="individual">
-        <input type="hidden" id="tourn-scoring-mode" value="cumulative">
-        <input type="hidden" id="tourn-format" value="stableford">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:0.75rem;">
+          <button class="btn btn-outline" id="btn-wizard-4-back"
+            style="padding:0.9rem;font-size:0.95rem;font-weight:800;">← Back</button>
+          <button class="btn btn-green" id="btn-wizard-4-create"
+            style="padding:0.9rem;font-size:0.95rem;font-weight:800;">CREATE →</button>
+        </div>
       </div>
 
-      <button class="btn btn-green" id="btn-tourn-setup-next"
-        style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;">
-        NEXT: ADD PLAYERS →
-      </button>
     </div>
   </div>
-      <!-- Pencil footer -->
-      <div class="screen-pencil-footer">
-        <div class="logo-wrap screen-pencil"></div>
-      </div>
-  
+  <div class="screen-pencil-footer"><div class="logo-wrap screen-pencil"></div></div>
 </div>
 
-<!-- ══ TOURNAMENT ADD PLAYERS ══ -->
-<div id="screen-tournament-format" class="screen">
-  <div style="padding:0 0 2rem;max-width:520px;margin:0 auto;">
-    <div class="home-hero">
-      <div class="home-hero-top">
-        <button class="btn btn-ghost" id="tournament-format-back"
-          style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
-      </div>
-      <div class="home-hero-title">Add Players</div>
-      <div class="home-hero-club" id="tourn-player-count-label">0 players added</div>
-    </div>
+<!-- Legacy id alias — keeps any existing JS that references screen-tournament-setup working -->
+<div id="screen-tournament-setup" style="display:none;" aria-hidden="true"></div>
 
-    <div class="page-pad-sm" style="padding-top:1rem;">
-      <div id="tourn-player-list" style="display:grid;gap:0.5rem;margin-bottom:1rem;"></div>
-
-      <button class="btn btn-outline" id="btn-tourn-add-player"
-        style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;
-               border-style:dashed;border-color:var(--gold-border);color:var(--gold);">
-        ＋ Add Player
-      </button>
-
-      <button class="btn btn-green mt-md" id="btn-tourn-format-next"
-        style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;">
-        CREATE TOURNAMENT →
-      </button>
-    </div>
-  </div>
-      <!-- Pencil footer -->
-      <div class="screen-pencil-footer">
-        <div class="logo-wrap screen-pencil"></div>
-      </div>
-  
+<!-- Legacy alias: screen-tournament-format — players step now lives inside wizard step 4 -->
+<div id="screen-tournament-format" style="display:none;" aria-hidden="true">
+  <!-- Kept for JS back-compat. Functional content moved to #wizard-step-4 inside #screen-tournament-new -->
+  <input type="hidden" id="btn-tourn-format-next">
 </div>
 
-<!-- ══ TOURNAMENT DETAIL ══ -->
+<!-- ══════════════════════════════════════════
+     TOURNAMENT DETAIL
+     ══════════════════════════════════════════ -->
 <div id="screen-tournament-detail" class="screen">
   <div style="padding:0 0 2rem;max-width:520px;margin:0 auto;">
 
@@ -2153,8 +2293,6 @@
       <div class="home-hero-top">
         <button class="btn btn-ghost" id="tournament-detail-back"
           style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
-        <button class="btn btn-ghost" id="btn-td-edit"
-          style="background:rgba(255,255,255,0.1);border:none;color:var(--gold);">Edit</button>
       </div>
       <div class="home-hero-title" id="td-tournament-name">Tournament</div>
       <div class="home-hero-club" id="td-meta"></div>
@@ -2162,36 +2300,321 @@
 
     <div class="page-pad-sm" style="padding-top:1rem;">
 
-      <!-- Live round button — only when a round is active -->
-      <button class="btn btn-green" id="btn-view-leaderboard"
-        style="display:none;width:100%;padding:1rem;font-size:1.1rem;font-weight:800;margin-bottom:1rem;">
-        ▶ Rejoin Live Round →
+      <!-- ── Primary action: Start Next Round as Scorer ── -->
+      <!-- Shown when: next round is scheduled and user is participating -->
+      <button class="btn btn-green" id="btn-start-next-round"
+        style="width:100%;padding:1rem;font-size:1.15rem;font-weight:800;
+               margin-bottom:0.75rem;display:none;">
+        ⛳ START ROUND <span id="td-next-round-num">1</span> AS SCORER →
       </button>
 
-      <!-- Standings -->
+      <!-- ── Secondary action: Rejoin live round ── -->
+      <!-- Shown when this device already has an active round in progress -->
+      <button class="btn btn-green" id="btn-view-leaderboard"
+        style="width:100%;padding:1rem;font-size:1.1rem;font-weight:800;
+               margin-bottom:0.75rem;display:none;">
+        ▶ REJOIN LIVE ROUND →
+      </button>
+
+      <!-- ── Awaiting finalisation notice ── -->
+      <div id="td-awaiting-finalisation" style="display:none;margin-bottom:0.75rem;">
+        <div class="card" style="background:rgba(255,180,0,0.08);border:1px solid var(--gold-border);
+                                  padding:0.75rem 1rem;">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:0.25rem;">
+            ⏳ Round <span id="td-awaiting-round-num">1</span> Awaiting Finalisation
+          </div>
+          <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.4;">
+            All scores submitted. Organiser needs to finalise before the next round can start.
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tournament Standings ── -->
       <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
-                  color:var(--gold);margin-bottom:0.5rem;" id="td-standings-anchor">Standings</div>
+                  color:var(--gold);margin-bottom:0.5rem;">Standings</div>
       <div id="td-standings" style="margin-bottom:1.5rem;overflow-x:auto;"></div>
 
-      <!-- Rounds list -->
+      <!-- ── Rounds list ── -->
       <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
                   color:var(--muted2);margin-bottom:0.5rem;">Rounds</div>
       <div id="td-rounds" style="margin-bottom:1.25rem;"></div>
 
-      <!-- Actions -->
+      <!-- ── Secondary actions ── -->
       <div style="display:grid;gap:0.5rem;">
-        <button class="btn btn-green" id="btn-start-next-round"
-          style="padding:1rem;font-size:1.1rem;font-weight:800;">⛳ START ROUND 1 →</button>
-        <button class="btn btn-outline hidden" id="btn-td-resend-invites"
-          style="border-color:var(--gold-border);color:var(--gold);">📩 Resend Invites</button>
-        <button class="btn btn-outline" id="btn-td-co-organiser">👤 Add Co-organiser</button>
-        <button class="btn btn-outline" id="btn-share-tournament">🔗 Share Tournament Link</button>
-        <button class="btn btn-outline" id="btn-finish-tournament"
-          style="border-color:var(--gold-border);color:var(--gold);">🏆 Finish Tournament</button>
-        <button class="btn btn-danger" id="btn-delete-tournament">Delete Tournament</button>
+
+        <!-- View Leaderboard (always visible for joined tournaments) -->
+        <button class="btn btn-outline" id="btn-td-view-leaderboard-full"
+          style="padding:0.9rem;font-size:0.95rem;font-weight:800;">
+          📊 View Leaderboard
+        </button>
+
+        <!-- Copy live leaderboard URL -->
+        <button class="btn btn-outline" id="btn-td-copy-url"
+          style="padding:0.9rem;font-size:0.95rem;font-weight:800;">
+          🔗 Copy Live Leaderboard URL
+        </button>
+
+        <!-- Organiser Admin — only visible to organiser -->
+        <button class="btn btn-outline" id="btn-td-organiser-admin"
+          style="display:none;padding:0.9rem;font-size:0.95rem;font-weight:800;
+                 border-color:var(--gold-border);color:var(--gold);">
+          🛠 Organiser Admin
+        </button>
+
       </div>
     </div>
   </div>
+  <div class="screen-pencil-footer"><div class="logo-wrap screen-pencil"></div></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOURNAMENT JOIN
+     ══════════════════════════════════════════ -->
+<div id="screen-tournament-join" class="screen">
+  <div style="padding:0 0 2rem;max-width:520px;margin:0 auto;">
+
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="tournament-join-back"
+          style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+      </div>
+      <div class="home-hero-title">Join Tournament</div>
+    </div>
+
+    <div class="page-pad-sm" style="padding-top:1rem;">
+
+      <!-- Code entry -->
+      <div class="card" id="join-code-card">
+        <div class="field">
+          <label>Tournament Code</label>
+          <input id="join-tournament-code" type="text"
+            placeholder="e.g. ABC123"
+            maxlength="12"
+            autocomplete="off"
+            autocapitalize="characters"
+            style="font-size:1.4rem;font-weight:800;letter-spacing:0.12em;text-align:center;
+                   text-transform:uppercase;">
+        </div>
+        <div id="join-code-error"
+          style="display:none;color:var(--danger);font-size:0.85rem;font-weight:700;
+                 margin-top:0.25rem;text-align:center;"></div>
+        <button class="btn btn-green" id="btn-join-lookup"
+          style="width:100%;padding:1rem;font-size:1.05rem;font-weight:800;margin-top:0.5rem;">
+          LOOK UP →
+        </button>
+      </div>
+
+      <!-- Tournament preview (shown after successful lookup) -->
+      <div class="card" id="join-preview-card" style="display:none;margin-top:0.75rem;">
+        <div style="font-size:1.1rem;font-weight:800;margin-bottom:0.4rem;"
+          id="join-preview-name">Tournament Name</div>
+        <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.75rem;line-height:1.5;"
+          id="join-preview-meta"></div>
+
+        <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;
+                    color:var(--gold);margin-bottom:0.4rem;">Players</div>
+        <div id="join-preview-players"
+          style="font-size:0.88rem;color:var(--text-muted);margin-bottom:0.75rem;line-height:1.6;"></div>
+
+        <div id="join-already-joined"
+          style="display:none;padding:0.5rem 0.75rem;background:rgba(0,200,100,0.1);
+                 border:1px solid var(--green);border-radius:8px;
+                 font-size:0.85rem;font-weight:700;color:var(--green);margin-bottom:0.75rem;
+                 text-align:center;">
+          ✓ You are already in this tournament
+        </div>
+
+        <button class="btn btn-green" id="btn-join-confirm"
+          style="width:100%;padding:1rem;font-size:1.05rem;font-weight:800;">
+          JOIN TOURNAMENT →
+        </button>
+      </div>
+
+    </div>
+  </div>
+  <div class="screen-pencil-footer"><div class="logo-wrap screen-pencil"></div></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOURNAMENT START ROUND
+     ══════════════════════════════════════════ -->
+<div id="screen-tournament-start-round" class="screen">
+  <div style="padding:0 0 2rem;max-width:520px;margin:0 auto;">
+
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="tournament-start-round-back"
+          style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+      </div>
+      <div class="home-hero-title">Start Round <span id="tsr-round-num">1</span></div>
+      <div class="home-hero-club" id="tsr-tourn-name"></div>
+    </div>
+
+    <div class="page-pad-sm" style="padding-top:1rem;">
+
+      <!-- Course selection (only shown when course not yet fixed) -->
+      <div class="card" id="tsr-course-card">
+        <div class="field" style="margin-bottom:0;">
+          <label>Course for this round</label>
+          <select id="tsr-course-select" style="font-size:1.05rem;"></select>
+        </div>
+      </div>
+
+      <!-- Group players -->
+      <div class="card" style="margin-top:0.75rem;">
+        <div class="card-title" style="margin-bottom:0.75rem;">
+          Your Playing Group
+        </div>
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;line-height:1.4;">
+          Select the players in your group for this round. Handicap allowances are applied automatically.
+        </div>
+        <div id="tsr-player-list" style="display:grid;gap:0.5rem;margin-bottom:0.75rem;"></div>
+        <div id="tsr-hcp-note"
+          style="display:none;font-size:0.78rem;color:var(--text-muted);
+                 padding:0.5rem 0.75rem;background:var(--surface2);border-radius:8px;
+                 line-height:1.4;border:1px solid var(--border);">
+        </div>
+      </div>
+
+      <button class="btn btn-green" id="btn-tsr-launch"
+        style="width:100%;padding:1rem;font-size:1.15rem;font-weight:800;margin-top:0.75rem;">
+        LAUNCH ROUND →
+      </button>
+
+    </div>
+  </div>
+  <div class="screen-pencil-footer"><div class="logo-wrap screen-pencil"></div></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOURNAMENT ORGANISER ADMIN
+     ══════════════════════════════════════════ -->
+<div id="screen-tournament-organiser-admin" class="screen">
+  <div style="padding:0 0 2rem;max-width:520px;margin:0 auto;">
+
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="tournament-organiser-admin-back"
+          style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+      </div>
+      <div class="home-hero-title">Organiser Admin</div>
+      <div class="home-hero-club" id="oa-tourn-name"></div>
+    </div>
+
+    <div class="page-pad-sm" style="padding-top:1rem;">
+
+      <!-- Roster table -->
+      <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;
+                  color:var(--gold);margin-bottom:0.5rem;">Player Roster</div>
+      <div id="oa-roster-table" style="overflow-x:auto;margin-bottom:1.25rem;"></div>
+
+      <!-- Round status + finalise -->
+      <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;
+                  color:var(--muted2);margin-bottom:0.5rem;">Round Status</div>
+      <div id="oa-rounds-list" style="display:grid;gap:0.5rem;margin-bottom:1.25rem;"></div>
+
+      <!-- Add late joiner -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:0.75rem;">Late Joiner</div>
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.75rem;line-height:1.4;">
+          Add a player who wasn't in the original roster. They'll join from the next round.
+        </div>
+        <button class="btn btn-outline" id="btn-oa-add-late-joiner"
+          style="width:100%;padding:0.85rem;font-size:0.95rem;font-weight:800;
+                 border-style:dashed;border-color:var(--gold-border);color:var(--gold);">
+          ＋ Add Late Joiner
+        </button>
+      </div>
+
+      <!-- Conflict warnings -->
+      <div id="oa-conflicts" style="display:none;margin-top:0.75rem;">
+        <div class="card" style="border:1px solid var(--danger);background:rgba(220,0,0,0.05);">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--danger);margin-bottom:0.5rem;">
+            ⚠ Conflicts
+          </div>
+          <div id="oa-conflicts-list" style="font-size:0.82rem;color:var(--text-muted);
+                                              line-height:1.5;"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <div class="screen-pencil-footer"><div class="logo-wrap screen-pencil"></div></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TOURNAMENT HCP INFO (popup / fullscreen)
+     ══════════════════════════════════════════ -->
+<div id="screen-tournament-hcp-info" class="screen">
+  <div style="padding:0 0 2rem;max-width:520px;margin:0 auto;">
+
+    <div class="home-hero">
+      <div class="home-hero-top">
+        <button class="btn btn-ghost" id="tournament-hcp-info-back"
+          style="background:rgba(255,255,255,0.1);border:none;color:#fff;">← Back</button>
+      </div>
+      <div class="home-hero-title">Auto Adjustment</div>
+      <div class="home-hero-club">How it works</div>
+    </div>
+
+    <div class="page-pad-sm" style="padding-top:1rem;">
+
+      <div class="card">
+        <div style="font-size:1rem;font-weight:800;margin-bottom:0.75rem;color:var(--gold);">
+          The idea
+        </div>
+        <p style="font-size:0.9rem;line-height:1.6;color:var(--text-muted);margin:0 0 1rem;">
+          After each round, each player's handicap index is nudged up or down based on how
+          their score compared to the round average. Shoot above average → index goes down
+          (you're playing better). Shoot below average → index goes up (you need more shots).
+        </p>
+
+        <div style="font-size:1rem;font-weight:800;margin-bottom:0.75rem;color:var(--gold);">
+          The formula
+        </div>
+        <div style="font-family:monospace;font-size:0.9rem;padding:0.75rem;
+                    background:var(--surface2);border-radius:8px;margin-bottom:1rem;
+                    border:1px solid var(--border);line-height:1.8;">
+          delta = (mean − yourPoints) ÷ strength<br>
+          newIndex = currentIndex + delta (rounded to 1 d.p.)
+        </div>
+
+        <div style="font-size:1rem;font-weight:800;margin-bottom:0.75rem;color:var(--gold);">
+          Worked example (strength = 3)
+        </div>
+        <div style="font-size:0.88rem;line-height:1.7;color:var(--text-muted);margin-bottom:1rem;">
+          Round mean: <strong>32 pts</strong><br>
+          Your score: <strong>38 pts</strong> (6 above mean)<br>
+          delta = (32 − 38) ÷ 3 = <strong>−2.0</strong><br>
+          If your index was 18.4, it becomes <strong>16.4</strong>
+        </div>
+
+        <div style="font-size:1rem;font-weight:800;margin-bottom:0.75rem;color:var(--gold);">
+          Strength settings
+        </div>
+        <div style="font-size:0.88rem;line-height:1.8;color:var(--text-muted);">
+          <strong>Strong (2):</strong> 2 pts above mean → −1.0 index — fast response<br>
+          <strong>Balanced (3):</strong> 3 pts above mean → −1.0 index — default<br>
+          <strong>Gentle (4):</strong> 4 pts above mean → −1.0 index — slow drift
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0.75rem;">
+        <div style="font-size:0.88rem;font-weight:700;margin-bottom:0.5rem;color:var(--gold);">
+          Important rules
+        </div>
+        <ul style="font-size:0.85rem;line-height:1.7;color:var(--text-muted);
+                   padding-left:1.25rem;margin:0;">
+          <li>Adjustments are calculated by the server after the organiser finalises each round.</li>
+          <li>A player must complete all 18 holes to count toward the mean (DNFs are excluded).</li>
+          <li>The mean requires at least 2 completed scores. If fewer complete, no adjustment is made.</li>
+          <li>If the organiser finalises with some DNFs, they'll be asked to confirm before adjustments run.</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+  <div class="screen-pencil-footer"><div class="logo-wrap screen-pencil"></div></div>
 </div>
 
 <!-- In-app Game Invite Notification Banner (kept for realtime new invites) -->
