@@ -16305,56 +16305,91 @@ document.getElementById('btn-profile-friends')?.addEventListener('click', () => 
 async function showTournamentHubLeaderboard(code) {
   if (!code) { showHome(); return; }
 
-  // Re-use the tournament detail screen (screen-tournament-hub)
-  // but override it with a dedicated leaderboard view.
-  // We show screen-tourn-hub-leaderboard if it exists,
-  // otherwise fall back to building over screen-tournament-hub.
   showScreen('screen-tourn-hub-lb');
 
-  const nameEl    = document.getElementById('thbl-tourn-name');
-  const statusEl  = document.getElementById('thbl-status');
-  const tableEl   = document.getElementById('thbl-table');
+  const nameEl     = document.getElementById('thbl-tourn-name');
+  const statusEl   = document.getElementById('thbl-status');
+  const tableEl    = document.getElementById('thbl-table');
   const refreshBtn = document.getElementById('btn-thbl-refresh');
   const finishBtn  = document.getElementById('btn-thbl-finish');
 
+  // Tournament name
   if (nameEl) {
-    // Try to get tournament name from IDB
     try {
       const t = await idbTournaments.get(code);
       nameEl.textContent = t?.name ?? code;
     } catch { nameEl.textContent = code; }
   }
 
-  if (finishBtn) {
-    finishBtn.onclick = () => showHome();
-  }
+  if (finishBtn) finishBtn.onclick = () => showHome();
+
+  // Which round did we just complete?
+  const roundNum = (() => {
+    try { const ts = _tournState(); return ts.currentRound > 0 ? ts.currentRound : 1; } catch { return 1; }
+  })();
+
+  // Organiser secret — only present on the device that created the tournament
+  const secret = _getOrganiserSecret(code);
 
   async function _loadAndRender() {
     if (statusEl) { statusEl.textContent = 'Loading scores…'; statusEl.style.display = ''; }
     if (tableEl)  tableEl.innerHTML = '';
+
     try {
+      // Fetch raw scores
       const data = await _workerFetch(`/scores/${code.toUpperCase()}`);
+
+      // Check if all players have completed 18 holes for this round
+      const thisRoundEntries = (data?.rounds ?? []).filter(r => (r.round ?? 1) === roundNum);
+      const allIn = thisRoundEntries.length > 0 &&
+        thisRoundEntries.every(r =>
+          (r.players ?? []).every(p => (p.holesPlayed ?? 18) >= 18)
+        );
+
+      // Auto-finalise if organiser and all scores are in
+      let adjustments = null;
+      if (allIn && secret) {
+        try {
+          if (statusEl) { statusEl.textContent = 'All scores in — applying adjustments…'; statusEl.style.display = ''; }
+          const resp = await _tournWorkerFetch(`/tournament/${code}/finalise/${roundNum}`, 'POST', {}, secret);
+          if (resp?.adjustments?.length) {
+            adjustments = resp.adjustments; // [{ name, before, after, delta, mean, excluded }]
+          }
+          // Update local IDB tournament record with new state
+          try {
+            const fresh = await _tournWorkerFetch(`/tournament/${code}`);
+            await idbTournaments.put({ ...fresh, code, isOrganiser: true, rosterCachedAt: null });
+          } catch {}
+        } catch {}
+      }
+
       if (statusEl) statusEl.style.display = 'none';
-      _renderHubLbTable(tableEl, data);
-    } catch (err) {
+      _renderHubLbTable(tableEl, data, adjustments, roundNum);
+
+    } catch {
       if (statusEl) { statusEl.textContent = '⚠ Could not load scores — check connection and refresh.'; }
     }
   }
 
-  if (refreshBtn) {
-    refreshBtn.onclick = () => _loadAndRender();
-  }
+  if (refreshBtn) refreshBtn.onclick = () => _loadAndRender();
 
   await _loadAndRender();
 }
 
-function _renderHubLbTable(tableEl, data) {
+function _renderHubLbTable(tableEl, data, adjustments, roundNum) {
   if (!tableEl) return;
-  // data.rounds = [{ round, group, players: [{name, hcp, pts, netTotal, grossTotal, holesPlayed, ...}] }]
   const rounds = data?.rounds ?? [];
   if (!rounds.length) {
     tableEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted);">No scores yet — waiting for groups to finish.</p>';
     return;
+  }
+
+  // Build adjustment lookup by player name
+  const adjByName = {};
+  if (adjustments) {
+    for (const a of adjustments) {
+      if (a.name) adjByName[a.name] = a;
+    }
   }
 
   // Aggregate by player name across all rounds
@@ -16363,68 +16398,80 @@ function _renderHubLbTable(tableEl, data) {
     for (const p of (r.players ?? [])) {
       if (!p.name) continue;
       if (!byPlayer[p.name]) {
-        byPlayer[p.name] = { name: p.name, rounds: [], totalPts: 0, totalNet: 0, hcp: p.hcp ?? 0 };
+        byPlayer[p.name] = { name: p.name, rounds: [], totalPts: 0, hcp: p.hcp ?? 0 };
       }
       const entry = byPlayer[p.name];
-      const pts  = p.pts  ?? p.total ?? 0;
-      const net  = p.netTotal ?? p.net ?? 0;
+      const pts  = p.pts ?? p.total ?? 0;
       const hcp  = p.hcp ?? entry.hcp ?? 0;
       entry.totalPts += pts;
-      entry.totalNet += net;
-      entry.hcp = hcp; // use most recent
-      entry.rounds.push({ round: r.round, pts, net, holesPlayed: p.holesPlayed ?? 18, hcp });
+      entry.hcp = hcp;
+      entry.holesPlayed = Math.max(entry.holesPlayed ?? 0, p.holesPlayed ?? 18);
+      entry.rounds.push({ round: r.round ?? 1, pts, holesPlayed: p.holesPlayed ?? 18 });
     }
   }
 
   const players = Object.values(byPlayer);
-  // Sort by total points descending (stableford default)
   players.sort((a, b) => b.totalPts - a.totalPts);
 
-  // Determine how many rounds have been played
   const numRounds = Math.max(...rounds.map(r => r.round ?? 1), 1);
+  const showAdj   = adjustments && adjustments.length > 0;
 
-  // Build table
-  const colHdr = numRounds > 1
-    ? Array.from({ length: numRounds }, (_, i) => `<th style="${_thStyle()}">R${i+1}</th>`).join('') + `<th style="${_thStyle()}">Tot</th>`
+  // Column headers
+  const ptsHdr = numRounds > 1
+    ? Array.from({ length: numRounds }, (_, i) => `<th style="${_thStyle()}">R${i+1}</th>`).join('') +
+      `<th style="${_thStyle()}">Tot</th>`
     : `<th style="${_thStyle()}">Pts</th>`;
 
   const rows = players.map((p, rank) => {
     const badge = rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : `${rank+1}`;
-    // HCP cut: difference between index and playing handicap used
-    // We stored hcp as the playing handicap; show raw value as "Hcp"
-    const hcpStr = p.hcp != null ? `+${Math.round(p.hcp)}` : '–';
+    const adj   = adjByName[p.name];
+    const incomplete = (p.holesPlayed ?? 18) < 18;
+    const thruNote   = incomplete
+      ? ` <span style="font-size:0.7rem;color:var(--text-muted);">(${p.holesPlayed ?? '?'} holes)</span>` : '';
 
-    // Holes indicator: show "(thru X)" if any round incomplete
-    const incomplete = p.rounds.some(r => (r.holesPlayed ?? 18) < 18);
-    const thruNote = incomplete ? ` <span style="font-size:0.72rem;color:var(--text-muted);">(in progress)</span>` : '';
+    // Adjustment cell
+    let adjCell = '';
+    if (showAdj) {
+      if (adj && !adj.excluded) {
+        const sign  = adj.delta < 0 ? '' : '+';  // negative delta = cut (good)
+        const color = adj.delta < 0 ? '#e53e3e' : '#38a169'; // red = cut, green = gain
+        adjCell = `<td style="${_tdStyle()};color:${color};font-weight:800;">${sign}${adj.delta.toFixed(1)}</td>`;
+      } else {
+        adjCell = `<td style="${_tdStyle()};color:var(--text-muted);">–</td>`;
+      }
+    }
 
-    const roundCells = numRounds > 1
-      ? p.rounds.map(r => `<td style="${_tdStyle()}">${r.pts}</td>`).join('') +
+    // Score cells
+    const ptsCells = numRounds > 1
+      ? p.rounds.sort((a,b) => a.round - b.round).map(r => `<td style="${_tdStyle()}">${r.pts}</td>`).join('') +
         `<td style="${_tdStyle(true)}">${p.totalPts}</td>`
       : `<td style="${_tdStyle(true)}">${p.totalPts}</td>`;
 
-    return `<tr>
+    return `<tr style="border-bottom:1px solid var(--border,rgba(0,0,0,0.07));">
       <td style="${_tdStyle()}">${badge}</td>
-      <td style="padding:0.65rem 0.5rem;font-size:0.9rem;font-weight:700;color:var(--text-dark);">
+      <td style="padding:0.65rem 0.5rem;font-size:0.88rem;font-weight:700;color:var(--text-dark);">
         ${p.name}${thruNote}
       </td>
-      <td style="${_tdStyle()}">${hcpStr}</td>
-      ${roundCells}
+      ${adjCell}
+      ${ptsCells}
     </tr>`;
   }).join('');
+
+  const adjHdr = showAdj ? `<th style="${_thStyle()}">Cut</th>` : '';
 
   tableEl.innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-family:'Plus Jakarta Sans',sans-serif;">
       <thead>
-        <tr style="background:var(--surface2,rgba(0,0,0,0.06));">
+        <tr style="background:var(--surface2,rgba(0,0,0,0.06));border-bottom:2px solid var(--border,rgba(0,0,0,0.1));">
           <th style="${_thStyle()}">#</th>
           <th style="padding:0.5rem;text-align:left;font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);">Player</th>
-          <th style="${_thStyle()}">Hcp</th>
-          ${colHdr}
+          ${adjHdr}
+          ${ptsHdr}
         </tr>
       </thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table>
+    ${showAdj ? `<p style="font-size:0.72rem;color:var(--text-muted);text-align:center;padding:0.5rem 0 0;">Cut = handicap adjustment applied for this round</p>` : ''}`;
 }
 
 function _thStyle() {
