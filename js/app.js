@@ -394,7 +394,8 @@ async function pushScoresToCloud(btn) {
         const pts      = log.reduce((sum, e) => sum + (e.holePts?.[pi] ?? e.sbPts?.[pi] ?? 0), 0);
         const grossTot = grosses.reduce((s, v) => s + v, 0);
         const netTot   = nets.reduce((s, v) => s + v, 0);
-        return { name: nm, hcp: gs.hdcps?.[pi] ?? 0, scores: grosses, nets, grossTotal: grossTot, netTotal: netTot, pts, total: isStroke ? netTot : pts };
+        const holesPlayed = log.length; // one entry per hole logged
+        return { name: nm, hcp: gs.hdcps?.[pi] ?? 0, scores: grosses, nets, grossTotal: grossTot, netTotal: netTot, pts, total: isStroke ? netTot : pts, holesPlayed };
       }),
     }));
     await uploadScores(code, rounds);
@@ -11962,7 +11963,8 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     try { localStorage.removeItem('lb-game-state-cache'); } catch {}
     roundId = null;
     // Capture hub tournament context before clearing gameState
-    const _hubCode = gameState?._hubTournamentCode ?? setup?._hubTournamentCode ?? null;
+    const _hubCode  = gameState?._hubTournamentCode ?? setup?._hubTournamentCode ?? null;
+    const _hubRound = gameState?._hubTournRound     ?? setup?._hubTournRound     ?? 1;
     // Auto-push scores for hub tournaments while gameState is still live
     if (_hubCode) {
       try {
@@ -11981,7 +11983,7 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     clearTimeout(saveTimeout);
     if (_hubCode) {
       // Hub tournament: go to tournament leaderboard instead of home
-      showTournamentHubLeaderboard(_hubCode);
+      showTournamentHubLeaderboard(_hubCode, _hubRound);
     } else {
       await showHome();
       // Prompt to back up after every completed round
@@ -16302,7 +16304,7 @@ document.getElementById('btn-profile-friends')?.addEventListener('click', () => 
 // with their total pts and the handicap adjustment applied this round.
 // ================================================================
 
-async function showTournamentHubLeaderboard(code) {
+async function showTournamentHubLeaderboard(code, roundNum) {
   if (!code) { showHome(); return; }
 
   showScreen('screen-tourn-hub-lb');
@@ -16324,9 +16326,10 @@ async function showTournamentHubLeaderboard(code) {
   if (finishBtn) finishBtn.onclick = () => showHome();
 
   // Which round did we just complete?
-  const roundNum = (() => {
-    try { const ts = _tournState(); return ts.currentRound > 0 ? ts.currentRound : 1; } catch { return 1; }
-  })();
+  // roundNum is passed from the end-round handler; fall back to _tournState if not provided.
+  if (!roundNum || roundNum < 1) {
+    try { const ts = _tournState(); roundNum = ts.currentRound > 0 ? ts.currentRound : 1; } catch { roundNum = 1; }
+  }
 
   // Organiser secret — only present on the device that created the tournament
   const secret = _getOrganiserSecret(code);
