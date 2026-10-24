@@ -1262,7 +1262,7 @@ function _showTournamentSetupModal() {
       </div>`;
 
     overlay.querySelector('#tp-rounds-dec').onclick = () => {
-      pendingRounds = Math.max(2, pendingRounds - 1); render();
+      pendingRounds = Math.max(1, pendingRounds - 1); render();
     };
     overlay.querySelector('#tp-rounds-inc').onclick = () => {
       pendingRounds = Math.min(10, pendingRounds + 1); render();
@@ -9005,10 +9005,22 @@ let _lbCloudScores = null;       // last fetched cloud scores payload
     }
   });
 
-  document.getElementById('btn-lb-view-toggle')?.addEventListener('click', () => {
+  document.getElementById('btn-lb-view-toggle')?.addEventListener('click', async () => {
     _lbViewMode = _lbViewMode === 'total' ? 'byround' : 'total';
     const btn = document.getElementById('btn-lb-view-toggle');
     if (btn) btn.textContent = _lbViewMode === 'total' ? '📊 By Round' : '🏆 Total';
+    // If switching to by-round and we have no cloud scores yet, fetch them now
+    if (_lbViewMode === 'byround' && !_lbCloudScores) {
+      if (btn) { btn.textContent = '⏳…'; btn.disabled = true; }
+      try {
+        const code = _lbGetCode();
+        if (code) {
+          const data = await _workerFetch(`/scores/${code.toUpperCase()}`);
+          _lbCloudScores = data;
+        }
+      } catch {}
+      if (btn) { btn.textContent = '🏆 Total'; btn.disabled = false; }
+    }
     renderLeaderboard();
   });
 
@@ -9044,8 +9056,20 @@ function showLeaderboard() {
   if (copyBtn)   copyBtn.style.display   = code ? '' : 'none';
   // Show "By Round" toggle only when a tournament is active (multi-round)
   const ts = (() => { try { return _tournState(); } catch { return {}; } })();
-  if (toggleBtn) toggleBtn.style.display = (ts.active && ts.rounds > 1) ? '' : 'none';
+  const isTournMultiRound = ts.active && ts.rounds > 1;
+  if (toggleBtn) toggleBtn.style.display = isTournMultiRound ? '' : 'none';
+  // Reset view mode to total each time we open
+  _lbViewMode = 'total';
+  if (toggleBtn) toggleBtn.textContent = '📊 By Round';
   renderLeaderboard();
+  // In tournament mode, silently fetch cloud scores in the background so
+  // Total and By Round both reflect all rounds without needing to press Update
+  if (isTournMultiRound && code) {
+    _workerFetch(`/scores/${code.toUpperCase()}`).then(data => {
+      _lbCloudScores = data;
+      renderLeaderboard();
+    }).catch(() => {});
+  }
   // Subscribe to all group states for live updates
   if (leaderboardChannel) realtimeUnsubscribe(leaderboardChannel);
   leaderboardChannel = realtimeSubscribeRound(roundId, remote => {
