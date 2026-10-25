@@ -16511,6 +16511,16 @@ function _renderHubLbTable(tableEl, data, adjustments, roundNum) {
   const numRounds = Math.max(...rounds.map(r => r.round ?? 1), 1);
   const showAdj   = adjustments && adjustments.length > 0;
 
+  // Update hero subtitle to describe what's shown
+  const subtitleEl = document.getElementById('thbl-subtitle');
+  if (subtitleEl) {
+    if (numRounds === 1) {
+      subtitleEl.textContent = `Round ${roundNum} scores`;
+    } else {
+      subtitleEl.textContent = `Total after ${numRounds} rounds`;
+    }
+  }
+
   // Column headers
   const ptsHdr = numRounds > 1
     ? Array.from({ length: numRounds }, (_, i) => `<th style="${_thStyle()}">R${i+1}</th>`).join('') +
