@@ -396,7 +396,10 @@ async function pushScoresToCloud(btn) {
         const grossTot = grosses.reduce((s, v) => s + v, 0);
         const netTot   = nets.reduce((s, v) => s + v, 0);
         const holesPlayed = log.length; // one entry per hole logged
-        return { name: nm, hcp: gs.hdcps?.[pi] ?? 0, scores: grosses, nets, grossTotal: grossTot, netTotal: netTot, pts, total: isStroke ? netTot : pts, holesPlayed };
+        const playerId = gs.playerProfileIds?.[pi] ?? null;
+        const rec = { name: nm, hcp: gs.hdcps?.[pi] ?? 0, scores: grosses, nets, grossTotal: grossTot, netTotal: netTot, pts, total: isStroke ? netTot : pts, holesPlayed };
+        if (playerId) rec.playerId = playerId;
+        return rec;
       }),
     }));
     await uploadScores(code, rounds);
@@ -1215,15 +1218,16 @@ function _showTournamentSetupModal() {
         <div style="margin-bottom:1rem;">
           <div style="font-size:0.72rem;font-weight:700;color:var(--muted);letter-spacing:0.05em;
             text-transform:uppercase;margin-bottom:0.5rem;">Number of Rounds</div>
-          <div style="display:flex;align-items:center;gap:0.75rem;">
+          <div style="display:flex;align-items:center;gap:0.5rem;">
             <button id="tp-rounds-dec" style="width:36px;height:36px;border-radius:50%;
               background:var(--surface2,#273447);border:1px solid var(--border,#374151);
               color:var(--text);font-size:1.2rem;font-weight:700;cursor:pointer;line-height:1;">−</button>
-            <span id="tp-rounds-val" style="font-size:1.6rem;font-weight:900;color:var(--text);
-              min-width:2ch;text-align:center;">${pendingRounds}</span>
             <button id="tp-rounds-inc" style="width:36px;height:36px;border-radius:50%;
               background:var(--surface2,#273447);border:1px solid var(--border,#374151);
               color:var(--text);font-size:1.2rem;font-weight:700;cursor:pointer;line-height:1;">+</button>
+            <span id="tp-rounds-val" style="font-size:1.6rem;font-weight:900;color:var(--text);
+              min-width:2ch;text-align:center;margin-left:0.25rem;">${pendingRounds}</span>
+            <span style="font-size:0.85rem;color:var(--muted);align-self:center;">rounds</span>
           </div>
         </div>
 
