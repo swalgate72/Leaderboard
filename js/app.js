@@ -471,11 +471,8 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
           color:var(--gold,#d4a843);margin:0.5rem 0 0.25rem;"></div>
         <div id="share-game-expiry" style="font-size:0.75rem;color:#555;
           margin-bottom:1rem;"></div>
-        <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem;">
-          <button id="share-game-copy-url" class="btn btn-gold" style="width:100%;">🔗 Copy Live Leaderboard URL</button>
-        </div>
         <div style="font-size:0.78rem;color:var(--text-muted,#a0aec0);line-height:1.4;margin-bottom:1rem;">
-          Share this URL with other groups — everyone pushes their scores and the live leaderboard shows all groups together.
+          Share this code with other groups so everyone's scores show on the leaderboard together.
         </div>
         <div style="margin-bottom:0.75rem;">
           <label style="font-size:0.8rem;color:var(--text-muted,#a0aec0);">Expiry</label>
@@ -511,7 +508,6 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
   const statusEl  = document.getElementById('share-game-status');
   const codeEl    = document.getElementById('share-game-code');
   const expiryEl  = document.getElementById('share-game-expiry');
-  const copyUrl   = document.getElementById('share-game-copy-url');
 
   codeEl.textContent    = '…';
   expiryEl.textContent  = '';
@@ -521,7 +517,6 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
     const result = await shareGameSetup({ ttlHours, expiresAt, name });
     const code    = result.code;
     const exp     = new Date(result.expiresAt);
-    const liveUrl = `${APP_BASE_URL}live?code=${code}`;
 
     codeEl.textContent   = code;
     expiryEl.textContent = `Expires ${exp.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}`;
@@ -531,13 +526,6 @@ async function openShareGameModal({ expiresAt = null, ttlHours = 48, name = null
     try { localStorage.setItem('lb-game-code', code); } catch {}
     if (gameState) gameState.gameCode = code;
     updateHeroCodePills(code);
-
-    copyUrl.onclick = async () => {
-      try { await navigator.clipboard.writeText(liveUrl); }
-      catch { prompt('Live leaderboard URL:', liveUrl); return; }
-      copyUrl.textContent = '✅ Copied!';
-      setTimeout(() => { copyUrl.textContent = '🔗 Copy Live Leaderboard URL'; }, 2500);
-    };
 
   } catch (err) {
     codeEl.textContent   = '–';
@@ -11621,9 +11609,8 @@ async function showEndRound() {
   const highlightsEl = document.getElementById('er-highlights');
   if (highlightsEl) highlightsEl.innerHTML = '';
 
-  // Wire push-scores + live-leaderboard buttons on end-round screen
+  // Wire push-scores button on end-round screen
   const pushEndBtn = document.getElementById('btn-push-scores-end');
-  const liveEndBtn = document.getElementById('btn-live-end');
   const code = (() => {
     try {
       if (gameState?.gameCode) return gameState.gameCode;
@@ -11638,10 +11625,6 @@ async function showEndRound() {
   if (pushEndBtn) {
     pushEndBtn.onclick = () => pushScoresToCloud(pushEndBtn);
     pushEndBtn.style.display = code ? '' : 'none';
-  }
-  if (liveEndBtn) {
-    liveEndBtn.style.display = code ? '' : 'none';
-    liveEndBtn.onclick = () => openLiveLeaderboard();
   }
   // Wire edit-scorecard button
   const editScEnd = document.getElementById('btn-edit-sc-end');
@@ -14169,25 +14152,7 @@ function showHistoryDetail(rid, rounds) {
     addGroupBtn.onclick = () => openCombineModal(state, r.id, rounds);
   }
 
-  // ── View Live Leaderboard button ───────────────────────────────────
-  const liveBtn = document.getElementById('btn-view-live-leaderboard');
-  if (liveBtn) {
-    // Prefer code stored in game_state (persists to history), fall back to localStorage
-    let cachedCode = state?.gameCode ?? null;
-    if (!cachedCode) { try { cachedCode = localStorage.getItem('lb-game-code'); } catch {} }
-
-    liveBtn.style.display = '';
-    liveBtn.textContent = cachedCode ? `📊 Live Leaderboard · ${cachedCode}` : '📊 View Live Leaderboard';
-
-    liveBtn.style.display = cachedCode ? '' : 'none';
-    liveBtn.onclick = () => {
-      if (!cachedCode) return;
-      const url = location.origin + '/live?code=' + cachedCode;
-      const a = document.createElement('a');
-      a.href = url; a.target = '_blank'; a.rel = 'noreferrer';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    };
-  }
+  // Live leaderboard button removed — live URL only available in Organiser Admin
 
   // ── Import All Group Scores button ────────────────────────────────
   const importBtn = document.getElementById('btn-import-group-scores');
@@ -16078,12 +16043,16 @@ async function showTournamentDetail(code) {
     if (adminBtn) adminBtn.style.display = isOrganiser ? '' : 'none';
     if (adminBtn) adminBtn.onclick = () => showTournamentOrganiserAdmin(code);
 
-    // Secondary buttons
-    document.getElementById('btn-td-view-leaderboard-full').onclick = () => openLiveLeaderboard();
-    document.getElementById('btn-td-copy-url').onclick = () => {
-      const url = `${SYNC_WORKER_URL}/leaderboard/${code}`;
-      navigator.clipboard.writeText(url).then(() => alert('URL copied!')).catch(() => alert(url));
-    };
+    // Secondary buttons — View Leaderboard opens the in-app hub leaderboard
+    const lbViewBtn = document.getElementById('btn-td-view-leaderboard-full');
+    if (lbViewBtn) {
+      // Show leaderboard for the most recent non-scheduled round, or round 1 as fallback
+      const lbRound = liveRound?.roundNum
+        ?? awaitingRound?.roundNum
+        ?? rounds.filter(r => r.status === 'finalised').reduce((max, r) => Math.max(max, r.roundNum), 0)
+        || 1;
+      lbViewBtn.onclick = () => showTournamentHubLeaderboard(code, lbRound);
+    }
 
     // Remove / leave tournament
     const removeBtn = document.getElementById('btn-td-remove-tournament');

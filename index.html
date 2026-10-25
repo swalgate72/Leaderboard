@@ -1116,13 +1116,6 @@
     <!-- 2×2 action grid -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem;">
 
-      <button id="btn-live-end"
-        style="display:none;padding:0.55rem 0.4rem;background:#1a3a22;color:#fff;border:none;
-               border-radius:10px;font-family:'Plus Jakarta Sans',sans-serif;font-size:0.82rem;
-               font-weight:700;text-align:center;line-height:1.3;cursor:pointer;">
-        📊 Live Leaderboard
-      </button>
-
       <button id="btn-confirm-end"
         style="padding:0.55rem 0.4rem;background:#1a3a22;color:#fff;border:none;
                border-radius:10px;font-family:'Plus Jakarta Sans',sans-serif;font-size:0.82rem;
@@ -1786,12 +1779,6 @@
                font-size:0.9rem;font-weight:700;cursor:pointer;">
         📥 Import All Group Scores
       </button>
-      <button id="btn-view-live-leaderboard"
-        style="display:none;width:100%;padding:0.65rem;background:none;border:1px solid #48bb78;
-               color:#48bb78;border-radius:10px;font-family:'Plus Jakarta Sans',sans-serif;
-               font-size:0.9rem;font-weight:700;cursor:pointer;">
-        📊 View Live Leaderboard
-      </button>
       <button class="btn btn-danger" id="btn-delete-round" style="width:100%;">🗑 Delete Round</button>
     </div>
   </div>
@@ -2012,7 +1999,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261025d"></script>
+<script type="module" src="js/app.js?v=20261025e"></script>
 
 
 <!-- ══════════════════════════════════════════
@@ -2394,12 +2381,6 @@
         <button class="btn btn-outline" id="btn-td-view-leaderboard-full"
           style="padding:0.9rem;font-size:0.95rem;font-weight:800;">
           📊 View Leaderboard
-        </button>
-
-        <!-- Copy live leaderboard URL -->
-        <button class="btn btn-outline" id="btn-td-copy-url"
-          style="padding:0.9rem;font-size:0.95rem;font-weight:800;">
-          🔗 Copy Live Leaderboard URL
         </button>
 
         <!-- Organiser Admin — only visible to organiser -->
