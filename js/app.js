@@ -7572,9 +7572,9 @@ function makePlayerInputRow(pi, h, par) {
     ? `<span style="font-size:0.72rem;font-weight:800;line-height:1.1;display:block;">P.Up</span><span style="font-size:0.82rem;font-weight:700;opacity:0.85;">(${existingGross})</span>`
     : String(effectiveGross);
   const discTextColor = effectiveGross === 1 ? 'var(--white)' : '#fff';
-  // New hole: show par colour at reduced opacity to signal "default, not yet confirmed"
-  const discOpacity = hasExisting ? '' : 'opacity:0.55;';
-  const discBorder = hasExisting ? `2px solid ${discColor}` : `2px solid ${parColor}`;
+  // New hole: show par colour with dashed border + dimmed to signal "default, not yet confirmed"
+  const discOpacity = hasExisting ? '' : 'opacity:0.7;';
+  const discBorder = hasExisting ? `2px solid ${discColor}` : `2px dashed ${parColor}`;
 
   const shotPill = extra > 0
     ? `<span class="gi-pill gi-pill-shot">+${extra}<span class="gi-pill-long"> shot${extra > 1 ? 's' : ''}</span></span>`
@@ -7611,7 +7611,7 @@ function makePlayerInputRow(pi, h, par) {
         <!-- Centre score disc — always has a value (defaults to par for new holes) -->
         <div id="cv${pi}" class="score-btn gi-score-disc has-score${hasExisting ? '' : ' par-default'}${isPickup ? ' is-pickup' : ''}" data-pi="${pi}"
           data-value="${effectiveGross}" data-pickup="${isPickup ? '1' : '0'}"
-          style="--sc:${_giRingColor(discColor)};${discOpacity}">${discText}</div>
+          style="--sc:${_giRingColor(hasExisting ? discColor : parColor)};${discOpacity}">${discText}</div>
         <div class="gi-rel" id="gi-rel-${pi}">${_giRelWord(effectiveGross, par, isPickup)}</div>
       </div>
       <button class="gi-arr gi-arr-up" data-pi="${pi}" aria-label="One more">
@@ -16336,7 +16336,7 @@ async function _organiserFinaliseRound(code, roundNum, secret, tournData, force 
 
     if (resp.requiresConfirm) {
       // Force-confirm gate: show excluded players and ask organiser to confirm
-      const excNames = (resp.excluded ?? []).join(', ') || 'some players';
+      const excNames = (resp.excluded ?? []).map(p => p.name ?? p).join(', ') || 'some players';
       const mean = resp.meanPreview != null ? ` (mean: ${resp.meanPreview.toFixed(1)} pts)` : '';
       const msg = `${resp.validCount ?? 0} valid score${(resp.validCount ?? 0) !== 1 ? 's' : ''} received${mean}.\n\nExcluded (DNF or incomplete): ${excNames}\n\nFinalise anyway and exclude these players from this round's adjustment?`;
       if (confirm(msg)) {
