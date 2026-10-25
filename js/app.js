@@ -7538,6 +7538,8 @@ function makePlayerInputRow(pi, h, par) {
   const existingGross = existingEntry?.grosses?.[pi];
 
   const hasExisting = existingGross != null;
+  // When no existing score, pre-fill with par so players can just tap Next
+  const effectiveGross = hasExisting ? existingGross : par;
   const isPickup    = existingEntry?.pickups?.[pi] ?? false;
   const scoreBtnVal   = hasExisting
     ? (isPickup ? `<span style="font-size:0.75rem;font-weight:800;display:block;line-height:1.1;">P.Up</span><span style="font-size:0.85rem;font-weight:700;">(${existingGross})</span>` : String(existingGross))
@@ -7560,15 +7562,19 @@ function makePlayerInputRow(pi, h, par) {
   const row = document.createElement('div');
   row.className = `gi-row${inChair ? ' in-chair' : ''}`;
 
-  // Score colour / content for the centre disc (same logic as before)
-  const discColor  = !hasExisting ? 'transparent'
-    : isPickup ? 'var(--gold)'
-    : scoreColorForRelToPar(existingGross - par, existingGross);
-  const discText   = !hasExisting ? String(par)
-    : isPickup ? `<span style="font-size:0.72rem;font-weight:800;line-height:1.1;display:block;">P.Up</span><span style="font-size:0.82rem;font-weight:700;opacity:0.85;">(${existingGross})</span>`
-    : String(existingGross);
-  const discTextColor = (!hasExisting || existingGross === 1) ? 'var(--white)' : '#fff';
-  const discBorder = !hasExisting ? '2px solid var(--border2)' : `2px solid ${discColor}`;
+  // Score colour / content for the centre disc
+  // When no score yet, show par in the disc with a faint "par" colour so the
+  // user can see the default and just tap Next without touching anything.
+  const parColor   = scoreColorForRelToPar(0, par); // always the par (green) colour
+  const discColor  = isPickup ? 'var(--gold)'
+    : scoreColorForRelToPar(effectiveGross - par, effectiveGross);
+  const discText   = isPickup
+    ? `<span style="font-size:0.72rem;font-weight:800;line-height:1.1;display:block;">P.Up</span><span style="font-size:0.82rem;font-weight:700;opacity:0.85;">(${existingGross})</span>`
+    : String(effectiveGross);
+  const discTextColor = effectiveGross === 1 ? 'var(--white)' : '#fff';
+  // New hole: show par colour at reduced opacity to signal "default, not yet confirmed"
+  const discOpacity = hasExisting ? '' : 'opacity:0.55;';
+  const discBorder = hasExisting ? `2px solid ${discColor}` : `2px solid ${parColor}`;
 
   const shotPill = extra > 0
     ? `<span class="gi-pill gi-pill-shot">+${extra}<span class="gi-pill-long"> shot${extra > 1 ? 's' : ''}</span></span>`
@@ -7602,11 +7608,11 @@ function makePlayerInputRow(pi, h, par) {
         <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
       <div class="gi-disc-wrap">
-        <!-- Centre score disc — same id/class as before so recordHole reads it -->
-        <div id="cv${pi}" class="score-btn gi-score-disc${hasExisting ? ' has-score' : ''}${isPickup ? ' is-pickup' : ''}" data-pi="${pi}"
-          data-value="${hasExisting ? existingGross : ''}" data-pickup="${isPickup ? '1' : '0'}"
-          style="${hasExisting ? `--sc:${_giRingColor(discColor)};` : ''}">${discText}</div>
-        <div class="gi-rel" id="gi-rel-${pi}">${hasExisting ? _giRelWord(existingGross, par, isPickup) : 'Par'}</div>
+        <!-- Centre score disc — always has a value (defaults to par for new holes) -->
+        <div id="cv${pi}" class="score-btn gi-score-disc has-score${hasExisting ? '' : ' par-default'}${isPickup ? ' is-pickup' : ''}" data-pi="${pi}"
+          data-value="${effectiveGross}" data-pickup="${isPickup ? '1' : '0'}"
+          style="--sc:${_giRingColor(discColor)};${discOpacity}">${discText}</div>
+        <div class="gi-rel" id="gi-rel-${pi}">${_giRelWord(effectiveGross, par, isPickup)}</div>
       </div>
       <button class="gi-arr gi-arr-up" data-pi="${pi}" aria-label="One more">
         <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -7615,10 +7621,8 @@ function makePlayerInputRow(pi, h, par) {
       <button class="gi-pickup-btn${isPickup ? ' is-on' : ''}" data-pi="${pi}">Pick<br>up</button>
     </div>`;
 
-  // Fill the "This hole" calc for a pre-filled (edited) hole
-  if (hasExisting) {
-    queueMicrotask(() => _giUpdateCalc(pi, existingGross, isPickup, row));
-  }
+  // Fill the "This hole" calc — always shown (defaults to par for new holes)
+  queueMicrotask(() => _giUpdateCalc(pi, effectiveGross, isPickup, row));
 
   // ── Wire the new inline controls ──────────────────────────────────
   // Touch model: touchstart fires immediately with e.preventDefault() to
@@ -8130,6 +8134,8 @@ function setScoreValue(pi, h, par, value, isPickup) {
   if (isCard) {
     // Stitch-style ring disc: colour via --sc, styling in CSS
     cvEl.classList.add('has-score');
+    cvEl.classList.remove('par-default');
+    cvEl.style.opacity = ''; // clear par-default dim
     cvEl.classList.toggle('is-pickup', !!isPickup);
     if (isPickup) {
       cvEl.style.setProperty('--sc', 'var(--gold)');
@@ -13216,12 +13222,12 @@ async function shareBackupFile() {
         <div style="background:var(--surface,#1a2535);border-radius:1rem;padding:1.25rem 1.5rem;
                     max-width:320px;width:90%;text-align:center;border:1px solid var(--gold-border,rgba(212,168,67,0.35));">
           <div style="font-size:1.5rem;margin-bottom:0.5rem;">📁</div>
-          <div style="font-weight:700;margin-bottom:0.4rem;">Save to iCloud Drive</div>
-          <div style="font-size:0.85rem;color:#a0aec0;line-height:1.5;margin-bottom:1rem;">
+          <div style="font-weight:700;margin-bottom:0.4rem;color:var(--text,#f0f4f8);">Save to iCloud Drive</div>
+          <div style="font-size:0.85rem;color:var(--text-sub,#c8d0da);line-height:1.5;margin-bottom:1rem;">
             In the sheet that appears, scroll down and tap<br>
-            <strong style="color:#f0f4f8;">"Save to Files"</strong> → choose
-            <strong style="color:#f0f4f8;">iCloud Drive</strong> or
-            <strong style="color:#f0f4f8;">Google Drive</strong>
+            <strong style="color:#fff;">"Save to Files"</strong> → choose
+            <strong style="color:#fff;">iCloud Drive</strong> or
+            <strong style="color:#fff;">Google Drive</strong>
           </div>
           <button id="_backup-tip-ok" style="background:var(--gold,#d4a843);color:#000;font-weight:700;
             border:none;border-radius:0.5rem;padding:0.65rem 2rem;font-size:0.95rem;cursor:pointer;width:100%;">
@@ -13252,11 +13258,12 @@ async function shareBackupFile() {
       return;
     } catch (e) {
       if (e.name === 'AbortError') return; // user cancelled
-      // Fall through to plain download
+      // NotAllowedError or SecurityError (site not trusted / cross-origin frame) —
+      // fall through to plain <a> download which always works.
     }
   }
 
-  // Fallback — plain download (browser may add numeric suffix on repeated saves)
+  // Plain download — always works on desktop
   const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');
   a.href = url; a.download = fname;
@@ -15707,41 +15714,68 @@ function _openFriendPickerForWizard() {
   modal.id = 'modal-wiz-friend-pick';
   modal.className = 'modal-overlay open';
   modal.innerHTML = `
-    <div class="modal-box" style="max-width:360px;">
+    <div class="modal-box" style="max-width:380px;display:flex;flex-direction:column;max-height:85vh;">
       <div class="modal-header">
-        <div class="modal-title">Add Player</div>
+        <div class="modal-title">Add Players</div>
         <button class="btn-close" id="wiz-fp-close">✕</button>
       </div>
-      <div id="wiz-fp-list" style="padding:0.5rem 0;max-height:60vh;overflow-y:auto;">
+      <div id="wiz-fp-list" style="flex:1;overflow-y:auto;padding:0.25rem 0;">
         ${available.map(f => {
           const name = f.name || f.username || '(no name)';
           const hcp  = f.hcp ?? 0;
           const pid  = f.profileId ?? f.id ?? name;
-          return `<button class="btn btn-ghost" data-fp-id="${_esc(String(pid))}"
+          return `<label class="wiz-fp-row" data-fp-id="${_esc(String(pid))}"
             data-fp-name="${_esc(name)}"
             data-fp-hcp="${hcp}"
-            style="width:100%;text-align:left;padding:0.65rem 1rem;
-                   border-bottom:1px solid var(--border);border-radius:0;display:block;">
-            <div style="font-weight:700;">${_esc(name)}</div>
-            <div style="font-size:0.78rem;color:var(--text-muted);">HCP ${hcp != null ? hcp : '—'}</div>
-          </button>`;
+            style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1rem;
+                   border-bottom:1px solid var(--border);cursor:pointer;user-select:none;">
+            <input type="checkbox" class="wiz-fp-cb" style="width:1.25rem;height:1.25rem;accent-color:var(--gold,#d4a843);flex-shrink:0;" />
+            <div>
+              <div style="font-weight:700;">${_esc(name)}</div>
+              <div style="font-size:0.78rem;color:var(--muted);">HCP ${hcp != null ? hcp : '—'}</div>
+            </div>
+          </label>`;
         }).join('')}
+      </div>
+      <div style="padding:0.75rem 1rem;border-top:1px solid var(--border);">
+        <button id="wiz-fp-add" class="btn btn-primary" style="width:100%;font-weight:700;" disabled>
+          Add Selected Players
+        </button>
       </div>
     </div>`;
   document.body.appendChild(modal);
 
+  // Keep Add button label and enabled state in sync with checkboxes
+  function _syncAddBtn() {
+    const checked = modal.querySelectorAll('.wiz-fp-cb:checked');
+    const btn = document.getElementById('wiz-fp-add');
+    if (!btn) return;
+    const n = checked.length;
+    btn.disabled = n === 0;
+    btn.textContent = n === 0 ? 'Add Selected Players'
+      : n === 1 ? 'Add 1 Player'
+      : `Add ${n} Players`;
+  }
+
   document.getElementById('wiz-fp-close')?.addEventListener('click', () => modal.remove());
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-  modal.querySelectorAll('[data-fp-id]').forEach(btn => {
-    btn.addEventListener('click', () => {
+
+  modal.querySelectorAll('.wiz-fp-row').forEach(row => {
+    row.addEventListener('change', _syncAddBtn);
+  });
+
+  document.getElementById('wiz-fp-add')?.addEventListener('click', () => {
+    modal.querySelectorAll('.wiz-fp-cb:checked').forEach(cb => {
+      const row = cb.closest('.wiz-fp-row');
+      if (!row) return;
       _wiz.players.push({
-        friendId: btn.dataset.fpId,
-        name:     btn.dataset.fpName,
-        hcpIndex: parseFloat(btn.dataset.fpHcp) || 0,
+        friendId: row.dataset.fpId,
+        name:     row.dataset.fpName,
+        hcpIndex: parseFloat(row.dataset.fpHcp) || 0,
       });
-      modal.remove();
-      _wizBuildPlayersStep();
     });
+    modal.remove();
+    _wizBuildPlayersStep();
   });
 }
 
