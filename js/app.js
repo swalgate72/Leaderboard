@@ -13219,17 +13219,17 @@ async function shareBackupFile() {
         background:rgba(0,0,0,0.72);display:flex;align-items:flex-end;
         justify-content:center;padding-bottom:2rem;`;
       tip.innerHTML = `
-        <div style="background:var(--surface,#1a2535);border-radius:1rem;padding:1.25rem 1.5rem;
-                    max-width:320px;width:90%;text-align:center;border:1px solid var(--gold-border,rgba(212,168,67,0.35));">
+        <div style="background:#fff;border-radius:1rem;padding:1.25rem 1.5rem;
+                    max-width:320px;width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
           <div style="font-size:1.5rem;margin-bottom:0.5rem;">📁</div>
-          <div style="font-weight:700;margin-bottom:0.4rem;color:var(--text,#f0f4f8);">Save to iCloud Drive</div>
-          <div style="font-size:0.85rem;color:var(--text-sub,#c8d0da);line-height:1.5;margin-bottom:1rem;">
+          <div style="font-weight:700;margin-bottom:0.4rem;color:#111;">Save to iCloud Drive</div>
+          <div style="font-size:0.85rem;color:#444;line-height:1.5;margin-bottom:1rem;">
             In the sheet that appears, scroll down and tap<br>
-            <strong style="color:#fff;">"Save to Files"</strong> → choose
-            <strong style="color:#fff;">iCloud Drive</strong> or
-            <strong style="color:#fff;">Google Drive</strong>
+            <strong style="color:#000;">"Save to Files"</strong> → choose
+            <strong style="color:#000;">iCloud Drive</strong> or
+            <strong style="color:#000;">Google Drive</strong>
           </div>
-          <button id="_backup-tip-ok" style="background:var(--gold,#d4a843);color:#000;font-weight:700;
+          <button id="_backup-tip-ok" style="background:#d4a843;color:#000;font-weight:700;
             border:none;border-radius:0.5rem;padding:0.65rem 2rem;font-size:0.95rem;cursor:pointer;width:100%;">
             OK, Got It →
           </button>
