@@ -13244,8 +13244,9 @@ async function shareBackupFile() {
     return;
   }
 
-  // Desktop: use File System Access API (showSaveFilePicker) if available —
-  // this lets the user pick a fixed location and truly overwrite the same file each time.
+  // Desktop: try File System Access API first (lets user pick location).
+  // Fall through to plain download on any error, including AbortError (user cancelled
+  // the picker) — we never want to show an error dialog for a cancelled save.
   if (window.showSaveFilePicker) {
     try {
       const handle = await window.showSaveFilePicker({
@@ -13256,14 +13257,12 @@ async function shareBackupFile() {
       await writable.write(blob);
       await writable.close();
       return;
-    } catch (e) {
-      if (e.name === 'AbortError') return; // user cancelled
-      // NotAllowedError or SecurityError (site not trusted / cross-origin frame) —
-      // fall through to plain <a> download which always works.
+    } catch {
+      // Any error (AbortError, NotAllowedError, SecurityError…) — fall through
     }
   }
 
-  // Plain download — always works on desktop
+  // Plain <a> download — always works
   const url = URL.createObjectURL(blob);
   const a   = document.createElement('a');
   a.href = url; a.download = fname;
@@ -13341,7 +13340,11 @@ document.getElementById('btn-backup-export')?.addEventListener('click', async ()
   try {
     await shareBackupFile();
   } catch (err) {
-    if (err.name !== 'AbortError') alert('Export failed: ' + (err.message ?? err));
+    // AbortError = user cancelled share sheet; NotAllowedError = browser blocked picker
+    // In both cases just reset the button silently — no error dialog needed.
+    if (err.name !== 'AbortError' && err.name !== 'NotAllowedError' && err.name !== 'SecurityError') {
+      alert('Export failed: ' + (err.message ?? err));
+    }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '☁️ Backup to Files'; }
   }
