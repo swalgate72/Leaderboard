@@ -11943,11 +11943,14 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
   }
 
   btn.disabled = true; btn.textContent = 'Saving…';
-  // Safety: re-enable button after 15s so the user is never permanently stuck
+  // Stop the background sync loop immediately so its in-flight IDB transaction
+  // doesn't compete with roundComplete's write and cause a hang on iOS.
+  stopSyncLoop();
+  // Safety: re-enable button after 10s so the user is never permanently stuck
   const saveTimeout = setTimeout(() => {
     btn.disabled = false; btn.textContent = '✓ Save & Finish';
     alert('Save is taking longer than expected — please check your connection and try again.');
-  }, 8000);
+  }, 10000);
   try {
     if (!roundId) throw new Error('No active round ID — cannot save.');
     // Build allGroupStates with clean individual group states
@@ -11969,7 +11972,6 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
     if (rawGroups) merged.allGroupStates = rawGroups;
 
     await roundComplete(roundId, merged);
-    stopSyncLoop();
     idbClear(roundId).catch(() => {});
     realtimeUnsubscribe(realtimeCh); realtimeCh = null;
     // Stage 1: clear lb-active-round now the round is durably completed
