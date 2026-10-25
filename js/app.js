@@ -13210,7 +13210,9 @@ async function shareBackupFile() {
   const file    = new File([blob], fname, { type: 'application/json' });
 
   // ── iOS / Android: Web Share API with file — shows the native share sheet ──
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+  // Only use share API on touch/mobile devices (canShare is true on desktop Chrome but share does nothing useful)
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
     await new Promise(resolve => {
       const tip = document.createElement('div');
       tip.style.cssText = `
@@ -16429,9 +16431,10 @@ async function showTournamentHubLeaderboard(code, roundNum) {
           console.log('[lb] player', p.name, 'holesPlayed=', p.holesPlayed)));
       }
 
-      // Auto-finalise if organiser and all scores are in
+      // Auto-finalise if organiser — worker is idempotent and returns cached adjustments instantly
+      // Don't gate on allIn: even after the round is done, we need adjustments to display the Cut column
       let adjustments = null;
-      if (allIn && secret) {
+      if (secret) {
         try {
           if (statusEl) { statusEl.textContent = 'All scores in — applying adjustments…'; statusEl.style.display = ''; }
           console.log('[lb] calling finalise for round', roundNum);
@@ -16449,7 +16452,7 @@ async function showTournamentHubLeaderboard(code, roundNum) {
           console.error('[lb] finalise error:', finErr);
         }
       } else {
-        console.log('[lb] skipping finalise: allIn=', allIn, 'hasSecret=', !!secret);
+        console.log('[lb] skipping finalise: no organiser secret on this device');
       }
 
       if (statusEl) statusEl.style.display = 'none';
