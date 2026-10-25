@@ -11944,7 +11944,7 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
   const saveTimeout = setTimeout(() => {
     btn.disabled = false; btn.textContent = '✓ Save & Finish';
     alert('Save is taking longer than expected — please check your connection and try again.');
-  }, 15000);
+  }, 8000);
   try {
     if (!roundId) throw new Error('No active round ID — cannot save.');
     // Build allGroupStates with clean individual group states
@@ -11980,15 +11980,13 @@ document.getElementById('btn-confirm-end')?.addEventListener('click', async () =
       'gs._hubTournamentCode=', gameState?._hubTournamentCode,
       'setup._hubTournamentCode=', setup?._hubTournamentCode,
       'lb-game-code=', localStorage.getItem('lb-game-code'));
-    // Auto-push scores for hub tournaments while gameState is still live
+    // Auto-push scores for hub tournaments while gameState is still live.
+    // Fire-and-forget — don't await; score push must not block the save flow.
     if (_hubCode) {
-      try {
-        const silentBtn = { textContent: '', style: {}, disabled: false };
-        await pushScoresToCloud(silentBtn);
-        console.log('[hub-end] pushScoresToCloud completed');
-      } catch (pushErr) {
-        console.error('[hub-end] pushScoresToCloud failed:', pushErr);
-      }
+      const silentBtn = { textContent: '', style: {}, disabled: false };
+      pushScoresToCloud(silentBtn)
+        .then(() => console.log('[hub-end] pushScoresToCloud completed'))
+        .catch(e  => console.error('[hub-end] pushScoresToCloud failed:', e));
     } else {
       console.warn('[hub-end] no _hubCode — will go to home instead of leaderboard');
     }
