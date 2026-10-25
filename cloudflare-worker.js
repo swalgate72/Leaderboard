@@ -794,15 +794,25 @@ async function handleRoundFinalise(code, roundNum, request, env) {
   );
   const allGroups = groupRecords.filter(Boolean);
 
-  // Flatten to per-player scores: last submitted score wins for same playerId+round
-  const playerScoreMap = new Map();
+  // Flatten to per-player scores: last submitted score wins for same playerId+round.
+  // Also build a name-based map as fallback for clients that don't send playerId.
+  const playerScoreMap = new Map();  // keyed by playerId
+  const playerScoreByName = new Map(); // keyed by lowercased name
   for (const group of allGroups) {
     for (const p of (group.players ?? [])) {
-      if (!p.playerId) continue;
-      const existing = playerScoreMap.get(p.playerId);
-      // Keep most recently updated
-      if (!existing || group.updatedAt > (existing._updatedAt ?? '')) {
-        playerScoreMap.set(p.playerId, { ...p, _updatedAt: group.updatedAt });
+      const key = p.playerId;
+      if (key) {
+        const existing = playerScoreMap.get(key);
+        if (!existing || group.updatedAt > (existing._updatedAt ?? '')) {
+          playerScoreMap.set(key, { ...p, _updatedAt: group.updatedAt });
+        }
+      }
+      if (p.name) {
+        const nameKey = p.name.toLowerCase().trim();
+        const existing = playerScoreByName.get(nameKey);
+        if (!existing || group.updatedAt > (existing._updatedAt ?? '')) {
+          playerScoreByName.set(nameKey, { ...p, _updatedAt: group.updatedAt });
+        }
       }
     }
   }
@@ -817,7 +827,9 @@ async function handleRoundFinalise(code, roundNum, request, env) {
   const excludedPlayers = [];
 
   for (const rp of roster.players) {
-    const submitted = playerScoreMap.get(rp.playerId);
+    // Match by playerId first, fall back to name for clients that don't send playerId
+    const submitted = playerScoreMap.get(rp.playerId)
+      ?? playerScoreByName.get((rp.name ?? '').toLowerCase().trim());
     if (!submitted) {
       excludedPlayers.push({ playerId: rp.playerId, name: rp.name, reason: 'no_score' });
       continue;
@@ -828,7 +840,8 @@ async function handleRoundFinalise(code, roundNum, request, env) {
       excludedPlayers.push({ playerId: rp.playerId, name: rp.name, reason: 'incomplete' });
       continue;
     }
-    validScores.push({ playerId: rp.playerId, name: rp.name, points: submitted.points ?? 0 });
+    // Client sends pts (stableford points); also accept points for future use
+    validScores.push({ playerId: rp.playerId, name: rp.name, points: submitted.pts ?? submitted.points ?? 0 });
   }
 
   // ── Force-finalise confirmation gate ─────────────────────────
