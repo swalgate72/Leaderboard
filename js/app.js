@@ -13201,16 +13201,15 @@ document.getElementById('btn-profile-home')?.addEventListener('click', () => sho
 // BACKUP / RESTORE
 // ================================================================
 
-// ── Shared backup helper — uses Web Share API (iCloud/GDrive sheet on iOS)
-// with fallback to plain download. Call from any user-gesture context.
+// ── Shared backup helper — uses Web Share API (iCloud/GDrive sheet on iOS),
+// or shows a desktop save dialog. Call from any user-gesture context.
 async function shareBackupFile() {
   const json    = await exportBackup();
   const fname   = `leaderboard-backup.json`;
   const blob    = new Blob([json], { type: 'application/json' });
   const file    = new File([blob], fname, { type: 'application/json' });
 
-  // iOS has no clean "Save As" API — Web Share is the only route.
-  // Show a brief instruction overlay so the user knows to tap "Save to Files".
+  // ── iOS / Android: Web Share API with file — shows the native share sheet ──
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     await new Promise(resolve => {
       const tip = document.createElement('div');
@@ -13244,30 +13243,51 @@ async function shareBackupFile() {
     return;
   }
 
-  // Desktop: try File System Access API first (lets user pick location).
-  // Fall through to plain download on any error, including AbortError (user cancelled
-  // the picker) — we never want to show an error dialog for a cancelled save.
-  if (window.showSaveFilePicker) {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: fname,
-        types: [{ description: 'JSON backup', accept: { 'application/json': ['.json'] } }],
-      });
-      const writable = await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      return;
-    } catch {
-      // Any error (AbortError, NotAllowedError, SecurityError…) — fall through
-    }
-  }
+  // ── Desktop: show a simple modal with download + optional save-picker ──
+  await new Promise(resolve => {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;
+      background:rgba(0,0,0,0.72);display:flex;align-items:center;
+      justify-content:center;padding:1rem;`;
+    modal.innerHTML = `
+      <div style="background:#fff;border-radius:1rem;padding:1.5rem;
+                  max-width:340px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+        <div style="font-size:1.5rem;margin-bottom:0.5rem;">💾</div>
+        <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.35rem;color:#111;">Save Backup</div>
+        <div style="font-size:0.85rem;color:#555;margin-bottom:1.25rem;line-height:1.5;">
+          Download <strong style="color:#111;">leaderboard-backup.json</strong> to your computer.
+          Keep it somewhere safe — you can restore it at any time from this screen.
+        </div>
+        <button id="_bk-dl" style="background:#d4a843;color:#000;font-weight:700;
+          border:none;border-radius:0.5rem;padding:0.7rem 1.5rem;font-size:0.95rem;
+          cursor:pointer;width:100%;margin-bottom:0.6rem;">
+          ⬇ Download to Desktop
+        </button>
+        <button id="_bk-cancel" style="background:none;border:none;color:#888;
+          font-size:0.85rem;cursor:pointer;padding:0.3rem;">
+          Cancel
+        </button>
+      </div>`;
+    document.body.appendChild(modal);
 
-  // Plain <a> download — always works
-  const url = URL.createObjectURL(blob);
-  const a   = document.createElement('a');
-  a.href = url; a.download = fname;
-  document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+    document.getElementById('_bk-dl').addEventListener('click', () => {
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement('a');
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+      modal.remove();
+      resolve();
+    });
+
+    document.getElementById('_bk-cancel').addEventListener('click', () => {
+      modal.remove();
+      resolve();
+    });
+
+    modal.addEventListener('click', e => { if (e.target === modal) { modal.remove(); resolve(); } });
+  });
 }
 
 // ── Backup prompt — shown after round complete and after course save ──
