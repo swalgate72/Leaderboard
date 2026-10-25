@@ -384,7 +384,10 @@ async function pushScoresToCloud(btn) {
     // Use a stable groupId derived from sorted player names so two independent
     // devices pushing to the same game code don't collide on group: 1
     const makeGroupId = (gs) => (gs.names ?? []).slice().sort().join('|').toLowerCase().replace(/[^a-z0-9|]/g, '').slice(0, 40) || String(Date.now());
-    const tournRound = (() => { try { const ts = _tournState(); return (ts.active && ts.currentRound > 0) ? ts.currentRound : 1; } catch { return 1; } })();
+    // Hub tournaments store the round number on gameState directly; fall back to
+    // the legacy lb-tourn-state for UUID tournaments.
+    const tournRound = gameState?._hubTournRound
+      ?? (() => { try { const ts = _tournState(); return (ts.active && ts.currentRound > 0) ? ts.currentRound : 1; } catch { return 1; } })();
     const rounds = allStates.map((gs, gi) => ({
       round: tournRound,
       group: makeGroupId(gs),
