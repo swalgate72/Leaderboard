@@ -5920,7 +5920,72 @@ function buildSetupReview() {
   }
 
   html += '</div>';
+
+  // ── Hub tournament: full-roster section placeholder ────────────
+  // Detect hub tournament context: non-UUID tournamentId means hub code
+  const _hubTournCode = (setup.tournamentId && !/^[0-9a-f-]{36}$/.test(setup.tournamentId))
+    ? setup.tournamentId : null;
+  if (_hubTournCode) {
+    html += `
+      <div id="review-full-roster" style="margin-top:1rem;">
+        <div style="font-size:0.8rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
+          color:var(--muted);margin-bottom:0.5rem;">All Tournament Players</div>
+        <div id="review-full-roster-body" style="color:var(--muted2);font-size:0.85rem;text-align:center;
+          padding:0.5rem 0;">Loading roster…</div>
+      </div>`;
+  }
+
   document.getElementById('review-content').innerHTML = html;
+
+  // ── Hub tournament: async full-roster load ─────────────────────
+  if (_hubTournCode) {
+    (async () => {
+      const bodyEl = document.getElementById('review-full-roster-body');
+      if (!bodyEl) return;
+      try {
+        const data = await _tournWorkerFetch(`/roster/${_hubTournCode}`);
+        const allPlayers = Array.isArray(data) ? data
+          : Array.isArray(data?.players) ? data.players : [];
+        if (!allPlayers.length) {
+          bodyEl.textContent = 'No players found.';
+          return;
+        }
+        // Names in the current group (this phone's scorers)
+        const groupNames = new Set(setup.players.map(p => (p.name ?? '').trim().toLowerCase()).filter(Boolean));
+        // Sort: group players first (starred), then others alphabetically
+        const sorted = [...allPlayers].sort((a, b) => {
+          const aIn = groupNames.has((a.name ?? '').trim().toLowerCase());
+          const bIn = groupNames.has((b.name ?? '').trim().toLowerCase());
+          if (aIn !== bIn) return aIn ? -1 : 1;
+          return (a.name ?? '').localeCompare(b.name ?? '');
+        });
+        const round = setup.tournRoundNumber ?? 1;
+        bodyEl.innerHTML = sorted.map(p => {
+          const nm     = p.name ?? '?';
+          const inGrp  = groupNames.has(nm.trim().toLowerCase());
+          const idx    = p.hcpIndex ?? p.originalHcp ?? 0;
+          const adjHcp = p.adjustedHcp ?? p.originalHcp ?? idx;
+          return `<div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:0.45rem 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+            <div style="display:flex;align-items:center;gap:6px;font-size:0.95rem;font-weight:${inGrp ? '800' : '600'};
+              color:${inGrp ? 'var(--white)' : 'var(--muted2)'};">
+              ${inGrp ? '<span style="color:var(--gold);">★</span>' : '<span style="display:inline-block;width:1em;"></span>'}
+              ${_esc(nm)}
+            </div>
+            <div style="font-size:0.8rem;font-weight:700;color:var(--muted2);text-align:right;">
+              <span>Index <strong style="color:var(--white)">${fmtHandicap(idx)}</strong></span>
+              &nbsp;
+              <span>Playing <strong style="color:var(--gold)">${adjHcp}</strong></span>
+            </div>
+          </div>`;
+        }).join('');
+      } catch (err) {
+        const bodyEl2 = document.getElementById('review-full-roster-body');
+        if (bodyEl2) bodyEl2.textContent = 'Could not load roster.';
+        console.warn('[review] roster fetch failed:', err);
+      }
+    })();
+  }
 
   // Wire up team name inputs — store onto setup.players / setup.pairs as user types
   document.querySelectorAll('.review-team-name').forEach(inp => {
