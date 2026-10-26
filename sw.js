@@ -68,7 +68,7 @@ const PASSTHROUGH_PREFIXES = [
 const ESSENTIAL_URLS = [
   '/',
   '/index.html',
-  '/styles.css?v=20261015c',
+  '/styles.css?v=20261026b',
   '/jsQR.min.js?v=1.4.0',
   '/js/app.js?v=20261026b',
   '/game.js?v=20260704l',

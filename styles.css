@@ -3593,6 +3593,7 @@ html.light .cat-tile-label { color: var(--white); }
   padding: 0.35rem 0 0.1rem;
   margin-top: -0.15rem; /* visually attach to the tile above */
 }
+.cat-formats[hidden] { display: none; }
 .cat-formats .fmt-col {
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
