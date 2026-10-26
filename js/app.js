@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026h)
-window.APP_BUILD = '20261026h';
+// LEADERBOARD - app.js  (v3.2 · build 20261026i)
+window.APP_BUILD = '20261026i';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -7738,10 +7738,10 @@ function makePlayerInputRow(pi, h, par) {
   const discBorder = hasExisting ? `2px solid ${discColor}` : `2px dashed ${parColor}`;
 
   const shotPill = extra > 0
-    ? `<span class="gi-pill gi-pill-shot">+${extra}<span class="gi-pill-long"> shot${extra > 1 ? 's' : ''}</span></span>`
+    ? `<span class="gi-shot-badge"><span class="gi-shot-num">${extra}</span><span class="gi-shot-lbl">shot${extra > 1 ? 's' : ''}</span></span>`
     : extra < 0
       ? `<span class="gi-pill gi-pill-plus">−${-extra}</span>`
-      : `<span class="gi-pill gi-pill-none">No shots</span>`;
+      : ``;
   row.classList.add('gi-card');
   row.dataset.pi    = String(pi);
   row.dataset.extra = String(extra);

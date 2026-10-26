@@ -3848,6 +3848,38 @@ html.light .gi-card { background: #fff; }
 .gi-pill-shot { background: rgba(212,168,67,0.14); color: #9a6d18; border: 1px solid rgba(212,168,67,0.4); }
 .gi-pill-plus { background: var(--blue-dim); color: var(--blue); border: 1px solid var(--blue-border); }
 :root:not(.light) .gi-pill-shot { color: #e8c46a; }
+
+/* Shot badge — prominent square tile next to player name */
+.gi-shot-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(212,168,67,0.18);
+  border: 1.5px solid rgba(212,168,67,0.5);
+  border-radius: 6px;
+  padding: 0.1rem 0.45rem 0.12rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.gi-shot-num {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: var(--gold);
+  line-height: 1;
+}
+.gi-shot-lbl {
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.8;
+  line-height: 1.2;
+}
+:root.light .gi-shot-num,
+:root.light .gi-shot-lbl { color: #8a5e10; }
 .gi-chair { font-size: 1rem; }
 .gi-card .gi-hcp { font-size: 0.84rem; font-weight: 500; color: var(--muted); margin-top: 3px; }
 .gi-card .gi-prev { font-size: 0.7rem; color: var(--muted2); margin-top: 2px; min-height: 0; }
@@ -4110,6 +4142,9 @@ html.light .btn-back-hole {
 #game-inputs:not(.gi-roomy) .gi-pill-none,
 #game-inputs:not(.gi-roomy) .gi-hcp-long,
 #game-inputs:not(.gi-roomy) .gi-prev { display: none; }
+#game-inputs:not(.gi-roomy) .gi-shot-badge { padding: 0.08rem 0.35rem; border-radius: 5px; }
+#game-inputs:not(.gi-roomy) .gi-shot-num { font-size: 0.85rem; }
+#game-inputs:not(.gi-roomy) .gi-shot-lbl { display: none; }
 #game-inputs:not(.gi-roomy) .gi-hcp { font-size: 0.74rem; margin-top: 1px; white-space: nowrap; }
 #game-inputs:not(.gi-roomy) .gi-hcp b { font-weight: 700; color: var(--white); }
 #game-inputs:not(.gi-roomy) .gi-calc { text-align: left; }
