@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026k)
-window.APP_BUILD = '20261026k';
+// LEADERBOARD - app.js  (v3.2 · build 20261026l)
+window.APP_BUILD = '20261026l';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -2994,6 +2994,22 @@ function renderSetupPlayerList() {
   const count  = filled.length;
   if (countEl) countEl.textContent = `${count} player${count !== 1 ? 's' : ''} added`;
 
+  // Dynamic "Add N more" hint
+  const hintEl = document.getElementById('setup-players-hint');
+  if (hintEl) {
+    const minNeeded = setup.scoring === 'split6' ? 3
+      : ['betterball','csm','foursomes','greensomes'].includes(setup.scoring) ? 4
+      : setup.scoring === 'match' ? 2
+      : 0;
+    const remaining = Math.max(0, minNeeded - count);
+    if (remaining > 0) {
+      hintEl.textContent = `Add ${remaining} more player${remaining > 1 ? 's' : ''}${remaining === 1 ? '…' : ''}`;
+      hintEl.style.display = '';
+    } else {
+      hintEl.style.display = 'none';
+    }
+  }
+
   if (!count) {
     listEl.innerHTML = `<div style="padding:1rem;text-align:center;color:var(--muted);font-size:0.95rem;">No players yet.</div>`;
     return;
@@ -3940,7 +3956,10 @@ function addSetupPlayer(name, hcpIndex, courseHandicap, profileId) {
 
 document.getElementById('btn-setup-players-next')?.addEventListener('click', () => {
   const filled = setup.players.filter(p => p.name);
-  const minPlayers = ['betterball','csm','foursomes','greensomes','match','best2','split6','skins','itc'].includes(setup.scoring) ? 2 : 1;
+  const minPlayers = setup.scoring === 'split6' ? 3
+    : ['betterball','csm','foursomes','greensomes'].includes(setup.scoring) ? 4
+    : ['match','best2','skins','itc'].includes(setup.scoring) ? 2
+    : 1;
   if (filled.length < minPlayers) { alert(`Add at least ${minPlayers} player${minPlayers > 1 ? 's' : ''}.`); return; }
 
   // Formats that need the Arrange Groups / Pair Up screen

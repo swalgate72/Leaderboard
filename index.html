@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261026k">
+  <link rel="stylesheet" href="styles.css?v=20261026l">
   <!-- jsQR: fallback QR decoder for browsers without BarcodeDetector (iOS PWA) -->
   <script src="jsQR.min.js?v=1.4.0"></script>
 </head>
@@ -469,6 +469,9 @@
     </div>
 
     <div class="page-pad-sm" style="padding-top:1rem;">
+
+      <!-- Dynamic min-players hint -->
+      <div id="setup-players-hint" style="display:none;text-align:center;font-family:'Plus Jakarta Sans',sans-serif;font-size:0.85rem;font-weight:700;letter-spacing:0.04em;color:var(--gold);padding:0.5rem 0 0.25rem;opacity:0.85;"></div>
 
       <!-- Player list — rendered by JS -->
       <div id="setup-player-list" style="display:grid;gap:0.5rem;margin-bottom:1rem;"></div>
@@ -1960,7 +1963,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261026k"></script>
+<script type="module" src="js/app.js?v=20261026l"></script>
 
 
 <!-- ══════════════════════════════════════════
