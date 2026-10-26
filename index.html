@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261026z">
+  <link rel="stylesheet" href="styles.css?v=20261026aa">
   <!-- jsQR: fallback QR decoder for browsers without BarcodeDetector (iOS PWA) -->
   <script src="jsQR.min.js?v=1.4.0"></script>
 </head>
@@ -959,6 +959,7 @@
                border-radius:10px;color:var(--muted2);cursor:pointer;display:none;">
         📊 By Round
       </button>
+      <!-- Tournament view title — shown above the table in tournament mode -->
       <button id="btn-lb-copy-url"
         style="flex:1;min-width:0;padding:0.55rem 0.5rem;font-family:'Plus Jakarta Sans',sans-serif;
                font-size:0.82rem;font-weight:800;background:none;border:1.5px solid var(--border2);
@@ -969,6 +970,9 @@
 
     <div style="padding:0 1rem;">
       <div id="leaderboard-ld-ntp"></div>
+      <div id="lb-tourn-title" style="display:none;padding:0.6rem 0.75rem 0.1rem;
+        font-family:'Plus Jakarta Sans',sans-serif;font-size:0.7rem;font-weight:800;
+        letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);"></div>
       <div id="leaderboard-table"></div>
     </div>
 
@@ -1964,7 +1968,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261026z"></script>
+<script type="module" src="js/app.js?v=20261026aa"></script>
 
 
 <!-- ══════════════════════════════════════════

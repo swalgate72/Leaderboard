@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026z)
+// LEADERBOARD - app.js  (v3.2 · build 20261026aa)
 window.APP_BUILD = '20261026m';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
@@ -9418,10 +9418,10 @@ function showLeaderboard() {
   console.log('[LB] showLeaderboard: code=', code, 'isTournActive=', isTournActive,
     'gameCode=', gameState?.gameCode, 'hubCode=', gameState?._hubTournamentCode,
     'tournamentId=', gameState?.tournamentId, 'ts.active=', ts?.active);
-  if (toggleBtn) toggleBtn.style.display = isTournActive ? '' : 'none';
-  // Default to per-round view in tournaments, flat total otherwise
-  _lbViewMode = 'total';
-  if (toggleBtn) toggleBtn.textContent = '📋 Total Only';
+  // In tournament mode replace the toggle button with a static title above the table
+  if (toggleBtn) toggleBtn.style.display = 'none';
+  // Default to per-round columns view in tournaments
+  _lbViewMode = isTournActive ? 'total' : 'byround';
   // In tournament mode, fetch all cloud scores so the leaderboard shows all rounds.
   // Push happens separately (Update button) — fetching alone is fast and safe mid-round.
   if (isTournActive && code) {
@@ -9768,9 +9768,21 @@ function renderLeaderboard() {
     .map(([name, d]) => ({ name, ...d }))
     .sort((a, b) => isStroke ? a.net - b.net : b.pts - a.pts);
 
+  // ── Tournament title above the table ──
+  const tournTitleEl = document.getElementById('lb-tourn-title');
+  if (tournTitleEl) {
+    if (isTourney) {
+      tournTitleEl.style.display = '';
+      tournTitleEl.textContent = _lbViewMode === 'total'
+        ? 'Round by Round'
+        : 'Total Tournament Points';
+    } else {
+      tournTitleEl.style.display = 'none';
+    }
+  }
+
   // ── Tournament view: per-round columns + cumulative total ──
-  // Always shown in tournament mode. Current live round highlighted in blue.
-  // "By Round" toggle switches to a flat single-score view if preferred.
+  // Default view shows per-round columns; flat total via toggle.
   if (_lbViewMode === 'total') {
     const allRounds = Array.from(new Set([...cloudRounds, liveRound])).sort((a,b)=>a-b);
     const colW      = `${Math.floor(56 / Math.max(allRounds.length, 1))}%`;
@@ -9783,7 +9795,8 @@ function renderLeaderboard() {
       font-size:0.6rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);">
       <div>Player</div>${allRounds.map(r => {
         const isLive = r === liveRound;
-        return `<div style="text-align:center;${isLive ? `color:${accent};` : ''}">R${r}</div>`;
+        const thruTxt = isLive && liveHoles < numHolesPerRound ? `<div style="font-size:0.55rem;opacity:0.75;">${liveHoles}H</div>` : '';
+        return `<div style="text-align:center;${isLive ? `color:${accent};` : ''}">R${r}${thruTxt}</div>`;
       }).join('')}
       <div style="text-align:center">${scoreLabel}</div></div>`;
 
@@ -9807,20 +9820,24 @@ function renderLeaderboard() {
       </div>`;
     });
 
-    // Legend
+    // Legend — cumulative holes played
+    const cumulHoles = (liveRound - 1) * numHolesPerRound + liveHoles;
     html += `<div style="padding:0.5rem 0.75rem;font-size:0.7rem;color:${accent};opacity:0.85;">
-      Current round (R${liveRound}) shown in blue</div>`;
+      R${liveRound} in progress · ${cumulHoles} holes played overall</div>`;
     html += '</div>';
     tableEl.innerHTML = html;
   } else {
-    // ── Flat total view (toggled via "By Round" button) ──
+    // ── Flat total view (toggle or non-tournament) ──
+    // Thru = completed rounds × holes + current round holes played
+    const completedRounds = liveRound - 1;
+    const cumulativeThru  = completedRounds * numHolesPerRound + liveHoles;
     tableEl.innerHTML = buildLeaderboardTable(
       sortedPlayers.map((p, i) => ({
         rank:   i + 1,
         label:  p.name,
         sub:    null,
         score:  isStroke ? p.net : p.pts,
-        thru:   numHolesPerRound * (ts.rounds ?? 1),
+        thru:   cumulativeThru,
         isLead: i === 0,
       })),
       scoreLabel
