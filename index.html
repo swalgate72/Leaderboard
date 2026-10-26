@@ -61,29 +61,23 @@
         </div>
       </div>
 
-      <!-- Round in progress + Join a Game — side by side -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+      <!-- Round in progress — full width -->
+      <button id="btn-home-active-games" class="home-round-card is-idle" type="button"
+        style="align-items:center;gap:0.6rem;padding:0.6rem 0.85rem;">
+        <span class="home-round-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="21"/><path d="M6 4h11l-2.5 4L17 12H6"/></svg>
+          <span class="home-round-live"></span>
+        </span>
+        <span class="home-round-body">
+          <span class="home-round-status" id="home-round-status">No round in progress</span>
+          <span class="home-round-course" id="home-round-course">Choose a format below</span>
+        </span>
+        <span class="home-round-btn" id="home-round-btn" style="margin-left:auto;flex-shrink:0;">View <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></span>
+        <span id="home-active-games-badge" class="home-hero-cta-badge" style="display:none;"></span>
+      </button>
 
-        <button id="btn-home-active-games" class="home-round-card is-idle" type="button"
-          style="flex-direction:column;align-items:flex-start;gap:0.3rem;padding:0.6rem 0.7rem;">
-          <span style="display:flex;align-items:center;gap:0.5rem;width:100%;">
-            <span class="home-round-icon" aria-hidden="true" style="width:32px;height:32px;border-radius:8px;flex-shrink:0;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="21"/><path d="M6 4h11l-2.5 4L17 12H6"/></svg>
-              <span class="home-round-live"></span>
-            </span>
-            <span class="home-round-btn" id="home-round-btn" style="margin-left:auto;">View <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></span>
-            <span id="home-active-games-badge" class="home-hero-cta-badge" style="display:none;"></span>
-          </span>
-          <span class="home-round-body">
-            <span class="home-round-status" id="home-round-status">No round in progress</span>
-            <span class="home-round-course" id="home-round-course">Choose a format below</span>
-          </span>
-        </button>
-
-        <!-- btn-home-join-game: hidden, Join is now in the Tournament tab. Kept for JS back-compat. -->
-        <button id="btn-home-join-game" type="button" style="display:none;" aria-hidden="true"></button>
-
-      </div>
+      <!-- btn-home-join-game: hidden, Join is now in the Tournament tab. Kept for JS back-compat. -->
+      <button id="btn-home-join-game" type="button" style="display:none;" aria-hidden="true"></button>
 
       <!-- Hidden for JS back-compat -->
       <button id="btn-home-game-invites" style="display:none;"></button>
