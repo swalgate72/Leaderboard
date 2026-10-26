@@ -2344,11 +2344,65 @@ document.querySelectorAll('.fmt-btn').forEach(btn => {
   });
 });
 
+// ── Category tile expand/collapse ────────────────────────────────
+(function initCategoryTiles() {
+  // Tiles that expand a format list
+  const expandTiles = [
+    { tileId: 'cat-solo',       formatsId: 'cat-solo-formats' },
+    { tileId: 'cat-h2h',        formatsId: 'cat-h2h-formats' },
+    { tileId: 'cat-2v2',        formatsId: 'cat-2v2-formats' },
+    { tileId: 'cat-team',       formatsId: 'cat-team-formats' },
+  ];
+
+  expandTiles.forEach(({ tileId, formatsId }) => {
+    const tile    = document.getElementById(tileId);
+    const formats = document.getElementById(formatsId);
+    if (!tile || !formats) return;
+
+    const toggle = (e) => {
+      e.preventDefault();
+      const open = tile.getAttribute('aria-expanded') === 'true';
+      // Close all other tiles first
+      expandTiles.forEach(({ tileId: otherId, formatsId: otherFmtId }) => {
+        if (otherId === tileId) return;
+        const ot = document.getElementById(otherId);
+        const of = document.getElementById(otherFmtId);
+        if (ot) ot.setAttribute('aria-expanded', 'false');
+        if (of) of.hidden = true;
+      });
+      tile.setAttribute('aria-expanded', String(!open));
+      formats.hidden = open;
+    };
+
+    tile.addEventListener('touchstart', toggle, { passive: false });
+    tile.addEventListener('click', (e) => {
+      if (e.sourceCapabilities?.firesTouchEvents) return;
+      toggle(e);
+    });
+  });
+
+  // Tournament tile — navigates directly, no expand
+  const tournTile = document.getElementById('cat-tournament');
+  if (tournTile) {
+    const goToTournament = (e) => {
+      e.preventDefault();
+      showTournamentHub();
+    };
+    tournTile.addEventListener('touchstart', goToTournament, { passive: false });
+    tournTile.addEventListener('click', (e) => {
+      if (e.sourceCapabilities?.firesTouchEvents) return;
+      goToTournament(e);
+    });
+  }
+})();
+
+// ── Bottom nav ────────────────────────────────────────────────────
 document.getElementById('nav-profile')   ?.addEventListener('click', () => { setActiveBottomNav('nav-profile');    showProfile(); });
 document.getElementById('nav-friends')   ?.addEventListener('click', () => { setActiveBottomNav('nav-friends');    showFriends(); });
 document.getElementById('nav-history')   ?.addEventListener('click', () => { setActiveBottomNav('nav-history');    showHistory(); });
 document.getElementById('nav-play')      ?.addEventListener('click', () => { setActiveBottomNav('nav-play');       showHome(); });
-document.getElementById('nav-tournament')?.addEventListener('click', () => { setActiveBottomNav('nav-tournament'); showTournamentHub(); });
+// nav-tournament hidden in nav but kept for back-compat; tile on home screen drives navigation now
+document.getElementById('nav-tournament')?.addEventListener('click', () => { showTournamentHub(); });
 
 document.getElementById('coming-soon-close')?.addEventListener('click', () => hide('modal-coming-soon'));
 document.getElementById('btn-resume')?.addEventListener('click', async () => { if (roundId) await resumeRound(roundId); });
@@ -15351,7 +15405,8 @@ const TOURN_HCP_LABELS = {
 
 async function showTournamentHub() {
   showScreen('screen-tournament-hub');
-  setActiveBottomNav('nav-tournament');
+  // nav-tournament is hidden (moved to home screen tile); clear active state from all nav buttons
+  setActiveBottomNav(null);
   await renderTournamentHub();
 }
 

@@ -3488,6 +3488,118 @@ html.light .fmt-col { background: #fff; }
 }
 html.light .fmt-btn svg { background: #f6f3ec; }
 
+/* ── Category tiles (home screen) ─────────────────────────────── */
+.cat-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* The expandable tile header */
+.cat-tile {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 0.7rem;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.85rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 6px 16px rgba(20,40,28,0.06);
+  transition: border-color 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.cat-tile:active { background: var(--surface2); }
+html.light .cat-tile { background: #fff; }
+html.light .cat-tile:active { background: #f6f3ec; }
+
+/* Tile open state */
+.cat-tile[aria-expanded="true"] {
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  border-color: var(--green);
+}
+
+/* Icon circle */
+.cat-tile-icon {
+  grid-row: 1 / 3;
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.cat-tile-icon svg {
+  width: 26px; height: 26px;
+  stroke: var(--muted);
+}
+.cat-tile[aria-expanded="true"] .cat-tile-icon {
+  background: rgba(29,107,58,0.15);
+  border-color: var(--green);
+}
+.cat-tile[aria-expanded="true"] .cat-tile-icon svg { stroke: var(--green); }
+
+/* Label */
+.cat-tile-label {
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  align-self: end;
+}
+html.light .cat-tile-label { color: var(--white); }
+
+/* Sub-label */
+.cat-tile-sub {
+  grid-column: 2;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 500;
+  align-self: start;
+  line-height: 1.3;
+}
+
+/* Chevron */
+.cat-tile-chevron {
+  grid-row: 1 / 3;
+  width: 20px; height: 20px;
+  stroke: var(--muted);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.cat-tile[aria-expanded="true"] .cat-tile-chevron { transform: rotate(180deg); stroke: var(--green); }
+
+/* Tournament tile: right-pointing chevron (navigates, doesn't expand) */
+.cat-tile-chevron--go { transform: none !important; }
+
+/* Tournament tile accent */
+.cat-tile--tournament .cat-tile-icon { background: rgba(212,168,67,0.12); border-color: rgba(212,168,67,0.3); }
+.cat-tile--tournament .cat-tile-icon svg { stroke: #d4a843; }
+.cat-tile--tournament .cat-tile-label { color: #d4a843; }
+
+/* Expanded format list below a tile */
+.cat-formats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.35rem 0 0.1rem;
+  margin-top: -0.15rem; /* visually attach to the tile above */
+}
+.cat-formats .fmt-col {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+.cat-formats .fmt-col:first-child { border-top-left-radius: 14px; border-top-right-radius: 14px; }
+.cat-formats .fmt-col:last-child  { border-bottom-left-radius: 18px; border-bottom-right-radius: 18px; }
+
 /* ── In-game hero: same green + gold halo ──────────────────────── */
 .game-hero {
   background:

@@ -92,173 +92,80 @@
 
     <div style="padding:0 0.75rem 0;">
 
-      <!-- Two-column grid: Solo left, Pairs & Teams right -->
-      <div class="fmt-grid">
+      <!-- Category tiles — tap to expand formats -->
+      <div class="cat-grid">
 
-        <!-- SOLO column -->
-        <div class="fmt-stack">
-          <div class="home-section-label">Solo</div>
-          <div class="fmt-col">
-            <button class="fmt-btn" data-fmt="stableford">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="14" r="5"/>
-                <path d="M8.5 11.5 Q12 13 15.5 11.5" stroke-width="1"/>
-                <path d="M12 1 L12.9 3.8 L15.9 3.8 L13.5 5.5 L14.4 8.3 L12 6.6 L9.6 8.3 L10.5 5.5 L8.1 3.8 L11.1 3.8 Z" fill="#7a5610" stroke="none"/>
-              </svg>
-              Stableford
-            </button>
-          </div>
-          <div class="fmt-col">
-            <button class="fmt-btn" data-fmt="stroke">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="4" y="3" width="16" height="18" rx="2"/>
-                <line x1="4" y1="8" x2="20" y2="8"/>
-                <line x1="8"  y1="11" x2="8"  y2="15"/>
-                <line x1="10.5" y1="11" x2="10.5" y2="15"/>
-                <line x1="13" y1="11" x2="13" y2="15"/>
-                <line x1="15.5" y1="11" x2="15.5" y2="15"/>
-                <line x1="7" y1="15" x2="16.5" y2="11" stroke="var(--green)"/>
-              </svg>
-              Stroke Play
-            </button>
-          </div>
-          <div class="fmt-col">
-            <button class="fmt-btn" data-fmt="match">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <line x1="4" y1="4" x2="14" y2="14"/>
-                <rect x="2" y="12" width="4" height="4" rx="1" transform="rotate(-45 4 14)"/>
-                <line x1="20" y1="4" x2="10" y2="14"/>
-                <rect x="18" y="12" width="4" height="4" rx="1" transform="rotate(45 20 14)"/>
-                <circle cx="12" cy="12" r="2.8" fill="var(--surface,#faf7f0)" stroke="currentColor" stroke-width="1.5"/>
-                <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
-              </svg>
-              Match Play
-            </button>
-          </div>
-          <div class="fmt-col">
-            <button class="fmt-btn" data-fmt="skins">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <ellipse cx="12" cy="17" rx="7" ry="3" stroke="#7a5610"/>
-                <ellipse cx="12" cy="15.5" rx="7" ry="3" stroke="#7a5610" fill="var(--surface,#faf7f0)"/>
-                <circle cx="12" cy="9" r="4.5"/>
-                <path d="M8.5 7.5 Q12 9.5 15.5 7.5" stroke-width="1"/>
-              </svg>
-              Skins
-            </button>
-          </div>
-          <div class="fmt-col">
-            <button class="fmt-btn" data-fmt="itc">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M6 13 L6 6 Q6 4 8 4 L16 4 Q18 4 18 6 L18 13"/>
-                <rect x="5" y="13" width="14" height="4" rx="1"/>
-                <path d="M5 13 L3 13 Q2 13 2 14 L2 16 Q2 17 3 17 L5 17"/>
-                <path d="M19 13 L21 13 Q22 13 22 14 L22 16 Q22 17 21 17 L19 17"/>
-                <line x1="7" y1="17" x2="6" y2="21"/>
-                <line x1="17" y1="17" x2="18" y2="21"/>
-              </svg>
-              In the Chair
-            </button>
-          </div>
-          <div class="fmt-col">
-            <button class="fmt-btn" data-fmt="split6">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <text x="12" y="18" text-anchor="middle" font-size="18" font-weight="800" font-family="system-ui,sans-serif" fill="currentColor" stroke="none">6</text>
-                <line x1="12" y1="2" x2="12" y2="22" stroke="var(--surface,#faf7f0)" stroke-width="2.5"/>
-                <line x1="12" y1="2" x2="12" y2="22" stroke="var(--green,#1d6b3a)" stroke-width="1.2" stroke-dasharray="2 1.5"/>
-              </svg>
-              Split 6
-            </button>
-          </div>
+        <!-- Solo Scoring -->
+        <button class="cat-tile" id="cat-solo" aria-expanded="false" aria-controls="cat-solo-formats">
+          <span class="cat-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="14" r="5"/><path d="M8.5 11.5 Q12 13 15.5 11.5" stroke-width="1"/><path d="M12 1 L12.9 3.8 L15.9 3.8 L13.5 5.5 L14.4 8.3 L12 6.6 L9.6 8.3 L10.5 5.5 L8.1 3.8 L11.1 3.8 Z" fill="#d4a843" stroke="none"/></svg>
+          </span>
+          <span class="cat-tile-label">Solo Scoring</span>
+          <span class="cat-tile-sub">Stableford · Stroke Play</span>
+          <svg class="cat-tile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="cat-formats" id="cat-solo-formats" hidden>
+          <div class="fmt-col"><button class="fmt-btn" data-fmt="stableford"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="14" r="5"/><path d="M8.5 11.5 Q12 13 15.5 11.5" stroke-width="1"/><path d="M12 1 L12.9 3.8 L15.9 3.8 L13.5 5.5 L14.4 8.3 L12 6.6 L9.6 8.3 L10.5 5.5 L8.1 3.8 L11.1 3.8 Z" fill="#7a5610" stroke="none"/></svg>Stableford</button></div>
+          <div class="fmt-col"><button class="fmt-btn" data-fmt="stroke"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="4" y1="8" x2="20" y2="8"/><line x1="8" y1="11" x2="8" y2="15"/><line x1="10.5" y1="11" x2="10.5" y2="15"/><line x1="13" y1="11" x2="13" y2="15"/><line x1="15.5" y1="11" x2="15.5" y2="15"/><line x1="7" y1="15" x2="16.5" y2="11" stroke="var(--green)"/></svg>Stroke Play</button></div>
         </div>
 
-        <!-- PAIRS & TEAMS column -->
-        <div class="fmt-stack">
-          <div class="home-section-label">Pairs &amp; Teams</div>
-          <div class="fmt-col">
-            <button class="fmt-btn" data-fmt="betterball">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="8" cy="13" r="5"/>
-                <path d="M5 11 Q8 13 11 11" stroke-width="1"/>
-                <circle cx="16" cy="13" r="5" stroke="#7a5610" stroke-width="2"/>
-                <path d="M13 11 Q16 13 19 11" stroke-width="1" stroke="#7a5610"/>
-              </svg>
-              Better Ball
-            </button>
-          </div>
-          <div class="fmt-col">
-            <button class="fmt-btn" data-fmt="csm">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="6" cy="14" r="4"/>
-                <path d="M3.5 12.5 Q6 14 8.5 12.5" stroke-width="1"/>
-                <line x1="11" y1="14" x2="13" y2="14" stroke-width="2"/>
-                <line x1="12" y1="13" x2="12" y2="15" stroke-width="2"/>
-                <circle cx="18" cy="14" r="4"/>
-                <path d="M15.5 12.5 Q18 14 20.5 12.5" stroke-width="1"/>
-              </svg>
-              Combined Score
-            </button>
-          </div>
-          <div class="fmt-col">
-            <button class="fmt-btn" data-fmt="best2">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="4.5"  cy="14" r="3.5" stroke="#7a5610" stroke-width="2"/>
-                <circle cx="12"   cy="14" r="3.5" stroke="#7a5610" stroke-width="2"/>
-                <circle cx="19.5" cy="14" r="3.5"/>
-                <path d="M2.2 12.8 Q4.5 14 6.8 12.8"   stroke-width="0.9" stroke="#7a5610"/>
-                <path d="M9.7 12.8 Q12 14 14.3 12.8"    stroke-width="0.9" stroke="#7a5610"/>
-                <path d="M17.2 12.8 Q19.5 14 21.8 12.8" stroke-width="0.9"/>
-                <text x="8.25" y="7.5" text-anchor="middle" font-size="5" font-weight="700" font-family="system-ui" fill="#7a5610" stroke="none">2</text>
-                <path d="M2.2 18 L2.2 19.5 L14.3 19.5 L14.3 18" stroke-width="1.2" stroke="#7a5610"/>
-              </svg>
-              Best 2
-            </button>
-          </div>
-          <div class="fmt-col">
-            <button class="fmt-btn" data-fmt="foursomes">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="7"  cy="5" r="2.5"/>
-                <circle cx="17" cy="5" r="2.5"/>
-                <circle cx="12" cy="19" r="3"/>
-                <path d="M9.8 17.8 Q12 19 14.2 17.8" stroke-width="0.9"/>
-                <path d="M7 8 Q7 14 10.5 17.5" stroke-width="1.3"/>
-                <polyline points="9,16.5 10.5,17.5 10,15.8" stroke-width="1.3"/>
-                <path d="M17 8 Q17 14 13.5 17.5" stroke-width="1.3" stroke-dasharray="2.5 1.5"/>
-              </svg>
-              Foursomes
-            </button>
-          </div>
-          <div class="fmt-col">
-            <button class="fmt-btn" data-fmt="greensomes">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="7"  cy="4.5" r="2.5"/>
-                <circle cx="17" cy="4.5" r="2.5"/>
-                <circle cx="8"  cy="14" r="3"/>
-                <path d="M5.8 12.8 Q8 14 10.2 12.8" stroke-width="0.9"/>
-                <circle cx="16" cy="14" r="3" stroke="#7a5610" stroke-width="2"/>
-                <path d="M13.8 12.8 Q16 14 18.2 12.8" stroke-width="0.9" stroke="#7a5610"/>
-                <polyline points="14.5,14 15.5,15.3 17.8,12.5" stroke-width="1.5" stroke="#7a5610"/>
-                <line x1="7"  y1="7.5" x2="7.5"  y2="10.5" stroke-width="1.2"/>
-                <line x1="17" y1="7.5" x2="16.5" y2="10.5" stroke-width="1.2"/>
-              </svg>
-              Greensomes
-            </button>
-          </div>
-          <div class="fmt-col">
-            <button class="fmt-btn" data-fmt="texas">
-              <svg viewBox="0 0 36 28" width="24" height="19" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <ellipse cx="18" cy="22" rx="16" ry="4.5" fill="currentColor" opacity="0.18"/>
-                <path d="M4 22c0 0 2-1 14-1s14 1 14 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                <path d="M10 22V14c0-5 2.5-9 8-9s8 4 8 9v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                <path d="M10 14H4.5C3 14 2 15.2 2 16.5c0 2 1.5 4 3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                <path d="M26 14h5.5c1.5 0 2.5 1.2 2.5 2.5c0 2-1.5 4-3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                <path d="M14 10c0-1 0.5-2.5 4-2.5s4 1.5 4 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
-              Texas Scramble
-            </button>
-          </div>
+        <!-- Head to Head -->
+        <button class="cat-tile" id="cat-h2h" aria-expanded="false" aria-controls="cat-h2h-formats">
+          <span class="cat-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="4" x2="14" y2="14"/><rect x="2" y="12" width="4" height="4" rx="1" transform="rotate(-45 4 14)"/><line x1="20" y1="4" x2="10" y2="14"/><rect x="18" y="12" width="4" height="4" rx="1" transform="rotate(45 20 14)"/><circle cx="12" cy="12" r="2.8" fill="var(--surface,#1a2e1a)" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
+          </span>
+          <span class="cat-tile-label">Head to Head</span>
+          <span class="cat-tile-sub">Match Play · Skins · Chair · Split 6</span>
+          <svg class="cat-tile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="cat-formats" id="cat-h2h-formats" hidden>
+          <div class="fmt-col"><button class="fmt-btn" data-fmt="match"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="4" x2="14" y2="14"/><rect x="2" y="12" width="4" height="4" rx="1" transform="rotate(-45 4 14)"/><line x1="20" y1="4" x2="10" y2="14"/><rect x="18" y="12" width="4" height="4" rx="1" transform="rotate(45 20 14)"/><circle cx="12" cy="12" r="2.8" fill="var(--surface,#1a2e1a)" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>Match Play</button></div>
+          <div class="fmt-col"><button class="fmt-btn" data-fmt="skins"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="17" rx="7" ry="3" stroke="#7a5610"/><ellipse cx="12" cy="15.5" rx="7" ry="3" stroke="#7a5610" fill="var(--surface,#1a2e1a)"/><circle cx="12" cy="9" r="4.5"/><path d="M8.5 7.5 Q12 9.5 15.5 7.5" stroke-width="1"/></svg>Skins</button></div>
+          <div class="fmt-col"><button class="fmt-btn" data-fmt="itc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13 L6 6 Q6 4 8 4 L16 4 Q18 4 18 6 L18 13"/><rect x="5" y="13" width="14" height="4" rx="1"/><path d="M5 13 L3 13 Q2 13 2 14 L2 16 Q2 17 3 17 L5 17"/><path d="M19 13 L21 13 Q22 13 22 14 L22 16 Q22 17 21 17 L19 17"/><line x1="7" y1="17" x2="6" y2="21"/><line x1="17" y1="17" x2="18" y2="21"/></svg>In the Chair</button></div>
+          <div class="fmt-col"><button class="fmt-btn" data-fmt="split6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><text x="12" y="18" text-anchor="middle" font-size="18" font-weight="800" font-family="system-ui,sans-serif" fill="currentColor" stroke="none">6</text><line x1="12" y1="2" x2="12" y2="22" stroke="var(--surface,#1a2e1a)" stroke-width="2.5"/><line x1="12" y1="2" x2="12" y2="22" stroke="var(--green,#1d6b3a)" stroke-width="1.2" stroke-dasharray="2 1.5"/></svg>Split 6</button></div>
         </div>
 
-      </div><!-- /fmt-grid -->
+        <!-- 2v2 -->
+        <button class="cat-tile" id="cat-2v2" aria-expanded="false" aria-controls="cat-2v2-formats">
+          <span class="cat-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="13" r="5"/><path d="M5 11 Q8 13 11 11" stroke-width="1"/><circle cx="16" cy="13" r="5" stroke="#7a5610" stroke-width="2"/><path d="M13 11 Q16 13 19 11" stroke-width="1" stroke="#7a5610"/></svg>
+          </span>
+          <span class="cat-tile-label">2 vs 2</span>
+          <span class="cat-tile-sub">Better Ball · Combined · Scramble · Foursomes</span>
+          <svg class="cat-tile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="cat-formats" id="cat-2v2-formats" hidden>
+          <div class="fmt-col"><button class="fmt-btn" data-fmt="betterball"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="13" r="5"/><path d="M5 11 Q8 13 11 11" stroke-width="1"/><circle cx="16" cy="13" r="5" stroke="#7a5610" stroke-width="2"/><path d="M13 11 Q16 13 19 11" stroke-width="1" stroke="#7a5610"/></svg>Better Ball</button></div>
+          <div class="fmt-col"><button class="fmt-btn" data-fmt="csm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="14" r="4"/><path d="M3.5 12.5 Q6 14 8.5 12.5" stroke-width="1"/><line x1="11" y1="14" x2="13" y2="14" stroke-width="2"/><line x1="12" y1="13" x2="12" y2="15" stroke-width="2"/><circle cx="18" cy="14" r="4"/><path d="M15.5 12.5 Q18 14 20.5 12.5" stroke-width="1"/></svg>Combined Score</button></div>
+          <div class="fmt-col"><button class="fmt-btn" data-fmt="texas"><svg viewBox="0 0 36 28" width="24" height="19" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="18" cy="22" rx="16" ry="4.5" fill="currentColor" opacity="0.18"/><path d="M4 22c0 0 2-1 14-1s14 1 14 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 22V14c0-5 2.5-9 8-9s8 4 8 9v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 14H4.5C3 14 2 15.2 2 16.5c0 2 1.5 4 3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M26 14h5.5c1.5 0 2.5 1.2 2.5 2.5c0 2-1.5 4-3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 10c0-1 0.5-2.5 4-2.5s4 1.5 4 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Scramble</button></div>
+          <div class="fmt-col"><button class="fmt-btn" data-fmt="foursomes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="5" r="2.5"/><circle cx="17" cy="5" r="2.5"/><circle cx="12" cy="19" r="3"/><path d="M9.8 17.8 Q12 19 14.2 17.8" stroke-width="0.9"/><path d="M7 8 Q7 14 10.5 17.5" stroke-width="1.3"/><polyline points="9,16.5 10.5,17.5 10,15.8" stroke-width="1.3"/><path d="M17 8 Q17 14 13.5 17.5" stroke-width="1.3" stroke-dasharray="2.5 1.5"/></svg>Foursomes</button></div>
+          <div class="fmt-col"><button class="fmt-btn" data-fmt="greensomes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="4.5" r="2.5"/><circle cx="17" cy="4.5" r="2.5"/><circle cx="8" cy="14" r="3"/><path d="M5.8 12.8 Q8 14 10.2 12.8" stroke-width="0.9"/><circle cx="16" cy="14" r="3" stroke="#7a5610" stroke-width="2"/><path d="M13.8 12.8 Q16 14 18.2 12.8" stroke-width="0.9" stroke="#7a5610"/><polyline points="14.5,14 15.5,15.3 17.8,12.5" stroke-width="1.5" stroke="#7a5610"/><line x1="7" y1="7.5" x2="7.5" y2="10.5" stroke-width="1.2"/><line x1="17" y1="7.5" x2="16.5" y2="10.5" stroke-width="1.2"/></svg>Greensomes</button></div>
+        </div>
+
+        <!-- Team Events -->
+        <button class="cat-tile" id="cat-team" aria-expanded="false" aria-controls="cat-team-formats">
+          <span class="cat-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="14" r="3.5" stroke="#7a5610" stroke-width="2"/><circle cx="12" cy="14" r="3.5" stroke="#7a5610" stroke-width="2"/><circle cx="19.5" cy="14" r="3.5"/><path d="M2.2 12.8 Q4.5 14 6.8 12.8" stroke-width="0.9" stroke="#7a5610"/><path d="M9.7 12.8 Q12 14 14.3 12.8" stroke-width="0.9" stroke="#7a5610"/><path d="M17.2 12.8 Q19.5 14 21.8 12.8" stroke-width="0.9"/><path d="M2.2 18 L2.2 19.5 L14.3 19.5 L14.3 18" stroke-width="1.2" stroke="#7a5610"/></svg>
+          </span>
+          <span class="cat-tile-label">Team Events</span>
+          <span class="cat-tile-sub">Best 2 · Group Scramble</span>
+          <svg class="cat-tile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="cat-formats" id="cat-team-formats" hidden>
+          <div class="fmt-col"><button class="fmt-btn" data-fmt="best2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="14" r="3.5" stroke="#7a5610" stroke-width="2"/><circle cx="12" cy="14" r="3.5" stroke="#7a5610" stroke-width="2"/><circle cx="19.5" cy="14" r="3.5"/><path d="M2.2 12.8 Q4.5 14 6.8 12.8" stroke-width="0.9" stroke="#7a5610"/><path d="M9.7 12.8 Q12 14 14.3 12.8" stroke-width="0.9" stroke="#7a5610"/><path d="M17.2 12.8 Q19.5 14 21.8 12.8" stroke-width="0.9"/><text x="8.25" y="7.5" text-anchor="middle" font-size="5" font-weight="700" font-family="system-ui" fill="#7a5610" stroke="none">2</text><path d="M2.2 18 L2.2 19.5 L14.3 19.5 L14.3 18" stroke-width="1.2" stroke="#7a5610"/></svg>Best 2</button></div>
+        </div>
+
+        <!-- Tournament Mode -->
+        <button class="cat-tile cat-tile--tournament" id="cat-tournament">
+          <span class="cat-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+          </span>
+          <span class="cat-tile-label">Tournament Mode</span>
+          <span class="cat-tile-sub">Multiple Groups · Multiple Rounds</span>
+          <svg class="cat-tile-chevron cat-tile-chevron--go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>
+        </button>
+
+      </div><!-- /cat-grid -->
 
     </div>
   </div>
@@ -327,17 +234,17 @@
     </div>
     <div class="bottom-nav-label">Play</div>
   </button>
-  <button class="bottom-nav-btn" id="nav-tournament" data-screen="screen-tournament-hub">
-    <div class="bottom-nav-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-    </div>
-    <div class="bottom-nav-label">Tournament</div>
-  </button>
   <button class="bottom-nav-btn" id="nav-history" data-screen="screen-history">
     <div class="bottom-nav-icon">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
     </div>
     <div class="bottom-nav-label">History</div>
+  </button>
+  <button class="bottom-nav-btn" id="nav-friends" data-screen="screen-friends">
+    <div class="bottom-nav-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    </div>
+    <div class="bottom-nav-label">Friends</div>
   </button>
   <button class="bottom-nav-btn" id="nav-profile" data-screen="screen-profile">
     <div class="bottom-nav-icon">
@@ -345,8 +252,8 @@
     </div>
     <div class="bottom-nav-label">Profile</div>
   </button>
-  <!-- nav-friends: hidden, kept for JS back-compat -->
-  <button class="bottom-nav-btn" id="nav-friends" data-screen="screen-friends" style="display:none;" aria-hidden="true"></button>
+  <!-- nav-tournament: hidden, kept for JS back-compat — Tournament is now a home screen tile -->
+  <button class="bottom-nav-btn" id="nav-tournament" data-screen="screen-tournament-hub" style="display:none;" aria-hidden="true"></button>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -1999,7 +1906,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261026a"></script>
+<script type="module" src="js/app.js?v=20261026b"></script>
 
 
 <!-- ══════════════════════════════════════════
