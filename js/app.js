@@ -9403,9 +9403,9 @@ function showLeaderboard() {
   // Update button only relevant when scores are being shared (game has a code)
   if (updateBtn) updateBtn.style.display = code ? '' : 'none';
   if (copyBtn)   copyBtn.style.display   = code ? '' : 'none';
-  // Show toggle in any active tournament — local tournament state OR hub game (tournamentId set)
+  // Show toggle in any active tournament — local tournament state OR hub game
   const ts = (() => { try { return _tournState(); } catch { return {}; } })();
-  const isTournActive = ts.active || !!gameState.tournamentId;
+  const isTournActive = ts.active || !!gameState.tournamentId || !!gameState._hubTournamentCode;
   if (toggleBtn) toggleBtn.style.display = isTournActive ? '' : 'none';
   // Default to per-round view in tournaments, flat total otherwise
   _lbViewMode = 'total';
@@ -9487,9 +9487,9 @@ function renderLdNtpLeaderboardCard() {
 
 function renderLeaderboard() {
   const fmt       = gameState.format;
-  // Use offline-first tournament state; fall back to Supabase tournamentId for legacy
+  // Use offline-first tournament state; fall back to Supabase tournamentId or hub code
   const _ts       = (() => { try { return _tournState(); } catch { return {}; } })();
-  const isTourney = _ts.active || !!gameState.tournamentId;
+  const isTourney = _ts.active || !!gameState.tournamentId || !!gameState._hubTournamentCode;
   const tableEl   = document.getElementById('leaderboard-table');
   const metaEl    = document.getElementById('leaderboard-meta');
   if (!tableEl) return;
