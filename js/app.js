@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026d)
-window.APP_BUILD = '20261026d';
+// LEADERBOARD - app.js  (v3.2 · build 20261026e)
+window.APP_BUILD = '20261026e';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -2314,7 +2314,7 @@ function setActiveBottomNav(activeId) {
 // Does NOT affect mouse/click events — desktop works unchanged.
 // Usage: holdTouch(el)  — wraps existing click handler, 150 ms default
 //        holdTouch(el, fn, 200)  — fires fn instead of click
-function holdTouch(el, fn, ms = 150) {
+function holdTouch(el, fn, ms = 100) {
   if (!el) return;
   let timer = null;
   let startX = 0, startY = 0;
@@ -2372,11 +2372,9 @@ document.querySelectorAll('[data-holes]').forEach(btn => holdTouch(btn));
 // Single Game button → show format picker (both solo and team)
 // Home screen format buttons — direct format selection, no intermediate screen
 document.querySelectorAll('.fmt-btn').forEach(btn => {
-  // Use touchstart for instant response on iOS — prevents ghost-click issues
-  const handleFmtSelect = (e) => {
+  const handleFmtSelect = () => {
     const fmt = btn.dataset.fmt;
-    if (!fmt) return;  // not a format button — let click fire normally
-    e.preventDefault(); // suppress subsequent click (format buttons only)
+    if (!fmt) return;
     setup.tournamentId     = null;
     setup.tournRoundNumber = null;
     setup.scoring  = fmt;
@@ -2396,11 +2394,10 @@ document.querySelectorAll('.fmt-btn').forEach(btn => {
     else                                                                 { setup.numPlayers = 1; setup.numGroups = 1; setup.playersPerGroup = null; }
     startSetup();
   };
-  btn.addEventListener('touchstart', handleFmtSelect, { passive: false });
+  holdTouch(btn, handleFmtSelect);
   btn.addEventListener('click', (e) => {
-    // Only handle click for non-touch devices
     if (e.sourceCapabilities?.firesTouchEvents) return;
-    handleFmtSelect(e);
+    handleFmtSelect();
   });
 });
 
@@ -2434,7 +2431,7 @@ document.querySelectorAll('.fmt-btn').forEach(btn => {
       formats.hidden = open;
     };
 
-    tile.addEventListener('touchstart', toggle, { passive: false });
+    holdTouch(tile, toggle);
     tile.addEventListener('click', (e) => {
       if (e.sourceCapabilities?.firesTouchEvents) return;
       toggle(e);
@@ -2444,14 +2441,11 @@ document.querySelectorAll('.fmt-btn').forEach(btn => {
   // Tournament tile — navigates directly, no expand
   const tournTile = document.getElementById('cat-tournament');
   if (tournTile) {
-    const goToTournament = (e) => {
-      e.preventDefault();
-      showTournamentHub();
-    };
-    tournTile.addEventListener('touchstart', goToTournament, { passive: false });
+    const goToTournament = () => showTournamentHub();
+    holdTouch(tournTile, goToTournament);
     tournTile.addEventListener('click', (e) => {
       if (e.sourceCapabilities?.firesTouchEvents) return;
-      goToTournament(e);
+      goToTournament();
     });
   }
 })();
@@ -2480,7 +2474,7 @@ document.querySelectorAll('.fmt-btn').forEach(btn => {
       }
     };
 
-    fmtBtn.addEventListener('touchstart', toggleModes, { passive: false });
+    holdTouch(fmtBtn, toggleModes);
     fmtBtn.addEventListener('click', (e) => {
       if (e.sourceCapabilities?.firesTouchEvents) return;
       toggleModes(e);
@@ -2509,7 +2503,7 @@ document.querySelectorAll('.fmt-btn').forEach(btn => {
         }
         startSetup();
       };
-      modeBtn.addEventListener('touchstart', handleMode, { passive: false });
+      holdTouch(modeBtn, handleMode);
       modeBtn.addEventListener('click', (e) => {
         if (e.sourceCapabilities?.firesTouchEvents) return;
         handleMode(e);
