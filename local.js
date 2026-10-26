@@ -362,38 +362,14 @@ export async function roundCreate({
 }
 
 // ── Atomic get-then-put in a single readwrite transaction ──────────
-// On iOS Safari, opening two separate IDB transactions (one readonly
-// for the get, one readwrite for the put) can deadlock or hang
-// indefinitely when the page is briefly suspended between the two
-// awaits.  Using a single readwrite transaction for both operations
-// avoids this and is also slightly faster.
-function _roundGetAndPut(roundId, updateFn) {
-  return new Promise((resolve, reject) => {
-    let db;
-    const openReq = indexedDB.open('leaderboard_local');
-    openReq.onsuccess = e => {
-      db = e.target.result;
-      const tx    = db.transaction('rounds', 'readwrite');
-      const store = tx.objectStore('rounds');
-      const getReq = store.get(roundId);
-      getReq.onsuccess = () => {
-        const existing = getReq.result;
-        if (!existing) { reject(new Error('Round not found: ' + roundId)); return; }
-        let updated;
-        try { updated = updateFn(existing); } catch (err) { reject(err); return; }
-        const putReq = store.put(updated);
-        putReq.onsuccess = () => resolve();
-        putReq.onerror   = ev => reject(ev.target.error);
-      };
-      getReq.onerror = ev => reject(ev.target.error);
-      tx.onerror     = ev => reject(ev.target.error);
-    };
-    openReq.onerror = e => reject(e.target.error);
-  });
-}
+// Uses rounds.getAndPut() from db.js which shares the singleton IDB
+// connection opened with the correct version (DB_VERSION 5).
+// This avoids iOS Safari IDB hangs caused by opening a second
+// connection with indexedDB.open() (no version) while the primary
+// connection is still active — Safari can deadlock the two.
 
 export async function roundSaveState(roundId, gameState, playerNames) {
-  await _roundGetAndPut(roundId, existing => ({
+  await roundsStore.getAndPut(roundId, existing => ({
     ...existing,
     game_state:  gameState,
     playerNames: playerNames ?? existing.playerNames,
@@ -402,7 +378,7 @@ export async function roundSaveState(roundId, gameState, playerNames) {
 }
 
 export async function roundComplete(roundId, gameState) {
-  await _roundGetAndPut(roundId, existing => ({
+  await roundsStore.getAndPut(roundId, existing => ({
     ...existing,
     status:      'completed',
     game_state:  gameState,
@@ -412,11 +388,11 @@ export async function roundComplete(roundId, gameState) {
 }
 
 export async function roundAbandon(roundId) {
-  await _roundGetAndPut(roundId, existing => ({ ...existing, status: 'paused', updatedAt: now() }));
+  await roundsStore.getAndPut(roundId, existing => ({ ...existing, status: 'paused', updatedAt: now() }));
 }
 
 export async function roundReactivate(roundId) {
-  await _roundGetAndPut(roundId, existing => ({ ...existing, status: 'active', updatedAt: now() }));
+  await roundsStore.getAndPut(roundId, existing => ({ ...existing, status: 'active', updatedAt: now() }));
 }
 
 export async function roundDelete(roundId) {

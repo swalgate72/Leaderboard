@@ -16478,6 +16478,7 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
         setup.holes    = 18;
         setup.numGroups = 1;
         setup.numPlayers = selectedPlayers.length;
+        buildSetupReview();
         showScreen('screen-setup-review');
       };
     }
@@ -16724,7 +16725,20 @@ async function showTournamentHubLeaderboard(code, roundNum) {
       }
 
       if (statusEl) statusEl.style.display = 'none';
-      _renderHubLbTable(tableEl, data, adjustments, roundNum);
+
+      // Determine total rounds for the tournament so we always render the
+      // correct number of columns — even mid-round when the server only has
+      // data for completed rounds.
+      let totalRounds = 1;
+      try {
+        const t = await idbTournaments.get(code);
+        if (t?.totalRounds > 1) totalRounds = t.totalRounds;
+      } catch {}
+      // Fallback: use the highest round number seen in server data
+      const serverMaxRound = Math.max(...(data?.rounds ?? []).map(r => r.round ?? 1), 0);
+      if (serverMaxRound > totalRounds) totalRounds = serverMaxRound;
+
+      _renderHubLbTable(tableEl, data, adjustments, roundNum, totalRounds);
 
     } catch (fetchErr) {
       console.error('[lb] load error:', fetchErr);
@@ -16737,9 +16751,17 @@ async function showTournamentHubLeaderboard(code, roundNum) {
   await _loadAndRender();
 }
 
-function _renderHubLbTable(tableEl, data, adjustments, roundNum) {
+function _renderHubLbTable(tableEl, data, adjustments, roundNum, totalRounds) {
   if (!tableEl) return;
   const rounds = data?.rounds ?? [];
+
+  // totalRounds: the declared length of the tournament (may be larger than server data).
+  // numRounds: how many rounds we'll show columns for — always at least totalRounds
+  //            so the table is stable as rounds arrive.
+  const serverMaxRound = rounds.length ? Math.max(...rounds.map(r => r.round ?? 1)) : 1;
+  const numRounds = Math.max(totalRounds ?? 1, serverMaxRound);
+  const isMultiRound = numRounds > 1;
+
   if (!rounds.length) {
     tableEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted);">No scores yet — waiting for groups to finish.</p>';
     return;
@@ -16753,59 +16775,79 @@ function _renderHubLbTable(tableEl, data, adjustments, roundNum) {
     }
   }
 
-  // Aggregate by player name across all rounds
+  // Aggregate by player name across all rounds.
+  // For incomplete rounds (holes < 18) we track holesPlayed so we can note it.
   const byPlayer = {};
   for (const r of rounds) {
     for (const p of (r.players ?? [])) {
       if (!p.name) continue;
       if (!byPlayer[p.name]) {
-        byPlayer[p.name] = { name: p.name, rounds: [], totalPts: 0, hcp: p.hcp ?? 0 };
+        byPlayer[p.name] = { name: p.name, roundMap: {}, totalPts: 0, hcp: p.hcp ?? 0, maxHolesThisRound: 0 };
       }
       const entry = byPlayer[p.name];
-      const pts  = p.pts ?? p.total ?? 0;
-      const hcp  = p.hcp ?? entry.hcp ?? 0;
+      const rn  = r.round ?? 1;
+      const pts = p.pts ?? p.total ?? 0;
+      const hp  = p.holesPlayed ?? 18;
       entry.totalPts += pts;
-      entry.hcp = hcp;
-      entry.holesPlayed = Math.max(entry.holesPlayed ?? 0, p.holesPlayed ?? 18);
-      entry.rounds.push({ round: r.round ?? 1, pts, holesPlayed: p.holesPlayed ?? 18 });
+      entry.hcp = p.hcp ?? entry.hcp;
+      entry.roundMap[rn] = { pts, holesPlayed: hp };
+      // Track holes played for current round only (for the "thru" note)
+      if (rn === roundNum) entry.maxHolesThisRound = Math.max(entry.maxHolesThisRound, hp);
     }
   }
 
   const players = Object.values(byPlayer);
+  // Sort by total tournament points descending
   players.sort((a, b) => b.totalPts - a.totalPts);
 
-  const numRounds = Math.max(...rounds.map(r => r.round ?? 1), 1);
-  const showAdj   = adjustments && adjustments.length > 0;
+  const showAdj = adjustments && adjustments.length > 0;
 
-  // Update hero subtitle to describe what's shown
+  // Update hero subtitle
   const subtitleEl = document.getElementById('thbl-subtitle');
   if (subtitleEl) {
-    if (numRounds === 1) {
-      subtitleEl.textContent = `Round ${roundNum} scores`;
+    if (isMultiRound) {
+      const completedRounds = new Set(rounds.map(r => r.round ?? 1)).size;
+      const allDone = completedRounds >= numRounds;
+      subtitleEl.textContent = allDone
+        ? `Tournament total — ${numRounds} rounds`
+        : `Tournament total (R${completedRounds} of ${numRounds} complete)`;
     } else {
-      subtitleEl.textContent = `Total after ${numRounds} rounds`;
+      subtitleEl.textContent = `Round ${roundNum} scores`;
     }
   }
 
-  // Column headers
-  const ptsHdr = numRounds > 1
-    ? Array.from({ length: numRounds }, (_, i) => `<th style="${_thStyle()}">R${i+1}</th>`).join('') +
-      `<th style="${_thStyle()}">Tot</th>`
-    : `<th style="${_thStyle()}">Pts</th>`;
+  // Column headers — always render numRounds columns in multi-round mode
+  let ptsHdr;
+  if (isMultiRound) {
+    ptsHdr = Array.from({ length: numRounds }, (_, i) => {
+      const rn = i + 1;
+      const isLive = rn === roundNum;
+      const style = isLive
+        ? `${_thStyle()};color:var(--accent,#3b82f6);`
+        : _thStyle();
+      return `<th style="${style}">R${rn}</th>`;
+    }).join('') + `<th style="${_thStyle()}">Tot</th>`;
+  } else {
+    ptsHdr = `<th style="${_thStyle()}">Pts</th>`;
+  }
 
   const rows = players.map((p, rank) => {
     const badge = rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : `${rank+1}`;
     const adj   = adjByName[p.name];
-    const incomplete = (p.holesPlayed ?? 18) < 18;
-    const thruNote   = incomplete
-      ? ` <span style="font-size:0.7rem;color:var(--text-muted);">(${p.holesPlayed ?? '?'} holes)</span>` : '';
+
+    // Show holes-played note for the current round if not complete
+    const curRoundEntry = p.roundMap[roundNum];
+    const curHoles = curRoundEntry?.holesPlayed ?? 18;
+    const thruNote = curHoles < 18
+      ? ` <span style="font-size:0.7rem;color:var(--text-muted);">(thru ${curHoles})</span>`
+      : '';
 
     // Adjustment cell
     let adjCell = '';
     if (showAdj) {
       if (adj && !adj.excluded) {
-        const sign  = adj.delta < 0 ? '' : '+';  // negative delta = cut (good)
-        const color = adj.delta < 0 ? '#e53e3e' : '#38a169'; // red = cut, green = gain
+        const sign  = adj.delta < 0 ? '' : '+';
+        const color = adj.delta < 0 ? '#e53e3e' : '#38a169';
         adjCell = `<td style="${_tdStyle()};color:${color};font-weight:800;">${sign}${adj.delta.toFixed(1)}</td>`;
       } else {
         adjCell = `<td style="${_tdStyle()};color:var(--text-muted);">–</td>`;
@@ -16813,10 +16855,25 @@ function _renderHubLbTable(tableEl, data, adjustments, roundNum) {
     }
 
     // Score cells
-    const ptsCells = numRounds > 1
-      ? p.rounds.sort((a,b) => a.round - b.round).map(r => `<td style="${_tdStyle()}">${r.pts}</td>`).join('') +
-        `<td style="${_tdStyle(true)}">${p.totalPts}</td>`
-      : `<td style="${_tdStyle(true)}">${p.totalPts}</td>`;
+    let ptsCells;
+    if (isMultiRound) {
+      ptsCells = Array.from({ length: numRounds }, (_, i) => {
+        const rn = i + 1;
+        const rd = p.roundMap[rn];
+        const isLive = rn === roundNum;
+        const style = isLive
+          ? `${_tdStyle()};color:var(--accent,#3b82f6);`
+          : _tdStyle();
+        if (rd) {
+          return `<td style="${style}">${rd.pts}</td>`;
+        } else {
+          // Round not yet played
+          return `<td style="${_tdStyle()};color:var(--text-muted);">–</td>`;
+        }
+      }).join('') + `<td style="${_tdStyle(true)}">${p.totalPts}</td>`;
+    } else {
+      ptsCells = `<td style="${_tdStyle(true)}">${p.totalPts}</td>`;
+    }
 
     return `<tr style="border-bottom:1px solid var(--border,rgba(0,0,0,0.07));">
       <td style="${_tdStyle()}">${badge}</td>
@@ -16830,6 +16887,10 @@ function _renderHubLbTable(tableEl, data, adjustments, roundNum) {
 
   const adjHdr = showAdj ? `<th style="${_thStyle()}">Cut</th>` : '';
 
+  const liveNote = isMultiRound
+    ? `<p style="font-size:0.72rem;color:var(--accent,#3b82f6);text-align:center;padding:0.25rem 0 0;">Current round (R${roundNum}) shown in blue</p>`
+    : '';
+
   tableEl.innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-family:'Plus Jakarta Sans',sans-serif;">
       <thead>
@@ -16842,6 +16903,7 @@ function _renderHubLbTable(tableEl, data, adjustments, roundNum) {
       </thead>
       <tbody>${rows}</tbody>
     </table>
+    ${liveNote}
     ${showAdj ? `<p style="font-size:0.72rem;color:var(--text-muted);text-align:center;padding:0.5rem 0 0;">Cut = handicap adjustment applied for this round</p>` : ''}`;
 }
 

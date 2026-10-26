@@ -336,6 +336,27 @@ export const rounds = {
   clear:  ()      => idbClearStore(STORE_ROUNDS),
   putMany: records => idbPutMany(STORE_ROUNDS, records),
   getByStatus: status => idbGetByIndex(STORE_ROUNDS, 'status', status),
+
+  // Atomic get-then-put in a single readwrite transaction using the shared
+  // db connection.  Avoids iOS Safari IDB hangs caused by opening two
+  // separate transactions (or two openDB() calls) with an await between them.
+  getAndPut: (id, updateFn) =>
+    openDB().then(db => new Promise((resolve, reject) => {
+      const tx      = db.transaction(STORE_ROUNDS, 'readwrite');
+      const store   = tx.objectStore(STORE_ROUNDS);
+      const getReq  = store.get(id);
+      getReq.onsuccess = () => {
+        const existing = getReq.result;
+        if (!existing) { reject(new Error('Round not found: ' + id)); return; }
+        let updated;
+        try { updated = updateFn(existing); } catch (err) { reject(err); return; }
+        const putReq = store.put(updated);
+        putReq.onsuccess = () => resolve();
+        putReq.onerror   = ev => reject(ev.target.error);
+      };
+      getReq.onerror = ev => reject(ev.target.error);
+      tx.onerror     = ev => reject(ev.target.error);
+    })),
 };
 
 // ================================================================
