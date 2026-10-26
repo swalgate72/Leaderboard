@@ -9353,9 +9353,10 @@ let _lbCloudScores = null;       // last fetched cloud scores payload
   document.getElementById('btn-lb-view-toggle')?.addEventListener('click', async () => {
     _lbViewMode = _lbViewMode === 'total' ? 'byround' : 'total';
     const btn = document.getElementById('btn-lb-view-toggle');
-    if (btn) btn.textContent = _lbViewMode === 'total' ? '📊 By Round' : '🏆 Total';
-    // If switching to by-round and we have no cloud scores yet, fetch them now
-    if (_lbViewMode === 'byround' && !_lbCloudScores) {
+    // 'total' = per-round columns view (default); 'byround' = flat total only
+    if (btn) btn.textContent = _lbViewMode === 'total' ? '📋 Total Only' : '📊 By Round';
+    // If switching to per-round view and we have no cloud scores yet, fetch them now
+    if (_lbViewMode === 'total' && !_lbCloudScores) {
       if (btn) { btn.textContent = '⏳…'; btn.disabled = true; }
       try {
         const code = _lbGetCode();
@@ -9402,14 +9403,13 @@ function showLeaderboard() {
   // Update button only relevant when scores are being shared (game has a code)
   if (updateBtn) updateBtn.style.display = code ? '' : 'none';
   if (copyBtn)   copyBtn.style.display   = code ? '' : 'none';
-  // Show "By Round" toggle only when a tournament is active (multi-round)
+  // Show toggle in any active tournament (even single-round — may be mid round 1)
   const ts = (() => { try { return _tournState(); } catch { return {}; } })();
-  const isTournActive     = ts.active;
-  const isTournMultiRound = ts.active && ts.rounds > 1;
-  if (toggleBtn) toggleBtn.style.display = isTournMultiRound ? '' : 'none';
-  // Reset view mode to total each time we open
+  const isTournActive = ts.active;
+  if (toggleBtn) toggleBtn.style.display = isTournActive ? '' : 'none';
+  // Default to per-round view in tournaments, flat total otherwise
   _lbViewMode = 'total';
-  if (toggleBtn) toggleBtn.textContent = '📊 By Round';
+  if (toggleBtn) toggleBtn.textContent = '📋 Total Only';
   renderLeaderboard();
   // In tournament mode, push current scores then fetch all cloud scores so the
   // leaderboard shows all rounds — runs silently in the background
@@ -9744,30 +9744,23 @@ function renderLeaderboard() {
     .map(([name, d]) => ({ name, ...d }))
     .sort((a, b) => isStroke ? a.net - b.net : b.pts - a.pts);
 
+  // ── Tournament view: per-round columns + cumulative total ──
+  // Always shown in tournament mode. Current live round highlighted in blue.
+  // "By Round" toggle switches to a flat single-score view if preferred.
   if (_lbViewMode === 'total') {
-    // ── Total view: one combined score per player ──
-    tableEl.innerHTML = buildLeaderboardTable(
-      sortedPlayers.map((p, i) => ({
-        rank:   i + 1,
-        label:  p.name,
-        sub:    null,
-        score:  isStroke ? p.net : p.pts,
-        thru:   numHolesPerRound * (ts.rounds ?? 1),
-        isLead: i === 0,
-      })),
-      scoreLabel
-    );
-  } else {
-    // ── By Round view: per-round columns + total ──
     const allRounds = Array.from(new Set([...cloudRounds, liveRound])).sort((a,b)=>a-b);
-    const colW      = `${Math.floor(60 / allRounds.length)}%`;
+    const colW      = `${Math.floor(56 / Math.max(allRounds.length, 1))}%`;
+    const accent    = 'var(--accent,#3b82f6)';
 
     let html = `<div style="font-family:'Plus Jakarta Sans',sans-serif;">`;
-    // Header
+    // Header row
     html += `<div style="display:grid;grid-template-columns:1fr ${allRounds.map(()=>colW).join(' ')} 3.5rem;
       gap:0;padding:0.35rem 0.75rem;border-bottom:1.5px solid var(--border2);
       font-size:0.6rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);">
-      <div>Player</div>${allRounds.map(r=>`<div style="text-align:center">R${r}</div>`).join('')}
+      <div>Player</div>${allRounds.map(r => {
+        const isLive = r === liveRound;
+        return `<div style="text-align:center;${isLive ? `color:${accent};` : ''}">R${r}</div>`;
+      }).join('')}
       <div style="text-align:center">${scoreLabel}</div></div>`;
 
     sortedPlayers.forEach((p, i) => {
@@ -9779,16 +9772,35 @@ function renderLeaderboard() {
         <div style="font-size:0.85rem;font-weight:${isLd?'800':'600'};
           color:${isLd?'var(--gold)':'var(--text)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
         ${allRounds.map(r => {
-          const rs = p.roundScores[r];
-          const s  = rs ? (isStroke ? rs.net : rs.pts) : '–';
-          return `<div style="text-align:center;font-size:0.8rem;color:var(--muted);">${s}</div>`;
+          const rs    = p.roundScores[r];
+          const s     = rs ? (isStroke ? rs.net : rs.pts) : '–';
+          const isLive = r === liveRound;
+          return `<div style="text-align:center;font-size:0.8rem;
+            color:${isLive ? accent : 'var(--muted)'};">${s}</div>`;
         }).join('')}
-        <div style="text-align:center;font-size:0.85rem;font-weight:800;color:${isLd?'var(--gold)':'var(--text)'};">${total}</div>
+        <div style="text-align:center;font-size:0.85rem;font-weight:800;
+          color:${isLd?'var(--gold)':'var(--text)'};">${total}</div>
       </div>`;
     });
 
+    // Legend
+    html += `<div style="padding:0.5rem 0.75rem;font-size:0.7rem;color:${accent};opacity:0.85;">
+      Current round (R${liveRound}) shown in blue</div>`;
     html += '</div>';
     tableEl.innerHTML = html;
+  } else {
+    // ── Flat total view (toggled via "By Round" button) ──
+    tableEl.innerHTML = buildLeaderboardTable(
+      sortedPlayers.map((p, i) => ({
+        rank:   i + 1,
+        label:  p.name,
+        sub:    null,
+        score:  isStroke ? p.net : p.pts,
+        thru:   numHolesPerRound * (ts.rounds ?? 1),
+        isLead: i === 0,
+      })),
+      scoreLabel
+    );
   }
 }
 
