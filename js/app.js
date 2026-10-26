@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026c)
-window.APP_BUILD = '20261026c';
+// LEADERBOARD - app.js  (v3.2 · build 20261026d)
+window.APP_BUILD = '20261026d';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -2307,6 +2307,66 @@ function setActiveBottomNav(activeId) {
     btn.classList.toggle('active', btn.id === activeId);
   });
 }
+
+// ── Hold-delay for setup buttons ─────────────────────────────────
+// Adds a short press-and-hold requirement to touch events on an element
+// so accidental brushes don't trigger navigation.
+// Does NOT affect mouse/click events — desktop works unchanged.
+// Usage: holdTouch(el)  — wraps existing click handler, 150 ms default
+//        holdTouch(el, fn, 200)  — fires fn instead of click
+function holdTouch(el, fn, ms = 150) {
+  if (!el) return;
+  let timer = null;
+  let startX = 0, startY = 0;
+
+  const cancel = () => {
+    if (timer) { clearTimeout(timer); timer = null; }
+    el.classList.remove('is-pressing');
+  };
+
+  el.addEventListener('touchstart', (e) => {
+    // Only handle single-finger taps
+    if (e.touches.length !== 1) return;
+    e.preventDefault(); // suppress synthetic click
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    el.classList.add('is-pressing');
+    timer = setTimeout(() => {
+      timer = null;
+      el.classList.remove('is-pressing');
+      if (fn) {
+        fn(e);
+      } else {
+        el.click(); // fire existing click handler
+      }
+    }, ms);
+  }, { passive: false });
+
+  el.addEventListener('touchmove', (e) => {
+    if (!timer) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) cancel(); // finger moved — scroll intent
+  }, { passive: true });
+
+  el.addEventListener('touchend',    cancel, { passive: true });
+  el.addEventListener('touchcancel', cancel, { passive: true });
+}
+
+// Apply hold-delay to all setup-screen action buttons
+// Runs after DOM is ready (we're at module top-level, DOM is parsed)
+[
+  'btn-setup-course-next',
+  'btn-setup-players-next',
+  'btn-setup-groups-next',
+  'btn-setup-pairs-next',
+  'btn-setup-add-new-player',
+  'btn-setup-add-from-friends',
+  'btn-tee-off',
+].forEach(id => holdTouch(document.getElementById(id)));
+
+// Static holes-count buttons (18 / Front 9 / Back 9) on the course setup screen
+document.querySelectorAll('[data-holes]').forEach(btn => holdTouch(btn));
 
 // Home screen three-button handlers
 // Single Game button → show format picker (both solo and team)

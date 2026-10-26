@@ -468,6 +468,15 @@ select option { background: var(--surface); }
   transform: scale(0.98);
   box-shadow: 0 1px 6px rgba(76,175,118,0.15);
 }
+
+/* ── Hold-delay press state ─────────────────────────────────────── */
+/* Applied by holdTouch() while the finger is held and the timer is
+   running — gives visual confirmation that the press registered.    */
+.is-pressing {
+  transform: scale(0.97) !important;
+  opacity: 0.82 !important;
+  transition: transform 0.08s ease, opacity 0.08s ease !important;
+}
 html.light .btn-setup-next {
   background: #1a3a22;
   color: #fff;
