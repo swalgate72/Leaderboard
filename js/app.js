@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026x)
+// LEADERBOARD - app.js  (v3.2 · build 20261026y)
 window.APP_BUILD = '20261026m';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
@@ -229,14 +229,17 @@ const SYNC_WORKER_URL = 'https://leaderboardsync.sw-77d.workers.dev';
  * Low-level fetch wrapper — adds CORS headers + JSON parsing.
  */
 async function _workerFetch(path, method = 'GET', body = null) {
+  const url = SYNC_WORKER_URL + path;
+  console.log('[_workerFetch]', method, url);
   const opts = {
     method,
     headers: { 'Content-Type': 'application/json' },
   };
   if (body) opts.body = JSON.stringify(body);
-  const r = await fetch(SYNC_WORKER_URL + path, opts);
+  const r = await fetch(url, opts);
+  console.log('[_workerFetch] status=', r.status, 'ok=', r.ok);
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  if (!r.ok) { console.error('[_workerFetch] error body:', data); throw new Error(data.error || `HTTP ${r.status}`); }
   return data;
 }
 
@@ -9412,6 +9415,9 @@ function showLeaderboard() {
   // Show toggle in any active tournament — local tournament state OR hub game
   const ts = (() => { try { return _tournState(); } catch { return {}; } })();
   const isTournActive = ts.active || !!gameState.tournamentId || !!gameState._hubTournamentCode;
+  console.log('[LB] showLeaderboard: code=', code, 'isTournActive=', isTournActive,
+    'gameCode=', gameState?.gameCode, 'hubCode=', gameState?._hubTournamentCode,
+    'tournamentId=', gameState?.tournamentId, 'ts.active=', ts?.active);
   if (toggleBtn) toggleBtn.style.display = isTournActive ? '' : 'none';
   // Default to per-round view in tournaments, flat total otherwise
   _lbViewMode = 'total';
@@ -9422,13 +9428,17 @@ function showLeaderboard() {
     _lbCloudScores = null;  // clear stale data
     const tableEl = document.getElementById('leaderboard-table');
     if (tableEl) tableEl.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);">Loading tournament scores…</div>';
+    console.log('[LB] Fetching /scores/' + code.toUpperCase());
     _workerFetch(`/scores/${code.toUpperCase()}`).then(data => {
+      console.log('[LB] Cloud scores fetched OK:', JSON.stringify(data)?.slice(0, 200));
       _lbCloudScores = data;
       renderLeaderboard();
-    }).catch(() => {
+    }).catch(err => {
+      console.error('[LB] Cloud scores fetch FAILED:', err);
       renderLeaderboard(); // fall back to live-only on network error
     });
   } else {
+    console.log('[LB] No tournament or no code — skipping cloud fetch, rendering local only');
     renderLeaderboard();
   }
   // Subscribe to all group states for live updates
