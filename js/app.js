@@ -9403,9 +9403,9 @@ function showLeaderboard() {
   // Update button only relevant when scores are being shared (game has a code)
   if (updateBtn) updateBtn.style.display = code ? '' : 'none';
   if (copyBtn)   copyBtn.style.display   = code ? '' : 'none';
-  // Show toggle in any active tournament (even single-round — may be mid round 1)
+  // Show toggle in any active tournament — local tournament state OR hub game (tournamentId set)
   const ts = (() => { try { return _tournState(); } catch { return {}; } })();
-  const isTournActive = ts.active;
+  const isTournActive = ts.active || !!gameState.tournamentId;
   if (toggleBtn) toggleBtn.style.display = isTournActive ? '' : 'none';
   // Default to per-round view in tournaments, flat total otherwise
   _lbViewMode = 'total';
