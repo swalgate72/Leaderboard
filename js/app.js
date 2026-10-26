@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026j)
-window.APP_BUILD = '20261026j';
+// LEADERBOARD - app.js  (v3.2 · build 20261026k)
+window.APP_BUILD = '20261026k';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -9950,8 +9950,9 @@ function buildLeaderboardTable(rows, scoreLabel, extraLabel) {
     ? '2rem minmax(0,1fr) 3.2rem 3.2rem 3rem'
     : '2rem minmax(0,1fr) 3.2rem 3rem';
 
-  const HDR_STYLE = `font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.75rem;
-                     color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;`;
+  const HDR_STYLE = `font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.62rem;
+                     color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;`;
+  const HDR_R = `${HDR_STYLE}text-align:right;`;
 
   let html = `
     <div style="display:grid;grid-template-columns:${gridCols};
@@ -9959,9 +9960,9 @@ function buildLeaderboardTable(rows, scoreLabel, extraLabel) {
                 padding:0.5rem 0.75rem;margin-top:1rem;gap:0 0.25rem;">
       <div style="${HDR_STYLE}">#</div>
       <div style="${HDR_STYLE}">Name</div>
-      ${hasExtra ? `<div style="${HDR_STYLE}text-align:right;">${extraLabel.toUpperCase()}</div>` : ''}
-      <div style="${HDR_STYLE}text-align:right;">${scoreLabel.toUpperCase()}</div>
-      <div style="${HDR_STYLE}text-align:right;">Thru</div>
+      ${hasExtra ? `<div style="${HDR_R}">${extraLabel.toUpperCase()}</div>` : ''}
+      <div style="${HDR_R}">${scoreLabel.toUpperCase()}</div>
+      <div style="${HDR_R}">Thru</div>
     </div>`;
 
   rows.forEach(r => {
