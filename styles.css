@@ -3220,7 +3220,7 @@ html.light .home-hero {
     radial-gradient(90% 60% at 0% 100%, rgba(76,175,118,0.18) 0%, rgba(76,175,118,0) 60%),
     linear-gradient(165deg, #24503a 0%, #163a28 45%, #0f2a1c 100%);
   border-radius: 0 0 28px 28px;
-  padding: calc(1.1rem + env(safe-area-inset-top, 0px)) 1.25rem 1.4rem;
+  padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1.25rem 1rem;
   box-shadow: 0 14px 34px rgba(15,42,28,0.32);
 }
 /* faint gold halo rings */
@@ -3239,20 +3239,20 @@ html.light .home-hero {
 .home-hero-identity {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
-  margin-bottom: 1.15rem;
+  gap: 0.75rem;
+  margin-bottom: 0.7rem;
 }
 .home-hero-avatar {
   position: relative;
-  width: 54px; height: 54px;
+  width: 44px; height: 44px;
   border-radius: 50%;
   background: #0d2117;
   border: 2px solid #d4a843;
-  box-shadow: 0 0 0 4px rgba(212,168,67,0.14), 0 0 22px rgba(212,168,67,0.35);
+  box-shadow: 0 0 0 3px rgba(212,168,67,0.14), 0 0 16px rgba(212,168,67,0.3);
   color: #e8c46a;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   letter-spacing: 0.02em;
 }
 .home-hero-avatar::after {
@@ -3344,9 +3344,9 @@ html.light .home-hero {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 0.6rem;
   width: 100%;
-  padding: 0.8rem 0.8rem 0.8rem 0.85rem;
+  padding: 0.6rem 0.7rem 0.6rem 0.7rem;
   background: linear-gradient(180deg, rgba(8,22,14,0.82), rgba(6,16,10,0.9));
   border: 1.5px solid rgba(212,168,67,0.7);
   border-radius: 18px;
@@ -3363,14 +3363,14 @@ html.light .home-hero {
 .home-round-icon {
   position: relative;
   flex-shrink: 0;
-  width: 44px; height: 44px;
-  border-radius: 12px;
+  width: 34px; height: 34px;
+  border-radius: 9px;
   background: rgba(212,168,67,0.12);
   border: 1px solid rgba(212,168,67,0.35);
   color: #e8c46a;
   display: flex; align-items: center; justify-content: center;
 }
-.home-round-icon svg { width: 22px; height: 22px; }
+.home-round-icon svg { width: 18px; height: 18px; }
 .home-round-live {
   position: absolute;
   top: -4px; right: -4px;
@@ -4101,7 +4101,7 @@ html.light .btn-back-hole {
 #screen-home .home-hero-stat-value { font-size: 1.65rem; }
 #screen-home .home-round-card { padding: 0.7rem 0.75rem; border-radius: 17px; gap: 0.75rem; }
 #screen-home .home-round-icon { width: 44px; height: 44px; border-radius: 12px; }
-#screen-home .home-round-icon svg { width: 22px; height: 22px; }
+#screen-home .home-round-icon svg { width: 18px; height: 18px; }
 #screen-home .home-round-status { font-size: 0.72rem; }
 #screen-home .home-round-course { font-size: 1.05rem; }
 #screen-home .home-round-btn { padding: 0.6rem 0.6rem 0.6rem 0.95rem; border-radius: 12px; font-size: 1rem; }
