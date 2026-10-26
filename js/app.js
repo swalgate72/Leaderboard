@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026y)
+// LEADERBOARD - app.js  (v3.2 · build 20261026z)
 window.APP_BUILD = '20261026m';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
@@ -9515,7 +9515,7 @@ function renderLeaderboard() {
 
   const TEAM_PAIR_FORMATS = ['betterball','csm','foursomes','greensomes','best2','texas'];
   const isTeamPairFmt = TEAM_PAIR_FORMATS.includes(fmt);
-  const tournGameType = isTourney ? (activeTournament?.scoring_mode_team ?? 'individual') : null;
+  const tournGameType = isTourney ? ((typeof activeTournament !== 'undefined' ? activeTournament : null)?.scoring_mode_team ?? 'individual') : null;
   const isTeamScored  = isTourney && isTeamPairFmt && tournGameType !== 'individual';
 
   // Determine score label from format
@@ -9722,9 +9722,13 @@ function renderLeaderboard() {
       for (const p of (grp.players ?? [])) {
         if (!p.name) continue;
         if (!byName[p.name]) byName[p.name] = { pts: 0, net: 0, roundScores: {} };
-        byName[p.name].pts += p.pts  ?? 0;
-        byName[p.name].net += p.net  ?? 0;
-        byName[p.name].roundScores[rn] = { pts: p.pts ?? 0, net: p.net ?? 0, gross: p.gross ?? 0 };
+        // Cloud stores netTotal/grossTotal (from pushScoresToCloud); also accept net/gross as fallback
+        const pNet   = p.netTotal   ?? p.net   ?? 0;
+        const pGross = p.grossTotal ?? p.gross  ?? 0;
+        const pPts   = p.pts ?? 0;
+        byName[p.name].pts += pPts;
+        byName[p.name].net += pNet;
+        byName[p.name].roundScores[rn] = { pts: pPts, net: pNet, gross: pGross };
       }
     }
   }
