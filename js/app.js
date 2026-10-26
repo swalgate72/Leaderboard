@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026m)
+// LEADERBOARD - app.js  (v3.2 · build 20261026x)
 window.APP_BUILD = '20261026m';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
@@ -9332,10 +9332,16 @@ let _lbCloudScores = null;       // last fetched cloud scores payload
     const btn = document.getElementById('btn-lb-update');
     if (btn) { btn.textContent = '⏳ Updating…'; btn.disabled = true; }
     try {
-      // Push current scores first
-      const pushBtn = { textContent: '', style: {}, disabled: false };
-      await pushScoresToCloud(pushBtn);
-      // Then pull cloud scores
+      // Hub tournament games push scores via the normal hole-by-hole sync;
+      // pushing here hangs mid-round because pushScoresToCloud reads lb-game-code
+      // (the share code) not the hub tournament code. Skip push for hub games;
+      // for regular share-code games, push first then pull.
+      const isHubRound = !!gameState?._hubTournamentCode;
+      if (!isHubRound) {
+        const pushBtn = { textContent: '', style: {}, disabled: false };
+        await pushScoresToCloud(pushBtn);
+      }
+      // Pull cloud scores (works for both hub and regular games)
       const code = _lbGetCode();
       if (code) {
         const data = await _workerFetch(`/scores/${code.toUpperCase()}`);
