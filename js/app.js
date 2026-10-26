@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026i)
-window.APP_BUILD = '20261026i';
+// LEADERBOARD - app.js  (v3.2 · build 20261026j)
+window.APP_BUILD = '20261026j';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -9944,22 +9944,24 @@ function buildLeaderboardTable(rows, scoreLabel, extraLabel) {
   if (!rows.length) return '<div style="padding:2rem;text-align:center;color:var(--muted);">No scores yet.</div>';
 
   const hasExtra = !!extraLabel;
-  const gridCols = hasExtra ? 'auto 1fr auto auto auto' : 'auto 1fr auto auto';
+  // Fixed-width right columns so they always align regardless of name length.
+  // Name column uses minmax(0,1fr) to constrain overflow rather than pushing columns out.
+  const gridCols = hasExtra
+    ? '2rem minmax(0,1fr) 3.2rem 3.2rem 3rem'
+    : '2rem minmax(0,1fr) 3.2rem 3rem';
+
+  const HDR_STYLE = `font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.75rem;
+                     color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;`;
 
   let html = `
     <div style="display:grid;grid-template-columns:${gridCols};
                 align-items:center;border-bottom:2px solid var(--border2);
-                padding:0.5rem 0.75rem;margin-top:1rem;">
-      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
-                  color:var(--muted);letter-spacing:0.1em;width:2rem;">#</div>
-      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
-                  color:var(--muted);letter-spacing:0.1em;">NAME</div>
-      ${hasExtra ? `<div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
-                  color:var(--muted);letter-spacing:0.1em;text-align:right;padding-right:0.75rem;">${extraLabel.toUpperCase()}</div>` : ''}
-      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
-                  color:var(--muted);letter-spacing:0.1em;text-align:right;padding-right:1.25rem;">${scoreLabel.toUpperCase()}</div>
-      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:0.85rem;
-                  color:var(--muted);letter-spacing:0.1em;text-align:right;">THRU</div>
+                padding:0.5rem 0.75rem;margin-top:1rem;gap:0 0.25rem;">
+      <div style="${HDR_STYLE}">#</div>
+      <div style="${HDR_STYLE}">Name</div>
+      ${hasExtra ? `<div style="${HDR_STYLE}text-align:right;">${extraLabel.toUpperCase()}</div>` : ''}
+      <div style="${HDR_STYLE}text-align:right;">${scoreLabel.toUpperCase()}</div>
+      <div style="${HDR_STYLE}text-align:right;">Thru</div>
     </div>`;
 
   rows.forEach(r => {
@@ -9970,12 +9972,12 @@ function buildLeaderboardTable(rows, scoreLabel, extraLabel) {
     let playerScoreHtml = '';
     if (r.playerScores?.length) {
       playerScoreHtml = `
-        <div style="display:flex;gap:1rem;margin-top:0.3rem;">
+        <div style="display:flex;gap:0.75rem;margin-top:0.3rem;">
           ${r.playerScores.map(ps => `
-            <div style="text-align:center;min-width:2.5rem;">
-              <div style="font-size:0.7rem;font-weight:700;color:var(--muted2);
+            <div style="text-align:center;min-width:2rem;">
+              <div style="font-size:0.65rem;font-weight:700;color:var(--muted2);
                           letter-spacing:0.05em;text-transform:uppercase;">${ps.initials}</div>
-              <div style="font-size:1rem;font-weight:800;color:${ps.scoreColor ?? 'var(--white)'};">
+              <div style="font-size:0.95rem;font-weight:800;color:${ps.scoreColor ?? 'var(--white)'};">
                 ${ps.score ?? '-'}
               </div>
             </div>`).join('')}
@@ -9984,26 +9986,28 @@ function buildLeaderboardTable(rows, scoreLabel, extraLabel) {
 
     const extraCell = hasExtra
       ? `<div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;
-                    font-size:1.1rem;color:var(--muted2);text-align:right;padding-right:0.75rem;">${r.extraScore ?? '–'}</div>`
+                    font-size:1.05rem;color:var(--muted2);text-align:right;">${r.extraScore ?? '–'}</div>`
       : '';
 
     html += `
       <div style="display:grid;grid-template-columns:${gridCols};
-                  align-items:center;padding:0.9rem 0.75rem;
-                  border-bottom:1px solid var(--border);${bg}">
+                  align-items:center;padding:0.75rem 0.75rem;
+                  border-bottom:1px solid var(--border);${bg}gap:0 0.25rem;">
         <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
-                    font-size:1.4rem;color:var(--muted2);width:2rem;">${r.rank}</div>
-        <div>
+                    font-size:1.2rem;color:var(--muted2);">${r.rank}</div>
+        <div style="min-width:0;">
           <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
-                      font-size:1.5rem;color:${gold};line-height:1.1;">${r.label}</div>
-          ${r.sub ? `<div style="font-size:0.85rem;font-weight:700;color:var(--muted2);">${r.sub}</div>` : ''}
+                      font-size:1.15rem;color:${gold};line-height:1.2;
+                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.label}</div>
+          ${r.sub ? `<div style="font-size:0.78rem;font-weight:700;color:var(--muted2);
+                                 white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.sub}</div>` : ''}
           ${playerScoreHtml}
         </div>
         ${extraCell}
         <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
-                    font-size:1.6rem;color:${gold};text-align:right;padding-right:1.25rem;">${r.score}</div>
+                    font-size:1.5rem;color:${gold};text-align:right;">${r.score}</div>
         <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;
-                    font-size:1.2rem;color:var(--muted2);text-align:right;">${r.thru}</div>
+                    font-size:1.1rem;color:var(--muted2);text-align:right;">${r.thru}</div>
       </div>`;
   });
 
