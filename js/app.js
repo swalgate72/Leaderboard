@@ -16047,10 +16047,10 @@ async function showTournamentDetail(code) {
     const lbViewBtn = document.getElementById('btn-td-view-leaderboard-full');
     if (lbViewBtn) {
       // Show leaderboard for the most recent non-scheduled round, or round 1 as fallback
+      const _finalisedMax = rounds.filter(r => r.status === 'finalised').reduce((max, r) => Math.max(max, r.roundNum), 0);
       const lbRound = liveRound?.roundNum
         ?? awaitingRound?.roundNum
-        ?? rounds.filter(r => r.status === 'finalised').reduce((max, r) => Math.max(max, r.roundNum), 0)
-        || 1;
+        ?? (_finalisedMax > 0 ? _finalisedMax : 1);
       lbViewBtn.onclick = () => showTournamentHubLeaderboard(code, lbRound);
     }
 
