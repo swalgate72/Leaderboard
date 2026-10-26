@@ -5673,12 +5673,15 @@ function buildSetupReview() {
   // Renders the HCP detail line for a player row
   const hcpDetailHtml = (p, hi) => {
     const h = hcpSummary(p, hi);
+    // data-adj-playing lets the async roster fetch patch this value with the
+    // tournament-adjusted playing handicap once it arrives (hub tournaments only).
+    const adjAttr = `data-adj-playing="${(p.name ?? '').trim().toLowerCase()}"`;
     return `
       <div style="display:grid;grid-template-columns:${showScratch ? '1fr 1fr 1fr' : '1fr 1fr'};
                   gap:0.15rem 0.6rem;text-align:right;font-size:0.8rem;font-weight:600;
                   color:var(--muted2);margin-top:0.15rem;">
         <span>Index <strong style="color:var(--white)">${h.index}</strong></span>
-        <span>Playing <strong style="color:var(--white)">${h.playing}</strong></span>
+        <span>Playing <strong ${adjAttr} style="color:var(--white)">${h.playing}</strong></span>
         ${showScratch ? `<span>Shots <strong style="color:var(--gold)">${h.scratchLabel}</strong></span>` : ''}
       </div>`;
   };
@@ -5950,6 +5953,24 @@ function buildSetupReview() {
           bodyEl.textContent = 'No players found.';
           return;
         }
+
+        // Build a lookup: normalised name → adjustedHcp from the roster
+        const adjByName = {};
+        for (const p of allPlayers) {
+          if (p.name) adjByName[p.name.trim().toLowerCase()] = p.adjustedHcp ?? p.originalHcp ?? p.hcpIndex ?? 0;
+        }
+
+        // Patch the group-player "Playing" values using the roster's adjustedHcp.
+        // Each group player card has a data-player-name attribute we stamp below
+        // (handled in the group-player HTML generated above).
+        // We update by finding elements with data-adj-playing attribute.
+        document.querySelectorAll('[data-adj-playing]').forEach(el => {
+          const nm = (el.dataset.adjPlaying ?? '').toLowerCase();
+          if (nm && adjByName[nm] !== undefined) {
+            el.textContent = adjByName[nm];
+          }
+        });
+
         // Names in the current group (this phone's scorers)
         const groupNames = new Set(setup.players.map(p => (p.name ?? '').trim().toLowerCase()).filter(Boolean));
         // Sort: group players first (starred), then others alphabetically
@@ -5959,7 +5980,6 @@ function buildSetupReview() {
           if (aIn !== bIn) return aIn ? -1 : 1;
           return (a.name ?? '').localeCompare(b.name ?? '');
         });
-        const round = setup.tournRoundNumber ?? 1;
         bodyEl.innerHTML = sorted.map(p => {
           const nm     = p.name ?? '?';
           const inGrp  = groupNames.has(nm.trim().toLowerCase());
