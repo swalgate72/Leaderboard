@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026f)
-window.APP_BUILD = '20261026f';
+// LEADERBOARD - app.js  (v3.2 · build 20261026g)
+window.APP_BUILD = '20261026g';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -9700,8 +9700,24 @@ function buildMatchLeaderboard(state) {
   const nameAEl  = document.getElementById('lb-name-a');
   const nameBEl  = document.getElementById('lb-name-b');
   if (namesRow) namesRow.style.display = '';
-  if (nameAEl)  nameAEl.textContent    = nameA;
-  if (nameBEl)  nameBEl.textContent    = nameB;
+  // For pairs with no team name, stack the two player names vertically
+  // so they don't overflow on a single line (e.g. "STEVE W & MARK C" wraps badly)
+  if (nameAEl) {
+    if (isPairs) {
+      const partsA = nameA.split(' & ');
+      nameAEl.innerHTML = partsA.map(n => `<div>${n}</div>`).join('');
+    } else {
+      nameAEl.textContent = nameA;
+    }
+  }
+  if (nameBEl) {
+    if (isPairs) {
+      const partsB = nameB.split(' & ');
+      nameBEl.innerHTML = partsB.map(n => `<div>${n}</div>`).join('');
+    } else {
+      nameBEl.textContent = nameB;
+    }
+  }
 
   // Grid: [net-A 2.8rem] [status-A flex] [hole-chip 3rem] [status-B flex] [net-B 2.8rem]
   const GRID = '2.8rem 1fr 3rem 1fr 2.8rem';
@@ -9719,23 +9735,23 @@ function buildMatchLeaderboard(state) {
                 align-items:center;padding:0.5rem 0.25rem 0.4rem;
                 border-bottom:1.5px solid var(--border2);font-family:'Plus Jakarta Sans',sans-serif;
                 gap:0 0.25rem;">
-      <div style="text-align:center;line-height:1.2;">
-        <div style="font-size:0.55rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+      <div style="text-align:center;line-height:1.1;">
+        ${teamAShort.split(' & ').map(n => `<div style="font-size:0.5rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;
                     color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-                    max-width:2.8rem;">${teamAShort.split(' ')[0]}</div>
+                    max-width:2.8rem;">${n}</div>`).join('')}
         <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
-                    color:var(--muted);">${scoreLabel}</div>
+                    color:var(--muted);margin-top:1px;">${scoreLabel}</div>
       </div>
       <div></div>
       <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
                   color:var(--muted);text-align:center;">H</div>
       <div></div>
-      <div style="text-align:center;line-height:1.2;">
-        <div style="font-size:0.55rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+      <div style="text-align:center;line-height:1.1;">
+        ${teamBShort.split(' & ').map(n => `<div style="font-size:0.5rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;
                     color:#5ba8d8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-                    max-width:2.8rem;">${teamBShort.split(' ')[0]}</div>
+                    max-width:2.8rem;">${n}</div>`).join('')}
         <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
-                    color:var(--muted);">${scoreLabel}</div>
+                    color:var(--muted);margin-top:1px;">${scoreLabel}</div>
       </div>
     </div>`;
 
