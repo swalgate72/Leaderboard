@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026l)
-window.APP_BUILD = '20261026l';
+// LEADERBOARD - app.js  (v3.2 · build 20261026m)
+window.APP_BUILD = '20261026m';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -3247,6 +3247,23 @@ function openFriendsPickerModal() {
     addBtn.textContent = count ? `✓ Add Selected (${count})` : 'Add Selected (0)';
     addBtn.disabled    = count === 0;
     addBtn.style.opacity = count ? '1' : '0.4';
+
+    // Update "Add N more" hint
+    const pickerHintEl = document.getElementById('friends-picker-hint');
+    if (pickerHintEl) {
+      const alreadyAdded = setup.players.filter(p => p.name).length;
+      const minNeeded = setup.scoring === 'split6' ? 3
+        : ['betterball','csm','foursomes','greensomes'].includes(setup.scoring) ? 4
+        : setup.scoring === 'match' ? 2
+        : 0;
+      const remaining = Math.max(0, minNeeded - alreadyAdded - count);
+      if (remaining > 0) {
+        pickerHintEl.textContent = `Add ${remaining} more player${remaining > 1 ? 's' : ''}${remaining === 1 ? '…' : ''}`;
+        pickerHintEl.style.display = '';
+      } else {
+        pickerHintEl.style.display = 'none';
+      }
+    }
 
     // Row click — toggle selection
     listEl.querySelectorAll('.fp-row').forEach(row => {
