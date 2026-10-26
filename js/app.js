@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026e)
-window.APP_BUILD = '20261026e';
+// LEADERBOARD - app.js  (v3.2 · build 20261026f)
+window.APP_BUILD = '20261026f';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -5900,10 +5900,6 @@ function buildSetupReview() {
     });
   });
 
-  // Show tournament mode panel for eligible formats
-  const TOURN_FORMATS = new Set(['stableford','stroke','betterball','csm','best2','foursomes','greensomes']);
-  const tournBar = document.getElementById('tourn-mode-bar');
-  if (tournBar) tournBar.style.display = TOURN_FORMATS.has(setup.scoring) ? '' : 'none';
   refreshTournamentUI();
 }
 
