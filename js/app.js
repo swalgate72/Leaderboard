@@ -9410,17 +9410,23 @@ function showLeaderboard() {
   // Default to per-round view in tournaments, flat total otherwise
   _lbViewMode = 'total';
   if (toggleBtn) toggleBtn.textContent = '📋 Total Only';
-  renderLeaderboard();
   // In tournament mode, push current scores then fetch all cloud scores so the
-  // leaderboard shows all rounds — runs silently in the background
+  // leaderboard shows all rounds — show a loading state while the fetch is in flight
   if (isTournActive && code) {
+    _lbCloudScores = null;  // clear stale data
+    const tableEl = document.getElementById('leaderboard-table');
+    if (tableEl) tableEl.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);">Loading tournament scores…</div>';
     const silentBtn = { textContent: '', style: {}, disabled: false };
     pushScoresToCloud(silentBtn).catch(() => {}).finally(() => {
       _workerFetch(`/scores/${code.toUpperCase()}`).then(data => {
         _lbCloudScores = data;
         renderLeaderboard();
-      }).catch(() => {});
+      }).catch(() => {
+        renderLeaderboard(); // fall back to live-only on network error
+      });
     });
+  } else {
+    renderLeaderboard();
   }
   // Subscribe to all group states for live updates
   if (leaderboardChannel) realtimeUnsubscribe(leaderboardChannel);
@@ -9711,7 +9717,8 @@ function renderLeaderboard() {
   }
 
   // Add live round scores on top (current round)
-  const liveRound = ts.currentRound ?? 1;
+  // Hub games store round number on gameState._hubTournRound; local tournaments use ts.currentRound
+  const liveRound = gameState._hubTournRound ?? ts.currentRound ?? 1;
   for (const [name, live] of Object.entries(liveScoreByName)) {
     if (!byName[name]) byName[name] = { pts: 0, net: 0, roundScores: {} };
     // Only add live if not already covered by cloud for this round
