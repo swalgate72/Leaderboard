@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026g)
-window.APP_BUILD = '20261026g';
+// LEADERBOARD - app.js  (v3.2 · build 20261026h)
+window.APP_BUILD = '20261026h';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -9275,8 +9275,11 @@ function showLeaderboard() {
   showScreen('screen-leaderboard');
   // Show/hide action bar buttons based on whether a code exists
   const code = _lbGetCode();
+  const updateBtn = document.getElementById('btn-lb-update');
   const copyBtn   = document.getElementById('btn-lb-copy-url');
   const toggleBtn = document.getElementById('btn-lb-view-toggle');
+  // Update button only relevant when scores are being shared (game has a code)
+  if (updateBtn) updateBtn.style.display = code ? '' : 'none';
   if (copyBtn)   copyBtn.style.display   = code ? '' : 'none';
   // Show "By Round" toggle only when a tournament is active (multi-round)
   const ts = (() => { try { return _tournState(); } catch { return {}; } })();
