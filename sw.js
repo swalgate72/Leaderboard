@@ -33,7 +33,7 @@
 
 // ── Version — bump this string on every deployment ───────────────────
 // Must match the build tag used in app.js, index.html and the ?v= tags.
-const CACHE_NAME = 'leaderboard-v20261026v';
+const CACHE_NAME = 'leaderboard-v20261026w';
 
 // ── App shell — URLs listed in ESSENTIAL_URLS and OPTIONAL_URLS below ─
 // All versioned ?v= query strings must exactly match index.html and
@@ -68,9 +68,9 @@ const PASSTHROUGH_PREFIXES = [
 const ESSENTIAL_URLS = [
   '/',
   '/index.html',
-  '/styles.css?v=20261026v',
+  '/styles.css?v=20261026w',
   '/jsQR.min.js?v=1.4.0',
-  '/js/app.js?v=20261026v',
+  '/js/app.js?v=20261026w',
   '/game.js?v=20260704l',
   '/db.js?v=20261026q',
   '/provider.js?v=20261021a',

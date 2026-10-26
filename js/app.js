@@ -9410,20 +9410,17 @@ function showLeaderboard() {
   // Default to per-round view in tournaments, flat total otherwise
   _lbViewMode = 'total';
   if (toggleBtn) toggleBtn.textContent = '📋 Total Only';
-  // In tournament mode, push current scores then fetch all cloud scores so the
-  // leaderboard shows all rounds — show a loading state while the fetch is in flight
+  // In tournament mode, fetch all cloud scores so the leaderboard shows all rounds.
+  // Push happens separately (Update button) — fetching alone is fast and safe mid-round.
   if (isTournActive && code) {
     _lbCloudScores = null;  // clear stale data
     const tableEl = document.getElementById('leaderboard-table');
     if (tableEl) tableEl.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);">Loading tournament scores…</div>';
-    const silentBtn = { textContent: '', style: {}, disabled: false };
-    pushScoresToCloud(silentBtn).catch(() => {}).finally(() => {
-      _workerFetch(`/scores/${code.toUpperCase()}`).then(data => {
-        _lbCloudScores = data;
-        renderLeaderboard();
-      }).catch(() => {
-        renderLeaderboard(); // fall back to live-only on network error
-      });
+    _workerFetch(`/scores/${code.toUpperCase()}`).then(data => {
+      _lbCloudScores = data;
+      renderLeaderboard();
+    }).catch(() => {
+      renderLeaderboard(); // fall back to live-only on network error
     });
   } else {
     renderLeaderboard();
