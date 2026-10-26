@@ -16446,15 +16446,18 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
         listEl.innerHTML = '<div style="font-size:0.85rem;color:var(--text-muted);">No players in roster yet.</div>';
       } else {
         listEl.innerHTML = players.map(p => {
-          const hcp = p.adjustedHcp ?? p.originalHcp ?? 0;
+          const origHcp = p.originalHcp ?? p.hcpIndex ?? 0;
+          const adjHcp  = p.adjustedHcp ?? origHcp;
           return `<label style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;
                                cursor:pointer;border-bottom:1px solid var(--border);">
             <input type="checkbox" data-player-id="${_esc(p.playerId ?? p.id)}"
-              data-player-name="${_esc(p.name)}" data-player-hcp="${hcp}"
+              data-player-name="${_esc(p.name)}"
+              data-player-orig-hcp="${origHcp}"
+              data-player-adj-hcp="${adjHcp}"
               checked style="width:1.2rem;height:1.2rem;accent-color:var(--gold);">
             <div style="flex:1;">
               <div style="font-weight:700;">${_esc(p.name)}</div>
-              <div style="font-size:0.78rem;color:var(--text-muted);">HCP index: ${hcp}</div>
+              <div style="font-size:0.78rem;color:var(--text-muted);">Index: ${origHcp} · Playing: ${adjHcp}</div>
             </div>
           </label>`;
         }).join('');
@@ -16468,9 +16471,10 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
         const checked = [...(listEl?.querySelectorAll('input[type=checkbox]:checked') ?? [])];
         if (!checked.length) { alert('Select at least one player.'); return; }
         const selectedPlayers = checked.map(cb => ({
-          playerId: cb.dataset.playerId,
-          name:     cb.dataset.playerName,
-          hcpIndex: parseFloat(cb.dataset.playerHcp) || 0,
+          playerId:     cb.dataset.playerId,
+          name:         cb.dataset.playerName,
+          hcpIndex:     parseFloat(cb.dataset.playerOrigHcp) || 0,  // raw profile index
+          gameHandicap: parseFloat(cb.dataset.playerAdjHcp)  || 0,  // adjusted playing handicap
         }));
 
         // Determine course
