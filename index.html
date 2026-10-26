@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261026b">
+  <link rel="stylesheet" href="styles.css?v=20261026c">
   <!-- jsQR: fallback QR decoder for browsers without BarcodeDetector (iOS PWA) -->
   <script src="jsQR.min.js?v=1.4.0"></script>
 </head>
@@ -126,11 +126,76 @@
           <svg class="cat-tile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div class="cat-formats" id="cat-2v2-formats" hidden>
-          <div class="fmt-col"><button class="fmt-btn" data-fmt="betterball"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="13" r="5"/><path d="M5 11 Q8 13 11 11" stroke-width="1"/><circle cx="16" cy="13" r="5" stroke="#7a5610" stroke-width="2"/><path d="M13 11 Q16 13 19 11" stroke-width="1" stroke="#7a5610"/></svg>Better Ball</button></div>
-          <div class="fmt-col"><button class="fmt-btn" data-fmt="csm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="14" r="4"/><path d="M3.5 12.5 Q6 14 8.5 12.5" stroke-width="1"/><line x1="11" y1="14" x2="13" y2="14" stroke-width="2"/><line x1="12" y1="13" x2="12" y2="15" stroke-width="2"/><circle cx="18" cy="14" r="4"/><path d="M15.5 12.5 Q18 14 20.5 12.5" stroke-width="1"/></svg>Combined Score</button></div>
-          <div class="fmt-col"><button class="fmt-btn" data-fmt="texas"><svg viewBox="0 0 36 28" width="24" height="19" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="18" cy="22" rx="16" ry="4.5" fill="currentColor" opacity="0.18"/><path d="M4 22c0 0 2-1 14-1s14 1 14 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 22V14c0-5 2.5-9 8-9s8 4 8 9v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 14H4.5C3 14 2 15.2 2 16.5c0 2 1.5 4 3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M26 14h5.5c1.5 0 2.5 1.2 2.5 2.5c0 2-1.5 4-3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 10c0-1 0.5-2.5 4-2.5s4 1.5 4 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Scramble</button></div>
-          <div class="fmt-col"><button class="fmt-btn" data-fmt="foursomes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="5" r="2.5"/><circle cx="17" cy="5" r="2.5"/><circle cx="12" cy="19" r="3"/><path d="M9.8 17.8 Q12 19 14.2 17.8" stroke-width="0.9"/><path d="M7 8 Q7 14 10.5 17.5" stroke-width="1.3"/><polyline points="9,16.5 10.5,17.5 10,15.8" stroke-width="1.3"/><path d="M17 8 Q17 14 13.5 17.5" stroke-width="1.3" stroke-dasharray="2.5 1.5"/></svg>Foursomes</button></div>
-          <div class="fmt-col"><button class="fmt-btn" data-fmt="greensomes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="4.5" r="2.5"/><circle cx="17" cy="4.5" r="2.5"/><circle cx="8" cy="14" r="3"/><path d="M5.8 12.8 Q8 14 10.2 12.8" stroke-width="0.9"/><circle cx="16" cy="14" r="3" stroke="#7a5610" stroke-width="2"/><path d="M13.8 12.8 Q16 14 18.2 12.8" stroke-width="0.9" stroke="#7a5610"/><polyline points="14.5,14 15.5,15.3 17.8,12.5" stroke-width="1.5" stroke="#7a5610"/><line x1="7" y1="7.5" x2="7.5" y2="10.5" stroke-width="1.2"/><line x1="17" y1="7.5" x2="16.5" y2="10.5" stroke-width="1.2"/></svg>Greensomes</button></div>
+
+          <!-- Better Ball -->
+          <div class="p2v2-row" data-fmt="betterball">
+            <button class="p2v2-fmt-btn" type="button">
+              <span class="p2v2-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="13" r="5"/><path d="M5 11 Q8 13 11 11" stroke-width="1"/><circle cx="16" cy="13" r="5" stroke="#7a5610" stroke-width="2"/><path d="M13 11 Q16 13 19 11" stroke-width="1" stroke="#7a5610"/></svg></span>
+              <span class="p2v2-label">Better Ball</span>
+              <svg class="p2v2-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="p2v2-modes" hidden>
+              <button class="p2v2-mode-btn" data-mode="stableford" type="button">Stableford</button>
+              <button class="p2v2-mode-btn" data-mode="stroke" type="button">Stroke Play</button>
+              <button class="p2v2-mode-btn" data-mode="match" type="button">Match Play</button>
+            </div>
+          </div>
+
+          <!-- Combined Score -->
+          <div class="p2v2-row" data-fmt="csm">
+            <button class="p2v2-fmt-btn" type="button">
+              <span class="p2v2-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="14" r="4"/><path d="M3.5 12.5 Q6 14 8.5 12.5" stroke-width="1"/><line x1="11" y1="14" x2="13" y2="14" stroke-width="2"/><line x1="12" y1="13" x2="12" y2="15" stroke-width="2"/><circle cx="18" cy="14" r="4"/><path d="M15.5 12.5 Q18 14 20.5 12.5" stroke-width="1"/></svg></span>
+              <span class="p2v2-label">Combined Score</span>
+              <svg class="p2v2-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="p2v2-modes" hidden>
+              <button class="p2v2-mode-btn" data-mode="stableford" type="button">Stableford</button>
+              <button class="p2v2-mode-btn" data-mode="stroke" type="button">Stroke Play</button>
+              <button class="p2v2-mode-btn" data-mode="match" type="button">Match Play</button>
+            </div>
+          </div>
+
+          <!-- Scramble -->
+          <div class="p2v2-row" data-fmt="texas">
+            <button class="p2v2-fmt-btn" type="button">
+              <span class="p2v2-icon" aria-hidden="true"><svg viewBox="0 0 36 28" width="24" height="19" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="18" cy="22" rx="16" ry="4.5" fill="currentColor" opacity="0.18"/><path d="M4 22c0 0 2-1 14-1s14 1 14 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 22V14c0-5 2.5-9 8-9s8 4 8 9v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 14H4.5C3 14 2 15.2 2 16.5c0 2 1.5 4 3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M26 14h5.5c1.5 0 2.5 1.2 2.5 2.5c0 2-1.5 4-3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 10c0-1 0.5-2.5 4-2.5s4 1.5 4 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+              <span class="p2v2-label">Scramble</span>
+              <svg class="p2v2-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="p2v2-modes" hidden>
+              <button class="p2v2-mode-btn" data-mode="stableford" type="button">Stableford</button>
+              <button class="p2v2-mode-btn" data-mode="stroke" type="button">Stroke Play</button>
+            </div>
+          </div>
+
+          <!-- Foursomes -->
+          <div class="p2v2-row" data-fmt="foursomes">
+            <button class="p2v2-fmt-btn" type="button">
+              <span class="p2v2-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="5" r="2.5"/><circle cx="17" cy="5" r="2.5"/><circle cx="12" cy="19" r="3"/><path d="M9.8 17.8 Q12 19 14.2 17.8" stroke-width="0.9"/><path d="M7 8 Q7 14 10.5 17.5" stroke-width="1.3"/><polyline points="9,16.5 10.5,17.5 10,15.8" stroke-width="1.3"/><path d="M17 8 Q17 14 13.5 17.5" stroke-width="1.3" stroke-dasharray="2.5 1.5"/></svg></span>
+              <span class="p2v2-label">Foursomes</span>
+              <svg class="p2v2-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="p2v2-modes" hidden>
+              <button class="p2v2-mode-btn" data-mode="stableford" type="button">Stableford</button>
+              <button class="p2v2-mode-btn" data-mode="stroke" type="button">Stroke Play</button>
+              <button class="p2v2-mode-btn" data-mode="match" type="button">Match Play</button>
+            </div>
+          </div>
+
+          <!-- Greensomes -->
+          <div class="p2v2-row" data-fmt="greensomes">
+            <button class="p2v2-fmt-btn" type="button">
+              <span class="p2v2-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="4.5" r="2.5"/><circle cx="17" cy="4.5" r="2.5"/><circle cx="8" cy="14" r="3"/><path d="M5.8 12.8 Q8 14 10.2 12.8" stroke-width="0.9"/><circle cx="16" cy="14" r="3" stroke="#7a5610" stroke-width="2"/><path d="M13.8 12.8 Q16 14 18.2 12.8" stroke-width="0.9" stroke="#7a5610"/><polyline points="14.5,14 15.5,15.3 17.8,12.5" stroke-width="1.5" stroke="#7a5610"/><line x1="7" y1="7.5" x2="7.5" y2="10.5" stroke-width="1.2"/><line x1="17" y1="7.5" x2="16.5" y2="10.5" stroke-width="1.2"/></svg></span>
+              <span class="p2v2-label">Greensomes</span>
+              <svg class="p2v2-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="p2v2-modes" hidden>
+              <button class="p2v2-mode-btn" data-mode="stableford" type="button">Stableford</button>
+              <button class="p2v2-mode-btn" data-mode="stroke" type="button">Stroke Play</button>
+              <button class="p2v2-mode-btn" data-mode="match" type="button">Match Play</button>
+            </div>
+          </div>
+
         </div>
 
         <!-- Team Events -->
@@ -1895,7 +1960,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261026b"></script>
+<script type="module" src="js/app.js?v=20261026c"></script>
 
 
 <!-- ══════════════════════════════════════════

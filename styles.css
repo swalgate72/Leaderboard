@@ -3608,6 +3608,102 @@ html.light .cat-tile:active { background: #f6f3ec; }
 .cat-formats .fmt-col:first-child { border-top-left-radius: 14px; border-top-right-radius: 14px; }
 .cat-formats .fmt-col:last-child  { border-bottom-left-radius: 18px; border-bottom-right-radius: 18px; }
 
+/* ── 2v2 inline accordion ─────────────────────────────────────── */
+/* Each partner-format row */
+.p2v2-row {
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 0.35rem;
+  border: 1px solid var(--border);
+}
+.p2v2-row:last-child { margin-bottom: 0; }
+
+/* Partner-format header button */
+.p2v2-fmt-btn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  background: var(--surface);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font-family: var(--font-ui);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+.p2v2-fmt-btn:active,
+.p2v2-fmt-btn:hover { background: var(--surface2); }
+
+/* Icon inside partner button */
+.p2v2-icon {
+  flex-shrink: 0;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+}
+.p2v2-icon svg { width: 22px; height: 22px; }
+
+/* Label */
+.p2v2-label {
+  flex: 1;
+  font-size: 1.0rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* Chevron — rotates when modes are open */
+.p2v2-chevron {
+  width: 16px; height: 16px;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+  stroke: var(--muted);
+}
+.p2v2-fmt-btn[aria-expanded="true"] .p2v2-chevron {
+  transform: rotate(180deg);
+  stroke: var(--green);
+}
+
+/* Scoring-mode pill row */
+.p2v2-modes {
+  display: flex;
+  flex-direction: row;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem 0.55rem;
+  background: var(--surface2);
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.p2v2-modes[hidden] { display: none; }
+
+/* Individual mode pill */
+.p2v2-mode-btn {
+  flex: 1;
+  min-width: 90px;
+  padding: 0.45rem 0.6rem;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+.p2v2-mode-btn:active,
+.p2v2-mode-btn:hover {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
 /* ── In-game hero: same green + gold halo ──────────────────────── */
 .game-hero {
   background:

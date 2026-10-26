@@ -1,6 +1,6 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261021a)
-window.APP_BUILD = '20261021a';
+// LEADERBOARD - app.js  (v3.2 · build 20261026c)
+window.APP_BUILD = '20261026c';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -2394,6 +2394,68 @@ document.querySelectorAll('.fmt-btn').forEach(btn => {
       goToTournament(e);
     });
   }
+})();
+
+// ── 2v2 inline accordion — partner format → scoring mode ─────────
+(function init2v2Accordion() {
+  const container = document.getElementById('cat-2v2-formats');
+  if (!container) return;
+
+  container.querySelectorAll('.p2v2-row').forEach(row => {
+    const fmt      = row.dataset.fmt;
+    const fmtBtn   = row.querySelector('.p2v2-fmt-btn');
+    const modesDiv = row.querySelector('.p2v2-modes');
+    if (!fmtBtn || !modesDiv) return;
+
+    // Tap partner-format button → toggle its scoring-mode row
+    const toggleModes = (e) => {
+      e.preventDefault();
+      const open = !modesDiv.hidden;
+      // Close all other mode rows first
+      container.querySelectorAll('.p2v2-modes').forEach(m => { m.hidden = true; });
+      container.querySelectorAll('.p2v2-fmt-btn').forEach(b => b.setAttribute('aria-expanded', 'false'));
+      if (!open) {
+        modesDiv.hidden = false;
+        fmtBtn.setAttribute('aria-expanded', 'true');
+      }
+    };
+
+    fmtBtn.addEventListener('touchstart', toggleModes, { passive: false });
+    fmtBtn.addEventListener('click', (e) => {
+      if (e.sourceCapabilities?.firesTouchEvents) return;
+      toggleModes(e);
+    });
+
+    // Tap a scoring-mode pill → set setup and go
+    modesDiv.querySelectorAll('.p2v2-mode-btn').forEach(modeBtn => {
+      const handleMode = (e) => {
+        e.preventDefault();
+        const mode = modeBtn.dataset.mode;
+        setup.tournamentId     = null;
+        setup.tournRoundNumber = null;
+        setup.scoring          = fmt;
+        setup.teamScoringMode  = mode;
+        setup.courseId = null; setup.teeIdx = 0; setup.holes = 18;
+        setup.gameDate = null; setup.pairs  = []; setup.players = [];
+        setup.texasMode        = 'average';
+        setup.texasScoringFmt  = mode === 'match' ? 'match' : mode;
+        setup.texasTeamSize    = 2;
+        setup.texasDrivesTotal = null;
+        setup.texasDrivesPar3  = null;
+        if (['betterball','csm','foursomes','greensomes'].includes(fmt)) {
+          setup.numPlayers = 4; setup.numGroups = 1; setup.playersPerGroup = null;
+        } else if (fmt === 'texas') {
+          setup.numPlayers = 2; setup.numGroups = 1; setup.playersPerGroup = null;
+        }
+        startSetup();
+      };
+      modeBtn.addEventListener('touchstart', handleMode, { passive: false });
+      modeBtn.addEventListener('click', (e) => {
+        if (e.sourceCapabilities?.firesTouchEvents) return;
+        handleMode(e);
+      });
+    });
+  });
 })();
 
 // ── Bottom nav ────────────────────────────────────────────────────
