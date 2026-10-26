@@ -421,8 +421,10 @@ function showError(icon, title, msg) {
 }
 
 
-function renderRoundTabs(rounds, active) {
-  if (!rounds || rounds.length <= 1) return '';
+function renderRoundTabs(rounds, active, isTournament) {
+  // In tournament mode always show the Total tab, even with a single round of data
+  if (!isTournament && (!rounds || rounds.length <= 1)) return '';
+  if (!rounds || !rounds.length) return '';
   return `
     <div class="round-tabs" id="round-tabs">
       <button class="round-tab${active === 'total' ? ' active' : ''}" data-round="total"
@@ -431,32 +433,39 @@ function renderRoundTabs(rounds, active) {
       </button>
       ${rounds.map(r => `
         <button class="round-tab${r === active ? ' active' : ''}" data-round="${r}">
-          Round ${r}
+          R${r}
         </button>`).join('')}
     </div>`;
 }
 
 // ── Tournament total: sum pts/nets across all rounds per player ───────────────
 function renderTournamentTotal(game, scores) {
-  const fmt     = game.format?.type ?? 'stableford';
+  const fmt      = game.format?.type ?? 'stableford';
   const isStroke = fmt === 'stroke';
+  const totalRoundsExpected = game._tournamentData?.totalRounds ?? null;
 
   if (!scores?.rounds?.length) {
     return `<div class="state-msg"><div class="icon">📋</div><h3>No scores yet</h3>
       <p>Push scores from the app to see the tournament leaderboard</p></div>`;
   }
 
-  // Group all player records by name, accumulate totals
+  const roundNums = [...new Set(scores.rounds.map(r => r.round ?? 1))].sort((a,b)=>a-b);
+  const numRounds = roundNums.length;
+
+  // Group all player records by name, accumulate totals and per-round scores
   const byName = {};
   for (const grp of scores.rounds) {
+    const rn = grp.round ?? 1;
     for (const p of (grp.players ?? [])) {
       const nm = p.name;
       if (!nm) continue;
-      if (!byName[nm]) byName[nm] = { name: nm, hcp: p.hcp ?? 0, pts: 0, grossTotal: 0, netTotal: 0, rounds: 0 };
-      byName[nm].pts        += p.pts        ?? 0;
+      if (!byName[nm]) byName[nm] = { name: nm, hcp: p.hcp ?? 0, pts: 0, grossTotal: 0, netTotal: 0, roundMap: {} };
+      const pts = p.pts ?? 0;
+      const hp  = p.holesPlayed ?? 18;
+      byName[nm].pts        += pts;
       byName[nm].grossTotal += p.grossTotal ?? 0;
       byName[nm].netTotal   += p.netTotal   ?? 0;
-      byName[nm].rounds     += 1;
+      byName[nm].roundMap[rn] = { pts, holesPlayed: hp };
     }
   }
 
@@ -479,36 +488,67 @@ function renderTournamentTotal(game, scores) {
     }
   });
 
-  const roundNums = [...new Set(scores.rounds.map(r => r.round))].sort((a,b)=>a-b);
-  const numRounds = roundNums.length;
+  // Show per-round columns when there are multiple rounds of data
+  const showRoundCols = numRounds > 1;
+  const hdrTotal = isStroke ? 'Net' : 'Tot';
+
+  // Latest round number (for "thru" annotation on in-progress rounds)
+  const latestRound = roundNums[roundNums.length - 1];
+
+  const roundHdrs = showRoundCols
+    ? roundNums.map(r => `<th class="num" style="font-size:0.65rem;color:var(--muted);">R${r}</th>`).join('') +
+      `<th class="num" style="font-size:0.7rem;">${hdrTotal}</th>`
+    : `<th class="num" style="font-size:0.7rem;">${hdrTotal}</th>`;
 
   const rows = players.map(p => {
     const posLabel = p._pos <= 3 ? ['🥇','🥈','🥉'][p._pos-1] : p._pos;
     const posClass = p._pos <= 3 ? 'pos top3' : 'pos';
     const total    = isStroke ? (p.netTotal ?? '–') : (p.pts ?? '–');
-    const sub      = `HCP ${p.hcp ?? '–'} · ${numRounds} round${numRounds !== 1 ? 's' : ''}`;
+
+    // For the latest round, show "thru N" if not complete
+    const latestEntry = p.roundMap[latestRound];
+    const latestHoles = latestEntry?.holesPlayed ?? 18;
+    const thruNote = latestHoles < 18
+      ? ` <span style="font-size:0.7rem;color:var(--muted)">(thru ${latestHoles})</span>` : '';
+
+    const sub = `HCP ${p.hcp ?? '–'}`;
+
+    const roundCells = showRoundCols
+      ? roundNums.map(r => {
+          const rd = p.roundMap[r];
+          const isLatest = r === latestRound;
+          const style = isLatest ? 'color:#3b82f6;font-weight:700;' : 'color:var(--muted);';
+          return `<td class="num" style="font-size:0.85rem;${style}">${rd ? rd.pts : '–'}</td>`;
+        }).join('') +
+        `<td class="num" style="font-weight:800;font-size:1.05rem;">${total}</td>`
+      : `<td class="num" style="font-weight:800;font-size:1.05rem;">${total}${thruNote}</td>`;
+
     return `<tr>
       <td class="${posClass}">${posLabel}</td>
       <td>
-        <div class="player-name">${p.name}</div>
+        <div class="player-name">${p.name}${showRoundCols ? '' : thruNote}</div>
         <div class="player-hcp">${sub}</div>
       </td>
-      <td class="num" style="font-weight:700;font-size:1.05rem;">${total}</td>
+      ${roundCells}
     </tr>`;
   }).join('');
 
-  const hdrTotal = isStroke ? 'Net' : 'Pts';
+  const liveRoundNote = showRoundCols
+    ? `<p style="text-align:center;color:#3b82f6;font-size:0.72rem;margin:0 0 0.5rem;">R${latestRound} (current round) shown in blue</p>`
+    : '';
+
   return `
-    <div style="text-align:center;padding:0.4rem 0 0.7rem;font-size:0.78rem;color:var(--muted);">
-      Combined total across ${numRounds} round${numRounds !== 1 ? 's' : ''}
+    <div style="text-align:center;padding:0.4rem 0 0.2rem;font-size:0.78rem;color:var(--muted);">
+      Tournament total · ${numRounds} of ${totalRoundsExpected ?? numRounds} round${(totalRoundsExpected ?? numRounds) !== 1 ? 's' : ''} played
     </div>
+    ${liveRoundNote}
     <div class="lb-wrap">
       <table class="lb-table">
         <thead>
           <tr>
             <th style="width:2rem">#</th>
             <th>Player</th>
-            <th class="num" style="font-size:0.7rem">${hdrTotal}</th>
+            ${roundHdrs}
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -824,11 +864,13 @@ function render() {
     ? [...new Set(scores.rounds.map(r => r.round))].sort((a,b) => a-b)
     : [1];
 
-  // Default to "Total" tab when there are multiple rounds; otherwise latest round
+  const isTournament = !!game._isTournament;
+
+  // Default to "Total" tab for tournaments (always) or multi-round non-tournament
   if (activeRound == null) {
-    activeRound = rounds.length > 1 ? 'total' : rounds[rounds.length - 1];
+    activeRound = (isTournament || rounds.length > 1) ? 'total' : rounds[rounds.length - 1];
   } else if (activeRound !== 'total' && !rounds.includes(activeRound)) {
-    activeRound = rounds.length > 1 ? 'total' : rounds[rounds.length - 1];
+    activeRound = (isTournament || rounds.length > 1) ? 'total' : rounds[rounds.length - 1];
   }
 
   // Header
@@ -866,7 +908,7 @@ function render() {
   const content = activeRound === 'total'
     ? renderTournamentTotal(game, scores)
     : renderLeaderboard(game, scores, activeRound);
-  main.innerHTML = renderRoundTabs(rounds, activeRound) + content;
+  main.innerHTML = renderRoundTabs(rounds, activeRound, isTournament) + content;
 
   // Wire round tabs
   main.querySelectorAll('.round-tab').forEach(btn => {

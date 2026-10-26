@@ -33,7 +33,7 @@
 
 // ── Version — bump this string on every deployment ───────────────────
 // Must match the build tag used in app.js, index.html and the ?v= tags.
-const CACHE_NAME = 'leaderboard-v20261026p';
+const CACHE_NAME = 'leaderboard-v20261026q';
 
 // ── App shell — URLs listed in ESSENTIAL_URLS and OPTIONAL_URLS below ─
 // All versioned ?v= query strings must exactly match index.html and
@@ -68,13 +68,13 @@ const PASSTHROUGH_PREFIXES = [
 const ESSENTIAL_URLS = [
   '/',
   '/index.html',
-  '/styles.css?v=20261026p',
+  '/styles.css?v=20261026q',
   '/jsQR.min.js?v=1.4.0',
-  '/js/app.js?v=20261026p',
+  '/js/app.js?v=20261026q',
   '/game.js?v=20260704l',
-  '/db.js?v=20261026p',
+  '/db.js?v=20261026q',
   '/provider.js?v=20261021a',
-  '/local.js?v=20261026p',
+  '/local.js?v=20261026q',
 ];
 
 // Optional assets — cached if available, but a fetch failure does not
