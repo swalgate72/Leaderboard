@@ -15907,9 +15907,9 @@ document.getElementById('btn-wizard-1-next')?.addEventListener('click', () => {
 
 // ── Step 2 wiring ──
 
-// Formats that require pair assignment before the game starts
-const TEAM_FORMATS = new Set(['betterball','csm','best2','foursomes','greensomes','scramble']);
-// Formats that support the shared/individual pair-handicap choice
+// Tournament wizard: formats that require pair assignment before the game starts
+const _TOURN_TEAM_FMTS = new Set(['betterball','csm','best2','foursomes','greensomes','scramble']);
+// Tournament wizard: formats that support the shared/individual pair-handicap choice
 const PAIR_HCP_FORMATS = new Set(['betterball','csm']);
 
 function _wizUpdatePairHcpPanel() {
@@ -16178,7 +16178,7 @@ function _openFriendPickerForWizard() {
 document.getElementById('btn-wizard-4-back')?.addEventListener('click', () => _wizGoStep(3));
 document.getElementById('btn-wizard-4-next')?.addEventListener('click', () => {
   // Team formats need a pairing step; solo formats create directly
-  if (TEAM_FORMATS.has(_wiz.format)) {
+  if (_TOURN_TEAM_FMTS.has(_wiz.format)) {
     _wizBuildPairingStep();
     _wizGoStep(5);
   } else {
@@ -16283,7 +16283,7 @@ async function _wizCreateTournament() {
     if (!confirm('No players added. Create tournament anyway? (You can add players from Organiser Admin later.)')) return;
   }
 
-  const isTeam = TEAM_FORMATS.has(_wiz.format);
+  const isTeam = _TOURN_TEAM_FMTS.has(_wiz.format);
   const btn = document.getElementById(isTeam ? 'btn-wizard-5-create' : 'btn-wizard-4-next');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
 
@@ -16301,7 +16301,7 @@ async function _wizCreateTournament() {
 
     // Build pairs array (indices → player names) for team formats
     let pairsPayload = null;
-    if (TEAM_FORMATS.has(_wiz.format) && _wiz.pairs?.length) {
+    if (_TOURN_TEAM_FMTS.has(_wiz.format) && _wiz.pairs?.length) {
       pairsPayload = _wiz.pairs.map(pair => pair.map(idx => idx != null ? _wiz.players[idx]?.name ?? null : null));
     }
 
@@ -16353,7 +16353,7 @@ async function _wizCreateTournament() {
 
   } catch (err) {
     alert('Could not create tournament: ' + err.message);
-    if (btn) { btn.disabled = false; btn.textContent = TEAM_FORMATS.has(_wiz.format) ? 'CREATE →' : 'NEXT →'; }
+    if (btn) { btn.disabled = false; btn.textContent = _TOURN_TEAM_FMTS.has(_wiz.format) ? 'CREATE →' : 'NEXT →'; }
   }
 }
 
