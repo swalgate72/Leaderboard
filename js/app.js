@@ -1,5 +1,5 @@
 // ================================================================
-// LEADERBOARD - app.js  (v3.2 · build 20261026aa)
+// LEADERBOARD - app.js  (v3.2 · build 20261027a)
 window.APP_BUILD = '20261026m';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
@@ -15827,6 +15827,8 @@ function showTournamentNew() {
     format: 'stableford',
     hcpMode: 'none',
     hcpStrength: 3,
+    pairHcpMode: 'shared',      // for betterball/csm: 'shared' | 'individual'
+    pairs: null,                // for team formats: [[playerIdx, playerIdx|null], ...]
     courseMode: 'same',
     courseId: null,             // for same-course
     courseIds: [],              // per-round [{ roundNum, courseId }]
@@ -15871,6 +15873,8 @@ function _wizGoStep(step) {
     el.classList.toggle('active', n === step);
     el.classList.toggle('done', n < step);
   });
+  // When entering step 2 refresh pair-hcp panel visibility
+  if (step === 2) _wizUpdatePairHcpPanel();
 }
 
 // Back button
@@ -15903,6 +15907,16 @@ document.getElementById('btn-wizard-1-next')?.addEventListener('click', () => {
 
 // ── Step 2 wiring ──
 
+// Formats that require pair assignment before the game starts
+const TEAM_FORMATS = new Set(['betterball','csm','best2','foursomes','greensomes','scramble']);
+// Formats that support the shared/individual pair-handicap choice
+const PAIR_HCP_FORMATS = new Set(['betterball','csm']);
+
+function _wizUpdatePairHcpPanel() {
+  const panel = document.getElementById('tourn-pair-hcp-panel');
+  if (panel) panel.style.display = PAIR_HCP_FORMATS.has(_wiz.format) ? '' : 'none';
+}
+
 document.getElementById('tourn-format-btns')?.querySelectorAll('[data-fmt]').forEach(btn => {
   btn.addEventListener('click', () => {
     document.getElementById('tourn-format-btns').querySelectorAll('[data-fmt]')
@@ -15910,7 +15924,26 @@ document.getElementById('tourn-format-btns')?.querySelectorAll('[data-fmt]').for
     btn.classList.add('active');
     document.getElementById('tourn-format').value = btn.dataset.fmt;
     _wiz.format = btn.dataset.fmt;
+    _wizUpdatePairHcpPanel();
   });
+});
+
+document.getElementById('tourn-pair-hcp-btns')?.querySelectorAll('[data-phcp]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('tourn-pair-hcp-btns').querySelectorAll('[data-phcp]')
+      .forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tourn-pair-hcp-mode').value = btn.dataset.phcp;
+    _wiz.pairHcpMode = btn.dataset.phcp;
+  });
+});
+
+document.getElementById('btn-pair-hcp-info')?.addEventListener('click', () => {
+  showScreen('screen-pair-hcp-info');
+});
+document.getElementById('pair-hcp-info-back')?.addEventListener('click', () => {
+  showScreen('screen-tournament-new');
+  _wizGoStep(2);
 });
 
 document.getElementById('tourn-hcp-mode-btns')?.querySelectorAll('[data-hcp]').forEach(btn => {
@@ -15945,9 +15978,10 @@ document.getElementById('tournament-hcp-info-back')?.addEventListener('click', (
 
 document.getElementById('btn-wizard-2-back')?.addEventListener('click', () => _wizGoStep(1));
 document.getElementById('btn-wizard-2-next')?.addEventListener('click', () => {
-  _wiz.format     = document.getElementById('tourn-format')?.value ?? 'stableford';
-  _wiz.hcpMode    = document.getElementById('tourn-hcp-mode')?.value ?? 'none';
+  _wiz.format      = document.getElementById('tourn-format')?.value ?? 'stableford';
+  _wiz.hcpMode     = document.getElementById('tourn-hcp-mode')?.value ?? 'none';
   _wiz.hcpStrength = parseInt(document.getElementById('tourn-hcp-strength')?.value ?? '3') || 3;
+  _wiz.pairHcpMode = document.getElementById('tourn-pair-hcp-mode')?.value ?? 'shared';
   _wizBuildCourseStep();
   _wizGoStep(3);
 });
@@ -16142,14 +16176,115 @@ function _openFriendPickerForWizard() {
 }
 
 document.getElementById('btn-wizard-4-back')?.addEventListener('click', () => _wizGoStep(3));
-document.getElementById('btn-wizard-4-create')?.addEventListener('click', () => _wizCreateTournament());
+document.getElementById('btn-wizard-4-next')?.addEventListener('click', () => {
+  // Team formats need a pairing step; solo formats create directly
+  if (TEAM_FORMATS.has(_wiz.format)) {
+    _wizBuildPairingStep();
+    _wizGoStep(5);
+  } else {
+    _wizCreateTournament();
+  }
+});
+
+// ── Step 5: Pairing ──
+
+function _wizBuildPairingStep() {
+  const listEl   = document.getElementById('wiz-pair-list');
+  const warnEl   = document.getElementById('wiz-pair-warning');
+  if (!listEl) return;
+
+  // Initialise pairs from _wiz.players if not already set, or re-sync
+  // pairs: array of [playerIndex, playerIndex|null]
+  const players = _wiz.players;
+  if (!_wiz.pairs || _wiz.pairs.length !== Math.ceil(players.length / 2)) {
+    _wiz.pairs = [];
+    for (let i = 0; i < players.length; i += 2) {
+      _wiz.pairs.push([i, i + 1 < players.length ? i + 1 : null]);
+    }
+  }
+
+  function renderPairs() {
+    listEl.innerHTML = _wiz.pairs.map((pair, pi) => {
+      const p0 = players[pair[0]];
+      const p1 = pair[1] != null ? players[pair[1]] : null;
+      return `<div style="background:var(--surface-2,rgba(255,255,255,0.04));border:1px solid var(--border);
+                          border-radius:0.6rem;padding:0.6rem 0.75rem;">
+        <div style="font-size:0.68rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;
+                    color:var(--text-muted);margin-bottom:0.4rem;">Pair ${pi + 1}</div>
+        <div style="display:grid;gap:0.3rem;">
+          ${_wizPairPlayerRow(p0, pair[0], pi, 0, players)}
+          ${p1 ? _wizPairPlayerRow(p1, pair[1], pi, 1, players) :
+            '<div style="font-size:0.8rem;color:var(--text-muted);padding:0.25rem 0;">— solo player (odd number) —</div>'}
+        </div>
+      </div>`;
+    }).join('');
+
+    // Wire swap buttons
+    listEl.querySelectorAll('[data-swap]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const [fromPair, fromSlot, toPair, toSlot] = btn.dataset.swap.split(',').map(Number);
+        const tmp = _wiz.pairs[fromPair][fromSlot];
+        _wiz.pairs[fromPair][fromSlot] = _wiz.pairs[toPair][toSlot];
+        _wiz.pairs[toPair][toSlot] = tmp;
+        renderPairs();
+      });
+    });
+
+    // Odd-player warning
+    const odd = players.length % 2 !== 0;
+    if (warnEl) {
+      warnEl.style.display = odd ? '' : 'none';
+      warnEl.textContent   = odd ? '⚠️ Odd number of players — one player will be solo.' : '';
+    }
+  }
+
+  renderPairs();
+}
+
+function _wizPairPlayerRow(player, playerIdx, pairIdx, slotIdx, allPlayers) {
+  // Build a quick swap-select menu: other slots to swap with
+  const others = [];
+  _wiz.pairs.forEach((pair, pi) => {
+    pair.forEach((pidx, si) => {
+      if (pidx != null && !(pi === pairIdx && si === slotIdx)) {
+        others.push({ label: allPlayers[pidx].name, key: `${pairIdx},${slotIdx},${pi},${si}` });
+      }
+    });
+  });
+  return `<div style="display:flex;align-items:center;gap:0.5rem;">
+    <div style="flex:1;font-size:0.9rem;font-weight:700;">${_esc(player.name)}
+      <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">HCP ${player.hcpIndex ?? '—'}</span>
+    </div>
+    ${others.length ? `<select data-swap-select="${pairIdx},${slotIdx}"
+      style="font-size:0.78rem;padding:0.2rem 0.3rem;border-radius:0.3rem;border:1px solid var(--border);
+             background:var(--bg);color:var(--text);">
+        <option value="">Move…</option>
+        ${others.map(o => `<option value="${o.key}">↕ ${_esc(o.label)}</option>`).join('')}
+      </select>` : ''}
+  </div>`;
+}
+
+// Wire the swap-select dropdowns via delegation
+document.getElementById('wiz-pair-list')?.addEventListener('change', e => {
+  const sel = e.target.closest('[data-swap-select]');
+  if (!sel || !sel.value) return;
+  const [fromPair, fromSlot, toPair, toSlot] = sel.value.split(',').map(Number);
+  const tmp = _wiz.pairs[fromPair][fromSlot];
+  _wiz.pairs[fromPair][fromSlot] = _wiz.pairs[toPair][toSlot];
+  _wiz.pairs[toPair][toSlot] = tmp;
+  _wizBuildPairingStep();
+});
+
+document.getElementById('btn-wizard-5-back')?.addEventListener('click', () => _wizGoStep(4));
+document.getElementById('btn-wizard-5-create')?.addEventListener('click', () => _wizCreateTournament());
 
 async function _wizCreateTournament() {
   if (!_wiz.players.length) {
     if (!confirm('No players added. Create tournament anyway? (You can add players from Organiser Admin later.)')) return;
   }
 
-  const btn = document.getElementById('btn-wizard-4-create');
+  const isTeam = TEAM_FORMATS.has(_wiz.format);
+  const btn = document.getElementById(isTeam ? 'btn-wizard-5-create' : 'btn-wizard-4-next');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
 
   try {
@@ -16164,12 +16299,20 @@ async function _wizCreateTournament() {
       courses = _wiz.courseIds ?? [];
     }
 
+    // Build pairs array (indices → player names) for team formats
+    let pairsPayload = null;
+    if (TEAM_FORMATS.has(_wiz.format) && _wiz.pairs?.length) {
+      pairsPayload = _wiz.pairs.map(pair => pair.map(idx => idx != null ? _wiz.players[idx]?.name ?? null : null));
+    }
+
     const payload = {
       name:         _wiz.name,
       totalRounds:  _wiz.totalRounds,
       format:       _wiz.format,
       hcpMode:      _wiz.hcpMode,
       hcpStrength:  _wiz.hcpMode === 'auto' ? _wiz.hcpStrength : null,
+      pairHcpMode:  PAIR_HCP_FORMATS.has(_wiz.format) ? (_wiz.pairHcpMode ?? 'shared') : null,
+      pairs:        pairsPayload,
       duration:     _wiz.duration,
       organiserHash: hash,
       courses,
@@ -16210,7 +16353,7 @@ async function _wizCreateTournament() {
 
   } catch (err) {
     alert('Could not create tournament: ' + err.message);
-    if (btn) { btn.disabled = false; btn.textContent = 'CREATE →'; }
+    if (btn) { btn.disabled = false; btn.textContent = TEAM_FORMATS.has(_wiz.format) ? 'CREATE →' : 'NEXT →'; }
   }
 }
 

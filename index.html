@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261026aa">
+  <link rel="stylesheet" href="styles.css?v=20261027a">
   <!-- jsQR: fallback QR decoder for browsers without BarcodeDetector (iOS PWA) -->
   <script src="jsQR.min.js?v=1.4.0"></script>
 </head>
@@ -1968,7 +1968,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261026aa"></script>
+<script type="module" src="js/app.js?v=20261027a"></script>
 
 
 <!-- ══════════════════════════════════════════
@@ -2130,29 +2130,75 @@
 
           <div class="field">
             <label>Scoring Format</label>
-            <div style="display:grid;gap:0.4rem;" id="tourn-format-btns">
-              <button type="button" class="tourn-mode-btn active" data-fmt="stableford">
-                <div class="tourn-mode-btn-title">⭐ Stableford</div>
-                <div class="tourn-mode-btn-sub">Points per hole · most points wins</div>
-              </button>
-              <button type="button" class="tourn-mode-btn" data-fmt="strokeplay">
-                <div class="tourn-mode-btn-title">✏️ Strokeplay</div>
-                <div class="tourn-mode-btn-sub">Total strokes · fewest strokes wins</div>
-              </button>
-              <button type="button" class="tourn-mode-btn" data-fmt="betterball">
-                <div class="tourn-mode-btn-title">🤝 Better Ball</div>
-                <div class="tourn-mode-btn-sub">Best score per hole counts for the pair</div>
-              </button>
-              <button type="button" class="tourn-mode-btn" data-fmt="combined">
-                <div class="tourn-mode-btn-title">➕ Combined Score</div>
-                <div class="tourn-mode-btn-sub">Combined team Stableford total</div>
-              </button>
-              <button type="button" class="tourn-mode-btn" data-fmt="best2">
-                <div class="tourn-mode-btn-title">🏅 Best 2</div>
-                <div class="tourn-mode-btn-sub">Best 2 scores from each group count</div>
-              </button>
+            <div id="tourn-format-btns">
+              <!-- Solo Scoring -->
+              <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;
+                          color:var(--text-muted);padding:0.4rem 0 0.3rem;margin-top:0.25rem;">Solo Scoring</div>
+              <div style="display:grid;gap:0.4rem;margin-bottom:0.6rem;">
+                <button type="button" class="tourn-mode-btn active" data-fmt="stableford">
+                  <div class="tourn-mode-btn-title">⭐ Stableford</div>
+                  <div class="tourn-mode-btn-sub">Points per hole · most points wins</div>
+                </button>
+                <button type="button" class="tourn-mode-btn" data-fmt="strokeplay">
+                  <div class="tourn-mode-btn-title">✏️ Strokeplay</div>
+                  <div class="tourn-mode-btn-sub">Total strokes · fewest strokes wins</div>
+                </button>
+              </div>
+              <!-- Team Events -->
+              <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;
+                          color:var(--text-muted);padding:0.4rem 0 0.3rem;">Team Events</div>
+              <div style="display:grid;gap:0.4rem;">
+                <button type="button" class="tourn-mode-btn" data-fmt="betterball">
+                  <div class="tourn-mode-btn-title">🤝 Better Ball Stableford</div>
+                  <div class="tourn-mode-btn-sub">Best score per hole counts for the pair</div>
+                </button>
+                <button type="button" class="tourn-mode-btn" data-fmt="csm">
+                  <div class="tourn-mode-btn-title">➕ Combined Stableford</div>
+                  <div class="tourn-mode-btn-sub">Combined team Stableford total</div>
+                </button>
+                <button type="button" class="tourn-mode-btn" data-fmt="best2">
+                  <div class="tourn-mode-btn-title">🏅 Best 2 Stableford</div>
+                  <div class="tourn-mode-btn-sub">Best 2 scores from each group count</div>
+                </button>
+                <button type="button" class="tourn-mode-btn" data-fmt="foursomes">
+                  <div class="tourn-mode-btn-title">🔄 Foursomes Stableford</div>
+                  <div class="tourn-mode-btn-sub">Pairs alternate shots throughout the round</div>
+                </button>
+                <button type="button" class="tourn-mode-btn" data-fmt="greensomes">
+                  <div class="tourn-mode-btn-title">🌿 Greensomes Stableford</div>
+                  <div class="tourn-mode-btn-sub">Both drive, pick the best, then alternate</div>
+                </button>
+                <button type="button" class="tourn-mode-btn" data-fmt="scramble">
+                  <div class="tourn-mode-btn-title">🎯 Scramble Stableford</div>
+                  <div class="tourn-mode-btn-sub">All play from best ball each time</div>
+                </button>
+              </div>
             </div>
             <input type="hidden" id="tourn-format" value="stableford">
+          </div>
+
+          <!-- BB / Combined pair-handicap option (shown only for betterball + csm) -->
+          <div id="tourn-pair-hcp-panel" class="field" style="display:none;margin-top:0.75rem;padding:0.75rem;
+               background:var(--surface-2,rgba(255,255,255,0.04));border-radius:0.6rem;
+               border:1px solid var(--border);">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.6rem;">
+              <div style="font-size:0.85rem;font-weight:800;">Pair Handicap Mode</div>
+              <button type="button" id="btn-pair-hcp-info"
+                style="background:none;border:1px solid var(--gold-border);color:var(--gold);
+                       border-radius:50%;width:22px;height:22px;font-size:0.75rem;font-weight:700;
+                       cursor:pointer;flex-shrink:0;line-height:1;" aria-label="Pair handicap explanation">ⓘ</button>
+            </div>
+            <div style="display:grid;gap:0.4rem;" id="tourn-pair-hcp-btns">
+              <button type="button" class="tourn-mode-btn active" data-phcp="shared">
+                <div class="tourn-mode-btn-title">🤝 Shared Adjustment</div>
+                <div class="tourn-mode-btn-sub">Same handicap adjustment applied to both partners</div>
+              </button>
+              <button type="button" class="tourn-mode-btn" data-phcp="individual">
+                <div class="tourn-mode-btn-title">👤 Individual Scores</div>
+                <div class="tourn-mode-btn-sub">Each player's own handicap used as if playing solo</div>
+              </button>
+            </div>
+            <input type="hidden" id="tourn-pair-hcp-mode" value="shared">
           </div>
 
           <div class="field" style="margin-bottom:0;">
@@ -2268,7 +2314,27 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:0.75rem;">
           <button class="btn btn-outline" id="btn-wizard-4-back"
             style="padding:0.9rem;font-size:0.95rem;font-weight:800;">← Back</button>
-          <button class="btn btn-green" id="btn-wizard-4-create"
+          <button class="btn btn-green" id="btn-wizard-4-next"
+            style="padding:0.9rem;font-size:0.95rem;font-weight:800;">NEXT →</button>
+        </div>
+      </div>
+
+      <!-- ── STEP 5: Pair Up (team formats only) ── -->
+      <div id="wizard-step-5" class="wizard-panel" style="display:none;">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:0.25rem;">Step 5 — Pair Up Players</div>
+          <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.75rem;line-height:1.4;">
+            Drag players to form pairs. Each row is one pair. Players in the same pair play together each round.
+          </div>
+          <div id="wiz-pair-list" style="display:grid;gap:0.4rem;"></div>
+          <div id="wiz-pair-warning" style="display:none;margin-top:0.5rem;font-size:0.8rem;
+               color:var(--danger);font-weight:700;"></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:0.75rem;">
+          <button class="btn btn-outline" id="btn-wizard-5-back"
+            style="padding:0.9rem;font-size:0.95rem;font-weight:800;">← Back</button>
+          <button class="btn btn-green" id="btn-wizard-5-create"
             style="padding:0.9rem;font-size:0.95rem;font-weight:800;">CREATE →</button>
         </div>
       </div>
@@ -2276,6 +2342,36 @@
     </div>
   </div>
   <div class="screen-pencil-footer"><div class="logo-wrap screen-pencil"></div></div>
+</div>
+
+<!-- Pair Handicap Info overlay -->
+<div id="screen-pair-hcp-info" class="screen" style="display:none;">
+  <div class="page-pad-sm" style="max-width:520px;margin:0 auto;padding-top:1.5rem;">
+    <button class="btn btn-ghost" id="pair-hcp-info-back" style="margin-bottom:1rem;">← Back</button>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:0.75rem;">Pair Handicap Mode</div>
+      <p style="font-size:0.9rem;line-height:1.6;margin-bottom:1rem;">
+        For <strong>Better Ball</strong> and <strong>Combined Stableford</strong> formats, pairs share a
+        common handicap. You choose how that is calculated:
+      </p>
+      <div style="border-left:3px solid var(--gold);padding-left:0.75rem;margin-bottom:1rem;">
+        <div style="font-weight:800;margin-bottom:0.25rem;">🤝 Shared Adjustment</div>
+        <div style="font-size:0.85rem;line-height:1.5;color:var(--text-muted);">
+          The tournament handicap adjustment is the same for both partners. The pair's strokes-received
+          on each hole is based on the lower of the two handicaps, with the higher receiving extra shots
+          on the appropriate holes. Good for balanced competition across the whole field.
+        </div>
+      </div>
+      <div style="border-left:3px solid var(--accent);padding-left:0.75rem;">
+        <div style="font-weight:800;margin-bottom:0.25rem;">👤 Individual Scores</div>
+        <div style="font-size:0.85rem;line-height:1.5;color:var(--text-muted);">
+          Each player uses their own full handicap as if playing solo. Their individual Stableford points
+          are then combined or the best is taken. This mirrors standard solo play and the tournament
+          handicap adjustment applies to each player individually. Best for mixed-ability pairs.
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Legacy id alias — keeps any existing JS that references screen-tournament-setup working -->
