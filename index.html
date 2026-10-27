@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261027c">
+  <link rel="stylesheet" href="styles.css?v=20261027d">
   <!-- jsQR: fallback QR decoder for browsers without BarcodeDetector (iOS PWA) -->
   <script src="jsQR.min.js?v=1.4.0"></script>
 </head>
@@ -1968,7 +1968,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261027c"></script>
+<script type="module" src="js/app.js?v=20261027d"></script>
 
 
 <!-- ══════════════════════════════════════════
@@ -2396,9 +2396,9 @@
         <div class="card">
           <div class="card-title" style="margin-bottom:0.25rem;">Step 5 — Pair Up Players</div>
           <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.75rem;line-height:1.4;">
-            Use the Swap button to move players between pairs. Players in the same pair play together each round.
+            Drag a card onto another to pair them. Drag apart to unpair.
           </div>
-          <div id="wiz-pair-list" style="display:grid;gap:0.4rem;"></div>
+          <div id="wiz-pair-list"></div>
           <div id="wiz-pair-warning" style="display:none;margin-top:0.5rem;font-size:0.8rem;
                color:var(--danger);font-weight:700;"></div>
         </div>

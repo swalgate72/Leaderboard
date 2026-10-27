@@ -16295,16 +16295,380 @@ document.getElementById('btn-wizard-4-next')?.addEventListener('click', () => {
   }
 });
 
-// ── Step 5: Pairing ──
+// ── Step 5: Pairing — PairPicker drag-to-pair ──
+
+/* PairPicker
+   Renders a drag-to-pair card grid.  Each card shows:
+     - Player name (large, bold)
+     - Bottom-left:  "Index" label + value in gold
+     - Bottom-right: "Playing" label + partner abbrev (gold) or "—" (dim)
+   Drag (pointer events) one card onto another to pair; drag a paired card
+   away from its partner to unpair.  A spring-bounce animation fires on snap.
+   Writes results back to _wiz.pairs on every change.
+*/
+class PairPicker {
+  constructor(container, players, initialPairs, onChange) {
+    this.container = container;
+    this.players   = players;   // array of { name, hcpIndex }
+    this.pairs     = initialPairs; // array of [idxA, idxB|null]
+    this.onChange  = onChange;
+    this._drag     = null;      // { cardEl, playerIdx, originEl, ghost, startX, startY }
+    this._injectStyles();
+    this.render();
+  }
+
+  // ── flat index → pair + slot ──
+  _findSlot(playerIdx) {
+    for (let pi = 0; pi < this.pairs.length; pi++) {
+      for (let si = 0; si < 2; si++) {
+        if (this.pairs[pi][si] === playerIdx) return { pi, si };
+      }
+    }
+    return null;
+  }
+
+  _partnerOf(playerIdx) {
+    const slot = this._findSlot(playerIdx);
+    if (!slot) return null;
+    const other = this.pairs[slot.pi][slot.si === 0 ? 1 : 0];
+    return other != null ? other : null;
+  }
+
+  _abbrev(name) {
+    if (!name) return '—';
+    const p = name.trim().split(/\s+/);
+    return p.length > 1 ? p[0][0] + '. ' + p.slice(1).join(' ') : name;
+  }
+
+  _cardHTML(playerIdx) {
+    const p       = this.players[playerIdx];
+    const hcp     = p.hcpIndex != null ? p.hcpIndex : '—';
+    const partner = this._partnerOf(playerIdx);
+    const partnerName = partner != null ? this._abbrev(this.players[partner].name) : '—';
+    const isPaired = partner != null;
+    return `
+      <div class="pp-card${isPaired ? ' pp-paired' : ''}" data-pidx="${playerIdx}">
+        <div class="pp-name">${_esc(p.name)}</div>
+        <div class="pp-bottom">
+          <div class="pp-stat">
+            <div class="pp-stat-label">Index</div>
+            <div class="pp-stat-value">${_esc(String(hcp))}</div>
+          </div>
+          <div class="pp-stat pp-stat-right">
+            <div class="pp-stat-label">Playing</div>
+            <div class="pp-partner${isPaired ? ' pp-partner-active' : ''}">${_esc(partnerName)}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  render() {
+    // Group into paired rows (span 2 cols) + solo cards
+    const done   = new Set();
+    const rows   = [];
+    this.pairs.forEach(pair => {
+      const [a, b] = pair;
+      if (b != null) {
+        rows.push({ type: 'pair', a, b });
+        done.add(a); done.add(b);
+      } else {
+        rows.push({ type: 'solo', a });
+        done.add(a);
+      }
+    });
+
+    let html = '<div class="pp-grid">';
+    rows.forEach(row => {
+      if (row.type === 'pair') {
+        html += `<div class="pp-pair-row">${this._cardHTML(row.a)}` +
+                `<div class="pp-pair-divider"><span class="pp-chain">⛓</span></div>` +
+                `${this._cardHTML(row.b)}</div>`;
+      } else {
+        html += this._cardHTML(row.a);
+      }
+    });
+    html += '</div>';
+
+    this.container.innerHTML = html;
+    this._bindPointer();
+  }
+
+  _bindPointer() {
+    this.container.querySelectorAll('.pp-card').forEach(card => {
+      card.addEventListener('pointerdown', e => this._onDown(e, card));
+    });
+  }
+
+  _onDown(e, card) {
+    // Only primary pointer / left button
+    if (e.button !== undefined && e.button !== 0) return;
+    e.preventDefault();
+    card.setPointerCapture(e.pointerId);
+
+    const rect    = card.getBoundingClientRect();
+    const playerIdx = +card.dataset.pidx;
+
+    // Create ghost
+    const ghost = card.cloneNode(true);
+    ghost.style.cssText = `
+      position:fixed;left:${rect.left}px;top:${rect.top}px;
+      width:${rect.width}px;height:${rect.height}px;
+      pointer-events:none;z-index:9999;opacity:0.92;
+      transform:scale(1.07);
+      box-shadow:0 8px 24px rgba(0,0,0,0.55),0 0 0 2px var(--gold),0 0 14px rgba(212,160,23,0.4);
+      border-color:var(--gold);transition:none;`;
+    document.body.appendChild(ghost);
+
+    // Dim the origin card
+    card.style.opacity = '0.3';
+
+    this._drag = {
+      ghost, card, playerIdx,
+      ox: e.clientX - rect.left,
+      oy: e.clientY - rect.top,
+      over: null,
+    };
+
+    const onMove = e2 => this._onMove(e2);
+    const onUp   = e2 => { this._onUp(e2); card.releasePointerCapture(e2.pointerId); card.removeEventListener('pointermove', onMove); card.removeEventListener('pointerup', onUp); };
+    card.addEventListener('pointermove', onMove);
+    card.addEventListener('pointerup', onUp);
+  }
+
+  _onMove(e) {
+    const d = this._drag;
+    if (!d) return;
+    const x = e.clientX - d.ox;
+    const y = e.clientY - d.oy;
+    d.ghost.style.left = x + 'px';
+    d.ghost.style.top  = y + 'px';
+
+    // Hit-test other cards
+    d.ghost.style.display = 'none';
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    d.ghost.style.display = '';
+    const target = el?.closest('.pp-card');
+
+    // Update drop-target highlight
+    if (d.over && d.over !== target) {
+      d.over.classList.remove('pp-drop-target');
+    }
+    if (target && target !== d.card) {
+      target.classList.add('pp-drop-target');
+      d.over = target;
+    } else {
+      d.over = null;
+    }
+  }
+
+  _onUp(e) {
+    const d = this._drag;
+    this._drag = null;
+    if (!d) return;
+
+    // Clean up ghost + dim
+    d.ghost.remove();
+    d.card.style.opacity = '';
+    if (d.over) d.over.classList.remove('pp-drop-target');
+
+    const targetCard = d.over;
+    if (!targetCard) { this.render(); return; }
+
+    const fromIdx = d.playerIdx;
+    const toIdx   = +targetCard.dataset.pidx;
+    if (fromIdx === toIdx) { this.render(); return; }
+
+    this._doPair(fromIdx, toIdx);
+  }
+
+  _doPair(fromIdx, toIdx) {
+    // Unpair each from their current partner first
+    this._unpair(fromIdx);
+    this._unpair(toIdx);
+
+    // Find their (now-solo) slots
+    const fromSlot = this._findSlot(fromIdx);
+    const toSlot   = this._findSlot(toIdx);
+
+    // Merge: put toIdx into fromIdx's pair, remove toIdx's solo pair
+    if (fromSlot && toSlot) {
+      this.pairs[fromSlot.pi][1] = toIdx;
+      // Remove toIdx's now-empty pair entry
+      this.pairs.splice(toSlot.pi, 1);
+    }
+
+    this.render();
+    this._snapAnimation(fromIdx, toIdx);
+    this.onChange(this.pairs);
+  }
+
+  _unpair(playerIdx) {
+    const slot = this._findSlot(playerIdx);
+    if (!slot) return;
+    const { pi, si } = slot;
+    const partnerSlot = si === 0 ? 1 : 0;
+    const partner = this.pairs[pi][partnerSlot];
+    if (partner == null) return; // already solo
+
+    // Split: current pair becomes two solo entries
+    const a = this.pairs[pi][0];
+    const b = this.pairs[pi][1];
+    this.pairs.splice(pi, 1, [a, null], [b, null]);
+  }
+
+  _snapAnimation(idxA, idxB) {
+    // Find the two cards in the re-rendered DOM and fire spring animation
+    const cards = this.container.querySelectorAll('.pp-card');
+    cards.forEach(c => {
+      const idx = +c.dataset.pidx;
+      if (idx === idxA) { c.classList.add('pp-snap-left');  c.addEventListener('animationend', () => c.classList.remove('pp-snap-left'),  { once: true }); }
+      if (idx === idxB) { c.classList.add('pp-snap-right'); c.addEventListener('animationend', () => c.classList.remove('pp-snap-right'), { once: true }); }
+    });
+  }
+
+  _injectStyles() {
+    if (document.getElementById('pp-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'pp-styles';
+    s.textContent = `
+      .pp-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .pp-pair-row {
+        grid-column: span 2;
+        display: flex;
+        gap: 0;
+        position: relative;
+      }
+      .pp-card {
+        flex: 1;
+        min-width: 0;
+        background: var(--surface-2, rgba(255,255,255,0.05));
+        border: 1.5px solid var(--border, rgba(255,255,255,0.12));
+        border-radius: 12px;
+        padding: 10px 11px 9px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        cursor: grab;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: none;
+        transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.15s ease, opacity 0.15s ease;
+      }
+      .pp-card:active { cursor: grabbing; }
+      .pp-card.pp-paired {
+        border-color: var(--gold, #d4a017);
+        box-shadow: 0 0 10px rgba(212,160,23,0.25);
+      }
+      .pp-pair-row .pp-card:first-child {
+        border-radius: 12px 0 0 12px;
+        border-right: none;
+      }
+      .pp-pair-row .pp-card:last-child {
+        border-radius: 0 12px 12px 0;
+        border-left: none;
+      }
+      .pp-card.pp-drop-target {
+        border-color: var(--gold, #d4a017) !important;
+        box-shadow: 0 0 0 2px var(--gold, #d4a017), 0 0 16px rgba(212,160,23,0.45) !important;
+        animation: pp-pulse 0.85s ease-in-out infinite alternate;
+      }
+      @keyframes pp-pulse {
+        from { box-shadow: 0 0 0 1.5px var(--gold,#d4a017), 0 0 8px rgba(212,160,23,0.3); }
+        to   { box-shadow: 0 0 0 2.5px var(--gold,#d4a017), 0 0 20px rgba(212,160,23,0.55); }
+      }
+      .pp-pair-divider {
+        position: relative;
+        width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2;
+      }
+      .pp-chain {
+        position: absolute;
+        left: 50%; top: 50%;
+        transform: translate(-50%, -50%);
+        width: 18px; height: 18px;
+        background: var(--gold, #d4a017);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 9px;
+        color: #111;
+        box-shadow: 0 0 6px rgba(212,160,23,0.5);
+        pointer-events: none;
+      }
+      .pp-name {
+        font-size: 15px;
+        font-weight: 900;
+        line-height: 1.2;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+      .pp-bottom {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 4px;
+      }
+      .pp-stat { display: flex; flex-direction: column; gap: 1px; }
+      .pp-stat-right { text-align: right; }
+      .pp-stat-label {
+        font-size: 8.5px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        line-height: 1;
+      }
+      .pp-stat-value {
+        font-size: 15px;
+        font-weight: 900;
+        color: var(--gold, #d4a017);
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+      }
+      .pp-partner {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--text-muted);
+        line-height: 1;
+      }
+      .pp-partner.pp-partner-active {
+        color: var(--gold-light, #f0bb3a);
+      }
+      @keyframes pp-snap-left {
+        0%   { transform: translateX(0) scale(1); }
+        35%  { transform: translateX(-8px) scale(1.05); }
+        65%  { transform: translateX(2px) scale(0.98); }
+        100% { transform: translateX(0) scale(1); }
+      }
+      @keyframes pp-snap-right {
+        0%   { transform: translateX(0) scale(1); }
+        35%  { transform: translateX(8px) scale(1.05); }
+        65%  { transform: translateX(-2px) scale(0.98); }
+        100% { transform: translateX(0) scale(1); }
+      }
+      .pp-snap-left  { animation: pp-snap-left  0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
+      .pp-snap-right { animation: pp-snap-right 0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
+    `;
+    document.head.appendChild(s);
+  }
+}
 
 function _wizBuildPairingStep() {
-  const listEl   = document.getElementById('wiz-pair-list');
-  const warnEl   = document.getElementById('wiz-pair-warning');
+  const listEl = document.getElementById('wiz-pair-list');
+  const warnEl = document.getElementById('wiz-pair-warning');
   if (!listEl) return;
 
-  // Initialise pairs from _wiz.players if not already set, or re-sync
-  // pairs: array of [playerIndex, playerIndex|null]
   const players = _wiz.players;
+
+  // Initialise pairs array: [playerIdx, playerIdx|null]
   if (!_wiz.pairs || _wiz.pairs.length !== Math.ceil(players.length / 2)) {
     _wiz.pairs = [];
     for (let i = 0; i < players.length; i += 2) {
@@ -16312,88 +16676,17 @@ function _wizBuildPairingStep() {
     }
   }
 
-  function renderPairs() {
-    // Column header (once, above the first pair)
-    const colHeader = `<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0.4rem;
-        align-items:center;padding:0 0.75rem 0.2rem;font-size:0.67rem;font-weight:800;
-        letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted);">
-      <span>Name</span><span style="text-align:right;">Index</span>
-      <span style="text-align:center;">Playing with</span><span></span>
-    </div>`;
-
-    listEl.innerHTML = colHeader + _wiz.pairs.map((pair, pi) => {
-      const p0 = players[pair[0]];
-      const p1 = pair[1] != null ? players[pair[1]] : null;
-      return `<div style="background:var(--surface-2,rgba(255,255,255,0.04));border:1px solid var(--border);
-                          border-radius:0.6rem;padding:0.5rem 0.75rem;display:grid;gap:0.25rem;">
-        <div style="font-size:0.67rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;
-                    color:var(--gold);margin-bottom:0.15rem;">Pair ${pi + 1}</div>
-        ${_wizPairPlayerRow(p0, pair[0], pi, 0, players, p1)}
-        ${p1 ? _wizPairPlayerRow(p1, pair[1], pi, 1, players, p0) :
-          '<div style="font-size:0.78rem;color:var(--text-muted);font-style:italic;">— solo (odd number) —</div>'}
-      </div>`;
-    }).join('');
-
-    // Wire swap buttons
-    listEl.querySelectorAll('[data-swap]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const [fromPair, fromSlot, toPair, toSlot] = btn.dataset.swap.split(',').map(Number);
-        const tmp = _wiz.pairs[fromPair][fromSlot];
-        _wiz.pairs[fromPair][fromSlot] = _wiz.pairs[toPair][toSlot];
-        _wiz.pairs[toPair][toSlot] = tmp;
-        renderPairs();
-      });
-    });
-
-    // Odd-player warning
-    const odd = players.length % 2 !== 0;
-    if (warnEl) {
-      warnEl.style.display = odd ? '' : 'none';
-      warnEl.textContent   = odd ? '⚠️ Odd number of players — one player will be solo.' : '';
-    }
+  // Odd-player warning
+  const odd = players.length % 2 !== 0;
+  if (warnEl) {
+    warnEl.style.display = odd ? '' : 'none';
+    warnEl.textContent   = odd ? '⚠️ Odd number of players — one player will be solo.' : '';
   }
 
-  renderPairs();
-}
-
-function _wizPairPlayerRow(player, playerIdx, pairIdx, slotIdx, allPlayers, partner) {
-  // Build swap options: all other occupied slots
-  const others = [];
-  _wiz.pairs.forEach((pair, pi) => {
-    pair.forEach((pidx, si) => {
-      if (pidx != null && !(pi === pairIdx && si === slotIdx)) {
-        others.push({ label: allPlayers[pidx].name, key: `${pairIdx},${slotIdx},${pi},${si}` });
-      }
-    });
+  new PairPicker(listEl, players, _wiz.pairs, updatedPairs => {
+    _wiz.pairs = updatedPairs;
   });
-  const partnerName = partner ? _esc(partner.name) : '—';
-  const hcp = player.hcpIndex != null ? player.hcpIndex : '—';
-  return `<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0.4rem;
-      align-items:center;min-height:2rem;">
-    <div style="font-size:0.88rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(player.name)}</div>
-    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);text-align:right;white-space:nowrap;">${hcp}</div>
-    <div style="font-size:0.78rem;color:var(--text-muted);text-align:center;white-space:nowrap;
-        min-width:3.5rem;">${partnerName}</div>
-    ${others.length ? `<select data-swap-select="${pairIdx},${slotIdx}"
-      style="font-size:0.78rem;padding:0.25rem 0.4rem;border-radius:0.35rem;
-             border:1px solid var(--gold-border);background:var(--surface-2,rgba(255,255,255,0.06));
-             color:var(--gold);font-weight:700;cursor:pointer;white-space:nowrap;">
-        <option value="">Swap…</option>
-        ${others.map(o => `<option value="${o.key}">↕ ${_esc(o.label)}</option>`).join('')}
-      </select>` : '<div></div>'}
-  </div>`;
 }
-
-// Wire the swap-select dropdowns via delegation
-document.getElementById('wiz-pair-list')?.addEventListener('change', e => {
-  const sel = e.target.closest('[data-swap-select]');
-  if (!sel || !sel.value) return;
-  const [fromPair, fromSlot, toPair, toSlot] = sel.value.split(',').map(Number);
-  const tmp = _wiz.pairs[fromPair][fromSlot];
-  _wiz.pairs[fromPair][fromSlot] = _wiz.pairs[toPair][toSlot];
-  _wiz.pairs[toPair][toSlot] = tmp;
-  _wizBuildPairingStep();
-});
 
 document.getElementById('btn-wizard-5-back')?.addEventListener('click', () => _wizGoStep(4));
 document.getElementById('btn-wizard-5-create')?.addEventListener('click', () => _wizCreateTournament());
