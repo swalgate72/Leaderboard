@@ -16313,18 +16313,24 @@ function _wizBuildPairingStep() {
   }
 
   function renderPairs() {
-    listEl.innerHTML = _wiz.pairs.map((pair, pi) => {
+    // Column header (once, above the first pair)
+    const colHeader = `<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0.4rem;
+        align-items:center;padding:0 0.75rem 0.2rem;font-size:0.67rem;font-weight:800;
+        letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted);">
+      <span>Name</span><span style="text-align:right;">Index</span>
+      <span style="text-align:center;">Playing with</span><span></span>
+    </div>`;
+
+    listEl.innerHTML = colHeader + _wiz.pairs.map((pair, pi) => {
       const p0 = players[pair[0]];
       const p1 = pair[1] != null ? players[pair[1]] : null;
       return `<div style="background:var(--surface-2,rgba(255,255,255,0.04));border:1px solid var(--border);
-                          border-radius:0.6rem;padding:0.6rem 0.75rem;">
-        <div style="font-size:0.68rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;
-                    color:var(--text-muted);margin-bottom:0.4rem;">Pair ${pi + 1}</div>
-        <div style="display:grid;gap:0.3rem;">
-          ${_wizPairPlayerRow(p0, pair[0], pi, 0, players)}
-          ${p1 ? _wizPairPlayerRow(p1, pair[1], pi, 1, players) :
-            '<div style="font-size:0.8rem;color:var(--text-muted);padding:0.25rem 0;">— solo player (odd number) —</div>'}
-        </div>
+                          border-radius:0.6rem;padding:0.5rem 0.75rem;display:grid;gap:0.25rem;">
+        <div style="font-size:0.67rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;
+                    color:var(--gold);margin-bottom:0.15rem;">Pair ${pi + 1}</div>
+        ${_wizPairPlayerRow(p0, pair[0], pi, 0, players, p1)}
+        ${p1 ? _wizPairPlayerRow(p1, pair[1], pi, 1, players, p0) :
+          '<div style="font-size:0.78rem;color:var(--text-muted);font-style:italic;">— solo (odd number) —</div>'}
       </div>`;
     }).join('');
 
@@ -16350,8 +16356,8 @@ function _wizBuildPairingStep() {
   renderPairs();
 }
 
-function _wizPairPlayerRow(player, playerIdx, pairIdx, slotIdx, allPlayers) {
-  // Build a quick swap-select menu: other slots to swap with
+function _wizPairPlayerRow(player, playerIdx, pairIdx, slotIdx, allPlayers, partner) {
+  // Build swap options: all other occupied slots
   const others = [];
   _wiz.pairs.forEach((pair, pi) => {
     pair.forEach((pidx, si) => {
@@ -16360,16 +16366,21 @@ function _wizPairPlayerRow(player, playerIdx, pairIdx, slotIdx, allPlayers) {
       }
     });
   });
-  return `<div style="display:flex;align-items:center;gap:0.5rem;">
-    <div style="flex:1;font-size:0.9rem;font-weight:700;">${_esc(player.name)}
-      <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">HCP ${player.hcpIndex ?? '—'}</span>
-    </div>
+  const partnerName = partner ? _esc(partner.name) : '—';
+  const hcp = player.hcpIndex != null ? player.hcpIndex : '—';
+  return `<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0.4rem;
+      align-items:center;min-height:2rem;">
+    <div style="font-size:0.88rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(player.name)}</div>
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text-muted);text-align:right;white-space:nowrap;">${hcp}</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);text-align:center;white-space:nowrap;
+        min-width:3.5rem;">${partnerName}</div>
     ${others.length ? `<select data-swap-select="${pairIdx},${slotIdx}"
-      style="font-size:0.78rem;padding:0.2rem 0.3rem;border-radius:0.3rem;border:1px solid var(--border);
-             background:var(--bg);color:var(--text);">
-        <option value="">Move…</option>
+      style="font-size:0.78rem;padding:0.25rem 0.4rem;border-radius:0.35rem;
+             border:1px solid var(--gold-border);background:var(--surface-2,rgba(255,255,255,0.06));
+             color:var(--gold);font-weight:700;cursor:pointer;white-space:nowrap;">
+        <option value="">Swap…</option>
         ${others.map(o => `<option value="${o.key}">↕ ${_esc(o.label)}</option>`).join('')}
-      </select>` : ''}
+      </select>` : '<div></div>'}
   </div>`;
 }
 
