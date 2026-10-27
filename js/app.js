@@ -3071,7 +3071,7 @@ function renderSetupPlayerList() {
       <div class="pp-name" style="padding-right:${pi > 0 ? '1.4rem' : '0'};font-size:14px;">${_esc(p.name)}</div>
       <div class="pp-bottom" style="margin-top:auto;">
         <div class="pp-stat">
-          <div class="pp-stat-label">Playing HCP</div>
+          <div class="pp-stat-label">Course HCP</div>
           <div class="pp-stat-value">${gameHcp}</div>
         </div>
         <div style="display:flex;gap:0.25rem;align-items:flex-end;">
@@ -3243,7 +3243,7 @@ function openFriendsPickerModal() {
         </div>
         <div class="pp-bottom" style="margin-top:auto;">
           <div class="pp-stat">
-            <div class="pp-stat-label">Playing HCP</div>
+            <div class="pp-stat-label">Course HCP</div>
             <div class="pp-stat-value">${gameHcp}</div>
           </div>
           <div style="display:flex;gap:0.2rem;align-items:flex-end;">
@@ -4693,7 +4693,7 @@ function renderSetupPairsScreen() {
         <div class="pp-name" style="font-size:13px;">${_esc(p.name)}</div>
         <div class="pp-bottom">
           <div class="pp-stat">
-            <div class="pp-stat-label">Playing HCP</div>
+            <div class="pp-stat-label">Course HCP</div>
             <div class="pp-stat-value">${hcp}</div>
           </div>
         </div>
@@ -4761,7 +4761,7 @@ function renderSetupPairsScreen() {
             <div class="pp-name" style="font-size:13px;padding-right:1.2rem;">${_esc(p.name)}</div>
             <div class="pp-bottom">
               <div class="pp-stat">
-                <div class="pp-stat-label">Playing HCP</div>
+                <div class="pp-stat-label">Course HCP</div>
                 <div class="pp-stat-value">${hcp}</div>
               </div>
             </div>
@@ -5943,7 +5943,7 @@ function buildSetupReview() {
                   <div class="pp-stat-value">${h.index}</div>
                 </div>
                 <div class="pp-stat pp-stat-right">
-                  <div class="pp-stat-label">Playing</div>
+                  <div class="pp-stat-label">Course HCP</div>
                   <div class="pp-partner pp-partner-active">${h.playing}</div>
                 </div>
               </div>
@@ -17030,7 +17030,7 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
                 <div class="pp-stat-value">${origHcp}</div>
               </div>
               <div class="pp-stat pp-stat-right">
-                <div class="pp-stat-label">Playing</div>
+                <div class="pp-stat-label">Course HCP</div>
                 <div class="pp-partner pp-partner-active">${adjHcp}</div>
               </div>
             </div>
