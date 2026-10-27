@@ -16668,19 +16668,16 @@ function _wizBuildPairingStep() {
 
   const players = _wiz.players;
 
-  // Initialise pairs array: [playerIdx, playerIdx|null]
-  if (!_wiz.pairs || _wiz.pairs.length !== Math.ceil(players.length / 2)) {
-    _wiz.pairs = [];
-    for (let i = 0; i < players.length; i += 2) {
-      _wiz.pairs.push([i, i + 1 < players.length ? i + 1 : null]);
-    }
+  // Initialise pairs array: all solo until the user drags to pair
+  if (!_wiz.pairs || _wiz.pairs.length !== players.length) {
+    _wiz.pairs = players.map((_, i) => [i, null]);
   }
 
   // Odd-player warning
   const odd = players.length % 2 !== 0;
   if (warnEl) {
     warnEl.style.display = odd ? '' : 'none';
-    warnEl.textContent   = odd ? '⚠️ Odd number of players — one player will be solo.' : '';
+    warnEl.textContent   = odd ? '⚠️ Odd number of players — one player will remain solo.' : '';
   }
 
   new PairPicker(listEl, players, _wiz.pairs, updatedPairs => {
