@@ -2990,6 +2990,7 @@ document.getElementById('btn-setup-course-next')?.addEventListener('click', () =
 // ================================================================
 
 function renderSetupPlayerList() {
+  _ensurePlayerCardStyles();
   const listEl  = document.getElementById('setup-player-list');
   const countEl = document.getElementById('setup-player-count-label');
   if (!listEl) return;
@@ -3018,7 +3019,7 @@ function renderSetupPlayerList() {
     return;
   }
 
-  listEl.innerHTML = setup.players.filter(p => p.name).map((p, i) => {
+  listEl.innerHTML = `<div class="pp-grid">${setup.players.filter(p => p.name).map((p, i) => {
     const pi     = setup.players.indexOf(p);
     const vals   = playerHcpValues(p);
     // Normalise legacy 'playing' source → 'course'
@@ -3026,63 +3027,60 @@ function renderSetupPlayerList() {
     const source = p.hcpSource ?? 'course';
     const gameHcp = p.gameHandicap ?? Math.round(vals[source] ?? vals.course);
 
-    // Two pill buttons: Index / Course
-    const pillStyle = (active, col) => active
-      ? `background:transparent;border:2px solid ${col};color:${col};font-weight:800;`
-      : `background:transparent;border:1px solid var(--border);color:var(--muted);font-weight:600;`;
+    const pillStyle = (active) => active
+      ? `border:2px solid var(--gold);color:var(--gold);font-weight:800;background:rgba(212,160,23,0.08);`
+      : `border:1px solid var(--border);color:var(--muted);font-weight:600;background:transparent;`;
 
     const indexPill  = `<button class="hcp-pill" data-pi="${pi}" data-src="index"
-      style="${pillStyle(source==='index','var(--gold)')}
-             font-family:'Plus Jakarta Sans',sans-serif;font-size:0.75rem;
-             padding:0.2rem 0.55rem;border-radius:6px;cursor:pointer;
-             display:flex;flex-direction:column;align-items:center;min-width:3.2rem;line-height:1.2;">
-        <span style="font-size:0.55rem;letter-spacing:0.06em;text-transform:uppercase;">Index</span>
+      style="${pillStyle(source==='index')}font-family:'Plus Jakarta Sans',sans-serif;font-size:0.7rem;
+             padding:0.15rem 0.45rem;border-radius:6px;cursor:pointer;
+             display:flex;flex-direction:column;align-items:center;min-width:2.8rem;line-height:1.2;">
+        <span style="font-size:0.5rem;letter-spacing:0.06em;text-transform:uppercase;">Index</span>
         <span>${fmtHandicap(vals.index)}</span>
       </button>`;
 
     const coursePill = `<button class="hcp-pill" data-pi="${pi}" data-src="course"
-      style="${pillStyle(source==='course','var(--gold)')}
-             font-family:'Plus Jakarta Sans',sans-serif;font-size:0.75rem;
-             padding:0.2rem 0.55rem;border-radius:6px;cursor:pointer;
-             display:flex;flex-direction:column;align-items:center;min-width:3.2rem;line-height:1.2;">
-        <span style="font-size:0.55rem;letter-spacing:0.06em;text-transform:uppercase;">Course</span>
+      style="${pillStyle(source==='course')}font-family:'Plus Jakarta Sans',sans-serif;font-size:0.7rem;
+             padding:0.15rem 0.45rem;border-radius:6px;cursor:pointer;
+             display:flex;flex-direction:column;align-items:center;min-width:2.8rem;line-height:1.2;">
+        <span style="font-size:0.5rem;letter-spacing:0.06em;text-transform:uppercase;">Course</span>
         <span>${fmtHandicap(vals.course)}</span>
       </button>`;
 
     // Nudge controls — shown when source is course and user taps again
     const showNudge = source === 'course' && p._hcpNudgeOpen;
     const nudgeHtml = showNudge ? `
-      <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.4rem;" class="hcp-nudge" data-pi="${pi}">
+      <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.5rem;border-top:1px solid rgba(255,255,255,0.07);padding-top:0.5rem;" class="hcp-nudge" data-pi="${pi}">
         <button class="hcp-nudge-btn" data-pi="${pi}" data-dir="-1"
-          style="width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border);
-                 background:var(--surface2);font-size:1.1rem;cursor:pointer;
+          style="width:1.8rem;height:1.8rem;border-radius:50%;border:1px solid var(--border);
+                 background:var(--surface2);font-size:1rem;cursor:pointer;
                  display:flex;align-items:center;justify-content:center;">−</button>
-        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.4rem;font-weight:800;
+        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.2rem;font-weight:800;
                      color:var(--gold);min-width:2rem;text-align:center;">${gameHcp}</span>
         <button class="hcp-nudge-btn" data-pi="${pi}" data-dir="1"
-          style="width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border);
-                 background:var(--surface2);font-size:1.1rem;cursor:pointer;
+          style="width:1.8rem;height:1.8rem;border-radius:50%;border:1px solid var(--border);
+                 background:var(--surface2);font-size:1rem;cursor:pointer;
                  display:flex;align-items:center;justify-content:center;">+</button>
-        <span style="font-size:0.7rem;color:var(--muted);margin-left:2px;">Game HCP</span>
+        <span style="font-size:0.65rem;color:var(--muted);">Game HCP</span>
       </div>` : '';
 
-    return `<div style="padding:0.75rem 1rem;background:var(--surface);
-                border:1px solid var(--border);border-radius:var(--radius-lg);">
-      <div style="display:flex;align-items:center;gap:0.6rem;">
-        <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
-        <div style="flex:1;min-width:0;">
-          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
-                      font-size:1.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+    return `<div class="pp-card" style="position:relative;">
+      ${pi > 0 ? `<button class="btn btn-ghost" data-remove="${pi}"
+        style="position:absolute;top:4px;right:4px;font-size:0.75rem;color:var(--red);
+               padding:0.1rem 0.35rem;line-height:1;z-index:1;">✕</button>` : ''}
+      <div class="pp-name" style="padding-right:${pi > 0 ? '1.4rem' : '0'};font-size:14px;">${_esc(p.name)}</div>
+      <div class="pp-bottom" style="margin-top:auto;">
+        <div class="pp-stat">
+          <div class="pp-stat-label">Playing HCP</div>
+          <div class="pp-stat-value">${gameHcp}</div>
         </div>
-        <div style="display:flex;gap:0.3rem;flex-shrink:0;">
+        <div style="display:flex;gap:0.25rem;align-items:flex-end;">
           ${indexPill}${coursePill}
         </div>
-        ${pi > 0 ? `<button class="btn btn-ghost" data-remove="${pi}"
-          style="font-size:0.85rem;color:var(--red);padding:0.2rem 0.4rem;flex-shrink:0;">✕</button>` : ''}
       </div>
       ${nudgeHtml}
     </div>`;
-  }).join('');
+  }).join('')}</div>`;
 
   // HCP pill click: first tap selects source, second tap on course/playing opens nudge
   listEl.querySelectorAll('.hcp-pill').forEach(btn => {
@@ -3168,7 +3166,8 @@ function openFriendsPickerModal() {
   })();
 
   const renderFriendsList = () => {
-    listEl.innerHTML = friends.map((f, fi) => {
+    _ensurePlayerCardStyles();
+    listEl.innerHTML = `<div class="pp-grid">` + friends.map((f, fi) => {
       const isSelected = _friendsPickerSelected.some(s => s.profileId === f.profileId);
       const vals  = f._pickerVals ?? initVals(f);
       // Normalise legacy 'playing' source → 'course'
@@ -3218,32 +3217,42 @@ function openFriendsPickerModal() {
           </button>
         </div>` : '';
 
-      const bg      = isSelected ? 'background:rgba(184,148,42,0.08);border-color:var(--gold);' : '';
       const nameStr = f.name || `${f.first_name ?? ''} ${f.last_name ?? ''}`.trim() || f.username || 'Friend';
       const playBadge = f.playCount > 0
-        ? `<span style="font-size:0.65rem;color:var(--muted);margin-left:4px;">⛳${f.playCount}</span>` : '';
+        ? `<span style="font-size:0.55rem;color:var(--muted);margin-left:3px;font-weight:600;">⛳${f.playCount}</span>` : '';
 
-      return `<div class="fp-row" data-fi="${fi}"
-        style="padding:0.75rem 0.75rem;background:var(--surface);border:1px solid var(--border);
-               border-radius:12px;cursor:pointer;${bg}">
-        <div style="display:flex;align-items:center;gap:0.6rem;">
-          <span class="dot" style="background:${pHex(fi%8)};flex-shrink:0;"></span>
-          <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:baseline;gap:2px;flex-wrap:wrap;">
-              <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.3rem;
-                           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameStr}</span>
-              ${playBadge}
-            </div>
-            ${f.hcp != null ? `<div style="font-size:0.75rem;color:var(--muted);">Index</div>` : ''}
+      const fpPillStyle = (active) => active
+        ? `border:2px solid var(--gold);color:var(--gold);font-weight:800;background:rgba(212,160,23,0.08);`
+        : `border:1px solid var(--border);color:var(--muted);font-weight:600;background:transparent;`;
+
+      const fpPill = (label, key) => `<button class="fp-pill" data-fi="${fi}" data-key="${key}"
+        style="${fpPillStyle(src===key && isSelected)}font-family:'Plus Jakarta Sans',sans-serif;font-size:0.7rem;
+               padding:0.15rem 0.4rem;border-radius:6px;cursor:pointer;
+               display:flex;flex-direction:column;align-items:center;min-width:2.8rem;line-height:1.2;">
+          <span style="font-size:0.5rem;letter-spacing:0.06em;text-transform:uppercase;">${label}</span>
+          <span style="font-variant-numeric:tabular-nums;">${fmtHandicap(vals[key])}</span>
+        </button>`;
+
+      return `<div class="fp-row pp-card${isSelected ? ' pp-paired' : ''}" data-fi="${fi}"
+        style="cursor:pointer;">
+        <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px;">
+          <span class="dot" style="background:${pHex(fi%8)};flex-shrink:0;margin-top:3px;"></span>
+          <div class="pp-name" style="font-size:14px;flex:1;min-width:0;">
+            ${_esc(nameStr)}${playBadge}
           </div>
-          <div style="flex-shrink:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
-                       font-size:1.4rem;color:var(--muted2);min-width:2.8rem;text-align:right;">
-            ${f.hcp != null ? fmtHandicap(f.hcp) : '—'}
+        </div>
+        <div class="pp-bottom" style="margin-top:auto;">
+          <div class="pp-stat">
+            <div class="pp-stat-label">Playing HCP</div>
+            <div class="pp-stat-value">${gameHcp}</div>
+          </div>
+          <div style="display:flex;gap:0.2rem;align-items:flex-end;">
+            ${fpPill('Index','index')}${fpPill('Course','course')}
           </div>
         </div>
         ${nudgeHtml}
       </div>`;
-    }).join('');
+    }).join('') + `</div>`;
 
     // Update add button
     const count = _friendsPickerSelected.length;
@@ -4662,6 +4671,7 @@ function initSetupPairs() {
 }
 
 function renderSetupPairsScreen() {
+  _ensurePlayerCardStyles();
   const poolEl   = document.getElementById('setup-pairs-pool');
   const pairsEl  = document.getElementById('setup-pair-cards');
   const poolCard = document.getElementById('setup-pairs-pool-card');
@@ -4675,16 +4685,20 @@ function renderSetupPairsScreen() {
     poolCard.style.display = 'none';
   } else {
     poolCard.style.display = '';
-    poolEl.innerHTML = unassigned.map(p => {
+    poolEl.innerHTML = `<div class="pp-grid">${unassigned.map(p => {
       const pi = setup.players.indexOf(p);
-      return `<div class="sp-player-chip" draggable="true" data-pi="${pi}"
-        style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.55rem 0.85rem;
-               background:var(--surface2);border:1px solid var(--border);border-radius:20px;
-               cursor:grab;margin:0.25rem;user-select:none;">
-        <span class="dot" style="background:${pHex(pi % 8)};width:10px;height:10px;flex-shrink:0;"></span>
-        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.05rem;">${p.name}</span>
+      const hcp = p.gameHandicap ?? p.courseHandicap ?? p.hcpIndex ?? '—';
+      return `<div class="pp-card pp-drag sp-player-chip" draggable="true" data-pi="${pi}"
+        style="">
+        <div class="pp-name" style="font-size:13px;">${_esc(p.name)}</div>
+        <div class="pp-bottom">
+          <div class="pp-stat">
+            <div class="pp-stat-label">Playing HCP</div>
+            <div class="pp-stat-value">${hcp}</div>
+          </div>
+        </div>
       </div>`;
-    }).join('');
+    }).join('')}</div>`;
   }
 
   // Pair cards
@@ -4730,23 +4744,27 @@ function renderSetupPairsScreen() {
                  font-weight:800;font-size:1.05rem;outline:none;padding-bottom:2px;">
         ${pairHcpBadge}
       </div>
-      <div class="sp-pair-slots" data-pair="${pairIdx}" style="display:grid;gap:0.4rem;min-height:48px;">
+      <div class="sp-pair-slots pp-grid" data-pair="${pairIdx}" style="gap:6px;min-height:48px;">
         ${members.map((p, slot) => {
           if (!p) return `<div class="sp-empty-slot" data-pair="${pairIdx}" data-slot="${slot}"
             style="padding:0.65rem;text-align:center;color:var(--muted);font-size:0.9rem;
-                   border:1.5px dashed var(--border);border-radius:var(--radius-sm);">
+                   border:1.5px dashed var(--border);border-radius:12px;min-height:72px;
+                   display:flex;align-items:center;justify-content:center;">
             Drop player here</div>`;
           const pi = cappedIndices[slot];
-          return `<div class="sp-player-chip" draggable="true" data-pi="${pi}"
-            style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.75rem;
-                   background:var(--surface2);border:1px solid var(--border);
-                   border-radius:var(--radius-sm);cursor:grab;user-select:none;">
-            <span style="font-size:1rem;color:var(--muted);">⣿</span>
-            <span class="dot" style="background:${pHex(pi % 8)};flex-shrink:0;"></span>
-            <span style="flex:1;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;">${p.name}</span>
-            ${playerHcpBoxes(p)}
+          const hcp = p.gameHandicap ?? p.courseHandicap ?? p.hcpIndex ?? '—';
+          return `<div class="pp-card pp-drag sp-player-chip pp-paired" draggable="true" data-pi="${pi}"
+            style="position:relative;">
             <button class="sp-remove" data-pi="${pi}" data-pair="${pairIdx}"
-              style="font-size:0.85rem;color:var(--muted);background:none;border:none;cursor:pointer;padding:0 0.25rem;">✕</button>
+              style="position:absolute;top:4px;right:4px;font-size:0.75rem;color:var(--muted);
+                     background:none;border:none;cursor:pointer;padding:0.1rem 0.3rem;line-height:1;">✕</button>
+            <div class="pp-name" style="font-size:13px;padding-right:1.2rem;">${_esc(p.name)}</div>
+            <div class="pp-bottom">
+              <div class="pp-stat">
+                <div class="pp-stat-label">Playing HCP</div>
+                <div class="pp-stat-value">${hcp}</div>
+              </div>
+            </div>
           </div>`;
         }).join('')}
       </div>`;
@@ -5648,6 +5666,7 @@ document.getElementById('setup-abandon-2')        ?.addEventListener('click', ()
 // SETUP -- STEP 3: REVIEW
 // ================================================================
 function buildSetupReview() {
+  _ensurePlayerCardStyles();
   console.log('[review] scoring:', setup.scoring, 'pairs:', setup.pairs?.length, 'pairs:', JSON.stringify(setup.pairs?.slice(0,2)));
   const course   = allCourses.find(c => c.id === setup.courseId);
   const tee      = course?.tees?.[setup.teeIdx];
@@ -5910,17 +5929,28 @@ function buildSetupReview() {
           html += `<div style="font-size:0.8rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
             color:var(--muted);margin:0.75rem 0 0.35rem;">${isTeamFmt ? `Team ${g}` : `Group ${g}`}</div>`;
         }
+        html += `<div class="pp-grid" style="margin-bottom:0.35rem;">`;
         groupPlayers.forEach(p => {
           const hi  = named.indexOf(p);
           const pi  = setup.players.indexOf(p);
+          const h   = hcpSummary(p, hi);
           html += `
-            <div style="padding:0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-              <div style="display:flex;align-items:center;gap:8px;font-size:1.15rem;font-weight:800;">
-                <span class="dot" style="background:${pHex(pi % 8)};"></span>${p.name}
+            <div class="pp-card">
+              <div class="pp-name" style="font-size:13px;">${_esc(p.name)}</div>
+              <div class="pp-bottom">
+                <div class="pp-stat">
+                  <div class="pp-stat-label">Index</div>
+                  <div class="pp-stat-value">${h.index}</div>
+                </div>
+                <div class="pp-stat pp-stat-right">
+                  <div class="pp-stat-label">Playing</div>
+                  <div class="pp-partner pp-partner-active">${h.playing}</div>
+                </div>
               </div>
-              ${hcpDetailHtml(p, hi)}
+              ${showScratch && h.match > 0 ? `<div style="font-size:0.65rem;font-weight:700;color:var(--gold);margin-top:3px;text-align:right;">${h.scratchLabel}</div>` : ''}
             </div>`;
         });
+        html += `</div>`;
       }
     }
   }
@@ -16295,6 +16325,50 @@ document.getElementById('btn-wizard-4-next')?.addEventListener('click', () => {
   }
 });
 
+// ── Player card styles (shared across wizard, setup, review, pairs screens) ──
+function _ensurePlayerCardStyles() {
+  if (document.getElementById('pp-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'pp-styles';
+  s.textContent = `
+    .pp-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .pp-pair-row { grid-column:span 2; display:flex; gap:0; position:relative; }
+    .pp-card { flex:1; min-width:0; background:var(--surface-2,rgba(255,255,255,0.05));
+      border:1.5px solid var(--border,rgba(255,255,255,0.12)); border-radius:12px;
+      padding:10px 11px 9px; display:flex; flex-direction:column; gap:6px;
+      user-select:none; -webkit-user-select:none;
+      transition:transform 0.12s ease,box-shadow 0.12s ease,border-color 0.15s ease,opacity 0.15s ease; }
+    .pp-card.pp-drag { cursor:grab; touch-action:none; }
+    .pp-card.pp-drag:active { cursor:grabbing; }
+    .pp-card.pp-paired { border-color:var(--gold,#d4a017); box-shadow:0 0 10px rgba(212,160,23,0.25); }
+    .pp-pair-row .pp-card:first-child { border-radius:12px 0 0 12px; border-right:none; }
+    .pp-pair-row .pp-card:last-child  { border-radius:0 12px 12px 0; border-left:none; }
+    .pp-card.pp-drop-target { border-color:var(--gold,#d4a017)!important;
+      box-shadow:0 0 0 2px var(--gold,#d4a017),0 0 16px rgba(212,160,23,0.45)!important;
+      animation:pp-pulse 0.85s ease-in-out infinite alternate; }
+    @keyframes pp-pulse { from{box-shadow:0 0 0 1.5px var(--gold,#d4a017),0 0 8px rgba(212,160,23,0.3)} to{box-shadow:0 0 0 2.5px var(--gold,#d4a017),0 0 20px rgba(212,160,23,0.55)} }
+    .pp-pair-divider { position:relative;width:0;display:flex;align-items:center;justify-content:center;z-index:2; }
+    .pp-chain { position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+      width:18px;height:18px;background:var(--gold,#d4a017);border-radius:50%;
+      display:flex;align-items:center;justify-content:center;font-size:9px;color:#111;
+      box-shadow:0 0 6px rgba(212,160,23,0.5);pointer-events:none; }
+    .pp-name { font-size:15px;font-weight:900;line-height:1.2;overflow:hidden;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical; }
+    .pp-bottom { display:flex;align-items:flex-end;justify-content:space-between;gap:4px; }
+    .pp-stat { display:flex;flex-direction:column;gap:1px; }
+    .pp-stat-right { text-align:right; }
+    .pp-stat-label { font-size:8.5px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);line-height:1; }
+    .pp-stat-value { font-size:15px;font-weight:900;color:var(--gold,#d4a017);font-variant-numeric:tabular-nums;line-height:1; }
+    .pp-partner { font-size:10px;font-weight:700;color:var(--text-muted);line-height:1; }
+    .pp-partner.pp-partner-active { color:var(--gold-light,#f0bb3a); }
+    @keyframes pp-snap-left  { 0%{transform:translateX(0) scale(1)} 35%{transform:translateX(-8px) scale(1.05)} 65%{transform:translateX(2px) scale(0.98)} 100%{transform:translateX(0) scale(1)} }
+    @keyframes pp-snap-right { 0%{transform:translateX(0) scale(1)} 35%{transform:translateX(8px) scale(1.05)} 65%{transform:translateX(-2px) scale(0.98)} 100%{transform:translateX(0) scale(1)} }
+    .pp-snap-left  { animation:pp-snap-left  0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
+    .pp-snap-right { animation:pp-snap-right 0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
+  `;
+  document.head.appendChild(s);
+}
+
 // ── Step 5: Pairing — PairPicker drag-to-pair ──
 
 /* PairPicker
@@ -16347,7 +16421,7 @@ class PairPicker {
     const partnerName = partner != null ? this._abbrev(this.players[partner].name) : '—';
     const isPaired = partner != null;
     return `
-      <div class="pp-card${isPaired ? ' pp-paired' : ''}" data-pidx="${playerIdx}">
+      <div class="pp-card pp-drag${isPaired ? ' pp-paired' : ''}" data-pidx="${playerIdx}">
         <div class="pp-name">${_esc(p.name)}</div>
         <div class="pp-bottom">
           <div class="pp-stat">
@@ -16526,139 +16600,7 @@ class PairPicker {
     });
   }
 
-  _injectStyles() {
-    if (document.getElementById('pp-styles')) return;
-    const s = document.createElement('style');
-    s.id = 'pp-styles';
-    s.textContent = `
-      .pp-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-      }
-      .pp-pair-row {
-        grid-column: span 2;
-        display: flex;
-        gap: 0;
-        position: relative;
-      }
-      .pp-card {
-        flex: 1;
-        min-width: 0;
-        background: var(--surface-2, rgba(255,255,255,0.05));
-        border: 1.5px solid var(--border, rgba(255,255,255,0.12));
-        border-radius: 12px;
-        padding: 10px 11px 9px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        cursor: grab;
-        user-select: none;
-        -webkit-user-select: none;
-        touch-action: none;
-        transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.15s ease, opacity 0.15s ease;
-      }
-      .pp-card:active { cursor: grabbing; }
-      .pp-card.pp-paired {
-        border-color: var(--gold, #d4a017);
-        box-shadow: 0 0 10px rgba(212,160,23,0.25);
-      }
-      .pp-pair-row .pp-card:first-child {
-        border-radius: 12px 0 0 12px;
-        border-right: none;
-      }
-      .pp-pair-row .pp-card:last-child {
-        border-radius: 0 12px 12px 0;
-        border-left: none;
-      }
-      .pp-card.pp-drop-target {
-        border-color: var(--gold, #d4a017) !important;
-        box-shadow: 0 0 0 2px var(--gold, #d4a017), 0 0 16px rgba(212,160,23,0.45) !important;
-        animation: pp-pulse 0.85s ease-in-out infinite alternate;
-      }
-      @keyframes pp-pulse {
-        from { box-shadow: 0 0 0 1.5px var(--gold,#d4a017), 0 0 8px rgba(212,160,23,0.3); }
-        to   { box-shadow: 0 0 0 2.5px var(--gold,#d4a017), 0 0 20px rgba(212,160,23,0.55); }
-      }
-      .pp-pair-divider {
-        position: relative;
-        width: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 2;
-      }
-      .pp-chain {
-        position: absolute;
-        left: 50%; top: 50%;
-        transform: translate(-50%, -50%);
-        width: 18px; height: 18px;
-        background: var(--gold, #d4a017);
-        border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 9px;
-        color: #111;
-        box-shadow: 0 0 6px rgba(212,160,23,0.5);
-        pointer-events: none;
-      }
-      .pp-name {
-        font-size: 15px;
-        font-weight: 900;
-        line-height: 1.2;
-        overflow: hidden;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-      }
-      .pp-bottom {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 4px;
-      }
-      .pp-stat { display: flex; flex-direction: column; gap: 1px; }
-      .pp-stat-right { text-align: right; }
-      .pp-stat-label {
-        font-size: 8.5px;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-        line-height: 1;
-      }
-      .pp-stat-value {
-        font-size: 15px;
-        font-weight: 900;
-        color: var(--gold, #d4a017);
-        font-variant-numeric: tabular-nums;
-        line-height: 1;
-      }
-      .pp-partner {
-        font-size: 10px;
-        font-weight: 700;
-        color: var(--text-muted);
-        line-height: 1;
-      }
-      .pp-partner.pp-partner-active {
-        color: var(--gold-light, #f0bb3a);
-      }
-      @keyframes pp-snap-left {
-        0%   { transform: translateX(0) scale(1); }
-        35%  { transform: translateX(-8px) scale(1.05); }
-        65%  { transform: translateX(2px) scale(0.98); }
-        100% { transform: translateX(0) scale(1); }
-      }
-      @keyframes pp-snap-right {
-        0%   { transform: translateX(0) scale(1); }
-        35%  { transform: translateX(8px) scale(1.05); }
-        65%  { transform: translateX(-2px) scale(0.98); }
-        100% { transform: translateX(0) scale(1); }
-      }
-      .pp-snap-left  { animation: pp-snap-left  0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
-      .pp-snap-right { animation: pp-snap-right 0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
-    `;
-    document.head.appendChild(s);
-  }
+  _injectStyles() { _ensurePlayerCardStyles(); }
 }
 
 function _wizBuildPairingStep() {
