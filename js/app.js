@@ -16193,22 +16193,26 @@ function _wizBuildPlayersStep() {
 }
 
 function _wizRenderPlayerList() {
+  _ensurePlayerCardStyles();
   const listEl = document.getElementById('tourn-player-list');
   if (!listEl) return;
   if (!_wiz.players.length) {
     listEl.innerHTML = '<div style="padding:0.5rem 0;font-size:0.85rem;color:var(--text-muted);text-align:center;">No players added yet</div>';
     return;
   }
-  listEl.innerHTML = _wiz.players.map((p, i) => `
-    <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;
-                border-bottom:1px solid var(--border);">
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:700;font-size:0.95rem;">${_esc(p.name)}</div>
-        <div style="font-size:0.78rem;color:var(--text-muted);">HCP ${p.hcpIndex ?? '—'}</div>
+  listEl.innerHTML = `<div class="pp-grid">${_wiz.players.map((p, i) => `
+    <div class="pp-card" style="position:relative;">
+      <button data-wiz-remove="${i}" style="position:absolute;top:4px;right:4px;
+              background:none;border:none;color:var(--danger);font-size:0.85rem;
+              cursor:pointer;padding:2px 5px;line-height:1;border-radius:4px;">✕</button>
+      <div class="pp-name" style="font-size:14px;padding-right:1.4rem;">${_esc(p.name)}</div>
+      <div class="pp-bottom" style="margin-top:auto;">
+        <div class="pp-stat">
+          <div class="pp-stat-label">HCP Index</div>
+          <div class="pp-stat-value">${p.hcpIndex ?? '—'}</div>
+        </div>
       </div>
-      <button data-wiz-remove="${i}" style="background:none;border:none;color:var(--danger);
-              font-size:1.1rem;cursor:pointer;padding:0.25rem 0.5rem;">✕</button>
-    </div>`).join('');
+    </div>`).join('')}</div>`;
 
   listEl.querySelectorAll('[data-wiz-remove]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -16223,6 +16227,7 @@ document.getElementById('btn-tourn-add-player')?.addEventListener('click', () =>
 });
 
 function _openFriendPickerForWizard() {
+  _ensurePlayerCardStyles();
   // Use allFriends (already loaded global) — field is .hcp, not .hcpIndex
   const all = allFriends ?? [];
   if (!all.length) {
@@ -16254,23 +16259,28 @@ function _openFriendPickerForWizard() {
         <div class="modal-title">Add Players</div>
         <button class="btn-close" id="wiz-fp-close">✕</button>
       </div>
-      <div id="wiz-fp-list" style="flex:1;overflow-y:auto;padding:0.25rem 0;">
+      <div id="wiz-fp-list" style="flex:1;overflow-y:auto;padding:0.5rem;">
+        <div class="pp-grid">
         ${available.map(f => {
           const name = f.name || f.username || '(no name)';
           const hcp  = f.hcp ?? 0;
           const pid  = f.profileId ?? f.id ?? name;
-          return `<label class="wiz-fp-row" data-fp-id="${_esc(String(pid))}"
+          return `<label class="wiz-fp-row pp-card" data-fp-id="${_esc(String(pid))}"
             data-fp-name="${_esc(name)}"
             data-fp-hcp="${hcp}"
-            style="display:flex;align-items:center;gap:0.75rem;padding:0.7rem 1rem;
-                   border-bottom:1px solid var(--border);cursor:pointer;user-select:none;">
-            <input type="checkbox" class="wiz-fp-cb" style="width:1.25rem;height:1.25rem;accent-color:var(--gold,#d4a843);flex-shrink:0;" />
-            <div>
-              <div style="font-weight:700;">${_esc(name)}</div>
-              <div style="font-size:0.78rem;color:var(--muted);">HCP ${hcp != null ? hcp : '—'}</div>
+            style="cursor:pointer;position:relative;">
+            <input type="checkbox" class="wiz-fp-cb" style="position:absolute;top:6px;right:6px;
+              width:1.1rem;height:1.1rem;accent-color:var(--gold,#d4a843);flex-shrink:0;" />
+            <div class="pp-name" style="font-size:14px;padding-right:1.4rem;">${_esc(name)}</div>
+            <div class="pp-bottom" style="margin-top:auto;">
+              <div class="pp-stat">
+                <div class="pp-stat-label">HCP Index</div>
+                <div class="pp-stat-value">${hcp != null ? hcp : '—'}</div>
+              </div>
             </div>
           </label>`;
         }).join('')}
+        </div>
       </div>
       <div style="padding:0.75rem 1rem;border-top:1px solid var(--border);">
         <button id="wiz-fp-add" class="btn btn-primary" style="width:100%;font-weight:700;" disabled>
@@ -16296,7 +16306,11 @@ function _openFriendPickerForWizard() {
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 
   modal.querySelectorAll('.wiz-fp-row').forEach(row => {
-    row.addEventListener('change', _syncAddBtn);
+    row.addEventListener('change', () => {
+      const cb = row.querySelector('.wiz-fp-cb');
+      row.classList.toggle('pp-paired', !!cb?.checked);
+      _syncAddBtn();
+    });
   });
 
   document.getElementById('wiz-fp-add')?.addEventListener('click', () => {
@@ -16952,6 +16966,7 @@ async function showTournamentDetail(code) {
 // ── Start Round Screen ───────────────────────────────────────────
 
 async function showTournamentStartRound(code, roundNum, tournRecord) {
+  _ensurePlayerCardStyles();
   const numEl   = document.getElementById('tsr-round-num');
   const nameEl  = document.getElementById('tsr-tourn-name');
   const listEl  = document.getElementById('tsr-player-list');
@@ -16993,22 +17008,37 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
       if (!players.length) {
         listEl.innerHTML = '<div style="font-size:0.85rem;color:var(--text-muted);">No players in roster yet.</div>';
       } else {
-        listEl.innerHTML = players.map(p => {
+        const _toggleCard = (label) => {
+          const cb = label.querySelector('input[type=checkbox]');
+          if (cb) label.classList.toggle('pp-paired', cb.checked);
+        };
+        listEl.innerHTML = `<div class="pp-grid">${players.map(p => {
           const origHcp = p.originalHcp ?? p.hcpIndex ?? 0;
           const adjHcp  = p.adjustedHcp ?? origHcp;
-          return `<label style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;
-                               cursor:pointer;border-bottom:1px solid var(--border);">
+          return `<label class="pp-card pp-paired" style="cursor:pointer;position:relative;"
+            data-tsr-label>
             <input type="checkbox" data-player-id="${_esc(p.playerId ?? p.id)}"
               data-player-name="${_esc(p.name)}"
               data-player-orig-hcp="${origHcp}"
               data-player-adj-hcp="${adjHcp}"
-              checked style="width:1.2rem;height:1.2rem;accent-color:var(--gold);">
-            <div style="flex:1;">
-              <div style="font-weight:700;">${_esc(p.name)}</div>
-              <div style="font-size:0.78rem;color:var(--text-muted);">Index: ${origHcp} · Playing: ${adjHcp}</div>
+              checked style="position:absolute;top:6px;right:6px;
+                width:1.1rem;height:1.1rem;accent-color:var(--gold);">
+            <div class="pp-name" style="font-size:14px;padding-right:1.4rem;">${_esc(p.name)}</div>
+            <div class="pp-bottom" style="margin-top:auto;">
+              <div class="pp-stat">
+                <div class="pp-stat-label">Index</div>
+                <div class="pp-stat-value">${origHcp}</div>
+              </div>
+              <div class="pp-stat pp-stat-right">
+                <div class="pp-stat-label">Playing</div>
+                <div class="pp-partner pp-partner-active">${adjHcp}</div>
+              </div>
             </div>
           </label>`;
-        }).join('');
+        }).join('')}</div>`;
+        listEl.querySelectorAll('[data-tsr-label]').forEach(label => {
+          label.addEventListener('change', () => _toggleCard(label));
+        });
       }
     }
 
