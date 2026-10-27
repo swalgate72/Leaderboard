@@ -15873,8 +15873,22 @@ function _wizGoStep(step) {
     el.classList.toggle('active', n === step);
     el.classList.toggle('done', n < step);
   });
-  // When entering step 2 refresh pair-hcp panel visibility
-  if (step === 2) _wizUpdatePairHcpPanel();
+  // When entering step 2 refresh panel visibility
+  if (step === 2) {
+    _wizUpdatePairHcpPanel();
+    // Update the selected format indicator to match current state
+    const indEl = document.getElementById('wiz-fmt-selected');
+    if (indEl && _wiz.format) {
+      const _TOURN_FMT_LABELS_LOCAL = {
+        stableford:'⭐ Stableford', strokeplay:'✏️ Stroke Play',
+        betterball:'🤝 Better Ball', csm:'➕ Combined',
+        foursomes:'🔄 Foursomes', greensomes:'🌿 Greensomes',
+        scramble:'🎯 Scramble (Pair)', best2:'🏅 Best 2', groupscramble:'🎯 Group Scramble',
+      };
+      indEl.textContent = 'Selected: ' + (_TOURN_FMT_LABELS_LOCAL[_wiz.format] ?? _wiz.format);
+      indEl.style.display = '';
+    }
+  }
 }
 
 // Back button
@@ -15908,23 +15922,117 @@ document.getElementById('btn-wizard-1-next')?.addEventListener('click', () => {
 // ── Step 2 wiring ──
 
 // Tournament wizard: formats that require pair assignment before the game starts
-const _TOURN_TEAM_FMTS = new Set(['betterball','csm','best2','foursomes','greensomes','scramble']);
+const _TOURN_TEAM_FMTS = new Set(['betterball','csm','best2','foursomes','greensomes','scramble','groupscramble']);
 // Tournament wizard: formats that support the shared/individual pair-handicap choice
 const PAIR_HCP_FORMATS = new Set(['betterball','csm']);
+
+// Format display labels
+const _TOURN_FMT_LABELS = {
+  stableford:   '⭐ Stableford',
+  strokeplay:   '✏️ Stroke Play',
+  betterball:   '🤝 Better Ball',
+  csm:          '➕ Combined',
+  foursomes:    '🔄 Foursomes',
+  greensomes:   '🌿 Greensomes',
+  scramble:     '🎯 Scramble (Pair)',
+  best2:        '🏅 Best 2',
+  groupscramble:'🎯 Group Scramble',
+};
+
+function _wizSetFormat(fmt) {
+  _wiz.format = fmt;
+  const hidEl = document.getElementById('tourn-format');
+  if (hidEl) hidEl.value = fmt;
+  // Show selected indicator
+  const indEl = document.getElementById('wiz-fmt-selected');
+  if (indEl) {
+    indEl.textContent = 'Selected: ' + (_TOURN_FMT_LABELS[fmt] ?? fmt);
+    indEl.style.display = '';
+  }
+  _wizUpdatePairHcpPanel();
+}
 
 function _wizUpdatePairHcpPanel() {
   const panel = document.getElementById('tourn-pair-hcp-panel');
   if (panel) panel.style.display = PAIR_HCP_FORMATS.has(_wiz.format) ? '' : 'none';
 }
 
-document.getElementById('tourn-format-btns')?.querySelectorAll('[data-fmt]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.getElementById('tourn-format-btns').querySelectorAll('[data-fmt]')
-      .forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tourn-format').value = btn.dataset.fmt;
-    _wiz.format = btn.dataset.fmt;
-    _wizUpdatePairHcpPanel();
+// Wire wizard cat-tiles (same expand/collapse logic as Play screen initCategoryTiles)
+(function initWizCategoryTiles() {
+  const tiles = document.querySelectorAll('#tourn-format-tiles .cat-tile');
+  tiles.forEach(tile => {
+    const formatsId = tile.getAttribute('aria-controls');
+    const formatsEl = formatsId ? document.getElementById(formatsId) : null;
+    if (!formatsEl) return; // no dropdown (shouldn't happen in wizard)
+
+    holdTouch(tile, () => {
+      const opening = tile.getAttribute('aria-expanded') !== 'true';
+      // Close all wizard tiles
+      tiles.forEach(t => {
+        t.setAttribute('aria-expanded', 'false');
+        const fid = t.getAttribute('aria-controls');
+        const fel = fid ? document.getElementById(fid) : null;
+        if (fel) fel.hidden = true;
+      });
+      if (opening) {
+        tile.setAttribute('aria-expanded', 'true');
+        formatsEl.hidden = false;
+      }
+    });
+  });
+})();
+
+// Wire wizard p2v2 sub-accordions (Pair Up formats)
+(function initWizP2v2Accordion() {
+  document.querySelectorAll('#wiz-cat-pair-formats .p2v2-row').forEach(row => {
+    const btn   = row.querySelector('.wiz-p2v2-fmt-btn');
+    const modes = row.querySelector('.p2v2-modes');
+    if (!btn || !modes) return;
+
+    holdTouch(btn, () => {
+      const opening = !btn.classList.contains('open');
+      // Close all pair sub-accordions
+      document.querySelectorAll('#wiz-cat-pair-formats .p2v2-fmt-btn').forEach(b => {
+        b.classList.remove('open');
+        const m = b.closest('.p2v2-row')?.querySelector('.p2v2-modes');
+        if (m) m.hidden = true;
+      });
+      if (opening) {
+        btn.classList.add('open');
+        modes.hidden = false;
+      }
+    });
+
+    // Mode buttons — for wizard these just set the format (always Stableford)
+    modes.querySelectorAll('.wiz-p2v2-mode-btn').forEach(modeBtn => {
+      holdTouch(modeBtn, () => {
+        const fmt = modeBtn.dataset.fmt ?? row.dataset.fmt;
+        _wizSetFormat(fmt);
+        // Close all wizard cat-tiles after selection
+        document.querySelectorAll('#tourn-format-tiles .cat-tile').forEach(t => {
+          t.setAttribute('aria-expanded', 'false');
+          const fid = t.getAttribute('aria-controls');
+          const fel = fid ? document.getElementById(fid) : null;
+          if (fel) fel.hidden = true;
+        });
+      });
+    });
+  });
+})();
+
+// Wire wizard flat fmt-btns (Solo Scoring and Team Events)
+document.querySelectorAll('#tourn-format-tiles .wiz-fmt-btn').forEach(btn => {
+  holdTouch(btn, () => {
+    const fmt = btn.dataset.fmt;
+    if (!fmt) return;
+    _wizSetFormat(fmt);
+    // Close all wizard cat-tiles after selection
+    document.querySelectorAll('#tourn-format-tiles .cat-tile').forEach(t => {
+      t.setAttribute('aria-expanded', 'false');
+      const fid = t.getAttribute('aria-controls');
+      const fel = fid ? document.getElementById(fid) : null;
+      if (fel) fel.hidden = true;
+    });
   });
 });
 
@@ -15979,6 +16087,7 @@ document.getElementById('tournament-hcp-info-back')?.addEventListener('click', (
 document.getElementById('btn-wizard-2-back')?.addEventListener('click', () => _wizGoStep(1));
 document.getElementById('btn-wizard-2-next')?.addEventListener('click', () => {
   _wiz.format      = document.getElementById('tourn-format')?.value ?? 'stableford';
+  if (!_wiz.format) { alert('Please select a scoring format.'); return; }
   _wiz.hcpMode     = document.getElementById('tourn-hcp-mode')?.value ?? 'none';
   _wiz.hcpStrength = parseInt(document.getElementById('tourn-hcp-strength')?.value ?? '3') || 3;
   _wiz.pairHcpMode = document.getElementById('tourn-pair-hcp-mode')?.value ?? 'shared';
@@ -16348,8 +16457,8 @@ async function _wizCreateTournament() {
     await idbTournaments.put(toStore);
     await _flushTournamentCache();
 
-    // 5. Navigate to detail screen
-    showTournamentDetail(code);
+    // 5. Navigate to organiser admin screen
+    showTournamentOrganiserAdmin(code);
 
   } catch (err) {
     alert('Could not create tournament: ' + err.message);
@@ -16809,12 +16918,51 @@ async function showTournamentOrganiserAdmin(code) {
     if (conflictsEl) conflictsEl.style.display = 'none';
 
     // Back + late joiner
-    document.getElementById('tournament-organiser-admin-back').onclick = () => showTournamentDetail(code);
+    document.getElementById('tournament-organiser-admin-back').onclick = () => showTournamentHub();
     document.getElementById('btn-oa-add-late-joiner').onclick = () => alert('Late-joiner flow coming soon.');
+
+    // Go to tournament hub
+    const goHubBtn = document.getElementById('btn-oa-go-hub');
+    if (goHubBtn) goHubBtn.onclick = () => showTournamentHub();
+
+    // Show tournament code button
+    const showCodeBtn = document.getElementById('btn-oa-show-code');
+    if (showCodeBtn) showCodeBtn.onclick = () => _showTournamentCodeModal(code);
 
   } catch (err) {
     if (rosterEl) rosterEl.innerHTML = `<div style="color:var(--danger);">Error: ${err.message}</div>`;
   }
+}
+
+function _showTournamentCodeModal(code) {
+  const modal    = document.getElementById('modal-tourn-code');
+  const codeEl   = document.getElementById('modal-code-display');
+  const linkEl   = document.getElementById('modal-invite-link');
+  const copyBtn  = document.getElementById('btn-copy-invite');
+  const closeBtn = document.getElementById('btn-tourn-code-close');
+  if (!modal) return;
+
+  const inviteLink = `${location.origin}/?join=${code}`;
+  if (codeEl) codeEl.textContent = code;
+  if (linkEl) linkEl.textContent = inviteLink;
+
+  modal.style.display = 'flex';
+  modal.classList.add('open');
+
+  if (copyBtn) {
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(inviteLink).then(() => {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1800);
+      }).catch(() => {
+        copyBtn.textContent = 'Copy failed';
+        setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1800);
+      });
+    };
+  }
+  const _close = () => { modal.style.display = 'none'; modal.classList.remove('open'); };
+  if (closeBtn) closeBtn.onclick = _close;
+  modal.onclick = e => { if (e.target === modal) _close(); };
 }
 
 async function _organiserFinaliseRound(code, roundNum, secret, tournData, force = false) {
