@@ -4638,24 +4638,9 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
 
 function initSetupPairs() {
   const named = setup.players.filter(p => p.name);
+  // Start everyone unpaired — player drags to choose their partner
   setup.pairs = [];
   named.forEach(p => { p.pairIndex = -1; });
-  // Auto-pair consecutive players
-  for (let i = 0; i + 1 < named.length; i += 2) {
-    const pA = named[i], pB = named[i + 1];
-    const pairIdx = setup.pairs.length;
-    const piA = setup.players.indexOf(pA), piB = setup.players.indexOf(pB);
-    pA.pairIndex = pairIdx; pB.pairIndex = pairIdx;
-    const sharedTeamName = (pA.teamName && pA.teamName === pB.teamName) ? pA.teamName : null;
-    setup.pairs.push({
-      _uid: `p${Date.now()}_${pairIdx}_${Math.random().toString(36).slice(2,7)}`,
-      name: sharedTeamName || `${pA.name.split(' ')[0]} & ${pB.name.split(' ')[0]}`,
-      teamName: sharedTeamName,
-      playerIndices: [piA, piB],
-      groupNumber: 1,
-    });
-  }
-  if (named.length % 2 !== 0) named[named.length - 1].pairIndex = -1;
   if (setup.scoring === 'texas' && (setup.texasScoringFmt ?? 'stableford') !== 'match') {
     const teamSz = setup.texasTeamSize ?? 2;
     setup.numGroups = Math.ceil(named.length / teamSz);
@@ -4699,10 +4684,11 @@ function renderSetupPairsScreen() {
       : foursomedPairHandicap(hcp0, hcp1);
   } : null;
 
-  // Build player list for PairPicker — use courseHandicap as the displayed stat
+  // Build player list for PairPicker — show HCP index on left, course HCP on right
   const ppPlayers = setup.players.map(p => ({
-    name: p.name,
-    hcpIndex: p.courseHandicap ?? p.gameHandicap ?? p.hcpIndex ?? 0,
+    name:      p.name,
+    hcpIndex:  p.hcpIndex ?? 0,
+    hcpIndex2: p.courseHandicap ?? p.gameHandicap ?? p.hcpIndex ?? 0,
   }));
 
   const _updateSetupPairs = (updatedPairs) => {
@@ -16316,9 +16302,8 @@ class PairPicker {
   _cardHTML(playerIdx) {
     const p       = this.players[playerIdx];
     const hcp     = p.hcpIndex != null ? p.hcpIndex : '—';
-    const partner = this._partnerOf(playerIdx);
-    const partnerName = partner != null ? this._abbrev(this.players[partner].name) : '—';
-    const isPaired = partner != null;
+    const hcp2    = p.hcpIndex2 != null ? p.hcpIndex2 : null; // optional second stat (e.g. course hcp)
+    const isPaired = this._partnerOf(playerIdx) != null;
     return `
       <div class="pp-card pp-drag${isPaired ? ' pp-paired' : ''}" data-pidx="${playerIdx}">
         <div class="pp-name">${_esc(p.name)}</div>
@@ -16327,10 +16312,10 @@ class PairPicker {
             <div class="pp-stat-label">Index</div>
             <div class="pp-stat-value">${_esc(String(hcp))}</div>
           </div>
-          <div class="pp-stat pp-stat-right">
-            <div class="pp-stat-label">Playing</div>
-            <div class="pp-partner${isPaired ? ' pp-partner-active' : ''}">${_esc(partnerName)}</div>
-          </div>
+          ${hcp2 != null ? `<div class="pp-stat pp-stat-right">
+            <div class="pp-stat-label">Course HCP</div>
+            <div class="pp-stat-value" style="font-size:13px;">${_esc(String(hcp2))}</div>
+          </div>` : ''}
         </div>
       </div>`;
   }
@@ -16534,7 +16519,14 @@ function _wizBuildPairingStep() {
     warnEl.textContent   = odd ? '⚠️ Odd number of players — one player will remain solo.' : '';
   }
 
-  new PairPicker(listEl, players, _wiz.pairs, updatedPairs => {
+  // Build display player list with both HCP index and course HCP
+  const ppPlayers = players.map(p => ({
+    name:      p.name,
+    hcpIndex:  p.hcpIndex ?? 0,
+    hcpIndex2: p.courseHcp ?? p.hcpIndex ?? 0,
+  }));
+
+  new PairPicker(listEl, ppPlayers, _wiz.pairs, updatedPairs => {
     _wiz.pairs = updatedPairs;
   });
 }
