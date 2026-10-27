@@ -4637,31 +4637,25 @@ document.getElementById('modal-qr-share')?.addEventListener('click', e => {
 // ================================================================
 
 function initSetupPairs() {
-  // Build initial pairs: consecutive player pairs (0&1, 2&3, ...)
   const named = setup.players.filter(p => p.name);
   setup.pairs = [];
-  // Assign pairIndex -1 to all (unassigned)
   named.forEach(p => { p.pairIndex = -1; });
-  // Auto-pair if even number
+  // Auto-pair consecutive players
   for (let i = 0; i + 1 < named.length; i += 2) {
     const pA = named[i], pB = named[i + 1];
     const pairIdx = setup.pairs.length;
     const piA = setup.players.indexOf(pA), piB = setup.players.indexOf(pB);
     pA.pairIndex = pairIdx; pB.pairIndex = pairIdx;
-    // If both players share a persisted team name (team_fixed mode), use it
     const sharedTeamName = (pA.teamName && pA.teamName === pB.teamName) ? pA.teamName : null;
     setup.pairs.push({
       _uid: `p${Date.now()}_${pairIdx}_${Math.random().toString(36).slice(2,7)}`,
       name: sharedTeamName || `${pA.name.split(' ')[0]} & ${pB.name.split(' ')[0]}`,
       teamName: sharedTeamName,
       playerIndices: [piA, piB],
-      groupNumber: 1, // default all pairs in one group (one 4-ball)
+      groupNumber: 1,
     });
   }
   if (named.length % 2 !== 0) named[named.length - 1].pairIndex = -1;
-  // For foursomes/greensomes stableford/stroke: keep 1 group by default
-  // User can manually split into multiple groups on the groups screen if needed
-  // (Match play always uses 1 group anyway)
   if (setup.scoring === 'texas' && (setup.texasScoringFmt ?? 'stableford') !== 'match') {
     const teamSz = setup.texasTeamSize ?? 2;
     setup.numGroups = Math.ceil(named.length / teamSz);
@@ -4672,199 +4666,89 @@ function initSetupPairs() {
 
 function renderSetupPairsScreen() {
   _ensurePlayerCardStyles();
-  const poolEl   = document.getElementById('setup-pairs-pool');
-  const pairsEl  = document.getElementById('setup-pair-cards');
   const poolCard = document.getElementById('setup-pairs-pool-card');
-  if (!poolEl || !pairsEl) return;
+  const pairsEl  = document.getElementById('setup-pair-cards');
+  if (!pairsEl) return;
 
-  const named      = setup.players.filter(p => p.name);
-  const unassigned = named.filter(p => p.pairIndex === -1);
+  // Hide the legacy pool card — PairPicker manages all cards in one grid
+  if (poolCard) poolCard.style.display = 'none';
 
-  // Pool of unassigned players
-  if (unassigned.length === 0) {
-    poolCard.style.display = 'none';
-  } else {
-    poolCard.style.display = '';
-    poolEl.innerHTML = `<div class="pp-grid">${unassigned.map(p => {
-      const pi = setup.players.indexOf(p);
-      const hcp = p.gameHandicap ?? p.courseHandicap ?? p.hcpIndex ?? '—';
-      return `<div class="pp-card pp-drag sp-player-chip" draggable="true" data-pi="${pi}"
-        style="">
-        <div class="pp-name" style="font-size:13px;">${_esc(p.name)}</div>
-        <div class="pp-bottom">
-          <div class="pp-stat">
-            <div class="pp-stat-label">Course HCP</div>
-            <div class="pp-stat-value">${hcp}</div>
-          </div>
-        </div>
-      </div>`;
-    }).join('')}</div>`;
-  }
+  const named = setup.players.filter(p => p.name);
 
-  // Pair cards
-  pairsEl.innerHTML = '';
-  setup.pairs.forEach((pair, pairIdx) => {
-    const card = document.createElement('div');
-    card.className = 'card mb-sm sp-pair-drop';
-    card.dataset.pair = pairIdx;
+  // Convert setup.pairs (rich objects) → PairPicker flat format [[piA, piB|null], ...]
+  // Players not yet in any pair slot are added as solo entries at the end.
+  const inPairs = new Set();
+  const ppPairs = setup.pairs.map(pair => {
+    const [piA, piB] = [...new Set(pair.playerIndices)].slice(0, 2);
+    if (piA != null) inPairs.add(piA);
+    if (piB != null) inPairs.add(piB);
+    return [piA ?? null, piB ?? null];
+  });
+  named.forEach(p => {
+    const pi = setup.players.indexOf(p);
+    if (!inPairs.has(pi)) ppPairs.push([pi, null]);
+  });
 
-    // Render-time safety net: never display more than 2 members for a pair,
-    // even if playerIndices somehow ended up longer than that. This is a
-    // last line of defence on top of the dedup/cap logic in dropPlayerIntoPair.
-    const cappedIndices = [...new Set(pair.playerIndices)].slice(0, 2);
-    const members = cappedIndices.map(pi => setup.players[pi]);
+  // Optional pair HCP function for foursomes/greensomes
+  const isHcpFmt = ['foursomes', 'greensomes'].includes(setup.scoring);
+  const pairHcpFn = isHcpFmt ? (piA, piB) => {
+    const hcp0 = setup.players[piA]?.courseHandicap ?? setup.players[piA]?.hcpIndex ?? 0;
+    const hcp1 = setup.players[piB]?.courseHandicap ?? setup.players[piB]?.hcpIndex ?? 0;
+    return setup.scoring === 'greensomes'
+      ? greensomesPairHandicap(hcp0, hcp1)
+      : foursomedPairHandicap(hcp0, hcp1);
+  } : null;
 
-    // Combined pair handicap — only meaningful once both slots are filled.
-    // Foursomes/Greensomes only; this screen is reused by Better Ball/CSM too,
-    // which don't have a single combined-handicap concept.
-    const isHcpFmt = ['foursomes','greensomes'].includes(setup.scoring);
-    let pairHcpBadge = '';
-    if (isHcpFmt && members.length === 2 && members[0] && members[1]) {
-      const hcp0 = members[0].courseHandicap ?? members[0].hcpIndex ?? 0;
-      const hcp1 = members[1].courseHandicap ?? members[1].hcpIndex ?? 0;
-      const pairHcp = setup.scoring === 'greensomes'
-        ? greensomesPairHandicap(hcp0, hcp1)
-        : foursomedPairHandicap(hcp0, hcp1);
-      pairHcpBadge = `
-        <div style="text-align:right;flex-shrink:0;">
-          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;
-                      font-size:1.2rem;color:var(--white);line-height:1;">${pairHcp}</div>
-          <div style="font-size:0.6rem;color:var(--muted);font-weight:700;
-                      text-transform:uppercase;letter-spacing:0.05em;">Pair HCP</div>
-        </div>`;
+  // Build player list for PairPicker — use courseHandicap as the displayed stat
+  const ppPlayers = setup.players.map(p => ({
+    name: p.name,
+    hcpIndex: p.courseHandicap ?? p.gameHandicap ?? p.hcpIndex ?? 0,
+  }));
+
+  const _updateSetupPairs = (updatedPairs) => {
+    // Write PairPicker result back to setup.pairs
+    const newPairs = [];
+    updatedPairs.forEach(([piA, piB]) => {
+      if (piA == null) return;
+      const p = setup.players[piA];
+      if (!p) return;
+      if (piB != null) {
+        // Completed pair — preserve existing rich pair object if present
+        const existing = setup.pairs.find(sp =>
+          sp.playerIndices.includes(piA) && sp.playerIndices.includes(piB)
+        );
+        const nameA = setup.players[piA]?.name.split(' ')[0] ?? '';
+        const nameB = setup.players[piB]?.name.split(' ')[0] ?? '';
+        newPairs.push({
+          _uid: existing?._uid ?? `p${Date.now()}_${newPairs.length}_${Math.random().toString(36).slice(2,7)}`,
+          name: existing?.name ?? `${nameA} & ${nameB}`,
+          teamName: existing?.teamName ?? null,
+          playerIndices: [piA, piB],
+          groupNumber: existing?.groupNumber ?? 1,
+        });
+        setup.players[piA].pairIndex = newPairs.length - 1;
+        setup.players[piB].pairIndex = newPairs.length - 1;
+      } else {
+        // Solo — leave pairIndex = -1
+        setup.players[piA].pairIndex = -1;
+      }
+    });
+    setup.pairs = newPairs;
+
+    // Validate next button
+    const allPaired  = named.every(p => p.pairIndex !== -1);
+    const validPairs = setup.pairs.every(pair => pair.playerIndices.length === 2);
+    const btn = document.getElementById('btn-setup-pairs-next');
+    if (btn) {
+      const ok = allPaired && validPairs && setup.pairs.length > 0;
+      btn.disabled      = !ok;
+      btn.style.opacity = ok ? '' : '0.5';
     }
+  };
 
-    card.innerHTML = `
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
-        <div class="card-title" style="margin:0;flex:1;">Pair ${pairIdx + 1}</div>
-        <input class="sp-pair-name" data-pair="${pairIdx}"
-          value="${pair.name}"
-          style="flex:2;background:none;border:none;border-bottom:1px solid var(--border);
-                 color:var(--gold);font-family:'Plus Jakarta Sans',sans-serif;
-                 font-weight:800;font-size:1.05rem;outline:none;padding-bottom:2px;">
-        ${pairHcpBadge}
-      </div>
-      <div class="sp-pair-slots pp-grid" data-pair="${pairIdx}" style="gap:6px;min-height:48px;">
-        ${members.map((p, slot) => {
-          if (!p) return `<div class="sp-empty-slot" data-pair="${pairIdx}" data-slot="${slot}"
-            style="padding:0.65rem;text-align:center;color:var(--muted);font-size:0.9rem;
-                   border:1.5px dashed var(--border);border-radius:12px;min-height:72px;
-                   display:flex;align-items:center;justify-content:center;">
-            Drop player here</div>`;
-          const pi = cappedIndices[slot];
-          const hcp = p.gameHandicap ?? p.courseHandicap ?? p.hcpIndex ?? '—';
-          return `<div class="pp-card pp-drag sp-player-chip pp-paired" draggable="true" data-pi="${pi}"
-            style="position:relative;">
-            <button class="sp-remove" data-pi="${pi}" data-pair="${pairIdx}"
-              style="position:absolute;top:4px;right:4px;font-size:0.75rem;color:var(--muted);
-                     background:none;border:none;cursor:pointer;padding:0.1rem 0.3rem;line-height:1;">✕</button>
-            <div class="pp-name" style="font-size:13px;padding-right:1.2rem;">${_esc(p.name)}</div>
-            <div class="pp-bottom">
-              <div class="pp-stat">
-                <div class="pp-stat-label">Course HCP</div>
-                <div class="pp-stat-value">${hcp}</div>
-              </div>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>`;
-    pairsEl.appendChild(card);
-  });
-
-
-  // Wire name inputs
-  pairsEl.querySelectorAll('.sp-pair-name').forEach(inp => {
-    inp.addEventListener('input', e => {
-      setup.pairs[parseInt(inp.dataset.pair)].name = e.target.value;
-    });
-  });
-
-  // Wire remove buttons
-  pairsEl.querySelectorAll('.sp-remove').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const pi = parseInt(btn.dataset.pi), pairIdx = parseInt(btn.dataset.pair);
-      if (setup.players[pi]) setup.players[pi].pairIndex = -1;
-      const pair = setup.pairs[pairIdx];
-      pair.playerIndices = pair.playerIndices.filter(i => i !== pi);
-      renderSetupPairsScreen();
-    });
-  });
-
-  // ── Drag and drop ──
-  const allChips = document.querySelectorAll('.sp-player-chip[draggable]');
-  let touchGhost = null, touchPi = null, touchSrc = null;
-
-  allChips.forEach(chip => {
-    chip.addEventListener('dragstart', e => {
-      chip.style.opacity = '0.4';
-      e.dataTransfer.setData('text/plain', chip.dataset.pi);
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    chip.addEventListener('dragend', () => { chip.style.opacity = '1'; });
-
-    chip.addEventListener('touchstart', e => {
-      touchPi = chip.dataset.pi; touchSrc = chip;
-      touchGhost = chip.cloneNode(true);
-      touchGhost.style.cssText = `position:fixed;z-index:9999;opacity:0.85;pointer-events:none;
-        background:var(--surface2);border-radius:20px;padding:0.5rem 0.85rem;
-        box-shadow:0 4px 20px rgba(0,0,0,0.4);`;
-      document.body.appendChild(touchGhost);
-      chip.style.opacity = '0.3';
-    }, { passive: true });
-
-    chip.addEventListener('touchmove', e => {
-      if (!touchGhost) return;
-      e.preventDefault();
-      const t = e.touches[0];
-      touchGhost.style.left = (t.clientX - 60) + 'px';
-      touchGhost.style.top  = (t.clientY - 20) + 'px';
-      document.querySelectorAll('.sp-pair-slots,.sp-empty-slot,.setup-pairs-pool').forEach(z => z.style.background = '');
-      const el = document.elementFromPoint(t.clientX, t.clientY);
-      el?.closest('.sp-pair-slots')?.style && (el.closest('.sp-pair-slots').style.background = 'rgba(212,168,67,0.08)');
-    }, { passive: false });
-
-    chip.addEventListener('touchend', e => {
-      if (!touchGhost) return;
-      document.body.removeChild(touchGhost); touchGhost = null;
-      touchSrc && (touchSrc.style.opacity = '1');
-      document.querySelectorAll('.sp-pair-slots').forEach(z => z.style.background = '');
-      const t = e.changedTouches[0];
-      const el = document.elementFromPoint(t.clientX, t.clientY);
-      const dropZone = el?.closest('.sp-pair-slots') || el?.closest('.sp-empty-slot');
-      if (dropZone) dropPlayerIntoPair(parseInt(touchPi), parseInt(dropZone.dataset.pair));
-    });
-  });
-
-  // Desktop drop zones
-  document.querySelectorAll('.sp-pair-slots, .sp-empty-slot').forEach(zone => {
-    zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.background = 'rgba(212,168,67,0.08)'; });
-    zone.addEventListener('dragleave', () => { zone.style.background = ''; });
-    zone.addEventListener('drop', e => {
-      e.preventDefault(); zone.style.background = '';
-      const pi = parseInt(e.dataTransfer.getData('text/plain'));
-      const pairIdx = parseInt(zone.dataset.pair);
-      dropPlayerIntoPair(pi, pairIdx);
-    });
-  });
-
-  // Pool drop zone (remove from pair)
-  poolEl.addEventListener('dragover', e => { e.preventDefault(); poolEl.style.background = 'rgba(255,255,255,0.05)'; });
-  poolEl.addEventListener('dragleave', () => { poolEl.style.background = ''; });
-  poolEl.addEventListener('drop', e => {
-    e.preventDefault(); poolEl.style.background = '';
-    const pi = parseInt(e.dataTransfer.getData('text/plain'));
-    removePlayerFromPair(pi);
-  });
-
-  // Validate next button
-  const allPaired  = named.every(p => p.pairIndex !== -1);
-  const validPairs = setup.pairs.every(pair => pair.playerIndices.length === 2);
-  const btn = document.getElementById('btn-setup-pairs-next');
-  if (btn) {
-    const ok = allPaired && validPairs && setup.pairs.length > 0;
-    btn.disabled   = !ok;
-    btn.style.opacity = ok ? '' : '0.5';
-  }
+  new PairPicker(pairsEl, ppPlayers, ppPairs, _updateSetupPairs, { pairHcpFn });
+  // Trigger initial validation
+  _updateSetupPairs(ppPairs);
 }
 
 function dropPlayerIntoPair(pi, pairIdx) {
@@ -16395,12 +16279,13 @@ function _ensurePlayerCardStyles() {
    Writes results back to _wiz.pairs on every change.
 */
 class PairPicker {
-  constructor(container, players, initialPairs, onChange) {
-    this.container = container;
-    this.players   = players;   // array of { name, hcpIndex }
-    this.pairs     = initialPairs; // array of [idxA, idxB|null]
-    this.onChange  = onChange;
-    this._drag     = null;      // { cardEl, playerIdx, originEl, ghost, startX, startY }
+  constructor(container, players, initialPairs, onChange, options = {}) {
+    this.container  = container;
+    this.players    = players;   // array of { name, hcpIndex }
+    this.pairs      = initialPairs; // array of [idxA, idxB|null]
+    this.onChange   = onChange;
+    this.pairHcpFn  = options.pairHcpFn ?? null; // (piA, piB) => number
+    this._drag      = null;
     this._injectStyles();
     this.render();
   }
@@ -16468,9 +16353,22 @@ class PairPicker {
     let html = '<div class="pp-grid">';
     rows.forEach(row => {
       if (row.type === 'pair') {
-        html += `<div class="pp-pair-row">${this._cardHTML(row.a)}` +
+        let pairHcpBadge = '';
+        if (this.pairHcpFn) {
+          const ph = this.pairHcpFn(row.a, row.b);
+          pairHcpBadge = `<div class="pp-pair-hcp" style="
+            position:absolute;top:-0.9rem;right:0;
+            font-size:0.65rem;font-weight:800;color:var(--gold);
+            text-transform:uppercase;letter-spacing:0.06em;
+            background:var(--surface-2,rgba(20,20,20,0.85));
+            padding:1px 6px;border-radius:4px;pointer-events:none;">
+            Pair HCP ${ph}</div>`;
+        }
+        html += `<div class="pp-pair-row" style="position:relative;margin-top:${this.pairHcpFn ? '0.9rem' : '0'};">` +
+                pairHcpBadge +
+                this._cardHTML(row.a) +
                 `<div class="pp-pair-divider"><span class="pp-chain">⛓</span></div>` +
-                `${this._cardHTML(row.b)}</div>`;
+                this._cardHTML(row.b) + `</div>`;
       } else {
         html += this._cardHTML(row.a);
       }
