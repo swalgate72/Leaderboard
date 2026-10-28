@@ -7179,72 +7179,133 @@ function renderHolePanel() {
       inputsEl.appendChild(header);
 
       const existingEntry = gameState.log?.[h];
-      const existingGross = existingEntry?.grosses?.[label === 'A' ? 0 : 1];
-      const hasExisting    = existingGross != null;
-      const scoreBtnVal    = hasExisting ? String(existingGross) : 'Score';
-      let scoreBtnStyle;
-      if (!hasExisting) {
-        scoreBtnStyle = 'border:2px solid var(--border);background:var(--surface2);color:var(--muted);';
-      } else {
-        const color = scoreColorForRelToPar(existingGross - par, existingGross);
-        scoreBtnStyle = `border:2px solid ${color};background:${color};color:${existingGross === 1 ? '#000' : '#fff'};`;
-      }
+      const existingGross = existingEntry?.grosses?.[pairIdx];
+      const hasExisting   = existingGross != null;
+      const effectiveGross = hasExisting ? existingGross : par;
 
-      // HCP line: match = shots received; stableford/stroke = raw team HCP
-      const rawHcp     = pairRawHcp[label];
-      const allowance  = pairAllowance[label];
+      // HCP / shots this hole
+      const rawHcp    = pairRawHcp[label];
+      const allowance = pairAllowance[label];
       const hcpLineTxt = isTeamMatch
-        ? (allowance === 0 ? 'Team HCP — Plays off Scratch' : `Team HCP — Receives ${allowance} shot${allowance === 1 ? '' : 's'}`)
+        ? (allowance === 0 ? 'Plays off Scratch' : `Receives ${allowance} shot${allowance === 1 ? '' : 's'}`)
         : `Team HCP ${rawHcp}`;
+      // Shots on this hole for the pair (match play allowance)
+      const pairExtra = isTeamMatch
+        ? (() => { const si = gameState.si[h]; return allowance <= 0 ? 0 : Math.floor(allowance / 18) + (si <= (allowance % 18) ? 1 : 0); })()
+        : 0;
+
+      // Disc styling — dashed border when no score yet (same as gi-card)
+      const parColor   = scoreColorForRelToPar(0, par);
+      const discColor  = scoreColorForRelToPar(effectiveGross - par, effectiveGross);
+      const discOpacity = hasExisting ? '' : 'opacity:0.7;';
+      const discBorder  = hasExisting ? `2px solid ${discColor}` : `2px dashed ${parColor}`;
 
       const row = document.createElement('div');
-      row.className = 'gi-row gi-row-pair';
+      row.className = 'gi-row gi-card';
+      row.dataset.extra = String(pairExtra);
+      row.dataset.par   = String(par);
+      row.dataset.pair  = label;
       row.innerHTML = `
-        <div style="flex:1;min-width:0;">
-          <div class="gi-name" style="display:flex;align-items:center;gap:6px;">
-            <span class="dot" style="background:${pHex(p0)};flex-shrink:0;"></span>
-            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${gameState.names[p0]}</span>
+        <div class="gi-top">
+          <div class="gi-id">
+            <div class="gi-name">
+              <span class="dot" style="background:${pHex(p0)};"></span>
+              <span class="gi-name-txt">${shortName(gameState.names[p0])}</span>
+            </div>
+            <div class="gi-name" style="margin-top:2px;">
+              <span class="dot" style="background:${pHex(p1)};"></span>
+              <span class="gi-name-txt">${shortName(gameState.names[p1])}</span>
+            </div>
+            <div class="gi-hcp">${hcpLineTxt}</div>
+            <div class="gi-prev" id="gi-pair-prev-${label}"></div>
           </div>
-          <div class="gi-name" style="display:flex;align-items:center;gap:6px;margin-top:2px;">
-            <span class="dot" style="background:${pHex(p1)};flex-shrink:0;"></span>
-            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${gameState.names[p1]}</span>
+          <div class="gi-calc">
+            <div class="gi-calc-lbl">This hole</div>
+            <div class="gi-calc-val" id="gi-pair-calc-${label}">—</div>
           </div>
-          <div class="gi-hcp" style="margin-top:2px;">${hcpLineTxt}</div>
         </div>
-        <div style="flex-shrink:0;">
-          <div id="cv-pair-${label}" data-value="${hasExisting ? existingGross : ''}"
-            class="score-btn" data-pair="${label}"
-            style="min-width:64px;min-height:52px;display:flex;align-items:center;justify-content:center;
-                   border-radius:10px;
-                   font-family:'Plus Jakarta Sans',sans-serif;font-size:1.6rem;font-weight:800;
-                   cursor:pointer;user-select:none;${scoreBtnStyle}">
-            ${scoreBtnVal}
+        <div class="gi-score-ctrl">
+          <button class="gi-arr gi-arr-dn-pair" data-pair="${label}" aria-label="One less">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <div class="gi-disc-wrap">
+            <div id="cv-pair-${label}" class="score-btn gi-score-disc has-score${hasExisting ? '' : ' par-default'}"
+              data-value="${effectiveGross}" data-pickup="0" data-pair="${label}"
+              style="--sc:${_giRingColor(hasExisting ? discColor : parColor)};${discOpacity}">${effectiveGross}</div>
+            <div class="gi-rel" id="gi-pair-rel-${label}">${_giRelWord(effectiveGross, par, false)}</div>
           </div>
+          <button class="gi-arr gi-arr-up-pair" data-pair="${label}" aria-label="One more">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
         </div>`;
       inputsEl.appendChild(row);
 
-      const pairBtnEl = row.querySelector(`#cv-pair-${label}`);
-      if (pairBtnEl) {
-        const openPicker = () => {
-          try {
-            openPairScorePicker(label, h, par, null);
-          } catch(err) {
-            console.error('[pair picker] error:', err);
-            alert('Score picker error: ' + err.message);
-          }
-        };
-        pairBtnEl.addEventListener('touchstart', (e) => {
-          if (_pickerJustClosed || _pageScrolling) { e.preventDefault(); return; }
-          e.preventDefault();
-          _spScrolling = false;
-          openPicker();
-        }, { passive: false });
-        pairBtnEl.addEventListener('click', (e) => {
-          if (_pickerJustClosed) return;
-          if (e.sourceCapabilities?.firesTouchEvents) return;
-          openPicker();
-        });
+      // Live calc update for pair
+      function _pairUpdateCalc(val) {
+        const calcEl = row.querySelector(`#gi-pair-calc-${label}`);
+        const relEl  = row.querySelector(`#gi-pair-rel-${label}`);
+        if (relEl) relEl.textContent = _giRelWord(val, par, false);
+        if (!calcEl) return;
+        const net = val - pairExtra;
+        const sb  = isTeamSb;
+        if (sb) {
+          const pts = Math.max(0, 2 + par - net);
+          calcEl.textContent = `Net ${net} (${pts} pt${pts === 1 ? '' : 's'})`;
+          calcEl.dataset.tone = pts >= 3 ? 'good' : pts === 2 ? 'ok' : 'muted';
+        } else {
+          calcEl.textContent = `Net ${net}`;
+          calcEl.dataset.tone = net < par ? 'good' : net === par ? 'ok' : 'muted';
+        }
       }
+      queueMicrotask(() => _pairUpdateCalc(effectiveGross));
+
+      function _pairCurrentScore() {
+        const v = parseInt(document.getElementById(`cv-pair-${label}`)?.dataset?.value, 10);
+        return isNaN(v) ? par : v;
+      }
+      function _pairSetScore(val) {
+        setPairScoreValue(label, h, par, val, false);
+        // update ring color via --sc
+        const disc = document.getElementById(`cv-pair-${label}`);
+        if (disc) {
+          disc.classList.add('has-score');
+          disc.classList.remove('par-default');
+          disc.style.opacity = '';
+          const col = scoreColorForRelToPar(val - par, val);
+          disc.style.setProperty('--sc', _giRingColor(col));
+        }
+        _pairUpdateCalc(val);
+      }
+
+      const MIN_GROSS = 1, MAX_GROSS = par + pairExtra + 5;
+
+      row.querySelector('.gi-arr-dn-pair').addEventListener('touchstart', (e) => {
+        if (_pageScrolling) return;
+        e.preventDefault();
+        const next = _pairCurrentScore() - 1;
+        if (next < MIN_GROSS) return;
+        _pairSetScore(next);
+      }, { passive: false });
+      row.querySelector('.gi-arr-dn-pair').addEventListener('click', (e) => {
+        if (e.sourceCapabilities?.firesTouchEvents) return;
+        const next = _pairCurrentScore() - 1;
+        if (next < MIN_GROSS) return;
+        _pairSetScore(next);
+      });
+      row.querySelector('.gi-arr-up-pair').addEventListener('touchstart', (e) => {
+        if (_pageScrolling) return;
+        e.preventDefault();
+        const next = _pairCurrentScore() + 1;
+        if (next > MAX_GROSS) return;
+        _pairSetScore(next);
+      }, { passive: false });
+      row.querySelector('.gi-arr-up-pair').addEventListener('click', (e) => {
+        if (e.sourceCapabilities?.firesTouchEvents) return;
+        const next = _pairCurrentScore() + 1;
+        if (next > MAX_GROSS) return;
+        _pairSetScore(next);
+      });
+
     });  // end forEach pairs
 
   } else if (isPairs) {
