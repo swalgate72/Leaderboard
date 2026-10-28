@@ -7208,15 +7208,10 @@ function renderHolePanel() {
       row.dataset.extra = String(pairExtra);
       row.dataset.par   = String(par);
       row.dataset.pair  = label;
+      const existDriverIdx = existingEntry?.grosses?.[label === 'A' ? 2 : 3] ?? -1;
       row.innerHTML = `
         <div class="gi-top">
           <div class="gi-id">
-            <div style="display:flex;gap:0.3rem;align-items:center;margin-bottom:2px;">
-              <span class="dot" style="background:${pHex(p0)};"></span>
-              <span style="font-size:0.9rem;font-weight:700;color:var(--text);">${gameState.names[p0]?.split(' ')[0] ?? ''}</span>
-              <span class="dot" style="background:${pHex(p1)};margin-left:0.4rem;"></span>
-              <span style="font-size:0.9rem;font-weight:700;color:var(--text);">${gameState.names[p1]?.split(' ')[0] ?? ''}</span>
-            </div>
             <div class="gi-hcp">${hcpLineTxt}</div>
             <div class="gi-prev" id="gi-pair-prev-${label}"></div>
           </div>
@@ -7239,18 +7234,15 @@ function renderHolePanel() {
             <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           </button>
         </div>
-        <div style="margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid var(--border);">
-          <div style="font-size:1rem;font-weight:800;color:var(--muted2);margin-bottom:0.4rem;">Tee shot used:</div>
-          <div style="display:flex;gap:0.4rem;flex-wrap:wrap;" id="pair-driver-btns-${label}">
-            ${[p0, p1].map(pi => {
-              const existDriverIdx = existingEntry?.grosses?.[label === 'A' ? 2 : 3] ?? -1;
-              const isActive = existDriverIdx === pi;
-              return `<button class="pair-driver-btn ${isActive ? 'holes-btn active' : 'btn-outline'}"
+        <div style="margin-top:0.65rem;padding-top:0.55rem;border-top:1px solid var(--border);">
+          <div style="font-size:0.85rem;font-weight:700;color:var(--muted2);margin-bottom:0.35rem;text-transform:uppercase;letter-spacing:0.05em;">Tee shot used</div>
+          <div style="display:flex;gap:0.4rem;" id="pair-driver-btns-${label}">
+            ${[p0, p1].map(pi => `
+              <button class="pair-driver-btn ${existDriverIdx === pi ? 'holes-btn active' : 'btn-outline'}"
                 data-pair-driver="${label}" data-pi="${pi}"
-                style="flex:1;min-width:80px;padding:0.65rem 0.4rem;font-size:1rem;font-weight:800;">
+                style="flex:1;padding:0.6rem 0.4rem;font-size:1rem;font-weight:800;">
                 ${gameState.names[pi]?.split(' ')[0] ?? `P${pi+1}`}
-              </button>`;
-            }).join('')}
+              </button>`).join('')}
           </div>
         </div>`;
       inputsEl.appendChild(row);
