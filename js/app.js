@@ -6075,7 +6075,8 @@ async function teeOff() {
   const siSlice  = tee.si.slice(offset, offset + count);
   const parSlice = tee.par.slice(offset, offset + count);
   const fmt      = setup.scoring;
-  const isPairs  = ['betterball','csm','foursomes','greensomes'].includes(fmt);
+  const isPairs  = ['betterball','csm','foursomes','greensomes'].includes(fmt)
+    || (fmt === 'texas' && (setup.texasScoringFmt ?? 'stableford') === 'match');
 
   // Derive numPlayers and numGroups from actual setup data
   const namedPlayers = setup.players.filter(p => p.name);
@@ -6981,7 +6982,7 @@ function renderHolePanel() {
   const isPairs    = ['betterball','csm','foursomes','greensomes'].includes(fmt);
   const isTexas    = fmt === 'texas';
 
-  if (isTexas) {
+  if (isTexas && !isFoursome) {
     // Texas Scramble: inline up/down arrows (same UX as other formats) + driver selector
     const teamName   = gameState.teamName ?? 'Team';
     const teamHcp    = gameState.teamHcp  ?? 0;
@@ -9804,7 +9805,8 @@ function renderLeaderboard() {
 // ================================================================
 function buildMatchLeaderboard(state) {
   const fmt     = state.format;
-  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(fmt);
+  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(fmt)
+    || (fmt === 'texas' && (state.texasScoringFmt ?? 'stableford') === 'match');
   const isBB    = fmt === 'betterball';
   const isCSM   = fmt === 'csm';
   const isFG    = ['foursomes','greensomes'].includes(fmt);
