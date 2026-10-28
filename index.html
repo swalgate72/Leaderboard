@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261027s">
+  <link rel="stylesheet" href="styles.css?v=20261027t">
   <!-- jsQR: fallback QR decoder for browsers without BarcodeDetector (iOS PWA) -->
   <script src="jsQR.min.js?v=1.4.0"></script>
 </head>
@@ -827,6 +827,9 @@
       <button class="btn-back-hole" id="btn-amend-scores" disabled>Scorecard<br>Edit</button>
       <button class="btn-record" id="btn-record-hole">Confirm &amp; Next →</button>
     </div>
+
+    <!-- Tee shots used chart — below Confirm & Next, populated by renderHolePanel -->
+    <div id="tee-shots-chart" style="display:none;margin-top:0.75rem;"></div>
 
     <!-- action row removed — use Leaderboard button in bottom bar to push/view scores -->
     <div id="game-action-row" style="display:none;">
@@ -1969,7 +1972,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261027s"></script>
+<script type="module" src="js/app.js?v=20261027t"></script>
 
 
 <!-- ══════════════════════════════════════════

@@ -7205,8 +7205,15 @@ function renderHolePanel() {
 
       // ── Pair scorer card — identical visual to makePlayerInputRow but one
       //    shared disc for the pair (scramble: both players, one ball) ──
-      const shotPill = pairExtra > 0
-        ? `<span class="gi-shot-badge"><span class="gi-shot-num">${pairExtra}</span><span class="gi-shot-lbl">shot${pairExtra > 1 ? 's' : ''}</span></span>`
+      // Shot badge (30% bigger than solo) + Net pill shown near score buttons
+      const shotBadgeHtml = pairExtra > 0
+        ? `<span class="gi-shot-badge" style="font-size:1.17em;padding:0.2em 0.5em;">` +
+          `<span class="gi-shot-num">${pairExtra}</span>` +
+          `<span class="gi-shot-lbl">shot${pairExtra > 1 ? 's' : ''}</span></span>`
+        : ``;
+      const netVal = effectiveGross - pairExtra;
+      const netPillHtml = pairExtra > 0
+        ? `<span class="gi-hcp" style="margin-left:0.4em;">Net ${netVal}</span>`
         : ``;
 
       const row = document.createElement('div');
@@ -7226,7 +7233,6 @@ function renderHolePanel() {
               <span class="dot" style="background:${pHex(p1)};"></span>
               <span class="gi-name-txt">${shortName(gameState.names[p1])}</span>
             </div>
-            <div class="gi-hcp">${hcpLineTxt} ${shotPill}</div>
             <div class="gi-prev" id="gi-pair-prev-${label}"></div>
           </div>
           <div class="gi-calc">
@@ -7247,7 +7253,8 @@ function renderHolePanel() {
           <button class="gi-arr gi-arr-up-pair" data-pair="${label}" aria-label="One more">
             <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           </button>
-        </div>`;
+        </div>
+        ${(shotBadgeHtml || netPillHtml) ? `<div style="display:flex;align-items:center;gap:0.3em;padding:0.3rem 0.5rem 0.1rem;justify-content:center;">${shotBadgeHtml}${netPillHtml}</div>` : ''}`;
       inputsEl.appendChild(row);
 
       // Tee shot used — below the card, full width
@@ -7390,26 +7397,44 @@ function renderHolePanel() {
 
   // Action row removed from scoring screen — push/view scores via Leaderboard button
 
-  // Texas Scramble: show running driver usage tally
+  // Texas Scramble: show running driver usage tally (below Confirm & Next)
   if (isTexas) {
+    const tallyEl = document.getElementById('tee-shots-chart');
     const driverWrap = document.createElement('div');
-    driverWrap.style.cssText = 'margin-top:0.75rem;';
-    const usage         = gameState.driverUsage ?? { par3: [], par4: [], par5: [] };
-    const names         = gameState.names ?? [];
-    const quotaTotal    = gameState.texasDrivesTotal ?? null;
-    const quotaPar3     = gameState.texasDrivesPar3  ?? null;
+
+    const names = gameState.names ?? [];
+    const quotaTotal = gameState.texasDrivesTotal ?? null;
+    const quotaPar3  = gameState.texasDrivesPar3  ?? null;
 
     // Per-player counts
     const totalCounts = {};
     const par3Counts  = {};
-    [...(usage.par3 ?? []), ...(usage.par4 ?? []), ...(usage.par5 ?? [])].forEach(pi => {
-      totalCounts[pi] = (totalCounts[pi] ?? 0) + 1;
-    });
-    (usage.par3 ?? []).forEach(pi => {
-      par3Counts[pi] = (par3Counts[pi] ?? 0) + 1;
-    });
 
-    const headers = names.map((name, pi) =>
+    if (isFoursome) {
+      // 2v2 match: driver data in log entries as grosses[2] (pair A driver pi) / grosses[3] (pair B driver pi)
+      (gameState.log ?? []).forEach((entry, hIdx) => {
+        if (!entry || !Array.isArray(entry.grosses)) return;
+        const hPar = gameState.pars?.[hIdx] ?? 4;
+        const driverA = entry.grosses[2];
+        const driverB = entry.grosses[3];
+        [driverA, driverB].forEach(pi => {
+          if (pi == null || pi < 0) return;
+          totalCounts[pi] = (totalCounts[pi] ?? 0) + 1;
+          if (hPar === 3) par3Counts[pi] = (par3Counts[pi] ?? 0) + 1;
+        });
+      });
+    } else {
+      // Regular Texas: driverUsage object
+      const usage = gameState.driverUsage ?? { par3: [], par4: [], par5: [] };
+      [...(usage.par3 ?? []), ...(usage.par4 ?? []), ...(usage.par5 ?? [])].forEach(pi => {
+        totalCounts[pi] = (totalCounts[pi] ?? 0) + 1;
+      });
+      (usage.par3 ?? []).forEach(pi => {
+        par3Counts[pi] = (par3Counts[pi] ?? 0) + 1;
+      });
+    }
+
+    const headers = names.map((name) =>
       `<th style="text-align:center;padding:0.4rem 0.35rem;font-size:0.9rem;font-weight:800;color:var(--muted2);">
         ${name.split(' ')[0]}
       </th>`
@@ -7419,20 +7444,20 @@ function renderHolePanel() {
       const count = totalCounts[pi] ?? 0;
       const met   = quotaTotal != null && count >= quotaTotal;
       const color = met ? 'var(--green)' : 'var(--red, #d64545)';
-      const label = quotaTotal != null ? `${count}/${quotaTotal}` : String(count);
+      const lbl   = quotaTotal != null ? `${count}/${quotaTotal}` : String(count);
       return `<td style="text-align:center;padding:0.5rem 0.35rem;
                 font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;
-                color:${color};">${label}</td>`;
+                color:${color};">${lbl}</td>`;
     }).join('');
 
     const par3Row = names.map((_, pi) => {
       const count = par3Counts[pi] ?? 0;
       const met   = quotaPar3 != null && count >= quotaPar3;
       const color = met ? 'var(--green)' : 'var(--red, #d64545)';
-      const label = quotaPar3 != null ? `${count}/${quotaPar3}` : String(count);
+      const lbl   = quotaPar3 != null ? `${count}/${quotaPar3}` : String(count);
       return `<td style="text-align:center;padding:0.5rem 0.35rem;
                 font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;
-                color:${color};">${label}</td>`;
+                color:${color};">${lbl}</td>`;
     }).join('');
 
     driverWrap.innerHTML = `
@@ -7456,7 +7481,17 @@ function renderHolePanel() {
           </tr>
         </tbody>
       </table>`;
-    inputsEl.appendChild(driverWrap);
+
+    if (tallyEl) {
+      tallyEl.innerHTML = '';
+      tallyEl.appendChild(driverWrap);
+      tallyEl.style.display = '';
+    } else {
+      inputsEl.appendChild(driverWrap);
+    }
+  } else {
+    const tallyEl = document.getElementById('tee-shots-chart');
+    if (tallyEl) tallyEl.style.display = 'none';
   }
 
   // ── Longest Drive / Nearest the Pin marking card ──────────────────
