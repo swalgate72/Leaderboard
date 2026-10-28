@@ -2705,6 +2705,8 @@ function startSetup() {
     const updateTexasScoring = () => {
       const sz   = setup.texasTeamSize ?? 2;
       const mode = setup.texasScoringFmt ?? 'stableford';
+      // Scoring format field is always hidden — chosen on the play screen
+      document.getElementById('texas-scoring-field')?.setAttribute('hidden', '');
       const matchBtn = document.getElementById('texas-scoring-match');
       if (matchBtn) matchBtn.style.display = sz > 2 ? 'none' : '';
       if (sz > 2 && mode === 'match') setup.texasScoringFmt = 'stableford';
@@ -3991,13 +3993,16 @@ document.getElementById('btn-setup-players-next')?.addEventListener('click', () 
   const filled = setup.players.filter(p => p.name);
   const minPlayers = setup.scoring === 'split6' ? 3
     : ['betterball','csm','foursomes','greensomes'].includes(setup.scoring) ? 4
+    : setup.scoring === 'texas' ? (setup.texasTeamSize ?? 2) * 2
     : ['match','best2','skins','itc'].includes(setup.scoring) ? 2
     : 1;
   if (filled.length < minPlayers) { alert(`Add at least ${minPlayers} player${minPlayers > 1 ? 's' : ''}.`); return; }
 
   // Formats that need the Arrange Groups / Pair Up screen
   const NEEDS_GROUPS = ['match','betterball','csm','foursomes','greensomes','texas'];
-  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
+  // Texas match play (2v2) also needs pairing; other texas modes go straight to review
+  const isPairs = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring)
+    || (setup.scoring === 'texas' && setup.texasScoringFmt === 'match');
 
   if (isPairs) {
     initSetupPairs();
