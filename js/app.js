@@ -2689,8 +2689,11 @@ function startSetup() {
   updateCourseScreenForFormat(fmt);
 
   // Show Texas Scramble options card only for that format
+  // When coming from the 2v2 play screen the team size and scoring format are pre-set —
+  // hide the whole card so the user isn't shown redundant choices.
   const texasCard = document.getElementById('texas-options-card');
-  if (texasCard) texasCard.classList.toggle('hidden', fmt !== 'texas');
+  const texas2v2 = fmt === 'texas' && (setup.texasTeamSize ?? 2) === 2;
+  if (texasCard) texasCard.classList.toggle('hidden', fmt !== 'texas' || texas2v2);
 
   if (fmt === 'texas') {
     const setHcpMode = (v) => {
