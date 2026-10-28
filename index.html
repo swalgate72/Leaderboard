@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261027i">
+  <link rel="stylesheet" href="styles.css?v=20261027j">
   <!-- jsQR: fallback QR decoder for browsers without BarcodeDetector (iOS PWA) -->
   <script src="jsQR.min.js?v=1.4.0"></script>
 </head>
@@ -165,6 +165,7 @@
             <div class="p2v2-modes" hidden>
               <button class="p2v2-mode-btn" data-mode="stableford" type="button">Stableford</button>
               <button class="p2v2-mode-btn" data-mode="stroke" type="button">Stroke Play</button>
+              <button class="p2v2-mode-btn" data-mode="match" type="button">Match Play</button>
             </div>
           </div>
 
@@ -412,7 +413,7 @@
         </div>
       </div>
 
-      <div class="field">
+      <div class="field" id="texas-scoring-field" hidden>
         <label>Scoring Format</label>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;" id="texas-scoring-btns">
           <button type="button" class="holes-btn active" id="texas-scoring-stableford"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;flex-shrink:0;display:inline-block;vertical-align:middle;" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" stroke-width="1.8"/></svg> Stableford</button>
@@ -1968,7 +1969,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261027i"></script>
+<script type="module" src="js/app.js?v=20261027j"></script>
 
 
 <!-- ══════════════════════════════════════════

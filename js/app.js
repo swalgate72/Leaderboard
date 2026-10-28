@@ -2393,7 +2393,7 @@ document.querySelectorAll('.fmt-btn').forEach(btn => {
     else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ setup.numPlayers = 4; setup.numGroups = 1; setup.playersPerGroup = null; }
     else if (fmt === 'best2')                                            { setup.numPlayers = 8; setup.numGroups = 2; setup.playersPerGroup = 4;   }
     else if (fmt === 'match')                                            { setup.numPlayers = 2; setup.numGroups = 1; setup.playersPerGroup = null; }
-    else if (fmt === 'texas')                                            { setup.numPlayers = 2; setup.numGroups = 1; setup.playersPerGroup = null; }
+    else if (fmt === 'texas')                                            { setup.numPlayers = (setup.texasTeamSize ?? 2) * 2; setup.numGroups = 1; setup.playersPerGroup = null; }
     else                                                                 { setup.numPlayers = 1; setup.numGroups = 1; setup.playersPerGroup = null; }
     startSetup();
   };
@@ -2667,7 +2667,7 @@ function showFormatPicker(category) {
       else if (['betterball','csm','foursomes','greensomes'].includes(fmt)){ setup.numPlayers = 4; setup.numGroups = 1; setup.playersPerGroup = null; }
       else if (fmt === 'best2')                                            { setup.numPlayers = 8; setup.numGroups = 2; setup.playersPerGroup = 4; }
       else if (fmt === 'match')                                            { setup.numPlayers = 2; setup.numGroups = 1; setup.playersPerGroup = null; }
-      else if (fmt === 'texas')                                            { setup.numPlayers = 2; setup.numGroups = 1; setup.playersPerGroup = null; }
+      else if (fmt === 'texas')                                            { setup.numPlayers = (setup.texasTeamSize ?? 2) * 2; setup.numGroups = 1; setup.playersPerGroup = null; }
       else                                                                 { setup.numPlayers = 1; setup.numGroups = 1; setup.playersPerGroup = null; }
       startSetup();
     });
@@ -3619,7 +3619,11 @@ function playerCapAlert(adding = 1, pending = 0) {
   const after   = current + pending + adding;
   if (setup.scoring === 'match'  && after > 2) return 'Match play is 1 vs 1 — only 2 players allowed.';
   if (setup.scoring === 'split6' && after > 3) return 'Split 6 needs exactly 3 players — no more can be added.';
-  if (setup.scoring === 'texas'  && after > (setup.texasTeamSize ?? 4)) return `Texas Scramble team size is set to ${setup.texasTeamSize ?? 4} — can't add more players.`;
+  if (setup.scoring === 'texas') {
+    // 2v2 scramble: 2 teams × texasTeamSize players each
+    const maxTexas = (setup.texasTeamSize ?? 2) * 2;
+    if (after > maxTexas) return `Texas Scramble team size is ${setup.texasTeamSize ?? 2} — max ${maxTexas} players (2 teams).`;
+  }
   if (after > 4) return 'Maximum 4 players per game.';
   return null;
 }
