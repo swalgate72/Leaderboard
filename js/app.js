@@ -7212,9 +7212,9 @@ function renderHolePanel() {
           `<span class="gi-shot-lbl">shot${pairExtra > 1 ? 's' : ''}</span></span>`
         : ``;
       const netVal = effectiveGross - pairExtra;
-      // Net pill sits below the disc circle, updated alongside gi-rel
+      // Net pill sits below the disc circle (inside gi-disc-wrap), updated alongside gi-rel
       const netPillHtml = pairExtra > 0
-        ? `<span id="gi-pair-net-${label}" class="gi-hcp" style="margin-top:0.25em;display:inline-block;">Net ${netVal}</span>`
+        ? `<span id="gi-pair-net-${label}" style="margin-top:0.2em;font-size:0.78rem;font-weight:700;color:var(--muted);text-align:center;display:block;">Net ${netVal}</span>`
         : ``;
 
       const row = document.createElement('div');
