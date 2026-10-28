@@ -7203,16 +7203,30 @@ function renderHolePanel() {
       const discOpacity = hasExisting ? '' : 'opacity:0.7;';
       const discBorder  = hasExisting ? `2px solid ${discColor}` : `2px dashed ${parColor}`;
 
+      // ── Pair scorer card — identical visual to makePlayerInputRow but one
+      //    shared disc for the pair (scramble: both players, one ball) ──
+      const shotPill = pairExtra > 0
+        ? `<span class="gi-shot-badge"><span class="gi-shot-num">${pairExtra}</span><span class="gi-shot-lbl">shot${pairExtra > 1 ? 's' : ''}</span></span>`
+        : ``;
+
       const row = document.createElement('div');
       row.className = 'gi-row gi-card';
       row.dataset.extra = String(pairExtra);
       row.dataset.par   = String(par);
       row.dataset.pair  = label;
-      const existDriverIdx = existingEntry?.grosses?.[label === 'A' ? 2 : 3] ?? -1;
+
       row.innerHTML = `
         <div class="gi-top">
           <div class="gi-id">
-            <div class="gi-hcp">${hcpLineTxt}</div>
+            <div class="gi-name">
+              <span class="dot" style="background:${pHex(p0)};"></span>
+              <span class="gi-name-txt">${shortName(gameState.names[p0])}</span>
+            </div>
+            <div class="gi-name" style="margin-top:2px;">
+              <span class="dot" style="background:${pHex(p1)};"></span>
+              <span class="gi-name-txt">${shortName(gameState.names[p1])}</span>
+            </div>
+            <div class="gi-hcp">${hcpLineTxt} ${shotPill}</div>
             <div class="gi-prev" id="gi-pair-prev-${label}"></div>
           </div>
           <div class="gi-calc">
@@ -7233,19 +7247,24 @@ function renderHolePanel() {
           <button class="gi-arr gi-arr-up-pair" data-pair="${label}" aria-label="One more">
             <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           </button>
-        </div>
-        <div style="margin-top:0.65rem;padding-top:0.55rem;border-top:1px solid var(--border);">
-          <div style="font-size:0.85rem;font-weight:700;color:var(--muted2);margin-bottom:0.35rem;text-transform:uppercase;letter-spacing:0.05em;">Tee shot used</div>
-          <div style="display:flex;gap:0.4rem;" id="pair-driver-btns-${label}">
-            ${[p0, p1].map(pi => `
-              <button class="pair-driver-btn ${existDriverIdx === pi ? 'holes-btn active' : 'btn-outline'}"
-                data-pair-driver="${label}" data-pi="${pi}"
-                style="flex:1;padding:0.6rem 0.4rem;font-size:1rem;font-weight:800;">
-                ${gameState.names[pi]?.split(' ')[0] ?? `P${pi+1}`}
-              </button>`).join('')}
-          </div>
         </div>`;
       inputsEl.appendChild(row);
+
+      // Tee shot used — below the card, full width
+      const existDriverIdx = existingEntry?.grosses?.[label === 'A' ? 2 : 3] ?? -1;
+      const driverSection = document.createElement('div');
+      driverSection.style.cssText = 'margin-top:0.5rem;margin-bottom:0.25rem;';
+      driverSection.innerHTML = `
+        <div style="font-size:0.8rem;font-weight:700;color:var(--muted2);margin-bottom:0.35rem;text-transform:uppercase;letter-spacing:0.06em;">Tee shot used</div>
+        <div style="display:flex;gap:0.4rem;" id="pair-driver-btns-${label}">
+          ${[p0, p1].map(pi => `
+            <button class="pair-driver-btn ${existDriverIdx === pi ? 'holes-btn active' : 'btn-outline'}"
+              data-pair-driver="${label}" data-pi="${pi}"
+              style="flex:1;padding:0.6rem 0.4rem;font-size:1rem;font-weight:800;">
+              ${gameState.names[pi]?.split(' ')[0] ?? `P${pi+1}`}
+            </button>`).join('')}
+        </div>`;
+      inputsEl.appendChild(driverSection);
 
       // Live calc update for pair
       function _pairUpdateCalc(val) {
@@ -7272,7 +7291,6 @@ function renderHolePanel() {
       }
       function _pairSetScore(val) {
         setPairScoreValue(label, h, par, val, false);
-        // update ring color via --sc
         const disc = document.getElementById(`cv-pair-${label}`);
         if (disc) {
           disc.classList.add('has-score');
@@ -7314,10 +7332,10 @@ function renderHolePanel() {
       });
 
       // Driver button toggle
-      row.querySelectorAll('.pair-driver-btn').forEach(btn => {
+      driverSection.querySelectorAll('.pair-driver-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const alreadyActive = btn.classList.contains('active');
-          row.querySelectorAll('.pair-driver-btn').forEach(b => {
+          driverSection.querySelectorAll('.pair-driver-btn').forEach(b => {
             b.classList.remove('active', 'holes-btn');
             b.classList.add('btn-outline');
           });
