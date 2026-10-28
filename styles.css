@@ -3601,35 +3601,49 @@ html.light .cat-tile:active { background: #f6f3ec; }
 .cat-tile--tournament .cat-tile-icon svg { stroke: #d4a843; }
 .cat-tile--tournament .cat-tile-label { color: #d4a843; }
 
-/* Expanded format list below a tile */
+/* Expanded format list below a tile — visually part of the same card */
 .cat-formats {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.35rem 0 0.1rem;
-  margin-top: -0.15rem; /* visually attach to the tile above */
+  gap: 0.3rem;
+  /* extend the open cat-tile card downward */
+  padding: 0.5rem 0.6rem 0.65rem;
+  margin-top: -0.2rem;
+  background: var(--surface);
+  border: 1px solid var(--green);
+  border-top: none;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 6px 16px rgba(20,40,28,0.06);
 }
+html.light .cat-formats { background: #fff; }
 .cat-formats[hidden] { display: none; }
+
+/* Tier-2: child format buttons — slightly darker than the card */
 .cat-formats .fmt-col {
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  box-shadow: none;
 }
-.cat-formats .fmt-col:first-child { border-top-left-radius: 14px; border-top-right-radius: 14px; }
-.cat-formats .fmt-col:last-child  { border-bottom-left-radius: 18px; border-bottom-right-radius: 18px; }
+/* override the generic html.light .fmt-col:#fff rule above */
+html.light .cat-formats .fmt-col { background: #eeeae0 !important; box-shadow: none; }
 
 /* ── 2v2 inline accordion ─────────────────────────────────────── */
-/* Each partner-format row */
+/* Tier-2: each partner-format row — same darker shade as fmt-col */
 .p2v2-row {
   display: flex;
   flex-direction: column;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.3rem;
   border: 1px solid var(--border);
+  background: var(--surface2);
 }
+html.light .p2v2-row { background: #eeeae0; }
 .p2v2-row:last-child { margin-bottom: 0; }
 
-/* Partner-format header button */
+/* Partner-format header button — inherits row bg */
 .p2v2-fmt-btn {
   display: flex;
   flex-direction: row;
@@ -3637,7 +3651,7 @@ html.light .cat-tile:active { background: #f6f3ec; }
   gap: 0.65rem;
   width: 100%;
   padding: 0.55rem 0.85rem;
-  background: var(--surface);
+  background: transparent;
   border: none;
   cursor: pointer;
   text-align: left;
@@ -3647,7 +3661,7 @@ html.light .cat-tile:active { background: #f6f3ec; }
   transition: background 0.12s;
 }
 .p2v2-fmt-btn:active,
-.p2v2-fmt-btn:hover { background: var(--surface2); }
+.p2v2-fmt-btn:hover { background: rgba(0,0,0,0.06); }
 
 /* Icon inside partner button */
 .p2v2-icon {
@@ -3677,26 +3691,27 @@ html.light .cat-tile:active { background: #f6f3ec; }
   stroke: var(--green);
 }
 
-/* Scoring-mode pill row */
+/* Tier-3: scoring-mode pill row — lighter than the row above */
 .p2v2-modes {
   display: flex;
   flex-direction: row;
   gap: 0.4rem;
   padding: 0.45rem 0.75rem 0.55rem;
-  background: var(--surface2);
+  background: var(--surface);
   border-top: 1px solid var(--border);
   flex-wrap: wrap;
 }
+html.light .p2v2-modes { background: #f8f5ef; }
 .p2v2-modes[hidden] { display: none; }
 
-/* Individual mode pill */
+/* Individual mode pill — lightest tier */
 .p2v2-mode-btn {
   flex: 1;
   min-width: 90px;
   padding: 0.45rem 0.6rem;
   border: 1.5px solid var(--border);
   border-radius: 20px;
-  background: var(--surface);
+  background: var(--surface2);
   color: var(--text);
   font-family: var(--font-ui);
   font-size: 0.88rem;
@@ -3706,6 +3721,7 @@ html.light .cat-tile:active { background: #f6f3ec; }
   -webkit-tap-highlight-color: transparent;
   transition: background 0.1s, border-color 0.1s, color 0.1s;
 }
+html.light .p2v2-mode-btn { background: #fff; border-color: #d6d0c4; }
 .p2v2-mode-btn:active,
 .p2v2-mode-btn:hover {
   background: var(--green);
