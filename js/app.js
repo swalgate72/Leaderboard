@@ -13859,6 +13859,84 @@ document.getElementById('btn-backup-import')?.addEventListener('click', () => {
   document.getElementById('backup-import-file')?.click();
 });
 
+// ── No-profile modal wiring ──────────────────────────────────────────
+(function _wireNoProfileModal() {
+  const modal      = document.getElementById('no-profile-modal');
+  const choices    = document.getElementById('no-profile-choices');
+  const createForm = document.getElementById('no-profile-create-form');
+  if (!modal) return;
+
+  // "Log into Profile" — trigger the existing backup file picker
+  document.getElementById('btn-no-profile-login')?.addEventListener('click', () => {
+    document.getElementById('backup-import-file')?.click();
+    // Modal stays visible until the import actually succeeds (handled by importBackup flow)
+  });
+
+  // "Create New Profile" — show inline create form
+  document.getElementById('btn-no-profile-create')?.addEventListener('click', () => {
+    if (choices)    choices.style.display    = 'none';
+    if (createForm) createForm.style.display = '';
+    document.getElementById('noprof-fname')?.focus();
+  });
+
+  // Back arrow in create form
+  document.getElementById('btn-noprof-back')?.addEventListener('click', () => {
+    if (choices)    choices.style.display    = '';
+    if (createForm) createForm.style.display = 'none';
+  });
+
+  // Save new profile
+  document.getElementById('btn-noprof-save')?.addEventListener('click', async () => {
+    const fname = document.getElementById('noprof-fname')?.value.trim() ?? '';
+    const lname = document.getElementById('noprof-lname')?.value.trim() ?? '';
+    const hcpRaw = document.getElementById('noprof-hcp')?.value ?? '';
+    const hcp   = hcpRaw !== '' ? parseFloat(hcpRaw) : null;
+
+    const fnameEl = document.getElementById('noprof-fname');
+    const lnameEl = document.getElementById('noprof-lname');
+
+    if (!fname) {
+      if (fnameEl) { fnameEl.style.borderColor = 'var(--red)'; fnameEl.focus(); }
+      return;
+    }
+    if (!lname) {
+      if (lnameEl) { lnameEl.style.borderColor = 'var(--red)'; lnameEl.focus(); }
+      return;
+    }
+    if (fnameEl) fnameEl.style.borderColor = '';
+    if (lnameEl) lnameEl.style.borderColor = '';
+
+    const btn = document.getElementById('btn-noprof-save');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+    try {
+      const profile = {
+        id:         currentUser?.id,
+        first_name: fname,
+        last_name:  lname,
+        hcp:        !isNaN(hcp) ? hcp : null,
+        email:      currentUser?.email ?? null,
+      };
+      await profileSave(profile);
+      currentProfile = { ...(currentProfile ?? {}), ...profile };
+      // Dismiss modal and refresh home
+      modal.style.display = 'none';
+      // Reset form for next time
+      if (fnameEl) fnameEl.value = '';
+      if (lnameEl) lnameEl.value = '';
+      const hcpEl = document.getElementById('noprof-hcp');
+      if (hcpEl) hcpEl.value = '';
+      if (choices)    choices.style.display    = '';
+      if (createForm) createForm.style.display = 'none';
+      // Refresh home hero with the new name
+      await showHome();
+    } catch (err) {
+      alert('Could not save profile: ' + (err.message ?? err));
+      if (btn) { btn.disabled = false; btn.textContent = 'Save Profile'; }
+    }
+  });
+})();
+
 document.getElementById('backup-import-file')?.addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
