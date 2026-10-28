@@ -7205,15 +7205,16 @@ function renderHolePanel() {
 
       // ── Pair scorer card — identical visual to makePlayerInputRow but one
       //    shared disc for the pair (scramble: both players, one ball) ──
-      // Shot badge (30% bigger than solo) + Net pill shown near score buttons
+      // Shot badge (30% bigger than solo) shown in gi-id; Net pill under disc
       const shotBadgeHtml = pairExtra > 0
         ? `<span class="gi-shot-badge" style="font-size:1.17em;padding:0.2em 0.5em;">` +
           `<span class="gi-shot-num">${pairExtra}</span>` +
           `<span class="gi-shot-lbl">shot${pairExtra > 1 ? 's' : ''}</span></span>`
         : ``;
       const netVal = effectiveGross - pairExtra;
+      // Net pill sits below the disc circle, updated alongside gi-rel
       const netPillHtml = pairExtra > 0
-        ? `<span class="gi-hcp" style="margin-left:0.4em;">Net ${netVal}</span>`
+        ? `<span id="gi-pair-net-${label}" class="gi-hcp" style="margin-top:0.25em;display:inline-block;">Net ${netVal}</span>`
         : ``;
 
       const row = document.createElement('div');
@@ -7233,6 +7234,7 @@ function renderHolePanel() {
               <span class="dot" style="background:${pHex(p1)};"></span>
               <span class="gi-name-txt">${shortName(gameState.names[p1])}</span>
             </div>
+            ${shotBadgeHtml ? `<div style="margin-top:0.3em;">${shotBadgeHtml}</div>` : ''}
             <div class="gi-prev" id="gi-pair-prev-${label}"></div>
           </div>
           <div class="gi-calc">
@@ -7249,25 +7251,25 @@ function renderHolePanel() {
               data-value="${effectiveGross}" data-pickup="0" data-pair="${label}"
               style="--sc:${_giRingColor(hasExisting ? discColor : parColor)};${discOpacity}">${effectiveGross}</div>
             <div class="gi-rel" id="gi-pair-rel-${label}">${_giRelWord(effectiveGross, par, false)}</div>
+            ${netPillHtml}
           </div>
           <button class="gi-arr gi-arr-up-pair" data-pair="${label}" aria-label="One more">
             <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           </button>
-        </div>
-        ${(shotBadgeHtml || netPillHtml) ? `<div style="display:flex;align-items:center;gap:0.3em;padding:0.3rem 0.5rem 0.1rem;justify-content:center;">${shotBadgeHtml}${netPillHtml}</div>` : ''}`;
+        </div>`;
       inputsEl.appendChild(row);
 
-      // Tee shot used — below the card, full width
+      // Tee shot used — inline row: label left, compact buttons right
       const existDriverIdx = existingEntry?.grosses?.[label === 'A' ? 2 : 3] ?? -1;
       const driverSection = document.createElement('div');
-      driverSection.style.cssText = 'margin-top:0.5rem;margin-bottom:0.25rem;';
+      driverSection.style.cssText = 'margin-top:0.4rem;margin-bottom:0.25rem;display:flex;align-items:center;gap:0.5rem;';
       driverSection.innerHTML = `
-        <div style="font-size:0.8rem;font-weight:700;color:var(--muted2);margin-bottom:0.35rem;text-transform:uppercase;letter-spacing:0.06em;">Tee shot used</div>
-        <div style="display:flex;gap:0.4rem;" id="pair-driver-btns-${label}">
+        <div style="font-size:0.75rem;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap;flex-shrink:0;">Tee shot used</div>
+        <div style="display:flex;gap:0.35rem;flex:1;" id="pair-driver-btns-${label}">
           ${[p0, p1].map(pi => `
             <button class="pair-driver-btn ${existDriverIdx === pi ? 'holes-btn active' : 'btn-outline'}"
               data-pair-driver="${label}" data-pi="${pi}"
-              style="flex:1;padding:0.6rem 0.4rem;font-size:1rem;font-weight:800;">
+              style="flex:1;padding:0.4rem 0.25rem;font-size:0.85rem;font-weight:800;">
               ${gameState.names[pi]?.split(' ')[0] ?? `P${pi+1}`}
             </button>`).join('')}
         </div>`;
@@ -7277,9 +7279,11 @@ function renderHolePanel() {
       function _pairUpdateCalc(val) {
         const calcEl = row.querySelector(`#gi-pair-calc-${label}`);
         const relEl  = row.querySelector(`#gi-pair-rel-${label}`);
+        const netEl  = row.querySelector(`#gi-pair-net-${label}`);
         if (relEl) relEl.textContent = _giRelWord(val, par, false);
-        if (!calcEl) return;
         const net = val - pairExtra;
+        if (netEl) netEl.textContent = `Net ${net}`;
+        if (!calcEl) return;
         const sb  = isTeamSb;
         if (sb) {
           const pts = Math.max(0, 2 + par - net);
