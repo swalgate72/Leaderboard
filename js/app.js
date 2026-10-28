@@ -2192,6 +2192,16 @@ async function showHome() {
   // Signal that the app is ready (used by the ?join= URL handler)
   window.dispatchEvent(new Event('lb-app-ready'));
 
+  // Show no-profile modal if no profile is loaded yet
+  const noProfileModal = document.getElementById('no-profile-modal');
+  if (noProfileModal) {
+    if (!currentProfile) {
+      noProfileModal.style.display = '';
+    } else {
+      noProfileModal.style.display = 'none';
+    }
+  }
+
   // First-launch restore prompt — show once per session if no user courses exist
   if (!_firstLaunchRestoreShown) {
     _firstLaunchRestoreShown = true;

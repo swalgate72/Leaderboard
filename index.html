@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261027w">
+  <link rel="stylesheet" href="styles.css?v=20261027x">
   <!-- jsQR: fallback QR decoder for browsers without BarcodeDetector (iOS PWA) -->
   <script src="jsQR.min.js?v=1.4.0"></script>
 </head>
@@ -1972,7 +1972,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261027w"></script>
+<script type="module" src="js/app.js?v=20261027x"></script>
 
 
 <!-- ══════════════════════════════════════════
@@ -3384,6 +3384,23 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- No-profile modal — shown on home screen when no profile is loaded -->
+<div id="no-profile-modal" class="no-profile-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="no-profile-title">
+  <div class="no-profile-sheet">
+    <div class="no-profile-icon">⛳</div>
+    <div class="no-profile-title" id="no-profile-title">No profile loaded</div>
+    <div class="no-profile-body">Log in or create a new profile to track your rounds, handicap and stats.</div>
+    <button class="btn btn-primary btn-full no-profile-btn" id="btn-no-profile-login"
+      onclick="document.getElementById('no-profile-modal').style.display='none';showProfile();">
+      Log into Profile
+    </button>
+    <button class="btn btn-outline btn-full no-profile-btn" id="btn-no-profile-create"
+      onclick="document.getElementById('no-profile-modal').style.display='none';showProfile();">
+      Create New Profile
+    </button>
   </div>
 </div>
 
