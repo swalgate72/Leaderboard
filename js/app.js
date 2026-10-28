@@ -7237,6 +7237,20 @@ function renderHolePanel() {
           <button class="gi-arr gi-arr-up-pair" data-pair="${label}" aria-label="One more">
             <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           </button>
+        </div>
+        <div style="margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid var(--border);">
+          <div style="font-size:1rem;font-weight:800;color:var(--muted2);margin-bottom:0.4rem;">Tee shot used:</div>
+          <div style="display:flex;gap:0.4rem;flex-wrap:wrap;" id="pair-driver-btns-${label}">
+            ${[p0, p1].map(pi => {
+              const existDriverIdx = existingEntry?.grosses?.[label === 'A' ? 2 : 3] ?? -1;
+              const isActive = existDriverIdx === pi;
+              return `<button class="pair-driver-btn ${isActive ? 'holes-btn active' : 'btn-outline'}"
+                data-pair-driver="${label}" data-pi="${pi}"
+                style="flex:1;min-width:80px;padding:0.65rem 0.4rem;font-size:1rem;font-weight:800;">
+                ${gameState.names[pi]?.split(' ')[0] ?? `P${pi+1}`}
+              </button>`;
+            }).join('')}
+          </div>
         </div>`;
       inputsEl.appendChild(row);
 
@@ -7304,6 +7318,21 @@ function renderHolePanel() {
         const next = _pairCurrentScore() + 1;
         if (next > MAX_GROSS) return;
         _pairSetScore(next);
+      });
+
+      // Driver button toggle
+      row.querySelectorAll('.pair-driver-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const alreadyActive = btn.classList.contains('active');
+          row.querySelectorAll('.pair-driver-btn').forEach(b => {
+            b.classList.remove('active', 'holes-btn');
+            b.classList.add('btn-outline');
+          });
+          if (!alreadyActive) {
+            btn.classList.add('active', 'holes-btn');
+            btn.classList.remove('btn-outline');
+          }
+        });
       });
 
     });  // end forEach pairs
@@ -8375,18 +8404,36 @@ function setPairScoreValue(label, h, par, value, isPickup) {
   if (!cvEl) return;
   cvEl.dataset.value  = String(value);
   cvEl.dataset.pickup = isPickup ? '1' : '0';
-  cvEl.textContent    = String(value);
-  if (isPickup) {
-    cvEl.style.color       = '#fff';
-    cvEl.style.background  = 'var(--gold)';
-    cvEl.style.borderColor = 'var(--gold)';
-    cvEl.innerHTML = `<span style="font-size:0.75rem;font-weight:800;display:block;line-height:1.1;">P.Up</span><span style="font-size:0.85rem;font-weight:700;color:rgba(255,255,255,0.8);">(${value})</span>`;
+
+  const isCard = !!cvEl.closest('.gi-card');
+  if (isCard) {
+    // gi-card ring disc — styled via --sc CSS var, same as individual player scorer
+    cvEl.classList.add('has-score');
+    cvEl.classList.remove('par-default');
+    cvEl.style.opacity = '';
+    cvEl.classList.toggle('is-pickup', !!isPickup);
+    if (isPickup) {
+      cvEl.style.setProperty('--sc', 'var(--gold)');
+      cvEl.innerHTML = `<span class="gi-pu-lbl">P.Up</span><span class="gi-pu-val">(${value})</span>`;
+    } else {
+      const color = scoreColorForRelToPar(value - par, value);
+      cvEl.style.setProperty('--sc', _giRingColor(color));
+      cvEl.textContent = String(value);
+    }
   } else {
-    const relToPar = value - par;
-    const color = scoreColorForRelToPar(relToPar, value);
-    cvEl.style.color       = value === 1 ? '#000' : '#fff';
-    cvEl.style.background  = color;
-    cvEl.style.borderColor = color;
+    // Legacy flat button (modal picker path)
+    cvEl.textContent = String(value);
+    if (isPickup) {
+      cvEl.style.color       = '#fff';
+      cvEl.style.background  = 'var(--gold)';
+      cvEl.style.borderColor = 'var(--gold)';
+      cvEl.innerHTML = `<span style="font-size:0.75rem;font-weight:800;display:block;line-height:1.1;">P.Up</span><span style="font-size:0.85rem;font-weight:700;color:rgba(255,255,255,0.8);">(${value})</span>`;
+    } else {
+      const color = scoreColorForRelToPar(value - par, value);
+      cvEl.style.color       = value === 1 ? '#000' : '#fff';
+      cvEl.style.background  = color;
+      cvEl.style.borderColor = color;
+    }
   }
 }
 
@@ -9196,7 +9243,18 @@ async function recordHole() {
     || (fmt === 'texas' && (gameState.texasScoringFmt ?? 'stableford') === 'match');
   const isTexas    = fmt === 'texas';
 
-  if (isTexas) {
+  if (isFoursome) {
+    // texas 2v2 match play AND foursomes/greensomes — two pair scores
+    const vA = parseInt(document.getElementById('cv-pair-A')?.dataset?.value, 10);
+    const vB = parseInt(document.getElementById('cv-pair-B')?.dataset?.value, 10);
+    if (!vA || !vB) { alert('Please enter scores for both pairs.'); return; }
+    // For texas 2v2 match: also capture per-pair drivers if selected
+    const driverA = parseInt(document.querySelector('[data-pair-driver="A"].active')?.dataset?.pi ?? '-1', 10);
+    const driverB = parseInt(document.querySelector('[data-pair-driver="B"].active')?.dataset?.pi ?? '-1', 10);
+    grosses = [vA, vB];
+    if (!isNaN(driverA) && driverA >= 0) grosses.push(driverA);
+    if (!isNaN(driverB) && driverB >= 0) grosses.push(driverB);
+  } else if (isTexas) {
     const scoreEl  = document.getElementById('cv-texas');
     const gross    = parseInt(scoreEl?.dataset?.value, 10);
     const driverEl = document.querySelector('.texas-driver-btn.active');
@@ -9209,11 +9267,6 @@ async function recordHole() {
       return;
     }
     grosses = [gross, driver === -1 ? 0 : driver];
-  } else if (isFoursome) {
-    const vA = parseInt(document.getElementById('cv-pair-A')?.dataset?.value, 10);
-    const vB = parseInt(document.getElementById('cv-pair-B')?.dataset?.value, 10);
-    if (!vA || !vB) { alert('Please enter scores for both pairs.'); return; }
-    grosses = [vA, vB];
   } else {
     for (let i = 0; i < gameState.names.length; i++) {
       const el = document.getElementById(`cv${i}`);
