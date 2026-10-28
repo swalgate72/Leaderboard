@@ -7169,11 +7169,14 @@ function renderHolePanel() {
         ? (ms === 0 ? 'var(--muted2)' : teamMs > 0 ? 'var(--gold)' : 'var(--muted2)')
         : 'var(--gold)';
 
+      const pairDisplayName = setup.pairs?.[pairIdx]?.teamName?.trim()
+        || `${gameState.names[p0]?.split(' ')[0] ?? 'P'+(p0+1)} & ${gameState.names[p1]?.split(' ')[0] ?? 'P'+(p1+1)}`;
+
       const header = document.createElement('div');
       header.style.cssText = 'padding:0.65rem 0 0.35rem;border-top:1px solid var(--border);margin-top:0.25rem;display:flex;align-items:center;justify-content:space-between;';
       header.innerHTML = `
         <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.5rem;
-                     color:var(--white);">Pair ${label}</span>
+                     color:var(--white);">${pairDisplayName}</span>
         <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.5rem;
                      color:${statusColor};">${teamStatus}</span>`;
       inputsEl.appendChild(header);
@@ -7208,13 +7211,11 @@ function renderHolePanel() {
       row.innerHTML = `
         <div class="gi-top">
           <div class="gi-id">
-            <div class="gi-name">
+            <div style="display:flex;gap:0.3rem;align-items:center;margin-bottom:2px;">
               <span class="dot" style="background:${pHex(p0)};"></span>
-              <span class="gi-name-txt">${shortName(gameState.names[p0])}</span>
-            </div>
-            <div class="gi-name" style="margin-top:2px;">
-              <span class="dot" style="background:${pHex(p1)};"></span>
-              <span class="gi-name-txt">${shortName(gameState.names[p1])}</span>
+              <span style="font-size:0.9rem;font-weight:700;color:var(--text);">${gameState.names[p0]?.split(' ')[0] ?? ''}</span>
+              <span class="dot" style="background:${pHex(p1)};margin-left:0.4rem;"></span>
+              <span style="font-size:0.9rem;font-weight:700;color:var(--text);">${gameState.names[p1]?.split(' ')[0] ?? ''}</span>
             </div>
             <div class="gi-hcp">${hcpLineTxt}</div>
             <div class="gi-prev" id="gi-pair-prev-${label}"></div>
