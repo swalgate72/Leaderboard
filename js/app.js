@@ -5645,8 +5645,50 @@ function buildSetupReview() {
     </div>
     <div style="border-top:1px solid var(--border);padding-top:0.75rem;">`;
 
-  if (isTexas) {
-    // Show groups with team HCP
+  if (isTexas && setup.texasScoringFmt === 'match' && setup.pairs?.length >= 2) {
+    // 2v2 Scramble Match Play — show two teams from setup.pairs with combined HCP + shots difference
+    const rawTeamHcps = setup.pairs.map(pair => {
+      const [pi0, pi1] = pair.playerIndices;
+      const p0 = setup.players[pi0], p1 = setup.players[pi1];
+      const hcp0 = p0?.courseHandicap ?? p0?.hcpIndex ?? 0;
+      const hcp1 = p1?.courseHandicap ?? p1?.hcpIndex ?? 0;
+      return Math.round((hcp0 + hcp1) / 2); // foursomes-style average
+    });
+    const minTeamHcp  = Math.min(...rawTeamHcps);
+    const shotsArr    = rawTeamHcps.map(h => h - minTeamHcp);
+    setup.pairs.forEach((pair, ti) => {
+      const [pi0, pi1] = pair.playerIndices;
+      const p0 = setup.players[pi0], p1 = setup.players[pi1];
+      const hi0 = named.indexOf(p0), hi1 = named.indexOf(p1);
+      const teamHcp  = rawTeamHcps[ti];
+      const shots    = shotsArr[ti];
+      const shotsLbl = shots === 0 ? 'Scratch' : `+${shots} shots`;
+      html += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+                            padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.35rem;">
+          <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;color:var(--gold);">
+            ${TEXAS_HAT_SMALL} Team ${ti + 1}
+          </span>
+          <span style="font-size:0.9rem;font-weight:700;color:var(--muted2);">
+            Team HCP ${teamHcp}
+            <span style="color:${shots === 0 ? 'var(--muted2)' : 'var(--gold)'};margin-left:0.5rem;">${shotsLbl}</span>
+          </span>
+        </div>
+        ${[p0, p1].map((p, si) => {
+          const hi_tx = si === 0 ? hi0 : hi1;
+          return `<div style="padding:0.25rem 0;border-bottom:0.5px solid rgba(255,255,255,0.04);">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.95rem;font-weight:700;">
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span class="dot" style="background:${pHex(hi_tx % 8)};"></span>${_esc(p?.name ?? '')}
+              </span>
+            </div>
+            ${hcpDetailHtml(p, hi_tx)}
+          </div>`;
+        }).join('')}
+      </div>`;
+    });
+  } else if (isTexas) {
+    // Multi-team scramble (3 or 4 players per team) — show groups with team HCP
     const numGroups = Math.max(1, ...named.map(p => p.groupNumber ?? 1));
     for (let g = 1; g <= numGroups; g++) {
       const gPlayers = named.filter(p => (p.groupNumber ?? 1) === g);
@@ -5660,7 +5702,6 @@ function buildSetupReview() {
           <span style="font-size:0.9rem;font-weight:700;color:var(--muted2);">Team HCP ${teamHcp}</span>
         </div>
         ${gPlayers.map((p, si) => {
-          const pi = named.indexOf(p);
           const hi_tx = named.indexOf(p);
           return `<div style="padding:0.25rem 0;border-bottom:0.5px solid rgba(255,255,255,0.04);">
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.95rem;font-weight:700;">
