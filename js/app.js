@@ -14819,12 +14819,19 @@ function buildInviteMessage() {
 }
 
 document.getElementById('btn-open-invite')?.addEventListener('click', () => {
-  document.getElementById('invite-mobile').value = '';
-  document.getElementById('invite-email').value  = '';
-  // Populate the text box with the invite message
-  const textBox = document.getElementById('invite-text-box');
-  if (textBox) textBox.value = buildInviteMessage();
-  document.getElementById('modal-invite').classList.add('open');
+  const msg = buildInviteMessage();
+  const btn = document.getElementById('btn-open-invite');
+  navigator.clipboard.writeText(msg).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✅ Copied!';
+    btn.disabled = true;
+    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 2000);
+  }).catch(() => {
+    // Fallback: open modal so they can copy manually
+    const textBox = document.getElementById('invite-text-box');
+    if (textBox) textBox.value = msg;
+    document.getElementById('modal-invite').classList.add('open');
+  });
 });
 
 document.getElementById('invite-copy-btn')?.addEventListener('click', () => {
@@ -15981,7 +15988,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029n';
+const APP_BUILD = '20261029o';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
