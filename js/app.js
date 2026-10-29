@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261029y';
+window.APP_BUILD = '20261029z';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -62,7 +62,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261029y');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261029z');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -16069,25 +16069,10 @@ async function checkForUpdate() {
   const dismissBtn   = document.getElementById('update-toast-dismiss');
   if (refreshBtn && !refreshBtn._wired) {
     refreshBtn._wired = true;
-    refreshBtn.addEventListener('click', async () => {
-      // Tell the waiting SW to skip waiting and activate, then reload.
-      // If there's no waiting SW, fall back to unregistering entirely.
-      try {
-        const reg = await navigator.serviceWorker.getRegistration();
-        if (reg?.waiting) {
-          // Post SKIP_WAITING — SW activates, controllerchange fires, we reload.
-          reg.waiting.postMessage('SKIP_WAITING');
-          await new Promise(resolve => {
-            navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
-            setTimeout(resolve, 1500); // fallback if controllerchange doesn't fire
-          });
-        } else {
-          // No waiting SW — unregister and reload to fetch fresh
-          const regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map(r => r.unregister()));
-        }
-      } catch {}
-      window.location.href = window.location.href;
+    refreshBtn.addEventListener('click', () => {
+      // Navigate to update.html which unregisters all SWs, clears all caches,
+      // then redirects back to / — works regardless of which SW is active.
+      window.location.href = '/update.html';
     });
   }
   if (dismissBtn && !dismissBtn._wired) {
