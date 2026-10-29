@@ -6250,8 +6250,8 @@ async function teeOff() {
       const grpPairs = (setup.pairs ?? []).filter(p => (p.groupNumber ?? 1) === g + 1);
       if (grpPairs.length > 0) gs.pairName = grpPairs[0].name;
     }
-    // Texas Scramble: compute and store team handicap and options
-    if (fmt === 'texas') {
+    // Texas / tournament Scramble: compute and store team handicap and options
+    if (fmt === 'texas' || fmt === 'scramble') {
       gs.texasMode       = setup.texasMode ?? 'average';
       gs.texasScoringFmt = setup.texasScoringFmt ?? 'stableford';
       gs.teamName        = `Team ${g + 1}`;
@@ -7101,6 +7101,7 @@ function renderHolePanel() {
   const isPairs         = ['betterball','csm','foursomes','greensomes'].includes(fmt);
   const isTexas         = fmt === 'texas';
   const isGroupScramble = fmt === 'groupscramble';
+  const isScrambleFmt   = isTexas || isGroupScramble || fmt === 'scramble'; // any scramble variant
 
   if (isGroupScramble) {
     // Group Scramble: single team scoring — identical layout to Texas Scramble
@@ -7649,8 +7650,8 @@ function renderHolePanel() {
 
   // Action row removed from scoring screen — push/view scores via Leaderboard button
 
-  // Texas Scramble: show running driver usage tally (below Confirm & Next)
-  if (isTexas) {
+  // Any scramble format: show running driver usage tally (below Confirm & Next)
+  if (isScrambleFmt) {
     const tallyEl = document.getElementById('tee-shots-chart');
     const driverWrap = document.createElement('div');
 
