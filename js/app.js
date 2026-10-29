@@ -1155,6 +1155,7 @@ async function openSwapFriendCodesModal() {
         // result = { me, them }
         if (!result?.them) throw new Error('Friend profile not found on server');
         await _addFriendFromCFProfile(result.them);
+        await renderFriendsList();
         if (statusEl) statusEl.textContent = `✅ Added: ${result.them.name}`;
         submitBtn.textContent = '✓ Done';
         input.value = '';
@@ -16059,7 +16060,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029t';
+const APP_BUILD = '20261029u';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
