@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261026m';
+window.APP_BUILD = '20261029y';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -60,9 +60,9 @@ async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return null;
   // Non-blocking — if sw.js doesn't exist yet, silently skip
   try {
-    const res = await fetch('/sw.js', { method: 'HEAD' }).catch(() => null);
-    if (!res || !res.ok) { console.log('[sw] sw.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw.js?v=20261029x');
+    const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
+    if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261029y');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
