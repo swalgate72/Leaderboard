@@ -1765,7 +1765,7 @@ async function tryRestoreSetupState() {
       showHome(); // format picker is no longer used
     } else if (saved.screen === 'screen-setup-course') {
       const fmt = setup.scoring;
-      document.getElementById('setup-course-format-label').textContent = FORMAT_LABELS[fmt] ?? fmt;
+      document.getElementById('setup-course-format-label').textContent = fmtLabel(fmt);
   updateCourseScreenForFormat(fmt);
       populateCourseSelect();
       populateNumPlayerSelect();
@@ -1943,7 +1943,8 @@ function holeRange(holes) {
   return                         { offset: 0,  count: 18 };
 }
 
-function fmtLabel(fmt) { return FORMAT_LABELS[fmt] ?? fmt; }
+const _LOCAL_FORMAT_LABELS = { groupscramble: 'Group Scramble' };
+function fmtLabel(fmt) { return FORMAT_LABELS[fmt] ?? _LOCAL_FORMAT_LABELS[fmt] ?? fmt; }
 
 // Small inline cowboy hat icon for Texas Scramble labels (text-height, inline)
 const TEXAS_HAT_SMALL = `<svg viewBox="0 0 36 28" width="18" height="14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:inline-block;vertical-align:-0.15em;margin-right:3px;"><ellipse cx="18" cy="22" rx="16" ry="4.5" fill="currentColor" opacity="0.18"/><path d="M4 22c0 0 2-1 14-1s14 1 14 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 22V14c0-5 2.5-9 8-9s8 4 8 9v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 14H4.5C3 14 2 15.2 2 16.5c0 2 1.5 4 3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M26 14h5.5c1.5 0 2.5 1.2 2.5 2.5c0 2-1.5 4-3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 10c0-1 0.5-2.5 4-2.5s4 1.5 4 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
@@ -2553,20 +2554,25 @@ const TEAM_FORMATS = [
   { key: 'csm',        icon: '📊', label: 'Combined Score', desc: 'Pairs · combined stableford · match play' },
   { key: 'foursomes',  icon: '🤝', label: 'Foursomes Match Play', desc: 'Pairs · alternate shots, one ball · combined handicap (50% of pair total)' },
   { key: 'greensomes', icon: '🤝', label: 'Greensomes Match Play', desc: 'Pairs · both drive, then alternate · combined handicap (60/40 split)' },
-  { key: 'best2',      icon: '🥇', label: 'Best 2',         desc: 'Best 2 stableford scores per group · groups vs groups' },
-  { key: 'texas',      icon: '<svg viewBox="0 0 36 28" width="32" height="28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="18" cy="22" rx="16" ry="4.5" fill="currentColor" opacity="0.18"/><path d="M4 22c0 0 2-1 14-1s14 1 14 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 22V14c0-5 2.5-9 8-9s8 4 8 9v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 14H4.5C3 14 2 15.2 2 16.5c0 2 1.5 4 3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M26 14h5.5c1.5 0 2.5 1.2 2.5 2.5c0 2-1.5 4-3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 10c0-1 0.5-2.5 4-2.5s4 1.5 4 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>', label: 'Texas Scramble', desc: 'All play from best drive · one team score per hole · 2-4 players' },
+  { key: 'best2',        icon: '🥇', label: 'Best 2',           desc: 'Best 2 stableford scores per group · groups vs groups' },
+  { key: 'texas',        icon: '<svg viewBox="0 0 36 28" width="32" height="28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="18" cy="22" rx="16" ry="4.5" fill="currentColor" opacity="0.18"/><path d="M4 22c0 0 2-1 14-1s14 1 14 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 22V14c0-5 2.5-9 8-9s8 4 8 9v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 14H4.5C3 14 2 15.2 2 16.5c0 2 1.5 4 3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M26 14h5.5c1.5 0 2.5 1.2 2.5 2.5c0 2-1.5 4-3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 10c0-1 0.5-2.5 4-2.5s4 1.5 4 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>', label: 'Texas Scramble',   desc: 'All play from best drive · one team score per hole · 2-4 players' },
+  { key: 'groupscramble',icon: '🎯', label: 'Group Scramble',    desc: 'Whole group as one team · scramble format · single team handicap' },
 ];
 
 const TEAM_SCORING_FORMATS = ['foursomes','greensomes','texas'];
 
 function updateCourseScreenForFormat(fmt) {
+  const isScramble = fmt === 'texas' || fmt === 'groupscramble';
   const teamHcpField = document.getElementById('setup-team-hcp-field');
-  if (teamHcpField) teamHcpField.classList.toggle('hidden', fmt !== 'texas');
+  if (teamHcpField) teamHcpField.classList.toggle('hidden', !isScramble);
+  const teeShotsCard = document.getElementById('tee-shots-card');
+  if (teeShotsCard) teeShotsCard.classList.toggle('hidden', !isScramble);
 }
 
 
 function renderDrivesGrids() {
-  const teamSize  = setup.texasTeamSize ?? 2;
+  const isGroupScramble = setup.scoring === 'groupscramble';
+  const teamSize  = isGroupScramble ? (setup.players?.length || setup.numPlayers || 4) : (setup.texasTeamSize ?? 2);
   const holesVal  = setup.holes ?? 18;
   const numHoles  = (holesVal === 18) ? 18 : 9;
 
@@ -2678,6 +2684,7 @@ function showFormatPicker(category) {
       else if (fmt === 'best2')                                            { setup.numPlayers = 8; setup.numGroups = 2; setup.playersPerGroup = 4; }
       else if (fmt === 'match')                                            { setup.numPlayers = 2; setup.numGroups = 1; setup.playersPerGroup = null; }
       else if (fmt === 'texas')                                            { setup.numPlayers = (setup.texasTeamSize ?? 2) * 2; setup.numGroups = 1; setup.playersPerGroup = null; }
+      else if (fmt === 'groupscramble')                                    { setup.numPlayers = 4; setup.numGroups = 1; setup.playersPerGroup = null; setup.gsHcpMode = 'average'; }
       else                                                                 { setup.numPlayers = 1; setup.numGroups = 1; setup.playersPerGroup = null; }
       startSetup();
     });
@@ -2695,7 +2702,7 @@ document.getElementById('setup-format-back')?.addEventListener('click', () => {
 // ================================================================
 function startSetup() {
   const fmt = setup.scoring;
-  document.getElementById('setup-course-format-label').textContent = FORMAT_LABELS[fmt] ?? fmt;
+  document.getElementById('setup-course-format-label').textContent = fmtLabel(fmt);
   updateCourseScreenForFormat(fmt);
 
   // Show Texas Scramble options card only for that format
@@ -2757,6 +2764,28 @@ function startSetup() {
     renderDrivesGrids();
   }
 
+  if (fmt === 'groupscramble') {
+    // Wire HCP mode buttons (shared with texas, already in DOM)
+    const setGsHcpMode = (v) => {
+      setup.gsHcpMode = v;
+      document.getElementById('texas-hcp-mode').value = v;
+      document.getElementById('texas-hcp-average').classList.toggle('active', v === 'average');
+      document.getElementById('texas-hcp-weighted').classList.toggle('active', v === 'weighted');
+      document.getElementById('texas-hcp-hint').textContent = v === 'weighted'
+        ? '25% + 20% + 15% + 10% of player indexes'
+        : 'Average of all player indexes';
+    };
+    // Only wire once
+    const hcpField = document.getElementById('setup-team-hcp-field');
+    if (!hcpField?._gsWired) {
+      document.getElementById('texas-hcp-average')?.addEventListener('click', () => setGsHcpMode('average'));
+      document.getElementById('texas-hcp-weighted')?.addEventListener('click', () => setGsHcpMode('weighted'));
+      if (hcpField) hcpField._gsWired = true;
+    }
+    setGsHcpMode(setup.gsHcpMode ?? 'average');
+    renderDrivesGrids();
+  }
+
   populateCourseSelect();
   populateNumPlayerSelect();
   populateNumGroupSelect();
@@ -2811,13 +2840,13 @@ function onCourseSelectChange() {
 
 document.getElementById('setup-course-select')?.addEventListener('change', () => {
   onCourseSelectChange();
-  if (setup.scoring === 'texas') renderDrivesGrids();
+  if (setup.scoring === 'texas' || setup.scoring === 'groupscramble') renderDrivesGrids();
 });
 document.getElementById('setup-tee-select')?.addEventListener('change', e => {
   setup.teeIdx = parseInt(e.target.value, 10);
   const course = allCourses.find(c => c.id === setup.courseId);
   if (course) renderSIPreview(course, setup.teeIdx);
-  if (setup.scoring === 'texas') renderDrivesGrids();
+  if (setup.scoring === 'texas' || setup.scoring === 'groupscramble') renderDrivesGrids();
 });
 
 function renderSIPreview(course, teeIdx) {
@@ -2845,7 +2874,7 @@ document.querySelectorAll('[data-holes]').forEach(btn => {
     const course = allCourses.find(c => c.id === setup.courseId);
     if (course) renderSIPreview(course, setup.teeIdx);
     // Hole numbers and par-3 eligibility shift with front9/back9 — re-render and clear stale selections
-    if (setup.scoring === 'texas') renderDrivesGrids();
+    if (setup.scoring === 'texas' || setup.scoring === 'groupscramble') renderDrivesGrids();
   });
 });
 
@@ -6240,12 +6269,14 @@ async function teeOff() {
     }
 
     if (fmt === 'groupscramble') {
-      gs.gsHcpMode   = setup.gsHcpMode ?? 'average';
-      gs.teamName    = setup.groupName ?? `Group ${g + 1}`;
-      gs.teamHcp     = texasTeamHandicap(gHcpArr, setup.gsHcpMode ?? 'average', 100);
-      gs.grossTotal  = 0;
-      gs.gsPts       = 0;
-      gs.driverUsage = { par3: [], par4: [], par5: [] };
+      gs.gsHcpMode        = setup.gsHcpMode ?? 'average';
+      gs.teamName         = setup.groupName ?? `Group ${g + 1}`;
+      gs.teamHcp          = texasTeamHandicap(gHcpArr, setup.gsHcpMode ?? 'average', 100);
+      gs.grossTotal       = 0;
+      gs.gsPts            = 0;
+      gs.driverUsage      = { par3: [], par4: [], par5: [] };
+      gs.texasDrivesTotal = setup.texasDrivesTotal ?? null;
+      gs.texasDrivesPar3  = setup.texasDrivesPar3  ?? null;
     }
 
     groupStates.push(gs);
@@ -16380,6 +16411,46 @@ function _wizUpdatePairHcpPanel() {
   if (panel) panel.style.display = PAIR_HCP_FORMATS.has(_wiz.format) ? '' : 'none';
   const gsPanel = document.getElementById('tourn-gs-hcp-panel');
   if (gsPanel) gsPanel.style.display = _wiz.format === 'groupscramble' ? '' : 'none';
+  // Show tee shot panel for all scramble formats
+  const SCRAMBLE_TOURN_FMTS = new Set(['scramble', 'groupscramble']);
+  const drivesPanel = document.getElementById('tourn-drives-panel');
+  if (drivesPanel) {
+    const show = SCRAMBLE_TOURN_FMTS.has(_wiz.format);
+    drivesPanel.style.display = show ? '' : 'none';
+    if (show) renderWizDrivesGrids();
+  }
+}
+
+function renderWizDrivesGrids() {
+  // Use player count from wizard step 1 (number of players per group)
+  const teamSize  = _wiz.playersPerGroup ?? _wiz.numPlayers ?? 4;
+  const numHoles  = 18; // tournaments always play full round initially; no front/back in wizard
+
+  // Try to count par-3s from wizard's selected course/tee (not available in wizard — show generic max)
+  const maxTotal = Math.floor(numHoles / teamSize);
+  const maxPar3  = 3; // conservative default without course data
+
+  function buildWizGrid(containerId, hintId, max, currentVal, onSelect) {
+    const grid = document.getElementById(containerId);
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (let i = 0; i <= max; i++) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'holes-btn' + (i === currentVal ? ' active' : '');
+      btn.style.cssText = 'padding:0.45rem 0.3rem;font-size:1rem;';
+      btn.textContent = i;
+      btn.addEventListener('click', () => { onSelect(i); renderWizDrivesGrids(); });
+      grid.appendChild(btn);
+    }
+    const hint = document.getElementById(hintId);
+    if (hint) hint.textContent = `Min. per player · max ${max} (18 holes ÷ ${teamSize} players)`;
+  }
+
+  buildWizGrid('tourn-drives-total-grid', 'tourn-drives-total-hint', maxTotal,
+    _wiz.drivesTotal ?? 0, v => { _wiz.drivesTotal = v || null; });
+  buildWizGrid('tourn-drives-par3-grid', 'tourn-drives-par3-hint', maxPar3,
+    _wiz.drivesPar3 ?? 0, v => { _wiz.drivesPar3 = v || null; });
 }
 
 // Wire wizard cat-tiles (same expand/collapse logic as Play screen initCategoryTiles)
@@ -17135,8 +17206,10 @@ async function _wizCreateTournament() {
       hcpMode:      _wiz.hcpMode,
       hcpStrength:  _wiz.hcpMode === 'auto' ? _wiz.hcpStrength : null,
       pairHcpMode:  PAIR_HCP_FORMATS.has(_wiz.format) ? (_wiz.pairHcpMode ?? 'shared') : null,
-      gsHcpMode:    _wiz.format === 'groupscramble' ? (_wiz.gsHcpMode ?? 'average') : null,
-      pairs:        pairsPayload,
+      gsHcpMode:      _wiz.format === 'groupscramble' ? (_wiz.gsHcpMode ?? 'average') : null,
+      drivesTotal:    ['scramble','groupscramble'].includes(_wiz.format) ? (_wiz.drivesTotal ?? null) : null,
+      drivesPar3:     ['scramble','groupscramble'].includes(_wiz.format) ? (_wiz.drivesPar3  ?? null) : null,
+      pairs:          pairsPayload,
       duration:     _wiz.duration,
       organiserHash: hash,
       courses,
@@ -17579,8 +17652,12 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
         setup.holes     = 18;
         setup.numGroups  = 1;
         setup.numPlayers = selectedPlayers.length;
-        // Thread Group Scramble HCP mode from tournament config
+        // Thread Group Scramble HCP mode + tee shot config from tournament record
         if (isGS) setup.gsHcpMode = tournRecord?.gsHcpMode ?? 'average';
+        if (isGS || tournRecord?.format === 'scramble') {
+          setup.texasDrivesTotal = tournRecord?.drivesTotal ?? null;
+          setup.texasDrivesPar3  = tournRecord?.drivesPar3  ?? null;
+        }
         buildSetupReview();
         showScreen('screen-setup-review');
       };
