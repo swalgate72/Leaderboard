@@ -33,7 +33,7 @@
 
 // ── Version — bump this string on every deployment ───────────────────
 // Must match the build tag used in app.js, index.html and the ?v= tags.
-const CACHE_NAME = 'leaderboard-v20261029v';
+const CACHE_NAME = 'leaderboard-v20261029w';
 
 // ── App shell — URLs listed in ESSENTIAL_URLS and OPTIONAL_URLS below ─
 // All versioned ?v= query strings must exactly match index.html and
@@ -69,9 +69,9 @@ const PASSTHROUGH_PREFIXES = [
 const ESSENTIAL_URLS = [
   '/',
   '/index.html',
-  '/styles.css?v=20261029v',
+  '/styles.css?v=20261029w',
   '/jsQR.min.js?v=1.4.0',
-  '/js/app.js?v=20261029v',
+  '/js/app.js?v=20261029w',
   '/game.js?v=20260704l',
   '/db.js?v=20261026q',
   '/provider.js?v=20261021a',
@@ -121,6 +121,16 @@ async function precache() {
 
 self.addEventListener('install', event => {
   event.waitUntil(precache());
+});
+
+// ── Message — allow app to trigger skipWaiting ────────────────────
+// When the app detects a new version it posts SKIP_WAITING to the
+// waiting SW, which then activates immediately rather than waiting
+// for all tabs to close.
+self.addEventListener('message', event => {
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // ── Activate — delete stale caches, then claim new tabs only ─────────

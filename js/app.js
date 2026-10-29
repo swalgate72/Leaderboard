@@ -16061,7 +16061,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029v';
+const APP_BUILD = '20261029w';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
@@ -16071,11 +16071,22 @@ async function checkForUpdate() {
   if (refreshBtn && !refreshBtn._wired) {
     refreshBtn._wired = true;
     refreshBtn.addEventListener('click', async () => {
-      // Unregister the service worker so it can't intercept and serve stale cache,
-      // then navigate — browser fetches index.html fresh from the network.
+      // Tell the waiting SW to skip waiting and activate, then reload.
+      // If there's no waiting SW, fall back to unregistering entirely.
       try {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map(r => r.unregister()));
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg?.waiting) {
+          // Post SKIP_WAITING — SW activates, controllerchange fires, we reload.
+          reg.waiting.postMessage('SKIP_WAITING');
+          await new Promise(resolve => {
+            navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
+            setTimeout(resolve, 1500); // fallback if controllerchange doesn't fire
+          });
+        } else {
+          // No waiting SW — unregister and reload to fetch fresh
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        }
       } catch {}
       window.location.href = window.location.href;
     });
