@@ -338,6 +338,7 @@ async function syncHcpToCF(newHcp) {
  * Stores in local guest profiles (allFriends).
  */
 async function _addFriendFromCFProfile(profile) {
+  if (!profile) throw new Error('Profile not found');
   const nameParts = (profile.name ?? 'Friend').trim().split(/\s+/);
   await guestProfileCreate({
     name:       profile.name,
@@ -1152,6 +1153,7 @@ async function openSwapFriendCodesModal() {
           myId: myLocal.id, theirCode
         });
         // result = { me, them }
+        if (!result?.them) throw new Error('Friend profile not found on server');
         await _addFriendFromCFProfile(result.them);
         if (statusEl) statusEl.textContent = `✅ Added: ${result.them.name}`;
         submitBtn.textContent = '✓ Done';
@@ -16027,7 +16029,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029p';
+const APP_BUILD = '20261029q';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
