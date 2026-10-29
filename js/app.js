@@ -15738,7 +15738,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029j';
+const APP_BUILD = '20261029k';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
@@ -15747,7 +15747,15 @@ async function checkForUpdate() {
   const dismissBtn   = document.getElementById('update-toast-dismiss');
   if (refreshBtn && !refreshBtn._wired) {
     refreshBtn._wired = true;
-    refreshBtn.addEventListener('click', () => { window.location.href = window.location.href; });
+    refreshBtn.addEventListener('click', async () => {
+      // Unregister the service worker so it can't intercept and serve stale cache,
+      // then navigate — browser fetches index.html fresh from the network.
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      } catch {}
+      window.location.href = window.location.href;
+    });
   }
   if (dismissBtn && !dismissBtn._wired) {
     dismissBtn._wired = true;
