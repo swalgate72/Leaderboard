@@ -6271,6 +6271,7 @@ async function teeOff() {
         gs.driverUsage     = { par3: [], par4: [], par5: [] };
         gs.texasDrivesTotal = setup.texasDrivesTotal ?? null;
         gs.texasDrivesPar3  = setup.texasDrivesPar3  ?? null;
+        gs.texasTeamSize    = setup.texasTeamSize ?? 2;
       }
     }
 
@@ -6283,6 +6284,7 @@ async function teeOff() {
       gs.driverUsage      = { par3: [], par4: [], par5: [] };
       gs.texasDrivesTotal = setup.texasDrivesTotal ?? null;
       gs.texasDrivesPar3  = setup.texasDrivesPar3  ?? null;
+      gs.texasTeamSize    = gHcpArr.length; // whole group plays together
     }
 
     groupStates.push(gs);
@@ -7687,6 +7689,13 @@ function renderHolePanel() {
       });
     }
 
+    // Compute per-player maximums from holes and team size
+    const teamSize  = isGroupScramble ? names.length : (gameState.texasTeamSize ?? 2);
+    const numHoles  = gameState.numHoles ?? 18;
+    const par3Count = (gameState.pars ?? []).filter(p => p === 3).length;
+    const maxTotal  = Math.floor(numHoles / teamSize);
+    const maxPar3   = par3Count > 0 ? Math.floor(par3Count / teamSize) : null;
+
     // Build column definitions — for 2v2 insert a divider between pair A (0,1) and pair B (2,3)
     const is2v2 = isFoursome;
     const DIVIDER_STYLE = 'border-left:2px solid var(--border);';
@@ -7698,13 +7707,14 @@ function renderHolePanel() {
       </th>`;
     }).join('');
 
-    const makeDataRow = (countsObj, quota) => names.map((_, pi) => {
-      const count   = countsObj[pi] ?? 0;
-      const hasQuota = quota != null;
-      const met     = hasQuota && count >= quota;
-      const color   = hasQuota ? (met ? 'var(--green,#22c55e)' : 'var(--red,#d64545)') : 'var(--text)';
-      const lbl     = hasQuota ? `${count}/${quota}` : String(count);
-      const divider = (is2v2 && pi === 2) ? DIVIDER_STYLE : '';
+    // makeDataRow: quota = configured minimum (may be null); max = ceiling derived from holes/team size
+    const makeDataRow = (countsObj, quota, max) => names.map((_, pi) => {
+      const count    = countsObj[pi] ?? 0;
+      const threshold = quota ?? max; // use quota if set, else computed max
+      const met      = threshold != null && count >= threshold;
+      const color    = threshold != null ? (met ? 'var(--green,#22c55e)' : 'var(--red,#d64545)') : 'var(--text)';
+      const lbl      = max != null ? `${count}/${max}` : String(count);
+      const divider  = (is2v2 && pi === 2) ? DIVIDER_STYLE : '';
       return `<td style="text-align:center;padding:0.5rem 0.35rem;
                 font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;
                 color:${color};${divider}">${lbl}</td>`;
@@ -7730,11 +7740,11 @@ function renderHolePanel() {
         <tbody>
           <tr>
             <td style="padding:0.5rem 0.75rem;font-size:0.9rem;font-weight:800;color:var(--muted2);white-space:nowrap;">${totalLbl}</td>
-            ${makeDataRow(totalCounts, quotaTotal)}
+            ${makeDataRow(totalCounts, quotaTotal, maxTotal)}
           </tr>
           <tr style="border-top:1px solid var(--border);">
             <td style="padding:0.5rem 0.75rem;font-size:0.9rem;font-weight:800;color:var(--muted2);white-space:nowrap;">${par3Lbl}</td>
-            ${makeDataRow(par3Counts, quotaPar3)}
+            ${makeDataRow(par3Counts, quotaPar3, maxPar3)}
           </tr>
         </tbody>
       </table>`;
