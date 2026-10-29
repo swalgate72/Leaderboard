@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261027y">
+  <link rel="stylesheet" href="styles.css?v=20261028a">
   <!-- jsQR: fallback QR decoder for browsers without BarcodeDetector (iOS PWA) -->
   <script src="jsQR.min.js?v=1.4.0"></script>
 </head>
@@ -1972,7 +1972,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261027y"></script>
+<script type="module" src="js/app.js?v=20261028a"></script>
 
 
 <!-- ══════════════════════════════════════════
@@ -2275,6 +2275,24 @@
               </button>
             </div>
             <input type="hidden" id="tourn-pair-hcp-mode" value="shared">
+          </div>
+
+          <!-- Group Scramble HCP mode (shown only when groupscramble selected) -->
+          <div id="tourn-gs-hcp-panel" class="field" style="display:none;margin-top:0.75rem;padding:0.75rem;
+               background:var(--surface-2,rgba(255,255,255,0.04));border-radius:0.6rem;
+               border:1px solid var(--border);">
+            <div style="font-size:0.85rem;font-weight:800;margin-bottom:0.6rem;">🎯 Group Scramble — Handicap Mode</div>
+            <div style="display:grid;gap:0.4rem;" id="tourn-gs-hcp-btns">
+              <button type="button" class="tourn-mode-btn active" data-gshcp="average">
+                <div class="tourn-mode-btn-title">📊 Average</div>
+                <div class="tourn-mode-btn-sub">Team HCP = average of all players' handicaps</div>
+              </button>
+              <button type="button" class="tourn-mode-btn" data-gshcp="weighted">
+                <div class="tourn-mode-btn-title">⚖️ Weighted</div>
+                <div class="tourn-mode-btn-sub">Lower handicaps count more (standard scramble formula)</div>
+              </button>
+            </div>
+            <input type="hidden" id="tourn-gs-hcp-mode" value="average">
           </div>
 
           <div class="field" style="margin-bottom:0;">

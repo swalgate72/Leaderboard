@@ -5566,6 +5566,7 @@ function buildSetupReview() {
   const isPairs  = ['betterball','csm','foursomes','greensomes'].includes(setup.scoring);
   const isBest2  = setup.scoring === 'best2';
   const isTexas  = setup.scoring === 'texas';
+  const isGroupScramble = setup.scoring === 'groupscramble';
   const named    = setup.players.filter(p => p.name);
   // Use gameHandicap (picker-adjusted) if set, otherwise fall back to hcpIndex
   const hcpArr   = named.map(p => p.gameHandicap ?? p.hcpIndex ?? 0);
@@ -5611,6 +5612,11 @@ function buildSetupReview() {
     return result;
   })() : {};
 
+  // Group Scramble: compute single team HCP for the whole group
+  const gsTeamHcp = isGroupScramble
+    ? texasTeamHandicap(named.map(p => p.hcpIndex || 0), setup.gsHcpMode ?? setup.texasMode ?? 'average', 100)
+    : 0;
+
   // Scoring mode for team formats
   const isTeamFmt2    = ['foursomes','greensomes','texas'].includes(setup.scoring);
   const teamScoreMode2 = setup.scoring === 'texas'
@@ -5650,6 +5656,9 @@ function buildSetupReview() {
       ${isTexas ? `
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">HCP Mode</span><span>${setup.texasMode === 'weighted' ? 'Weighted' : 'Average'}</span></div>
       ` : ''}
+      ` : ''}
+      ${isGroupScramble ? `
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">HCP Mode</span><span>${(setup.gsHcpMode ?? setup.texasMode ?? 'average') === 'weighted' ? 'Weighted' : 'Average'}</span></div>
       ` : ''}
       <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Holes</span><span>${count === 18 ? '18' : count === 9 && offset === 0 ? 'Front 9' : 'Back 9'}</span></div>
     </div>
@@ -5810,6 +5819,38 @@ function buildSetupReview() {
           </div>`;
       });
     }
+  } else if (isGroupScramble) {
+    // Group Scramble: all players shown as a single joined team
+    const gsHcpMode = setup.gsHcpMode ?? setup.texasMode ?? 'average';
+    html += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);
+                          padding:0.65rem 0.85rem;margin-bottom:0.5rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.35rem;">
+        <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;color:var(--gold);">
+          🎯 Group Scramble Team
+        </span>
+        <span style="font-size:0.9rem;font-weight:700;color:var(--muted2);">Team HCP ${gsTeamHcp}</span>
+      </div>`;
+    html += `<div class="pp-grid" style="margin-top:0.35rem;">`;
+    named.forEach(p => {
+      const hi  = named.indexOf(p);
+      const pi  = setup.players.indexOf(p);
+      const h   = hcpSummary(p, hi);
+      html += `
+        <div class="pp-card pp-paired">
+          <div class="pp-name" style="font-size:13px;">${_esc(p.name)}</div>
+          <div class="pp-bottom">
+            <div class="pp-stat">
+              <div class="pp-stat-label">Index</div>
+              <div class="pp-stat-value">${h.index}</div>
+            </div>
+            <div class="pp-stat pp-stat-right">
+              <div class="pp-stat-label">Course HCP</div>
+              <div class="pp-partner pp-partner-active">${h.playing}</div>
+            </div>
+          </div>
+        </div>`;
+    });
+    html += `</div></div>`;
   } else {
     const isTeamFmt   = ['best2'].includes(setup.scoring);
     const isSharedBall2 = ['foursomes','greensomes'].includes(setup.scoring);
@@ -6196,6 +6237,15 @@ async function teeOff() {
         gs.texasDrivesTotal = setup.texasDrivesTotal ?? null;
         gs.texasDrivesPar3  = setup.texasDrivesPar3  ?? null;
       }
+    }
+
+    if (fmt === 'groupscramble') {
+      gs.gsHcpMode   = setup.gsHcpMode ?? 'average';
+      gs.teamName    = setup.groupName ?? `Group ${g + 1}`;
+      gs.teamHcp     = texasTeamHandicap(gHcpArr, setup.gsHcpMode ?? 'average', 100);
+      gs.grossTotal  = 0;
+      gs.gsPts       = 0;
+      gs.driverUsage = { par3: [], par4: [], par5: [] };
     }
 
     groupStates.push(gs);
@@ -6633,6 +6683,8 @@ function renderScoreHeader() {
     renderTotalsBar();
   } else if (fmt === 'texas' && (gameState.texasScoringFmt ?? 'stableford') !== 'match') {
     renderTexasScoreBar();
+  } else if (fmt === 'groupscramble') {
+    renderGroupScrambleScoreBar();
   } else if (fmt === 'match') {
     renderMatchBar(); // only 1v1 match still uses the bar
   } else if (['betterball','csm','foursomes','greensomes'].includes(fmt)
@@ -6738,6 +6790,26 @@ function renderTexasScoreBar() {
       <div style="display:flex;align-items:baseline;justify-content:center;gap:4px;">
         <div class="tc-pts" style="color:var(--gold);font-size:3rem;">${score}</div>
         <span style="font-size:1rem;font-weight:600;color:var(--gold);">${label}</span>
+      </div>
+      <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">${holesPlayed} hole${holesPlayed !== 1 ? 's' : ''} played</div>
+    </div>`;
+  bar.classList.remove('hidden');
+}
+
+function renderGroupScrambleScoreBar() {
+  const bar         = document.getElementById('game-totals-bar');
+  const holesPlayed = gameState.log?.length ?? 0;
+  const teamName    = gameState.teamName ?? 'The Team';
+  const score       = gameState.texasPts ?? 0;   // stored as texasPts via game.js texas path
+  const teamHcp     = gameState.teamHcp ?? 0;
+
+  bar.style.gridTemplateColumns = '1fr';
+  bar.innerHTML = `
+    <div class="total-cell" style="grid-column:1/-1;">
+      <div class="tc-name" style="font-size:0.7rem;letter-spacing:0.12em;">🎯 ${teamName.toUpperCase()} · HCP ${teamHcp}</div>
+      <div style="display:flex;align-items:baseline;justify-content:center;gap:4px;">
+        <div class="tc-pts" style="color:var(--gold);font-size:3rem;">${score}</div>
+        <span style="font-size:1rem;font-weight:600;color:var(--gold);">pts</span>
       </div>
       <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">${holesPlayed} hole${holesPlayed !== 1 ? 's' : ''} played</div>
     </div>`;
@@ -6987,12 +7059,141 @@ function renderHolePanel() {
   // Add Pass scoring button below inputs (injected after makePlayerInputRow calls)
   // We'll add it at the end after inputs are rendered
 
-  const isFoursome = fmt === 'foursomes' || fmt === 'greensomes'
+  const isFoursome      = fmt === 'foursomes' || fmt === 'greensomes'
     || (fmt === 'texas' && (gameState.texasScoringFmt ?? 'stableford') === 'match');
-  const isPairs    = ['betterball','csm','foursomes','greensomes'].includes(fmt);
-  const isTexas    = fmt === 'texas';
+  const isPairs         = ['betterball','csm','foursomes','greensomes'].includes(fmt);
+  const isTexas         = fmt === 'texas';
+  const isGroupScramble = fmt === 'groupscramble';
 
-  if (isTexas && !isFoursome) {
+  if (isGroupScramble) {
+    // Group Scramble: single team scoring — identical layout to Texas Scramble
+    const teamName   = gameState.teamName ?? 'The Team';
+    const teamHcp    = gameState.teamHcp  ?? 0;
+    const existEntry = gameState.log[h];
+    const existGross = existEntry?.gross ?? null;
+    const teamExtra  = (() => { const si = gameState.si[h]; return teamHcp <= 0 ? 0 : Math.floor(teamHcp / 18) + (si <= (teamHcp % 18) ? 1 : 0); })();
+
+    const discColor   = existGross != null ? scoreColorForRelToPar(existGross - par, existGross) : 'transparent';
+    const discText    = existGross != null ? String(existGross) : String(par);
+    const discBorder  = existGross != null ? `2px solid ${discColor}` : '2px solid var(--border2)';
+    const discBg      = existGross != null ? discColor : 'var(--surface3)';
+    const discFgColor = existGross != null ? '#fff' : 'var(--muted)';
+
+    const row = document.createElement('div');
+    row.className = 'gi-row';
+    row.style.cssText = 'flex-direction:column;align-items:stretch;gap:0.65rem;';
+
+    row.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="flex:1;min-width:0;">
+          <div class="gi-name" style="font-size:1.35rem;">🎯 ${teamName}</div>
+          <div class="gi-hcp" style="font-size:1rem;font-weight:800;">Team HCP ${teamHcp}${teamExtra > 0 ? ` · +${teamExtra} this hole` : ''}</div>
+        </div>
+        <div class="gi-score-ctrl" style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
+          <button class="gi-arr gi-arr-dn-gs"
+            style="width:40px;height:40px;border-radius:50%;border:2px solid var(--border2);
+                   background:rgba(255,255,255,0.06);color:var(--white);font-size:1.4rem;
+                   display:flex;align-items:center;justify-content:center;
+                   touch-action:manipulation;user-select:none;cursor:pointer;">⬇</button>
+          <div id="cv-gs" class="score-btn gi-score-disc"
+            data-value="${existGross ?? ''}"
+            style="width:52px;height:52px;border-radius:50%;
+                   border:${discBorder};background:${discBg};color:${discFgColor};
+                   font-family:'Plus Jakarta Sans',sans-serif;font-size:1.55rem;font-weight:800;
+                   display:flex;align-items:center;justify-content:center;flex-direction:column;
+                   touch-action:manipulation;user-select:none;cursor:pointer;
+                   transition:background 0.12s,border-color 0.12s;">${discText}</div>
+          <button class="gi-arr gi-arr-up-gs"
+            style="width:40px;height:40px;border-radius:50%;border:2px solid #38a169;
+                   background:rgba(56,161,105,0.15);color:#38a169;font-size:1.4rem;
+                   display:flex;align-items:center;justify-content:center;
+                   touch-action:manipulation;user-select:none;cursor:pointer;">⬆</button>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:1rem;font-weight:800;color:var(--muted2);margin-bottom:0.4rem;">Tee shot used:</div>
+        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;" id="gs-driver-btns">
+          ${gameState.names.map((name, pi) => `
+            <button class="gs-driver-btn ${(existEntry?.driverIdx ?? -1) === pi ? 'holes-btn active' : 'btn-outline'}"
+              data-pi="${pi}"
+              style="flex:1;min-width:80px;padding:0.65rem 0.4rem;font-size:1rem;font-weight:800;">
+              ${name.split(' ')[0]}
+            </button>`).join('')}
+        </div>
+      </div>`;
+    inputsEl.appendChild(row);
+
+    function _gsSetScore(val) {
+      const el = row.querySelector('#cv-gs');
+      if (!el) return;
+      el.dataset.value = String(val);
+      const color = scoreColorForRelToPar(val - par, val);
+      el.style.background  = color;
+      el.style.borderColor = color;
+      el.style.color       = '#fff';
+      el.style.fontSize    = '1.55rem';
+      el.textContent       = String(val);
+    }
+    function _gsCurrentScore() {
+      const v = parseInt(row.querySelector('#cv-gs')?.dataset?.value, 10);
+      return isNaN(v) ? null : v;
+    }
+    const GS_MIN = 1, GS_MAX = par + teamExtra + 5;
+
+    row.querySelector('.gi-arr-dn-gs').addEventListener('touchstart', (e) => {
+      if (_pageScrolling) return;
+      e.preventDefault();
+      const cur = _gsCurrentScore();
+      const next = cur != null ? cur - 1 : par - 1;
+      if (next < GS_MIN) return;
+      _gsSetScore(next);
+    }, { passive: false });
+    row.querySelector('.gi-arr-dn-gs').addEventListener('click', (e) => {
+      if (e.sourceCapabilities?.firesTouchEvents) return;
+      const cur = _gsCurrentScore();
+      const next = cur != null ? cur - 1 : par - 1;
+      if (next < GS_MIN) return;
+      _gsSetScore(next);
+    });
+
+    row.querySelector('.gi-arr-up-gs').addEventListener('touchstart', (e) => {
+      if (_pageScrolling) return;
+      e.preventDefault();
+      const cur = _gsCurrentScore();
+      const next = cur != null ? cur + 1 : par + 1;
+      if (next > GS_MAX) return;
+      _gsSetScore(next);
+    }, { passive: false });
+    row.querySelector('.gi-arr-up-gs').addEventListener('click', (e) => {
+      if (e.sourceCapabilities?.firesTouchEvents) return;
+      const cur = _gsCurrentScore();
+      const next = cur != null ? cur + 1 : par + 1;
+      if (next > GS_MAX) return;
+      _gsSetScore(next);
+    });
+
+    row.querySelector('#cv-gs').addEventListener('touchstart', (e) => {
+      if (_pageScrolling) return;
+      e.preventDefault();
+      _gsSetScore(par);
+    }, { passive: false });
+    row.querySelector('#cv-gs').addEventListener('click', (e) => {
+      if (e.sourceCapabilities?.firesTouchEvents) return;
+      _gsSetScore(par);
+    });
+
+    row.querySelectorAll('.gs-driver-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        row.querySelectorAll('.gs-driver-btn').forEach(b => {
+          b.className = 'gs-driver-btn btn-outline';
+          b.style.cssText = 'flex:1;min-width:80px;padding:0.55rem 0.4rem;font-size:0.85rem;font-weight:700;';
+        });
+        btn.className = 'gs-driver-btn holes-btn active';
+        btn.style.cssText = 'flex:1;min-width:80px;padding:0.55rem 0.4rem;font-size:0.85rem;font-weight:700;';
+      });
+    });
+
+  } else if (isTexas && !isFoursome) {
     // Texas Scramble: inline up/down arrows (same UX as other formats) + driver selector
     const teamName   = gameState.teamName ?? 'Team';
     const teamHcp    = gameState.teamHcp  ?? 0;
@@ -9299,9 +9500,10 @@ async function recordHole() {
   const par = gameState.par[h];
   let grosses = [];
 
-  const isFoursome = fmt === 'foursomes' || fmt === 'greensomes'
+  const isFoursome      = fmt === 'foursomes' || fmt === 'greensomes'
     || (fmt === 'texas' && (gameState.texasScoringFmt ?? 'stableford') === 'match');
-  const isTexas    = fmt === 'texas';
+  const isTexas         = fmt === 'texas';
+  const isGroupScramble = fmt === 'groupscramble';
 
   if (isFoursome) {
     // texas 2v2 match play AND foursomes/greensomes — two pair scores
@@ -9314,6 +9516,13 @@ async function recordHole() {
     grosses = [vA, vB];
     if (!isNaN(driverA) && driverA >= 0) grosses.push(driverA);
     if (!isNaN(driverB) && driverB >= 0) grosses.push(driverB);
+  } else if (isGroupScramble) {
+    const scoreEl  = document.getElementById('cv-gs');
+    const gross    = parseInt(scoreEl?.dataset?.value, 10);
+    const driverEl = document.querySelector('.gs-driver-btn.active');
+    const driver   = driverEl ? parseInt(driverEl.dataset.pi, 10) : -1;
+    if (!gross || gross < 1) { alert('Please enter a score for the team.'); return; }
+    grosses = [gross, driver === -1 ? 0 : driver];
   } else if (isTexas) {
     const scoreEl  = document.getElementById('cv-texas');
     const gross    = parseInt(scoreEl?.dataset?.value, 10);
@@ -9348,12 +9557,19 @@ async function recordHole() {
   const totalPlayedHoles = gameState.log?.length ?? 0;
   const isEditingPast    = h < totalPlayedHoles;
 
+  // groupscramble uses the same game.js logic as texas (single team, gross+driverIdx)
+  // Temporarily map format so processHole/editHole handle it correctly
+  const _gsFormatSwap = isGroupScramble;
+  if (_gsFormatSwap) { gameState = { ...gameState, format: 'texas', texasScoringFmt: 'stableford' }; }
+
   if (isEditingPast) {
     gameState = editHole(gameState, h, grosses);
       gameState.hole = h + 1;
   } else {
     gameState = processHole(gameState, grosses);
   }
+
+  if (_gsFormatSwap) { gameState = { ...gameState, format: 'groupscramble', texasScoringFmt: undefined }; }
 
   // Stamp pickup flags onto the log entry so scorecard can display P.Up correctly
   if (anyPickup) {
@@ -16160,8 +16376,10 @@ function _wizSetFormat(fmt) {
 }
 
 function _wizUpdatePairHcpPanel() {
-  const panel = document.getElementById('tourn-pair-hcp-panel');
+  const panel   = document.getElementById('tourn-pair-hcp-panel');
   if (panel) panel.style.display = PAIR_HCP_FORMATS.has(_wiz.format) ? '' : 'none';
+  const gsPanel = document.getElementById('tourn-gs-hcp-panel');
+  if (gsPanel) gsPanel.style.display = _wiz.format === 'groupscramble' ? '' : 'none';
 }
 
 // Wire wizard cat-tiles (same expand/collapse logic as Play screen initCategoryTiles)
@@ -16253,6 +16471,16 @@ document.getElementById('tourn-pair-hcp-btns')?.querySelectorAll('[data-phcp]').
   });
 });
 
+document.getElementById('tourn-gs-hcp-btns')?.querySelectorAll('[data-gshcp]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('tourn-gs-hcp-btns').querySelectorAll('[data-gshcp]')
+      .forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tourn-gs-hcp-mode').value = btn.dataset.gshcp;
+    _wiz.gsHcpMode = btn.dataset.gshcp;
+  });
+});
+
 document.getElementById('btn-pair-hcp-info')?.addEventListener('click', () => {
   showScreen('screen-pair-hcp-info');
 });
@@ -16298,6 +16526,7 @@ document.getElementById('btn-wizard-2-next')?.addEventListener('click', () => {
   _wiz.hcpMode     = document.getElementById('tourn-hcp-mode')?.value ?? 'none';
   _wiz.hcpStrength = parseInt(document.getElementById('tourn-hcp-strength')?.value ?? '3') || 3;
   _wiz.pairHcpMode = document.getElementById('tourn-pair-hcp-mode')?.value ?? 'shared';
+  _wiz.gsHcpMode   = document.getElementById('tourn-gs-hcp-mode')?.value ?? 'average';
   _wizBuildCourseStep();
   _wizGoStep(3);
 });
@@ -16377,19 +16606,50 @@ function _wizRenderPlayerList() {
     listEl.innerHTML = '<div style="padding:0.5rem 0;font-size:0.85rem;color:var(--text-muted);text-align:center;">No players added yet</div>';
     return;
   }
-  listEl.innerHTML = `<div class="pp-grid">${_wiz.players.map((p, i) => `
-    <div class="pp-card" style="position:relative;">
-      <button data-wiz-remove="${i}" style="position:absolute;top:4px;right:4px;
-              background:none;border:none;color:var(--danger);font-size:0.85rem;
-              cursor:pointer;padding:2px 5px;line-height:1;border-radius:4px;">✕</button>
-      <div class="pp-name" style="font-size:14px;padding-right:1.4rem;">${_esc(p.name)}</div>
-      <div class="pp-bottom" style="margin-top:auto;">
-        <div class="pp-stat">
-          <div class="pp-stat-label">HCP Index</div>
-          <div class="pp-stat-value">${p.hcpIndex ?? '—'}</div>
-        </div>
+  if (_wiz.format === 'groupscramble') {
+    // Show all players as a single joined team with team HCP badge
+    const hcpArr   = _wiz.players.map(p => p.hcpIndex ?? 0);
+    const teamHcp  = hcpArr.length
+      ? texasTeamHandicap(hcpArr, _wiz.gsHcpMode ?? 'average', 100)
+      : '—';
+    let teamHtml = `<div style="background:var(--surface2);border:1px solid var(--border);
+        border-radius:var(--radius-sm);padding:0.6rem 0.75rem;margin-bottom:0.5rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+        <span style="font-weight:800;font-size:0.95rem;color:var(--gold);">🎯 Group Scramble Team</span>
+        <span style="font-size:0.85rem;font-weight:700;color:var(--muted2);">Team HCP ${teamHcp}</span>
       </div>
-    </div>`).join('')}</div>`;
+      <div class="pp-grid">`;
+    _wiz.players.forEach((p, i) => {
+      teamHtml += `<div class="pp-card pp-paired" style="position:relative;">
+        <button data-wiz-remove="${i}" style="position:absolute;top:4px;right:4px;
+                background:none;border:none;color:var(--danger);font-size:0.85rem;
+                cursor:pointer;padding:2px 5px;line-height:1;border-radius:4px;">✕</button>
+        <div class="pp-name" style="font-size:14px;padding-right:1.4rem;">${_esc(p.name)}</div>
+        <div class="pp-bottom" style="margin-top:auto;">
+          <div class="pp-stat">
+            <div class="pp-stat-label">HCP Index</div>
+            <div class="pp-stat-value">${p.hcpIndex ?? '—'}</div>
+          </div>
+        </div>
+      </div>`;
+    });
+    teamHtml += `</div></div>`;
+    listEl.innerHTML = teamHtml;
+  } else {
+    listEl.innerHTML = `<div class="pp-grid">${_wiz.players.map((p, i) => `
+      <div class="pp-card" style="position:relative;">
+        <button data-wiz-remove="${i}" style="position:absolute;top:4px;right:4px;
+                background:none;border:none;color:var(--danger);font-size:0.85rem;
+                cursor:pointer;padding:2px 5px;line-height:1;border-radius:4px;">✕</button>
+        <div class="pp-name" style="font-size:14px;padding-right:1.4rem;">${_esc(p.name)}</div>
+        <div class="pp-bottom" style="margin-top:auto;">
+          <div class="pp-stat">
+            <div class="pp-stat-label">HCP Index</div>
+            <div class="pp-stat-value">${p.hcpIndex ?? '—'}</div>
+          </div>
+        </div>
+      </div>`).join('')}</div>`;
+  }
 
   listEl.querySelectorAll('[data-wiz-remove]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -16875,6 +17135,7 @@ async function _wizCreateTournament() {
       hcpMode:      _wiz.hcpMode,
       hcpStrength:  _wiz.hcpMode === 'auto' ? _wiz.hcpStrength : null,
       pairHcpMode:  PAIR_HCP_FORMATS.has(_wiz.format) ? (_wiz.pairHcpMode ?? 'shared') : null,
+      gsHcpMode:    _wiz.format === 'groupscramble' ? (_wiz.gsHcpMode ?? 'average') : null,
       pairs:        pairsPayload,
       duration:     _wiz.duration,
       organiserHash: hash,
@@ -17200,6 +17461,8 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
       noteEl.style.display = 'none';
     }
 
+    const isGS = tournRecord?.format === 'groupscramble';
+
     // Player checklist
     if (listEl) {
       if (!players.length) {
@@ -17209,30 +17472,69 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
           const cb = label.querySelector('input[type=checkbox]');
           if (cb) label.classList.toggle('pp-paired', cb.checked);
         };
-        listEl.innerHTML = `<div class="pp-grid">${players.map(p => {
-          const origHcp = p.originalHcp ?? p.hcpIndex ?? 0;
-          const adjHcp  = p.adjustedHcp ?? origHcp;
-          return `<label class="pp-card pp-paired" style="cursor:pointer;position:relative;"
-            data-tsr-label>
-            <input type="checkbox" data-player-id="${_esc(p.playerId ?? p.id)}"
-              data-player-name="${_esc(p.name)}"
-              data-player-orig-hcp="${origHcp}"
-              data-player-adj-hcp="${adjHcp}"
-              checked style="position:absolute;top:6px;right:6px;
-                width:1.1rem;height:1.1rem;accent-color:var(--gold);">
-            <div class="pp-name" style="font-size:14px;padding-right:1.4rem;">${_esc(p.name)}</div>
-            <div class="pp-bottom" style="margin-top:auto;">
-              <div class="pp-stat">
-                <div class="pp-stat-label">Index</div>
-                <div class="pp-stat-value">${origHcp}</div>
-              </div>
-              <div class="pp-stat pp-stat-right">
-                <div class="pp-stat-label">Course HCP</div>
-                <div class="pp-partner pp-partner-active">${adjHcp}</div>
-              </div>
+
+        if (isGS) {
+          // Group Scramble: show all roster players as a single joined team
+          const gsHcpMode = tournRecord?.gsHcpMode ?? 'average';
+          const hcpArr    = players.map(p => p.adjustedHcp ?? p.originalHcp ?? p.hcpIndex ?? 0);
+          const teamHcp   = hcpArr.length ? texasTeamHandicap(hcpArr, gsHcpMode, 100) : '—';
+          let gsHtml = `<div style="background:var(--surface2);border:1px solid var(--border);
+              border-radius:var(--radius-sm);padding:0.6rem 0.75rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+              <span style="font-weight:800;font-size:0.95rem;color:var(--gold);">🎯 Group Scramble Team</span>
+              <span style="font-size:0.85rem;font-weight:700;color:var(--muted2);">Team HCP ${teamHcp}</span>
             </div>
-          </label>`;
-        }).join('')}</div>`;
+            <div class="pp-grid">`;
+          players.forEach(p => {
+            const origHcp = p.originalHcp ?? p.hcpIndex ?? 0;
+            const adjHcp  = p.adjustedHcp  ?? origHcp;
+            gsHtml += `<label class="pp-card pp-paired" style="cursor:pointer;position:relative;" data-tsr-label>
+              <input type="checkbox" data-player-id="${_esc(p.playerId ?? p.id)}"
+                data-player-name="${_esc(p.name)}"
+                data-player-orig-hcp="${origHcp}"
+                data-player-adj-hcp="${adjHcp}"
+                checked style="position:absolute;top:6px;right:6px;width:1.1rem;height:1.1rem;accent-color:var(--gold);">
+              <div class="pp-name" style="font-size:14px;padding-right:1.4rem;">${_esc(p.name)}</div>
+              <div class="pp-bottom" style="margin-top:auto;">
+                <div class="pp-stat">
+                  <div class="pp-stat-label">Index</div>
+                  <div class="pp-stat-value">${origHcp}</div>
+                </div>
+                <div class="pp-stat pp-stat-right">
+                  <div class="pp-stat-label">Course HCP</div>
+                  <div class="pp-partner pp-partner-active">${adjHcp}</div>
+                </div>
+              </div>
+            </label>`;
+          });
+          gsHtml += `</div></div>`;
+          listEl.innerHTML = gsHtml;
+        } else {
+          listEl.innerHTML = `<div class="pp-grid">${players.map(p => {
+            const origHcp = p.originalHcp ?? p.hcpIndex ?? 0;
+            const adjHcp  = p.adjustedHcp ?? origHcp;
+            return `<label class="pp-card pp-paired" style="cursor:pointer;position:relative;"
+              data-tsr-label>
+              <input type="checkbox" data-player-id="${_esc(p.playerId ?? p.id)}"
+                data-player-name="${_esc(p.name)}"
+                data-player-orig-hcp="${origHcp}"
+                data-player-adj-hcp="${adjHcp}"
+                checked style="position:absolute;top:6px;right:6px;
+                  width:1.1rem;height:1.1rem;accent-color:var(--gold);">
+              <div class="pp-name" style="font-size:14px;padding-right:1.4rem;">${_esc(p.name)}</div>
+              <div class="pp-bottom" style="margin-top:auto;">
+                <div class="pp-stat">
+                  <div class="pp-stat-label">Index</div>
+                  <div class="pp-stat-value">${origHcp}</div>
+                </div>
+                <div class="pp-stat pp-stat-right">
+                  <div class="pp-stat-label">Course HCP</div>
+                  <div class="pp-partner pp-partner-active">${adjHcp}</div>
+                </div>
+              </div>
+            </label>`;
+          }).join('')}</div>`;
+        }
         listEl.querySelectorAll('[data-tsr-label]').forEach(label => {
           label.addEventListener('change', () => _toggleCard(label));
         });
@@ -17272,11 +17574,13 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
           name: p.name, hcpIndex: p.hcpIndex,
           tournamentPlayerId: p.playerId,
         }));
-        setup.courseId = courseId;
-        setup.scoring  = tournRecord?.format ?? 'stableford';
-        setup.holes    = 18;
-        setup.numGroups = 1;
+        setup.courseId  = courseId;
+        setup.scoring   = tournRecord?.format ?? 'stableford';
+        setup.holes     = 18;
+        setup.numGroups  = 1;
         setup.numPlayers = selectedPlayers.length;
+        // Thread Group Scramble HCP mode from tournament config
+        if (isGS) setup.gsHcpMode = tournRecord?.gsHcpMode ?? 'average';
         buildSetupReview();
         showScreen('screen-setup-review');
       };
