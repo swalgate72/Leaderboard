@@ -3,18 +3,30 @@
 // Deploy this as the Cloudflare Worker at:
 //   https://leaderboardsync.sw-77d.workers.dev
 //
-// KV Namespace required:
-//   Binding name: COURSE_LIBRARY
+// KV Namespaces required:
+//   Binding name: COURSE_LIBRARY  — approved / pending courses
+//   Binding name: GAMES           — game codes, scores, tournaments
+//   Binding name: PLAYER_PROFILES — permanent player profiles (no TTL)
+//   Binding name: FRIEND_CODES    — short-lived 5-digit swap codes (TTL)
 //   Add in Cloudflare dashboard → Workers → leaderboardsync → Settings → Variables → KV Namespace Bindings
 //
 // All existing game-code routes are preserved unchanged.
-// New routes added in Stage 7:
+// New routes added in Stage 7 (courses):
 //   GET  /courses              — list approved courses (paginated)
 //   GET  /courses/:id          — get single course by sharedId
 //   POST /courses/submit       — submit a course to the pending queue
 //   GET  /admin/courses/pending — list pending courses (admin only)
 //   POST /admin/courses/approve/:id — approve a pending course
 //   PUT  /admin/courses/:id    — edit an approved course
+//
+// New routes added in Stage 9 (player profiles):
+//   POST /player               — create profile → { id, alias, name, handicapIndex }
+//   GET  /player/:id           — fetch profile by UUID
+//   GET  /player/alias/:alias  — reverse-lookup by alias
+//   PUT  /player/:id           — update profile (body must include id matching path)
+//   GET  /players?ids=a,b,c    — batch fetch up to 50 profiles
+//   POST /friend-code          — generate 5-digit swap code (10-min TTL)
+//   POST /friend-swap          — { myId, theirCode } → resolve both profiles
 //
 // Admin routes require the header: X-Admin-Key: <ADMIN_SECRET env var>
 // ================================================================
@@ -93,6 +105,27 @@ function makeCode(n) {
   const arr   = new Uint8Array(n);
   crypto.getRandomValues(arr);
   return Array.from(arr, b => chars[b % chars.length]).join('');
+}
+
+// ── Generate a UUID v4 (used as profile write token) ─────────────
+function genUUID() {
+  const b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  b[6] = (b[6] & 0x0f) | 0x40; // version 4
+  b[8] = (b[8] & 0x3f) | 0x80; // variant
+  const h = Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
+}
+
+// ── Generate a player alias ───────────────────────────────────────
+// Format: WORD-NNNN  e.g. STEVE-4821
+// Word is the first token of the supplied name, uppercased, max 12 chars.
+function makeAlias(name) {
+  const word = (name ?? 'PLAYER').trim().split(/\s+/)[0].toUpperCase().replace(/[^A-Z]/g, '').slice(0, 12) || 'PLAYER';
+  const arr  = new Uint8Array(2);
+  crypto.getRandomValues(arr);
+  const num  = ((arr[0] << 8) | arr[1]) % 10000;
+  return `${word}-${String(num).padStart(4, '0')}`;
 }
 
 // ================================================================
@@ -189,6 +222,46 @@ export default {
       }
 
       return err('Not found', 404);
+    }
+
+    // ── Player profile routes (Stage 9) ──────────────────────────
+
+    // POST /player — create profile
+    if (method === 'POST' && path === '/player') {
+      return handlePlayerCreate(request, env);
+    }
+
+    // GET /player/alias/:alias — reverse lookup (before /:id to avoid clash)
+    if (method === 'GET' && path.startsWith('/player/alias/')) {
+      const alias = path.slice('/player/alias/'.length);
+      return handlePlayerAlias(alias, env);
+    }
+
+    // GET /player/:id — fetch by UUID
+    if (method === 'GET' && path.startsWith('/player/') && path.split('/').length === 3) {
+      const id = path.split('/')[2];
+      return handlePlayerGet(id, env);
+    }
+
+    // PUT /player/:id — update profile
+    if (method === 'PUT' && path.startsWith('/player/') && path.split('/').length === 3) {
+      const id = path.split('/')[2];
+      return handlePlayerUpdate(id, request, env);
+    }
+
+    // GET /players?ids=a,b,c — batch fetch (note: plural, different from /players/:code)
+    if (method === 'GET' && path === '/players' && url.searchParams.has('ids')) {
+      return handlePlayersBatch(url, env);
+    }
+
+    // POST /friend-code — generate a 5-digit swap code
+    if (method === 'POST' && path === '/friend-code') {
+      return handleFriendCode(request, env);
+    }
+
+    // POST /friend-swap — resolve a swap code
+    if (method === 'POST' && path === '/friend-swap') {
+      return handleFriendSwap(request, env);
     }
 
     // ── Route: health check ───────────────────────────────────────
@@ -1036,6 +1109,193 @@ async function handleRosterAddPlayer(code, request, env) {
   const ttlRemaining = Math.max(1, Math.floor((record.expiresAt - Date.now()) / 1000) + GRACE_SECS);
   await env.GAMES.put('roster:' + code, JSON.stringify(updatedRoster), { expirationTtl: ttlRemaining });
   return json({ ok: true, playerId: newPlayer.playerId, name: newPlayer.name }, 201);
+}
+
+// ================================================================
+// PLAYER PROFILE HANDLERS (Stage 9)
+// ================================================================
+//
+// KV key patterns:
+//   profile:<uuid>        — profile record (PLAYER_PROFILES, no TTL)
+//   alias:<ALIAS>         — uuid pointer for reverse lookup (PLAYER_PROFILES, no TTL)
+//   fcode:<5DIGIT>        — { profileId } with 10-min TTL (FRIEND_CODES)
+//
+// Profile record shape:
+//   { id, alias, name, handicapIndex, createdAt, updatedAt }
+//
+// The UUID is the write token: only the device that created the profile
+// knows it and proves ownership by including it in PUT requests.
+
+async function handlePlayerCreate(request, env) {
+  if (!env.PLAYER_PROFILES) return err('PLAYER_PROFILES KV not configured', 503);
+
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON'); }
+
+  if (!body.name || typeof body.name !== 'string') return err('name required');
+
+  const id    = genUUID();
+  const alias = makeAlias(body.name);
+
+  // Ensure alias uniqueness — regenerate up to 5 times if collision
+  let finalAlias = alias;
+  for (let i = 0; i < 5; i++) {
+    const existing = await env.PLAYER_PROFILES.get('alias:' + finalAlias);
+    if (!existing) break;
+    finalAlias = makeAlias(body.name); // try again with fresh random suffix
+  }
+
+  const now = new Date().toISOString();
+  const profile = {
+    id,
+    alias:         finalAlias,
+    name:          body.name.trim(),
+    handicapIndex: typeof body.handicapIndex === 'number' ? body.handicapIndex : null,
+    createdAt:     now,
+    updatedAt:     now,
+  };
+
+  // Store profile and alias pointer atomically (best-effort; KV is eventually consistent)
+  await Promise.all([
+    env.PLAYER_PROFILES.put('profile:' + id,           JSON.stringify(profile)),
+    env.PLAYER_PROFILES.put('alias:'   + finalAlias,   id),
+  ]);
+
+  return json({ id, alias: finalAlias, name: profile.name, handicapIndex: profile.handicapIndex }, 201);
+}
+
+async function handlePlayerGet(id, env) {
+  if (!env.PLAYER_PROFILES) return err('PLAYER_PROFILES KV not configured', 503);
+  const profile = await env.PLAYER_PROFILES.get('profile:' + id, { type: 'json' });
+  if (!profile) return err('Profile not found', 404);
+  return json(profile);
+}
+
+async function handlePlayerAlias(alias, env) {
+  if (!env.PLAYER_PROFILES) return err('PLAYER_PROFILES KV not configured', 503);
+  const id = await env.PLAYER_PROFILES.get('alias:' + alias.toUpperCase());
+  if (!id) return err('Alias not found', 404);
+  const profile = await env.PLAYER_PROFILES.get('profile:' + id, { type: 'json' });
+  if (!profile) return err('Profile not found', 404);
+  return json(profile);
+}
+
+async function handlePlayerUpdate(id, request, env) {
+  if (!env.PLAYER_PROFILES) return err('PLAYER_PROFILES KV not configured', 503);
+
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON'); }
+
+  // UUID in body must match path — this is the write token
+  if (body.id !== id) return err('id in body must match URL', 403);
+
+  const existing = await env.PLAYER_PROFILES.get('profile:' + id, { type: 'json' });
+  if (!existing) return err('Profile not found', 404);
+
+  // Only allow safe fields to be updated; id/alias/createdAt are immutable
+  const updated = {
+    ...existing,
+    name:          typeof body.name          === 'string' ? body.name.trim() : existing.name,
+    handicapIndex: typeof body.handicapIndex === 'number' ? body.handicapIndex : existing.handicapIndex,
+    updatedAt:     new Date().toISOString(),
+  };
+
+  await env.PLAYER_PROFILES.put('profile:' + id, JSON.stringify(updated));
+  return json({ id, alias: updated.alias, name: updated.name, handicapIndex: updated.handicapIndex });
+}
+
+async function handlePlayersBatch(url, env) {
+  if (!env.PLAYER_PROFILES) return err('PLAYER_PROFILES KV not configured', 503);
+
+  const raw = url.searchParams.get('ids') ?? '';
+  const ids = raw.split(',').map(s => s.trim()).filter(Boolean).slice(0, 50);
+  if (!ids.length) return err('ids query param required', 400);
+
+  const profiles = await Promise.all(
+    ids.map(id => env.PLAYER_PROFILES.get('profile:' + id, { type: 'json' }))
+  );
+
+  // Return map of id → profile (null for not found)
+  const result = {};
+  ids.forEach((id, i) => { result[id] = profiles[i] ?? null; });
+  return json({ profiles: result });
+}
+
+// ── Friend swap code flow ─────────────────────────────────────────
+// POST /friend-code { myId }
+//   → generate a 5-digit code, store { profileId: myId } with 10-min TTL
+//   → return { code, expiresAt }
+//
+// POST /friend-swap { myId, theirCode }
+//   → look up code → get their profile
+//   → verify myId exists
+//   → delete code (one-time use)
+//   → return { me: <myProfile>, them: <theirProfile> }
+
+const FRIEND_CODE_TTL = 10 * 60; // 10 minutes in seconds
+
+async function handleFriendCode(request, env) {
+  if (!env.FRIEND_CODES)    return err('FRIEND_CODES KV not configured', 503);
+  if (!env.PLAYER_PROFILES) return err('PLAYER_PROFILES KV not configured', 503);
+
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON'); }
+  if (!body.myId || typeof body.myId !== 'string') return err('myId required');
+
+  // Verify profile exists
+  const profile = await env.PLAYER_PROFILES.get('profile:' + body.myId, { type: 'json' });
+  if (!profile) return err('Profile not found', 404);
+
+  // Generate a unique 5-digit code (retry on collision)
+  let code;
+  for (let i = 0; i < 10; i++) {
+    const candidate = makeCode(5); // 5 chars from safe alphabet
+    const existing  = await env.FRIEND_CODES.get('fcode:' + candidate);
+    if (!existing) { code = candidate; break; }
+  }
+  if (!code) return err('Could not generate unique code — please retry', 503);
+
+  const expiresAt = new Date(Date.now() + FRIEND_CODE_TTL * 1000).toISOString();
+  await env.FRIEND_CODES.put(
+    'fcode:' + code,
+    JSON.stringify({ profileId: body.myId, createdAt: new Date().toISOString() }),
+    { expirationTtl: FRIEND_CODE_TTL }
+  );
+
+  return json({ code, expiresAt }, 201);
+}
+
+async function handleFriendSwap(request, env) {
+  if (!env.FRIEND_CODES)    return err('FRIEND_CODES KV not configured', 503);
+  if (!env.PLAYER_PROFILES) return err('PLAYER_PROFILES KV not configured', 503);
+
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON'); }
+  if (!body.myId      || typeof body.myId      !== 'string') return err('myId required');
+  if (!body.theirCode || typeof body.theirCode !== 'string') return err('theirCode required');
+
+  const code = body.theirCode.toUpperCase().trim();
+
+  // Look up swap code
+  const codeRecord = await env.FRIEND_CODES.get('fcode:' + code, { type: 'json' });
+  if (!codeRecord) return err('Code not found or expired', 404);
+
+  const theirId = codeRecord.profileId;
+  if (theirId === body.myId) return err('Cannot swap with yourself', 400);
+
+  // Fetch both profiles in parallel
+  const [me, them] = await Promise.all([
+    env.PLAYER_PROFILES.get('profile:' + body.myId, { type: 'json' }),
+    env.PLAYER_PROFILES.get('profile:' + theirId,   { type: 'json' }),
+  ]);
+
+  if (!me)   return err('Your profile not found', 404);
+  if (!them) return err('Their profile not found', 404);
+
+  // Delete code — one-time use
+  await env.FRIEND_CODES.delete('fcode:' + code);
+
+  return json({ me, them });
 }
 
 async function handleRosterAdjust(code, request, env) {
