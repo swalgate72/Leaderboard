@@ -340,7 +340,7 @@ async function syncHcpToCF(newHcp) {
 async function _addFriendFromCFProfile(profile) {
   if (!profile) throw new Error('Profile not found');
   const nameParts = (profile.name ?? 'Friend').trim().split(/\s+/);
-  await guestProfileCreate({
+  await guestProfileCreate(currentUser?.id ?? null, {
     name:       profile.name,
     first_name: nameParts[0] ?? profile.name,
     last_name:  nameParts.slice(1).join(' ') ?? '',
@@ -16059,7 +16059,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029s';
+const APP_BUILD = '20261029t';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
