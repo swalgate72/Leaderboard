@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261029z';
+window.APP_BUILD = '20261029aa';
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -62,7 +62,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261029z');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261029aa');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -3939,7 +3939,7 @@ function playerCapAlert(adding = 1, pending = 0) {
     const maxTexas = (setup.texasTeamSize ?? 2) * 2;
     if (after > maxTexas) return `Texas Scramble team size is ${setup.texasTeamSize ?? 2} — max ${maxTexas} players (2 teams).`;
   }
-  if (after > 8) return 'Maximum 8 players per game.';
+  if (after > 20) return 'Maximum 20 players per game.';
   return null;
 }
 
@@ -16060,7 +16060,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029z';
+const APP_BUILD = '20261029aa';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
