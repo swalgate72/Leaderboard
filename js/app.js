@@ -2103,7 +2103,7 @@ function tryRestoreTournamentSetupScreen() {
 
     if (!screenId || !TOURNAMENT_SETUP_SCREENS.includes(screenId)) return false;
     localStorage.removeItem('lb-tournament-setup-screen');
-    showTournamentSetup();
+    showTournamentHub();
     return true;
   } catch { return false; }
 }
@@ -3939,7 +3939,8 @@ function playerCapAlert(adding = 1, pending = 0) {
     const maxTexas = (setup.texasTeamSize ?? 2) * 2;
     if (after > maxTexas) return `Texas Scramble team size is ${setup.texasTeamSize ?? 2} — max ${maxTexas} players (2 teams).`;
   }
-  if (after > 4) return 'Maximum 4 players per game.';
+  // Tournament rounds can have any number of players (roster-based, not capped at 4)
+  if (!setup.tournamentId && after > 4) return 'Maximum 4 players per game.';
   return null;
 }
 
@@ -16060,7 +16061,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029u';
+const APP_BUILD = '20261029v';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
