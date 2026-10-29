@@ -243,6 +243,113 @@ async function _workerFetch(path, method = 'GET', body = null) {
   return data;
 }
 
+// ── CF Player Profiles ───────────────────────────────────────────
+// Local storage key: 'lb-player-profile'
+// Shape: { id (UUID = write token), alias, name, handicapIndex, createdAt }
+//
+// The UUID never leaves the device except in PUT request bodies where it
+// proves ownership.  Aliases (e.g. STEVE-4821) are safe to share verbally.
+
+const CF_PROFILE_KEY = 'lb-player-profile';
+
+/** Load the local CF profile record, or null if not yet created. */
+function _cfProfileLoad() {
+  try {
+    const raw = localStorage.getItem(CF_PROFILE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+/** Persist the CF profile record locally. */
+function _cfProfileSave(profile) {
+  try { localStorage.setItem(CF_PROFILE_KEY, JSON.stringify(profile)); } catch {}
+}
+
+/**
+ * Ensure this device has a CF player profile.
+ * - If local record exists and is already synced to CF, return it.
+ * - If no local record, create one on CF (using the user's name + hcp) and save locally.
+ * - If local record exists but CF returns 404, re-create it.
+ * Never throws — all failures are silent so as not to block app startup.
+ */
+async function ensureCFProfile() {
+  // Only run once per session to avoid repeated CF calls
+  if (ensureCFProfile._done) return _cfProfileLoad();
+  ensureCFProfile._done = true;
+
+  try {
+    let local = _cfProfileLoad();
+
+    if (local?.id) {
+      // Verify it still exists on CF (quick GET)
+      try {
+        const remote = await _workerFetch(`/player/${local.id}`);
+        // Sync handicap if it differs from what's on CF
+        const currentHcp = currentProfile?.hcp ?? null;
+        if (currentHcp !== null && currentHcp !== remote.handicapIndex) {
+          const updated = await _workerFetch(`/player/${local.id}`, 'PUT', {
+            id: local.id, handicapIndex: currentHcp
+          });
+          local = { ...local, handicapIndex: currentHcp };
+          _cfProfileSave(local);
+        }
+        return local;
+      } catch (e) {
+        if (!e.message?.includes('404')) throw e;
+        // 404 — profile missing on CF, fall through to create
+      }
+    }
+
+    // Build name from local Supabase profile
+    const name = currentProfile
+      ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+      : 'Player';
+    const handicapIndex = currentProfile?.hcp ?? null;
+
+    const created = await _workerFetch('/player', 'POST', { name, handicapIndex });
+    // created = { id, alias, name, handicapIndex }
+    const newLocal = { ...created, createdAt: new Date().toISOString() };
+    _cfProfileSave(newLocal);
+    console.log('[CF] Profile created:', newLocal.alias);
+    return newLocal;
+  } catch (err) {
+    console.warn('[CF] ensureCFProfile failed (non-fatal):', err.message);
+    return _cfProfileLoad();
+  }
+}
+
+/**
+ * After the user saves their Supabase profile (name or hcp changed),
+ * push the change to CF too if a CF profile exists.
+ */
+async function syncHcpToCF(newHcp) {
+  try {
+    const local = _cfProfileLoad();
+    if (!local?.id) return;
+    await _workerFetch(`/player/${local.id}`, 'PUT', { id: local.id, handicapIndex: newHcp });
+    _cfProfileSave({ ...local, handicapIndex: newHcp });
+  } catch (err) {
+    console.warn('[CF] syncHcpToCF failed (non-fatal):', err.message);
+  }
+}
+
+/**
+ * Add a friend from their CF profile object.
+ * Stores in local guest profiles (allFriends).
+ */
+async function _addFriendFromCFProfile(profile) {
+  const nameParts = (profile.name ?? 'Friend').trim().split(/\s+/);
+  await guestProfileCreate({
+    name:       profile.name,
+    first_name: nameParts[0] ?? profile.name,
+    last_name:  nameParts.slice(1).join(' ') ?? '',
+    hcp:        profile.handicapIndex ?? null,
+    cfProfileId: profile.id,
+    cfAlias:     profile.alias,
+  });
+  allFriends = await friendsLoad(currentUser?.id ?? null);
+}
+
 // ── Game sharing ─────────────────────────────────────────────────
 
 /**
@@ -980,6 +1087,103 @@ async function _importSelectedPlayers() {
 
   // Refresh players list if visible
   if (typeof renderFriendsSection === 'function') renderFriendsSection().catch(() => {});
+}
+
+/**
+ * Show the "Swap Friend Codes" modal.
+ * Step 1: generate and display MY 5-digit code.
+ * Step 2: enter THEIR code → POST /friend-swap → save them as a friend.
+ */
+async function openSwapFriendCodesModal() {
+  const modal     = document.getElementById('modal-swap-friend-codes');
+  const yourCodeEl = document.getElementById('swap-your-code');
+  const yourAlias  = document.getElementById('swap-your-alias');
+  const input      = document.getElementById('swap-their-code-input');
+  const statusEl   = document.getElementById('swap-status');
+  const submitBtn  = document.getElementById('btn-swap-submit');
+
+  if (!modal) return;
+
+  // Reset state
+  if (input)    { input.value = ''; }
+  if (statusEl) statusEl.textContent = '';
+  if (submitBtn) submitBtn.disabled = true;
+  if (yourCodeEl) yourCodeEl.textContent = '…';
+  if (yourAlias)  yourAlias.textContent  = 'Your alias: —';
+
+  // Wire close
+  const closeBtn = document.getElementById('btn-swap-modal-close');
+  if (closeBtn && !closeBtn._wired) {
+    closeBtn._wired = true;
+    closeBtn.addEventListener('click', () => modal.classList.remove('open'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+  }
+
+  // Wire input
+  if (input && !input._wired) {
+    input._wired = true;
+    input.addEventListener('input', () => {
+      const v = input.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 5);
+      input.value = v;
+      if (submitBtn) submitBtn.disabled = v.length !== 5;
+      if (statusEl) statusEl.textContent = '';
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && submitBtn && !submitBtn.disabled) submitBtn.click();
+    });
+  }
+
+  // Wire submit
+  if (submitBtn && !submitBtn._wired) {
+    submitBtn._wired = true;
+    submitBtn.addEventListener('click', async () => {
+      const theirCode = input.value.toUpperCase().trim();
+      if (theirCode.length !== 5) return;
+      const myLocal = _cfProfileLoad();
+      if (!myLocal?.id) {
+        if (statusEl) statusEl.textContent = '⚠️ No local profile — try again in a moment.';
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = '⏳';
+      if (statusEl) statusEl.textContent = 'Looking up friend…';
+      try {
+        const result = await _workerFetch('/friend-swap', 'POST', {
+          myId: myLocal.id, theirCode
+        });
+        // result = { me, them }
+        await _addFriendFromCFProfile(result.them);
+        if (statusEl) statusEl.textContent = `✅ Added: ${result.them.name}`;
+        submitBtn.textContent = '✓ Done';
+        input.value = '';
+        setTimeout(() => modal.classList.remove('open'), 1200);
+      } catch (e) {
+        if (statusEl) statusEl.textContent = `⚠️ ${e.message || 'Code not found or expired'}`;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Add Friend';
+      }
+    });
+  }
+
+  modal.classList.add('open');
+
+  // Fetch MY code in the background
+  try {
+    const myLocal = _cfProfileLoad() ?? await ensureCFProfile();
+    if (myLocal?.alias && yourAlias) {
+      yourAlias.textContent = `Your alias: ${myLocal.alias}`;
+    }
+    if (myLocal?.id) {
+      const { code } = await _workerFetch('/friend-code', 'POST', { myId: myLocal.id });
+      if (yourCodeEl) yourCodeEl.textContent = code;
+    } else {
+      if (yourCodeEl) yourCodeEl.textContent = '—';
+      if (statusEl) statusEl.textContent = '⚠️ Set up your profile first.';
+    }
+  } catch (e) {
+    if (yourCodeEl) yourCodeEl.textContent = '—';
+    console.warn('[swap] code generation failed:', e.message);
+  }
 }
 
 /**
@@ -2056,6 +2260,15 @@ async function boot() {
   const tournViewId = params.get('tournament');
   const troundParam = params.get('tround');
   const groupParam  = params.get('group');
+  const fromAlias   = params.get('from');
+
+  // ?from=ALIAS — someone shared their friend link; store for after sign-in
+  if (fromAlias) {
+    try { sessionStorage.setItem('lb-from-alias', fromAlias.toUpperCase()); } catch {}
+    // Strip the ?from= param from the URL bar without reloading
+    const clean = window.location.pathname + window.location.hash;
+    history.replaceState(null, '', clean);
+  }
 
   if (tournViewId) { await handleTournamentViewLink(tournViewId); return; }
   if (joinToken) {
@@ -2150,6 +2363,31 @@ async function onSignedIn(user) {
     allFriends     = await friendsLoad(user.id);
     if (MULTI_USER) subscribeToFriendRequests();
     if (MULTI_USER) subscribeToGameInvites();
+    // Ensure this device has a CF player profile (non-blocking)
+    ensureCFProfile().catch(() => {});
+
+    // Handle ?from=ALIAS friend link — resolve and offer to add as friend
+    const fromAlias = (() => { try { return sessionStorage.getItem('lb-from-alias'); } catch { return null; } })();
+    if (fromAlias) {
+      try { sessionStorage.removeItem('lb-from-alias'); } catch {}
+      try {
+        const profile = await _workerFetch(`/player/alias/${encodeURIComponent(fromAlias)}`);
+        const already = allFriends.some(f => f.cfProfileId === profile.id || f.cfAlias === profile.alias);
+        if (!already) {
+          const add = confirm(`Add ${profile.name} (${profile.alias}) to your friends?`);
+          if (add) {
+            await _addFriendFromCFProfile(profile);
+            const t = document.createElement('div');
+            t.textContent = `✅ Added: ${profile.name}`;
+            t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:0.65rem 1.25rem;border-radius:20px;font-weight:800;font-size:0.9rem;z-index:9999;pointer-events:none;white-space:nowrap;';
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 2800);
+          }
+        }
+      } catch (e) {
+        console.warn('[from-alias] lookup failed:', e.message);
+      }
+    }
 
     const joinToken  = sessionStorage.getItem('lb-join-token');
     const joinTround = sessionStorage.getItem('lb-join-tround');
@@ -3797,6 +4035,11 @@ document.getElementById('btn-add-guest-friend')?.addEventListener('click', () =>
   modal.dataset.friendsMode = '1';
   modal.classList.add('open');
   document.getElementById('game-manual-first').focus();
+});
+
+// Swap Friend Codes button
+document.getElementById('btn-swap-friend-codes')?.addEventListener('click', () => {
+  openSwapFriendCodesModal();
 });
 
 // Add Selected Friends button
@@ -15738,7 +15981,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029k';
+const APP_BUILD = '20261029l';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)

@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261029k">
+  <link rel="stylesheet" href="styles.css?v=20261029l">
   <!-- jsQR: fallback QR decoder for browsers without BarcodeDetector (iOS PWA) -->
   <script src="jsQR.min.js?v=1.4.0"></script>
 </head>
@@ -1360,7 +1360,7 @@
       </div>
     </div>
 
-    <!-- Add Player to Favourites / by code -->
+    <!-- Add Player to Favourites / by swap code -->
     <div class="card mt-md">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
         <button class="btn btn-outline btn-full" id="btn-add-guest-friend"
@@ -1368,15 +1368,10 @@
                  font-size:0.95rem;padding:0.85rem;">
           👤 Add Player
         </button>
-        <button class="btn btn-outline btn-full" onclick="openAddFriendByCodeModal()"
+        <button class="btn btn-outline btn-full" id="btn-swap-friend-codes"
           style="border-color:var(--gold-border);color:var(--gold);font-weight:800;
                  font-size:0.95rem;padding:0.85rem;">
-          🔑 Add by Code
-        </button>
-        <button class="btn btn-outline btn-full" onclick="openSharePlayersModal()"
-          style="border-color:var(--gold-border);color:var(--gold);font-weight:800;
-                 font-size:0.95rem;padding:0.85rem;">
-          📤 Share Players
+          🔄 Swap Friend Codes
         </button>
       </div>
     </div>
@@ -1996,7 +1991,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261029k"></script>
+<script type="module" src="js/app.js?v=20261029l"></script>
 
 
 <!-- ══════════════════════════════════════════
@@ -3370,6 +3365,55 @@
 </div>
 
 <!-- ── Share Players modal ──────────────────────────────────── -->
+<!-- ══════════════════════════════════════════
+     SWAP FRIEND CODES MODAL
+     ══════════════════════════════════════════ -->
+<div id="modal-swap-friend-codes" class="modal-overlay" role="dialog" aria-modal="true">
+  <div class="modal-box" style="max-width:340px;width:92%;text-align:center;">
+    <div class="modal-header" style="justify-content:space-between;">
+      <span class="modal-title">🔄 Swap Friend Codes</span>
+      <button class="btn btn-ghost" id="btn-swap-modal-close" style="font-size:1.2rem;">✕</button>
+    </div>
+    <div style="padding:0 1rem 1.25rem;">
+
+      <!-- Step 1: your code -->
+      <div id="swap-step-yours" style="margin-bottom:1.25rem;">
+        <p style="font-size:0.85rem;color:var(--muted);margin:0 0 0.6rem;line-height:1.5;">
+          Your code (valid 10 min) — read it out to your friend, or show them your screen:
+        </p>
+        <div id="swap-your-code" style="font-size:2.8rem;font-weight:800;letter-spacing:0.2em;
+          color:var(--gold);margin-bottom:0.4rem;min-height:3.5rem;line-height:1.1;">
+          …
+        </div>
+        <div id="swap-your-alias" style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem;">
+          Your alias: —
+        </div>
+      </div>
+
+      <!-- Step 2: their code -->
+      <div id="swap-step-theirs">
+        <p style="font-size:0.85rem;color:var(--muted);margin:0 0 0.6rem;line-height:1.5;">
+          Enter your friend's 5-digit code:
+        </p>
+        <input id="swap-their-code-input" maxlength="5" autocomplete="off" spellcheck="false"
+          inputmode="text"
+          placeholder="e.g. A3K7P"
+          style="display:block;width:100%;background:var(--surface2);
+            border:1.5px solid var(--gold-border);
+            color:var(--text);border-radius:0.5rem;padding:0.65rem 0.75rem;
+            font-size:1.6rem;font-weight:700;letter-spacing:0.25em;text-align:center;
+            text-transform:uppercase;margin-bottom:0.5rem;outline:none;box-sizing:border-box;">
+        <div id="swap-status" style="font-size:0.82rem;color:var(--muted);
+          min-height:1.2em;margin-bottom:0.75rem;"></div>
+        <button id="btn-swap-submit" class="btn btn-gold btn-full" style="font-weight:800;" disabled>
+          Add Friend
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <div id="modal-share-players" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-share-players-title">
   <div class="modal-box" style="max-width:400px;width:92%;">
     <div class="modal-header">
