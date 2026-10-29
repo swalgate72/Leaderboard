@@ -62,7 +62,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw.js');
+    const reg = await navigator.serviceWorker.register('/sw.js?v=20261029x');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -3939,8 +3939,7 @@ function playerCapAlert(adding = 1, pending = 0) {
     const maxTexas = (setup.texasTeamSize ?? 2) * 2;
     if (after > maxTexas) return `Texas Scramble team size is ${setup.texasTeamSize ?? 2} — max ${maxTexas} players (2 teams).`;
   }
-  // Tournament rounds can have any number of players (roster-based, not capped at 4)
-  if (!setup.tournamentId && after > 4) return 'Maximum 4 players per game.';
+  if (after > 8) return 'Maximum 8 players per game.';
   return null;
 }
 
@@ -16061,7 +16060,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029w';
+const APP_BUILD = '20261029x';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
