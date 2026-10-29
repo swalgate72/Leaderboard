@@ -16,13 +16,31 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261029f">
+  <link rel="stylesheet" href="styles.css?v=20261029g">
   <!-- jsQR: fallback QR decoder for browsers without BarcodeDetector (iOS PWA) -->
   <script src="jsQR.min.js?v=1.4.0"></script>
 </head>
 <body class="local-mode">
 
-
+<!-- Update available toast — shown when version.json reports a newer build -->
+<div id="update-toast" style="
+  display:none;position:fixed;bottom:1.25rem;left:50%;transform:translateX(-50%);
+  z-index:9999;background:var(--surface2);border:1.5px solid var(--green-border);
+  border-radius:var(--radius);padding:0.75rem 1rem;
+  box-shadow:0 4px 24px rgba(0,0,0,0.25);
+  display:none;align-items:center;gap:0.75rem;
+  font-family:'Plus Jakarta Sans',sans-serif;white-space:nowrap;
+  max-width:calc(100vw - 2rem);">
+  <span style="font-size:0.95rem;font-weight:600;color:var(--text);">🆕 Update available</span>
+  <button onclick="location.reload(true)" style="
+    background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);
+    padding:0.4rem 0.9rem;font-size:0.9rem;font-weight:700;cursor:pointer;">
+    Refresh
+  </button>
+  <button onclick="document.getElementById('update-toast').style.display='none'" style="
+    background:transparent;border:none;color:var(--muted);font-size:1.1rem;
+    cursor:pointer;padding:0 0.2rem;line-height:1;">✕</button>
+</div>
 
 <div id="screen-home" class="screen">
   <div style="padding: 0 0 calc(5.5rem + env(safe-area-inset-bottom, 0px)); max-width: 480px; margin: 0 auto;">
@@ -1978,7 +1996,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261029f"></script>
+<script type="module" src="js/app.js?v=20261029g"></script>
 
 
 <!-- ══════════════════════════════════════════

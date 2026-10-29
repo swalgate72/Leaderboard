@@ -2041,6 +2041,8 @@ function renderLogos() {
 async function boot() {
   applyTheme(theme);
   renderLogos();
+  // Check for a newer deployment in the background — shows toast if found
+  checkForUpdate();
   // Restore game code pill if a code was active from a previous session
   try {
     const ts = _tournState();
@@ -15728,6 +15730,27 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', () => {
   _flushOnHide();
 });
+
+// ================================================================
+// VERSION CHECK — polls /version.json (network-only) and shows a
+// toast when the deployed build differs from the running build.
+// ================================================================
+const APP_BUILD = '20261029g';
+
+async function checkForUpdate() {
+  try {
+    // Cache-bust with timestamp so the SW / browser never serves a stale copy
+    const res = await fetch(`/version.json?_=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return;
+    const { build } = await res.json();
+    if (build && build !== APP_BUILD) {
+      const toast = document.getElementById('update-toast');
+      if (toast) toast.style.display = 'flex';
+    }
+  } catch {
+    // Offline or fetch failed — silently ignore
+  }
+}
 
 // ================================================================
 // KICK OFF

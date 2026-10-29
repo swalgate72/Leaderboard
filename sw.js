@@ -33,7 +33,7 @@
 
 // ── Version — bump this string on every deployment ───────────────────
 // Must match the build tag used in app.js, index.html and the ?v= tags.
-const CACHE_NAME = 'leaderboard-v20261029f';
+const CACHE_NAME = 'leaderboard-v20261029g';
 
 // ── App shell — URLs listed in ESSENTIAL_URLS and OPTIONAL_URLS below ─
 // All versioned ?v= query strings must exactly match index.html and
@@ -49,10 +49,11 @@ const CLOUDFLARE_ORIGIN = 'https://leaderboardsync.sw-77d.workers.dev';
 
 // Same-origin path prefixes that bypass the cache entirely.
 const PASSTHROUGH_PREFIXES = [
-  '/api/',      // Vercel serverless functions (push, guest, invite)
-  '/live',      // live.html — depends on Cloudflare, useless offline
-  '/view',      // view.html — Supabase-dependent, useless offline
-  '/onboard',   // onboard.html — Supabase-dependent, useless offline
+  '/api/',          // Vercel serverless functions (push, guest, invite)
+  '/live',          // live.html — depends on Cloudflare, useless offline
+  '/view',          // view.html — Supabase-dependent, useless offline
+  '/onboard',       // onboard.html — Supabase-dependent, useless offline
+  '/version.json',  // version check — must always be fetched from network
 ];
 
 // ── Install — precache app shell ─────────────────────────────────────
@@ -68,9 +69,9 @@ const PASSTHROUGH_PREFIXES = [
 const ESSENTIAL_URLS = [
   '/',
   '/index.html',
-  '/styles.css?v=20261029f',
+  '/styles.css?v=20261029g',
   '/jsQR.min.js?v=1.4.0',
-  '/js/app.js?v=20261029f',
+  '/js/app.js?v=20261029g',
   '/game.js?v=20260704l',
   '/db.js?v=20261026q',
   '/provider.js?v=20261021a',
