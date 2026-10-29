@@ -1176,15 +1176,36 @@ async function openSwapFriendCodesModal() {
       yourAlias.textContent = `Your alias: ${myLocal.alias}`;
     }
     if (myLocal?.id) {
-      const { code } = await _workerFetch('/friend-code', 'POST', { myId: myLocal.id });
-      if (yourCodeEl) yourCodeEl.textContent = code;
+      try {
+        const { code } = await _workerFetch('/friend-code', 'POST', { myId: myLocal.id });
+        if (yourCodeEl) yourCodeEl.textContent = code;
+      } catch (e) {
+        // Profile missing from CF (e.g. KV was configured after local profile saved) — recreate
+        if (e.message?.includes('404') || e.message?.includes('not found')) {
+          console.warn('[swap] profile not on CF, recreating…');
+          localStorage.removeItem(CF_PROFILE_KEY);
+          ensureCFProfile._done = false;
+          const fresh = await ensureCFProfile();
+          if (fresh?.id) {
+            const { code } = await _workerFetch('/friend-code', 'POST', { myId: fresh.id });
+            if (yourCodeEl) yourCodeEl.textContent = code;
+            if (fresh.alias && yourAlias) yourAlias.textContent = `Your alias: ${fresh.alias}`;
+          } else {
+            if (yourCodeEl) yourCodeEl.textContent = '—';
+            if (statusEl) statusEl.textContent = '⚠️ Could not create profile.';
+          }
+        } else {
+          if (yourCodeEl) yourCodeEl.textContent = '—';
+          console.warn('[swap] code generation failed:', e.message);
+        }
+      }
     } else {
       if (yourCodeEl) yourCodeEl.textContent = '—';
       if (statusEl) statusEl.textContent = '⚠️ Set up your profile first.';
     }
   } catch (e) {
     if (yourCodeEl) yourCodeEl.textContent = '—';
-    console.warn('[swap] code generation failed:', e.message);
+    console.warn('[swap] modal setup failed:', e.message);
   }
 }
 
@@ -16029,7 +16050,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029q';
+const APP_BUILD = '20261029r';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
