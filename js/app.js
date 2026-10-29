@@ -14605,11 +14605,50 @@ async function renderFriendsList() {
           <div class="friend-sub" style="line-height:1.5;">${details.join(' · ')}</div>
         </div>
         <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
+          <button class="btn btn-ghost friend-share-btn" style="font-size:1rem;padding:0.4rem 0.6rem;" title="Share invite">📤</button>
           <button class="btn btn-ghost friend-edit-btn" style="font-size:1rem;padding:0.4rem 0.6rem;" title="Edit">✏️</button>
           <button class="btn btn-ghost friend-del-btn" style="font-size:1rem;padding:0.4rem 0.6rem;border-color:var(--red-border);color:var(--red);" title="Remove">🗑️</button>
         </div>
       </div>`;
   }).join('');
+
+  listEl.querySelectorAll('.friend-share-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('[data-fid]');
+      const gid = row.dataset.gid;
+      const isGuest = row.dataset.isGuest === '1';
+      const f = isGuest
+        ? allFriends.find(x => x.profileId === gid)
+        : allFriends.find(x => x.friendshipId === row.dataset.fid);
+      if (!f) return;
+
+      btn.textContent = '⏳';
+      btn.disabled = true;
+      try {
+        // Ensure this friend has a CF profile
+        let alias = f.cfAlias;
+        if (!alias) {
+          const name = f.name || 'Player';
+          const hcp  = f.hcp ?? null;
+          const created = await _workerFetch('/player', 'POST', { name, handicapIndex: hcp });
+          alias = created.alias;
+          // Persist alias back to local friend record
+          if (isGuest && gid) {
+            await guestProfileUpdate(gid, { cfProfileId: created.id, cfAlias: alias });
+            allFriends = await friendsLoad(currentUser?.id ?? null);
+          }
+        }
+        const link = `https://ldrbd.app?from=${encodeURIComponent(alias)}`;
+        await navigator.clipboard.writeText(link);
+        btn.textContent = '✅';
+        setTimeout(() => { btn.textContent = '📤'; btn.disabled = false; }, 2000);
+      } catch (err) {
+        console.warn('[share-friend]', err.message);
+        btn.textContent = '❌';
+        setTimeout(() => { btn.textContent = '📤'; btn.disabled = false; }, 2000);
+      }
+    });
+  });
 
   listEl.querySelectorAll('.friend-edit-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -15988,7 +16027,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029o';
+const APP_BUILD = '20261029p';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
