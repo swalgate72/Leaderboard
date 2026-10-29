@@ -6258,6 +6258,12 @@ async function teeOff() {
       gs.texasScoringFmt = setup.texasScoringFmt ?? 'stableford';
       gs.teamName        = `Team ${g + 1}`;
 
+      // Driver quota + team size apply to all texas variants (match and stableford)
+      gs.driverUsage      = { par3: [], par4: [], par5: [] };
+      gs.texasDrivesTotal = setup.texasDrivesTotal ?? null;
+      gs.texasDrivesPar3  = setup.texasDrivesPar3  ?? null;
+      gs.texasTeamSize    = setup.texasTeamSize ?? 2;
+
       if (setup.texasScoringFmt === 'match') {
         // Texas matchplay: compute pair match handicaps like foursomes
         // Team A = players 0,1; Team B = players 2,3
@@ -6267,13 +6273,9 @@ async function teeOff() {
         gs.matchHandicaps = [rawA - minH, rawB - minH];
         gs.matchScore     = 0;
       } else {
-        gs.teamHcp         = texasTeamHandicap(gHcpArr, setup.texasMode ?? 'average', 100);
-        gs.grossTotal      = 0;
-        gs.texasPts        = 0;
-        gs.driverUsage     = { par3: [], par4: [], par5: [] };
-        gs.texasDrivesTotal = setup.texasDrivesTotal ?? null;
-        gs.texasDrivesPar3  = setup.texasDrivesPar3  ?? null;
-        gs.texasTeamSize    = setup.texasTeamSize ?? 2;
+        gs.teamHcp    = texasTeamHandicap(gHcpArr, setup.texasMode ?? 'average', 100);
+        gs.grossTotal = 0;
+        gs.texasPts   = 0;
       }
     }
 
@@ -15736,7 +15738,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029i';
+const APP_BUILD = '20261029j';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
