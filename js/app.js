@@ -7687,31 +7687,35 @@ function renderHolePanel() {
       });
     }
 
-    const headers = names.map((name) =>
-      `<th style="text-align:center;padding:0.4rem 0.35rem;font-size:0.9rem;font-weight:800;color:var(--muted2);">
+    // Build column definitions — for 2v2 insert a divider between pair A (0,1) and pair B (2,3)
+    const is2v2 = isFoursome;
+    const DIVIDER_STYLE = 'border-left:2px solid var(--border);';
+
+    const headers = names.map((name, pi) => {
+      const divider = (is2v2 && pi === 2) ? DIVIDER_STYLE : '';
+      return `<th style="text-align:center;padding:0.4rem 0.35rem;font-size:0.9rem;font-weight:800;color:var(--muted2);${divider}">
         ${name.split(' ')[0]}
-      </th>`
-    ).join('');
-
-    const totalRow = names.map((_, pi) => {
-      const count = totalCounts[pi] ?? 0;
-      const met   = quotaTotal != null && count >= quotaTotal;
-      const color = met ? 'var(--green)' : 'var(--red, #d64545)';
-      const lbl   = quotaTotal != null ? `${count}/${quotaTotal}` : String(count);
-      return `<td style="text-align:center;padding:0.5rem 0.35rem;
-                font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;
-                color:${color};">${lbl}</td>`;
+      </th>`;
     }).join('');
 
-    const par3Row = names.map((_, pi) => {
-      const count = par3Counts[pi] ?? 0;
-      const met   = quotaPar3 != null && count >= quotaPar3;
-      const color = met ? 'var(--green)' : 'var(--red, #d64545)';
-      const lbl   = quotaPar3 != null ? `${count}/${quotaPar3}` : String(count);
+    const makeDataRow = (countsObj, quota) => names.map((_, pi) => {
+      const count   = countsObj[pi] ?? 0;
+      const hasQuota = quota != null;
+      const met     = hasQuota && count >= quota;
+      const color   = hasQuota ? (met ? 'var(--green,#22c55e)' : 'var(--red,#d64545)') : 'var(--text)';
+      const lbl     = hasQuota ? `${count}/${quota}` : String(count);
+      const divider = (is2v2 && pi === 2) ? DIVIDER_STYLE : '';
       return `<td style="text-align:center;padding:0.5rem 0.35rem;
                 font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;
-                color:${color};">${lbl}</td>`;
+                color:${color};${divider}">${lbl}</td>`;
     }).join('');
+
+    const totalLbl = quotaTotal != null
+      ? `Total <span style="font-size:0.75rem;font-weight:600;color:var(--muted2);">(min&nbsp;${quotaTotal})</span>`
+      : 'Total';
+    const par3Lbl  = quotaPar3 != null
+      ? `Par 3s <span style="font-size:0.75rem;font-weight:600;color:var(--muted2);">(min&nbsp;${quotaPar3})</span>`
+      : 'Par 3s';
 
     driverWrap.innerHTML = `
       <div style="font-size:0.9rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;
@@ -7725,12 +7729,12 @@ function renderHolePanel() {
         </thead>
         <tbody>
           <tr>
-            <td style="padding:0.5rem 0.75rem;font-size:0.9rem;font-weight:800;color:var(--muted2);">Total</td>
-            ${totalRow}
+            <td style="padding:0.5rem 0.75rem;font-size:0.9rem;font-weight:800;color:var(--muted2);white-space:nowrap;">${totalLbl}</td>
+            ${makeDataRow(totalCounts, quotaTotal)}
           </tr>
           <tr style="border-top:1px solid var(--border);">
-            <td style="padding:0.5rem 0.75rem;font-size:0.9rem;font-weight:800;color:var(--muted2);">Par 3s</td>
-            ${par3Row}
+            <td style="padding:0.5rem 0.75rem;font-size:0.9rem;font-weight:800;color:var(--muted2);white-space:nowrap;">${par3Lbl}</td>
+            ${makeDataRow(par3Counts, quotaPar3)}
           </tr>
         </tbody>
       </table>`;
