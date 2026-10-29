@@ -15736,16 +15736,28 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029h';
+const APP_BUILD = '20261029i';
 
 async function checkForUpdate() {
+  // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
+  const toast        = document.getElementById('update-toast');
+  const refreshBtn   = document.getElementById('update-toast-refresh');
+  const dismissBtn   = document.getElementById('update-toast-dismiss');
+  if (refreshBtn && !refreshBtn._wired) {
+    refreshBtn._wired = true;
+    refreshBtn.addEventListener('click', () => { window.location.href = window.location.href; });
+  }
+  if (dismissBtn && !dismissBtn._wired) {
+    dismissBtn._wired = true;
+    dismissBtn.addEventListener('click', () => { if (toast) toast.style.display = 'none'; });
+  }
+
   try {
     // Cache-bust with timestamp so the SW / browser never serves a stale copy
     const res = await fetch(`/version.json?_=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return;
     const { build } = await res.json();
     if (build && build !== APP_BUILD) {
-      const toast = document.getElementById('update-toast');
       if (toast) toast.style.display = 'flex';
     }
   } catch {
