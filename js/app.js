@@ -7695,8 +7695,8 @@ function renderHolePanel() {
     const teamSize  = isGroupScramble ? names.length : (gameState.texasTeamSize ?? 2);
     const numHoles  = gameState.numHoles ?? 18;
     const par3Count = (gameState.pars ?? []).filter(p => p === 3).length;
-    const maxTotal  = Math.floor(numHoles / teamSize);
-    const maxPar3   = par3Count > 0 ? Math.floor(par3Count / teamSize) : null;
+    const maxTotal  = Math.floor(numHoles / teamSize) || null;
+    const maxPar3   = par3Count > 0 ? (Math.floor(par3Count / teamSize) || null) : null;
 
     // Build column definitions — for 2v2 insert a divider between pair A (0,1) and pair B (2,3)
     const is2v2 = isFoursome;
@@ -7715,7 +7715,8 @@ function renderHolePanel() {
       const threshold = quota ?? max; // use quota if set, else computed max
       const met      = threshold != null && count >= threshold;
       const color    = threshold != null ? (met ? 'var(--green,#22c55e)' : 'var(--red,#d64545)') : 'var(--text)';
-      const lbl      = max != null ? `${count}/${max}` : String(count);
+      const denominator = quota ?? max;
+      const lbl      = denominator != null ? `${count}/${denominator}` : String(count);
       const divider  = (is2v2 && pi === 2) ? DIVIDER_STYLE : '';
       return `<td style="text-align:center;padding:0.5rem 0.35rem;
                 font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;
@@ -15735,7 +15736,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029g';
+const APP_BUILD = '20261029h';
 
 async function checkForUpdate() {
   try {
