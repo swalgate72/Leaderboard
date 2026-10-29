@@ -2279,6 +2279,15 @@ async function boot() {
 
 
   const params      = new URLSearchParams(window.location.search);
+
+  // ?reset-cf=1 — clear stale CF profile so it's recreated on next ensureCFProfile call
+  if (params.get('reset-cf') === '1') {
+    try { localStorage.removeItem(CF_PROFILE_KEY); } catch {}
+    ensureCFProfile._done = false;
+    const clean = window.location.pathname + window.location.hash;
+    history.replaceState(null, '', clean);
+  }
+
   const joinToken   = params.get('join');
   const tournViewId = params.get('tournament');
   const troundParam = params.get('tround');
@@ -16050,7 +16059,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261029r';
+const APP_BUILD = '20261029s';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
