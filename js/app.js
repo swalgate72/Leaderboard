@@ -2565,8 +2565,6 @@ function updateCourseScreenForFormat(fmt) {
   const isScramble = fmt === 'texas' || fmt === 'groupscramble';
   const teamHcpField = document.getElementById('setup-team-hcp-field');
   if (teamHcpField) teamHcpField.classList.toggle('hidden', !isScramble);
-  const teeShotsCard = document.getElementById('tee-shots-card');
-  if (teeShotsCard) teeShotsCard.classList.toggle('hidden', !isScramble);
 }
 
 
@@ -5975,6 +5973,14 @@ function buildSetupReview() {
   }
 
   document.getElementById('review-content').innerHTML = html;
+
+  // ── Tee shot config card — shown for scramble formats once player count is known ──
+  const teeShotsCard = document.getElementById('tee-shots-card');
+  if (teeShotsCard) {
+    const showTeeShots = isTexas || isGroupScramble;
+    teeShotsCard.classList.toggle('hidden', !showTeeShots);
+    if (showTeeShots) renderDrivesGrids();
+  }
 
   // ── Hub tournament: async full-roster load ─────────────────────
   if (_hubTournCode) {
