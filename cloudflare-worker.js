@@ -264,6 +264,11 @@ export default {
       return handleFriendSwap(request, env);
     }
 
+    // GET /pending-friends/:id — fetch and consume pending reverse-friend entries
+    if (method === 'GET' && path.startsWith('/pending-friends/') && path.split('/').length === 3) {
+      return handlePendingFriends(path.split('/')[2], env);
+    }
+
     // ── Route: health check ───────────────────────────────────────
     if (path === '/' || path === '/health') {
       return json({ ok: true, service: 'leaderboardsync' });
@@ -1295,7 +1300,37 @@ async function handleFriendSwap(request, env) {
   // Delete code — one-time use
   await env.FRIEND_CODES.delete('fcode:' + code);
 
+  // Write a pending-friend entry for the other person (them → me) so their
+  // device can pick up the reverse link next time they open the app.
+  // TTL: 30 days — plenty of time for them to open the app.
+  await env.FRIEND_CODES.put(
+    `pfriend:${theirId}:${body.myId}`,
+    JSON.stringify({ profile: me, addedAt: new Date().toISOString() }),
+    { expirationTtl: 30 * 24 * 60 * 60 }
+  );
+
   return json({ me, them });
+}
+
+// GET /pending-friends/:myId
+// Returns all pending reverse-friend profiles queued for this user, then
+// deletes them (consume-once). The other person added us via swap; this
+// lets our device pick up the reverse link on next app open.
+async function handlePendingFriends(myId, env) {
+  if (!env.FRIEND_CODES) return err('FRIEND_CODES KV not configured', 503);
+  if (!myId) return err('id required', 400);
+
+  // List all keys matching pfriend:<myId>:*
+  const prefix = `pfriend:${myId}:`;
+  const list   = await env.FRIEND_CODES.list({ prefix });
+  if (!list.keys.length) return json({ friends: [] });
+
+  // Fetch all entries in parallel, then delete them
+  const entries = await Promise.all(list.keys.map(k => env.FRIEND_CODES.get(k.name, { type: 'json' })));
+  await Promise.all(list.keys.map(k => env.FRIEND_CODES.delete(k.name)));
+
+  const friends = entries.filter(Boolean).map(e => e.profile).filter(Boolean);
+  return json({ friends });
 }
 
 async function handleRosterAdjust(code, request, env) {

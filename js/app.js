@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030f';
+window.APP_BUILD = '20261030g';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -70,7 +70,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030f');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030g');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -2414,6 +2414,30 @@ async function onSignedIn(user) {
     if (MULTI_USER) subscribeToGameInvites();
     // Ensure this device has a CF player profile (non-blocking)
     ensureCFProfile().catch(() => {});
+
+    // Check for pending reverse-friend entries (added by the other person via swap)
+    // Fire-and-forget: silently add any pending friends without blocking sign-in.
+    (async () => {
+      try {
+        const myLocal = _cfProfileLoad();
+        if (!myLocal?.id) return;
+        const { friends } = await _workerFetch(`/pending-friends/${myLocal.id}`);
+        if (!friends?.length) return;
+        for (const profile of friends) {
+          const already = allFriends.some(f => f.cfProfileId === profile.id || f.cfAlias === profile.alias);
+          if (!already) await _addFriendFromCFProfile(profile);
+        }
+        if (friends.length) {
+          allFriends = await friendsLoad(user.id);
+          const names = friends.map(f => f.name).join(', ');
+          const t = document.createElement('div');
+          t.textContent = `✅ Friend added: ${names}`;
+          t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:0.65rem 1.25rem;border-radius:20px;font-weight:800;font-size:0.9rem;z-index:9999;pointer-events:none;white-space:nowrap;';
+          document.body.appendChild(t);
+          setTimeout(() => t.remove(), 2800);
+        }
+      } catch { /* network offline or no pending — silently ignore */ }
+    })();
 
     // Handle ?from=ALIAS friend link — resolve and offer to add as friend
     const fromAlias = (() => { try { return sessionStorage.getItem('lb-from-alias'); } catch { return null; } })();
@@ -16083,7 +16107,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030f';
+const APP_BUILD = '20261030g';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
