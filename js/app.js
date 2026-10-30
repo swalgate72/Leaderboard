@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030p';
+window.APP_BUILD = '20261030q';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -70,7 +70,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030p');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030q');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -10029,6 +10029,12 @@ async function recordHole() {
     }
   }
 
+  // Fire-and-forget cloud push after each hole — sends current totals only,
+  // not a delta. Safe to fail: next hole's push self-corrects.
+  if (_lbGetCode()) {
+    pushScoresToCloud({ textContent: '', style: {}, disabled: false }).catch(() => {});
+  }
+
   const matchFmts = ['match','betterball','csm','foursomes','greensomes'];
   if (matchFmts.includes(fmt)) {
     const played = gameState.log.length;
@@ -16127,7 +16133,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030p';
+const APP_BUILD = '20261030q';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
