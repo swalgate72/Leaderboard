@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=Lato:wght@300;400;700&family=Playfair+Display:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261030d">
+  <link rel="stylesheet" href="styles.css?v=20261030e">
   <!-- jsQR: fallback QR decoder for browsers without BarcodeDetector (iOS PWA) -->
   <script src="jsQR.min.js?v=1.4.0"></script>
 </head>
@@ -1961,7 +1961,7 @@
 <!-- ══════════════════════════════════════════
      APP SCRIPT
      ══════════════════════════════════════════ -->
-<script type="module" src="js/app.js?v=20261030d"></script>
+<script type="module" src="js/app.js?v=20261030e"></script>
 
 
 <!-- ══════════════════════════════════════════
@@ -2137,10 +2137,10 @@
                 <svg class="cat-tile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
               <div class="cat-formats" id="wiz-cat-solo-formats" hidden>
-                <div class="fmt-col"><button class="wiz-fmt-btn" data-fmt="stableford" type="button">
+                <div class="fmt-col"><button class="fmt-btn wiz-fmt-btn" data-fmt="stableford" type="button">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="14" r="5"/><path d="M8.5 11.5 Q12 13 15.5 11.5" stroke-width="1"/><path d="M12 1 L12.9 3.8 L15.9 3.8 L13.5 5.5 L14.4 8.3 L12 6.6 L9.6 8.3 L10.5 5.5 L8.1 3.8 L11.1 3.8 Z" fill="#7a5610" stroke="none"/></svg>Stableford
                 </button></div>
-                <div class="fmt-col"><button class="wiz-fmt-btn" data-fmt="strokeplay" type="button">
+                <div class="fmt-col"><button class="fmt-btn wiz-fmt-btn" data-fmt="strokeplay" type="button">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="4" y1="8" x2="20" y2="8"/><line x1="8" y1="11" x2="8" y2="15"/><line x1="10.5" y1="11" x2="10.5" y2="15"/><line x1="13" y1="11" x2="13" y2="15"/><line x1="15.5" y1="11" x2="15.5" y2="15"/><line x1="7" y1="15" x2="16.5" y2="11" stroke="var(--green)"/></svg>Stroke Play
                 </button></div>
               </div>
@@ -2226,21 +2226,17 @@
                 <svg class="cat-tile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
               <div class="cat-formats" id="wiz-cat-team-formats" hidden>
-                <div class="fmt-col"><button class="wiz-fmt-btn" data-fmt="best2" type="button">
+                <div class="fmt-col"><button class="fmt-btn wiz-fmt-btn" data-fmt="best2" type="button">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="14" r="3.5" stroke="#7a5610" stroke-width="2"/><circle cx="12" cy="14" r="3.5" stroke="#7a5610" stroke-width="2"/><circle cx="19.5" cy="14" r="3.5"/><path d="M2.2 12.8 Q4.5 14 6.8 12.8" stroke-width="0.9" stroke="#7a5610"/><path d="M9.7 12.8 Q12 14 14.3 12.8" stroke-width="0.9" stroke="#7a5610"/><path d="M17.2 12.8 Q19.5 14 21.8 12.8" stroke-width="0.9"/><text x="8.25" y="7.5" text-anchor="middle" font-size="5" font-weight="700" font-family="system-ui" fill="#7a5610" stroke="none">2</text><path d="M2.2 18 L2.2 19.5 L14.3 19.5 L14.3 18" stroke-width="1.2" stroke="#7a5610"/></svg>Best 2
                 </button></div>
-                <div class="fmt-col"><button class="wiz-fmt-btn" data-fmt="groupscramble" type="button">
+                <div class="fmt-col"><button class="fmt-btn wiz-fmt-btn" data-fmt="groupscramble" type="button">
                   <svg viewBox="0 0 36 28" width="24" height="19" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="18" cy="22" rx="16" ry="4.5" fill="currentColor" opacity="0.18"/><path d="M4 22c0 0 2-1 14-1s14 1 14 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 22V14c0-5 2.5-9 8-9s8 4 8 9v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 14H4.5C3 14 2 15.2 2 16.5c0 2 1.5 4 3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M26 14h5.5c1.5 0 2.5 1.2 2.5 2.5c0 2-1.5 4-3.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 10c0-1 0.5-2.5 4-2.5s4 1.5 4 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Group Scramble
                 </button></div>
               </div>
 
             </div><!-- /tourn-format-tiles -->
 
-            <!-- Selected format indicator -->
-            <div id="wiz-fmt-selected" style="display:none;margin-top:0.5rem;padding:0.4rem 0.75rem;
-                 background:var(--gold,#d4a843);color:#000;border-radius:0.4rem;font-size:0.82rem;
-                 font-weight:800;text-align:center;" aria-live="polite"></div>
-          </div>
+                      </div>
 
           <!-- BB / Combined pair-handicap option (shown only for betterball + csm) -->
           <div id="tourn-pair-hcp-panel" class="field" style="display:none;margin-top:0.75rem;padding:0.75rem;

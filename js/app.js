@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030d';
+window.APP_BUILD = '20261030e';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -70,7 +70,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030d');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030e');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -2681,7 +2681,7 @@ document.querySelectorAll('[data-holes]').forEach(btn => holdTouch(btn));
 // Home screen three-button handlers
 // Single Game button → show format picker (both solo and team)
 // Home screen format buttons — direct format selection, no intermediate screen
-document.querySelectorAll('.fmt-btn').forEach(btn => {
+document.querySelectorAll('.fmt-btn:not(.wiz-fmt-btn)').forEach(btn => {
   const handleFmtSelect = () => {
     const fmt = btn.dataset.fmt;
     if (!fmt) return;
@@ -16083,7 +16083,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030d';
+const APP_BUILD = '20261030e';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
