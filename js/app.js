@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030i';
+window.APP_BUILD = '20261030j';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -70,7 +70,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030i');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030j');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -16122,7 +16122,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030i';
+const APP_BUILD = '20261030j';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
@@ -18056,7 +18056,18 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
           }).join('')}</div>`;
         }
         listEl.querySelectorAll('[data-tsr-label]').forEach(label => {
-          label.addEventListener('change', () => _toggleCard(label));
+          label.addEventListener('change', (e) => {
+            const cb = label.querySelector('input[type=checkbox]');
+            if (cb?.checked) {
+              const alreadyChecked = [...listEl.querySelectorAll('input[type=checkbox]:checked')].length;
+              if (alreadyChecked > 4) {
+                cb.checked = false;
+                alert('A playing group can have a maximum of 4 players.');
+                return;
+              }
+            }
+            _toggleCard(label);
+          });
         });
       }
     }
@@ -18067,7 +18078,6 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
       launchBtn.onclick = async () => {
         const checked = [...(listEl?.querySelectorAll('input[type=checkbox]:checked') ?? [])];
         if (!checked.length) { alert('Select at least one player for this group.'); return; }
-        if (checked.length > 4) { alert('A playing group can have a maximum of 4 players. Please deselect some players.'); return; }
         const selectedPlayers = checked.map(cb => ({
           playerId:     cb.dataset.playerId,
           name:         cb.dataset.playerName,
