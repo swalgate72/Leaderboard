@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030t';
+window.APP_BUILD = '20261030u';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -16138,7 +16138,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030t';
+const APP_BUILD = '20261030u';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
@@ -17975,8 +17975,14 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
 
   try {
     const secret  = _getOrganiserSecret(code);
-    const roster  = await _tournWorkerFetch(`/roster/${code}`, 'GET', null, secret);
+    // Fetch roster and already-claimed players for this round in parallel
+    const [roster, claimedData] = await Promise.all([
+      _tournWorkerFetch(`/roster/${code}`, 'GET', null, secret),
+      _tournWorkerFetch(`/roster/${code}/claimed/${roundNum}`).catch(() => ({ claimed: {} })),
+    ]);
     const players = roster.players ?? [];
+    // claimed: { [playerId]: { groupId, claimedAt } }
+    let claimed = claimedData.claimed ?? {};
 
     // Course: if same course for all rounds, pre-select; else show picker
     // Check courses[] array first, then fall back to rounds[].courseId (also stored per-round by Worker)
@@ -18062,15 +18068,19 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
             const isMe     = pid && pid === myId;
             const isFriend = pid && friendIds.has(pid);
             const canAdd   = pid && !isMe && !isFriend;
-            return `<label class="pp-card" style="cursor:pointer;position:relative;"
-              data-tsr-label>
+            const isClaimed = pid && !!claimed[pid];
+            return `<label class="pp-card${isClaimed ? ' pp-card-taken' : ''}"
+              style="cursor:${isClaimed ? 'default' : 'pointer'};position:relative;${isClaimed ? 'opacity:0.45;' : ''}"
+              data-tsr-label${isClaimed ? '' : ''}>
               <input type="checkbox" data-player-id="${_esc(pid)}"
                 data-player-name="${_esc(p.name)}"
                 data-player-orig-hcp="${origHcp}"
                 data-player-adj-hcp="${adjHcp}"
+                ${isClaimed ? 'disabled' : ''}
                 style="position:absolute;top:6px;right:6px;
                   width:1.1rem;height:1.1rem;accent-color:var(--gold);">
               <div class="pp-name" style="font-size:14px;padding-right:1.4rem;">${_esc(p.name)}</div>
+              ${isClaimed ? `<div style="font-size:0.6rem;color:var(--muted);margin-top:0.15rem;letter-spacing:0.02em;">Already in a group</div>` : ''}
               <div class="pp-bottom" style="margin-top:auto;">
                 <div class="pp-stat">
                   <div class="pp-stat-label">Index</div>
@@ -18081,7 +18091,7 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
                   <div class="pp-partner pp-partner-active">${adjHcp}</div>
                 </div>
               </div>
-              ${canAdd ? `<button class="btn-add-to-friends" data-pid="${_esc(pid)}"
+              ${canAdd && !isClaimed ? `<button class="btn-add-to-friends" data-pid="${_esc(pid)}"
                 data-pname="${_esc(p.name)}" data-phcp="${origHcp}"
                 style="position:absolute;bottom:6px;right:6px;font-size:0.65rem;
                   padding:0.2rem 0.45rem;border-radius:4px;border:1px solid var(--accent,#3b82f6);
@@ -18148,6 +18158,8 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
       launchBtn.onclick = async () => {
         const checked = [...(listEl?.querySelectorAll('input[type=checkbox]:checked') ?? [])];
         if (!checked.length) { alert('Select at least one player for this group.'); return; }
+        launchBtn.disabled = true;
+        launchBtn.textContent = 'Checking…';
         const selectedPlayers = checked.map(cb => ({
           playerId:     cb.dataset.playerId,
           name:         cb.dataset.playerName,
@@ -18158,8 +18170,51 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
         // Determine course — prefer pre-resolved value, then picker, then rounds entry
         let courseId = resolvedCourseId ?? crsSel?.value ?? null;
 
-        // Build a group ID and save round state to localStorage
+        // Build a group ID
         const groupId = `g${Date.now()}`;
+
+        // Claim these players in CF so other devices see them as taken
+        const playerNames = {};
+        selectedPlayers.forEach(p => { if (p.playerId) playerNames[p.playerId] = p.name; });
+        try {
+          const claimPayload = {
+            roundNum, groupId,
+            playerIds: selectedPlayers.map(p => p.playerId).filter(Boolean),
+            playerNames,
+          };
+          // Use raw fetch so we can read the 409 body before throwing
+          const claimR = await fetch(`${SYNC_WORKER_URL}/roster/${code}/claim`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(claimPayload),
+          });
+          const claimData = await claimR.json().catch(() => ({}));
+          if (claimR.status === 409 && claimData.conflictingPlayers?.length) {
+            const names = claimData.conflictingPlayers.map(c => c.name || c.playerId).join(', ');
+            alert(`These players have already been picked by another group:\n${names}\n\nPlease deselect them and try again.`);
+            // Refresh claimed state and grey out conflicting cards immediately
+            try {
+              const fresh = await _tournWorkerFetch(`/roster/${code}/claimed/${roundNum}`);
+              claimed = fresh.claimed ?? {};
+            } catch {}
+            (claimData.conflictingPlayers ?? []).forEach(c => {
+              const cb = listEl?.querySelector(`input[data-player-id="${CSS.escape(c.playerId)}"]`);
+              if (cb) {
+                cb.checked = false; cb.disabled = true;
+                const lbl = cb.closest('label');
+                if (lbl) { lbl.style.opacity = '0.45'; lbl.style.cursor = 'default'; }
+              }
+            });
+            launchBtn.disabled = false;
+            launchBtn.textContent = 'Tee Off →';
+            return;
+          }
+          // Non-conflict error (network, 5xx, etc.) — non-fatal, proceed optimistically
+          if (!claimR.ok) console.warn('[tsr] claim HTTP', claimR.status, '— proceeding anyway');
+        } catch (claimErr) {
+          // Network failure — non-fatal, proceed optimistically
+          console.warn('[tsr] claim failed (non-fatal):', claimErr);
+        }
         const stateKey = `lb-round-state-${code}-${roundNum}-${groupId}`;
         try {
           localStorage.setItem(stateKey, JSON.stringify({

@@ -337,6 +337,17 @@ export default {
       return handleRosterAdjust(path.split('/')[2], request, env);
     }
 
+    // POST /roster/:code/claim — claim players for a group (no auth needed)
+    if (method === 'POST' && path.match(/^\/roster\/[A-Z0-9]+\/claim$/)) {
+      return handleRosterClaim(path.split('/')[2], request, env);
+    }
+
+    // GET /roster/:code/claimed/:round — get claimed players for a round
+    if (method === 'GET' && path.match(/^\/roster\/[A-Z0-9]+\/claimed\/\d+$/)) {
+      const parts = path.split('/');
+      return handleRosterClaimedGet(parts[2], parseInt(parts[4], 10), env);
+    }
+
     return err('Not found', 404);
   },
 };
@@ -1367,4 +1378,55 @@ async function handleRosterAdjust(code, request, env) {
   const ttlRemaining  = Math.max(1, Math.floor((record.expiresAt - Date.now()) / 1000) + GRACE_SECS);
   await env.GAMES.put('roster:' + code, JSON.stringify(updatedRoster), { expirationTtl: ttlRemaining });
   return json({ ok: true });
+}
+
+// ── Player claiming ───────────────────────────────────────────────
+// KV key: claimed:CODE:ROUND → { [playerId]: { groupId, claimedAt, playerName } }
+// No auth required — any scorer can claim players for their group.
+// Returns 409 with conflictingPlayers if any are already taken.
+
+async function handleRosterClaim(code, request, env) {
+  if (!env.GAMES) return err('KV not configured', 503);
+
+  const record = await env.GAMES.get('tourn:' + code, { type: 'json' });
+  if (!record) return err('Tournament not found', 404);
+
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON'); }
+
+  const roundNum  = parseInt(body.roundNum ?? 1, 10);
+  const playerIds = body.playerIds;
+  const groupId   = body.groupId ?? `g${Date.now()}`;
+  const playerNames = body.playerNames ?? {};  // { [playerId]: name } for error messages
+
+  if (!Array.isArray(playerIds) || !playerIds.length) return err('playerIds array required');
+
+  const claimKey = `claimed:${code}:${roundNum}`;
+  const existing = (await env.GAMES.get(claimKey, { type: 'json' })) ?? {};
+
+  // Check for conflicts — players already claimed by a different group
+  const conflicting = playerIds
+    .filter(pid => existing[pid] && existing[pid].groupId !== groupId)
+    .map(pid => ({ playerId: pid, name: playerNames[pid] ?? pid, groupId: existing[pid].groupId }));
+
+  if (conflicting.length) {
+    return json({ ok: false, conflictingPlayers: conflicting }, 409);
+  }
+
+  // Claim the players
+  const now = Date.now();
+  for (const pid of playerIds) {
+    existing[pid] = { groupId, claimedAt: now, playerName: playerNames[pid] ?? null };
+  }
+
+  const ttlRemaining = Math.max(1, Math.floor((record.expiresAt - Date.now()) / 1000) + GRACE_SECS);
+  await env.GAMES.put(claimKey, JSON.stringify(existing), { expirationTtl: ttlRemaining });
+  return json({ ok: true, groupId });
+}
+
+async function handleRosterClaimedGet(code, roundNum, env) {
+  if (!env.GAMES) return err('KV not configured', 503);
+  const claimKey = `claimed:${code}:${roundNum}`;
+  const claimed  = (await env.GAMES.get(claimKey, { type: 'json' })) ?? {};
+  return json({ claimed });
 }
