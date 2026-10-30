@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030n';
+window.APP_BUILD = '20261030o';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -70,7 +70,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030n');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030o');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -10163,23 +10163,33 @@ function showLeaderboard() {
   if (toggleBtn) toggleBtn.style.display = 'none';
   // Default to per-round columns view in tournaments
   _lbViewMode = isTournActive ? 'total' : 'byround';
-  // In tournament mode, fetch all cloud scores so the leaderboard shows all rounds.
-  // Push happens separately (Update button) — fetching alone is fast and safe mid-round.
+  // On every leaderboard open: push local scores then fetch all cloud scores.
+  // This ensures all devices see up-to-date scores without needing the Update button.
   if (isTournActive && code) {
     _lbCloudScores = null;  // clear stale data
     const tableEl = document.getElementById('leaderboard-table');
-    if (tableEl) tableEl.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);">Loading tournament scores…</div>';
-    console.log('[LB] Fetching /scores/' + code.toUpperCase());
-    _workerFetch(`/scores/${code.toUpperCase()}`).then(data => {
+    if (tableEl) tableEl.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);">Syncing scores…</div>';
+    const isHubRound = !!gameState?._hubTournamentCode;
+    // Push local scores first (skip for hub rounds — they sync hole-by-hole via a different path)
+    const pushPromise = isHubRound
+      ? Promise.resolve()
+      : pushScoresToCloud({ textContent: '', style: {}, disabled: false }).catch(err => {
+          console.warn('[LB] Auto-push failed (non-fatal):', err);
+        });
+    // After push, fetch all cloud scores and render
+    pushPromise.then(() => {
+      console.log('[LB] Fetching /scores/' + code.toUpperCase());
+      return _workerFetch(`/scores/${code.toUpperCase()}`);
+    }).then(data => {
       console.log('[LB] Cloud scores fetched OK:', JSON.stringify(data)?.slice(0, 200));
       _lbCloudScores = data;
       renderLeaderboard();
     }).catch(err => {
       console.error('[LB] Cloud scores fetch FAILED:', err);
-      renderLeaderboard(); // fall back to live-only on network error
+      renderLeaderboard(); // fall back to local-only on network error
     });
   } else {
-    console.log('[LB] No tournament or no code — skipping cloud fetch, rendering local only');
+    console.log('[LB] No tournament or no code — rendering local only');
     renderLeaderboard();
   }
   // Subscribe to all group states for live updates
@@ -16124,7 +16134,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030n';
+const APP_BUILD = '20261030o';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
