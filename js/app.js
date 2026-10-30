@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030r';
+window.APP_BUILD = '20261030s';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -70,7 +70,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030r');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030s');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -16138,7 +16138,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030r';
+const APP_BUILD = '20261030s';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
@@ -18046,12 +18046,20 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
           gsHtml += `</div></div>`;
           listEl.innerHTML = gsHtml;
         } else {
+          // Determine which roster players are already friends / the current user
+          const myId = _cfProfileLoad()?.id ?? null;
+          const friendIds = new Set(allFriends.map(f => f.cfProfileId).filter(Boolean));
+
           listEl.innerHTML = `<div class="pp-grid">${players.map(p => {
-            const origHcp = p.originalHcp ?? p.hcpIndex ?? 0;
-            const adjHcp  = p.adjustedHcp ?? origHcp;
+            const origHcp  = p.originalHcp ?? p.hcpIndex ?? 0;
+            const adjHcp   = p.adjustedHcp ?? origHcp;
+            const pid      = p.playerId ?? p.id ?? null;
+            const isMe     = pid && pid === myId;
+            const isFriend = pid && friendIds.has(pid);
+            const canAdd   = pid && !isMe && !isFriend;
             return `<label class="pp-card" style="cursor:pointer;position:relative;"
               data-tsr-label>
-              <input type="checkbox" data-player-id="${_esc(p.playerId ?? p.id)}"
+              <input type="checkbox" data-player-id="${_esc(pid)}"
                 data-player-name="${_esc(p.name)}"
                 data-player-orig-hcp="${origHcp}"
                 data-player-adj-hcp="${adjHcp}"
@@ -18068,8 +18076,49 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
                   <div class="pp-partner pp-partner-active">${adjHcp}</div>
                 </div>
               </div>
+              ${canAdd ? `<button class="btn-add-to-friends" data-pid="${_esc(pid)}"
+                data-pname="${_esc(p.name)}" data-phcp="${origHcp}"
+                style="position:absolute;bottom:6px;right:6px;font-size:0.65rem;
+                  padding:0.2rem 0.45rem;border-radius:4px;border:1px solid var(--accent,#3b82f6);
+                  background:transparent;color:var(--accent,#3b82f6);cursor:pointer;line-height:1.2;"
+                title="Add ${_esc(p.name)} to your friends">＋ Friend</button>` : ''}
             </label>`;
           }).join('')}</div>`;
+
+          // Wire Add-to-friends buttons (stop propagation so label click isn't triggered)
+          listEl.querySelectorAll('.btn-add-to-friends').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              e.preventDefault(); e.stopPropagation();
+              btn.disabled = true; btn.textContent = '…';
+              try {
+                const pid   = btn.dataset.pid;
+                const pname = btn.dataset.pname;
+                const phcp  = parseFloat(btn.dataset.phcp) || 0;
+                // Fetch the CF profile so we get alias etc.
+                let cfProfile = null;
+                try { cfProfile = await _workerFetch(`/player/${pid}`); } catch {}
+                if (cfProfile) {
+                  await _addFriendFromCFProfile(cfProfile);
+                } else {
+                  // Fallback: create a guest profile from roster data
+                  const nameParts = pname.trim().split(/\s+/);
+                  await guestProfileCreate(currentUser?.id ?? null, {
+                    name: pname, first_name: nameParts[0] ?? pname,
+                    last_name: nameParts.slice(1).join(' ') ?? '',
+                    hcp: phcp, cfProfileId: pid,
+                  });
+                  allFriends = await friendsLoad(currentUser?.id ?? null);
+                }
+                btn.textContent = '✓';
+                btn.style.borderColor = '#48bb78'; btn.style.color = '#48bb78';
+                // Mark as added so re-render isn't needed
+                friendIds.add(pid);
+              } catch (err) {
+                console.error('[tsr] add friend failed:', err);
+                btn.disabled = false; btn.textContent = '＋ Friend';
+              }
+            });
+          });
         }
         listEl.querySelectorAll('[data-tsr-label]').forEach(label => {
           label.addEventListener('change', (e) => {
