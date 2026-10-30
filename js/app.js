@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030g';
+window.APP_BUILD = '20261030h';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -70,7 +70,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030g');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030h');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -292,13 +292,21 @@ async function ensureCFProfile() {
       // Verify it still exists on CF (quick GET)
       try {
         const remote = await _workerFetch(`/player/${local.id}`);
+        // Sync name if CF has a bad/missing value (was created before profile loaded)
+        const currentName = currentProfile
+          ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
+          : '';
+        const nameBad = !remote.name || remote.name === 'Player';
         // Sync handicap if it differs from what's on CF
         const currentHcp = currentProfile?.hcp ?? null;
-        if (currentHcp !== null && currentHcp !== remote.handicapIndex) {
-          const updated = await _workerFetch(`/player/${local.id}`, 'PUT', {
-            id: local.id, handicapIndex: currentHcp
-          });
-          local = { ...local, handicapIndex: currentHcp };
+        const hcpChanged = currentHcp !== null && currentHcp !== remote.handicapIndex;
+        if ((nameBad && currentName) || hcpChanged) {
+          const patch = { id: local.id };
+          if (nameBad && currentName) patch.name = currentName;
+          if (hcpChanged) patch.handicapIndex = currentHcp;
+          await _workerFetch(`/player/${local.id}`, 'PUT', patch);
+          if (patch.name) local = { ...local, name: patch.name };
+          if (patch.handicapIndex !== undefined) local = { ...local, handicapIndex: patch.handicapIndex };
           _cfProfileSave(local);
         }
         return local;
@@ -311,8 +319,15 @@ async function ensureCFProfile() {
     // Build name from local Supabase profile
     const name = currentProfile
       ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
-      : 'Player';
+      : '';
     const handicapIndex = currentProfile?.hcp ?? null;
+
+    // If we still don't have a real name, don't mark _done — retry next session
+    // so the profile gets a proper name once the user's profile loads.
+    if (!name) {
+      ensureCFProfile._done = false;
+      return null;
+    }
 
     const created = await _workerFetch('/player', 'POST', { name, handicapIndex });
     // created = { id, alias, name, handicapIndex }
@@ -16107,7 +16122,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030g';
+const APP_BUILD = '20261030h';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
