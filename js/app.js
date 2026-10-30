@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030k';
+window.APP_BUILD = '20261030l';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -70,7 +70,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030k');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030l');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -2777,21 +2777,12 @@ document.querySelectorAll('.fmt-btn:not(.wiz-fmt-btn)').forEach(btn => {
     };
 
     holdTouch(tile, toggle);
-    tile.addEventListener('click', (e) => {
-      if (e.sourceCapabilities?.firesTouchEvents) return;
-      toggle(e);
-    });
   });
 
   // Tournament tile — navigates directly, no expand
   const tournTile = document.getElementById('cat-tournament');
   if (tournTile) {
-    const goToTournament = () => showTournamentHub();
-    holdTouch(tournTile, goToTournament);
-    tournTile.addEventListener('click', (e) => {
-      if (e.sourceCapabilities?.firesTouchEvents) return;
-      goToTournament();
-    });
+    holdTouch(tournTile, () => showTournamentHub());
   }
 })();
 
@@ -2820,10 +2811,6 @@ document.querySelectorAll('.fmt-btn:not(.wiz-fmt-btn)').forEach(btn => {
     };
 
     holdTouch(fmtBtn, toggleModes);
-    fmtBtn.addEventListener('click', (e) => {
-      if (e.sourceCapabilities?.firesTouchEvents) return;
-      toggleModes(e);
-    });
 
     // Tap a scoring-mode pill → set setup and go
     modesDiv.querySelectorAll('.p2v2-mode-btn').forEach(modeBtn => {
@@ -2849,10 +2836,6 @@ document.querySelectorAll('.fmt-btn:not(.wiz-fmt-btn)').forEach(btn => {
         startSetup();
       };
       holdTouch(modeBtn, handleMode);
-      modeBtn.addEventListener('click', (e) => {
-        if (e.sourceCapabilities?.firesTouchEvents) return;
-        handleMode(e);
-      });
     });
   });
 })();
@@ -16118,7 +16101,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030k';
+const APP_BUILD = '20261030l';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
