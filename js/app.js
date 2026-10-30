@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030s';
+window.APP_BUILD = '20261030t';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -16138,7 +16138,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030s';
+const APP_BUILD = '20261030t';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
@@ -17979,13 +17979,18 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
     const players = roster.players ?? [];
 
     // Course: if same course for all rounds, pre-select; else show picker
+    // Check courses[] array first, then fall back to rounds[].courseId (also stored per-round by Worker)
     const courses    = tournRecord?.courses ?? [];
     const thisRound  = courses.find(c => c.roundNum === roundNum);
-    const hasCourse  = !!(thisRound?.courseId);
+    const roundsArr  = tournRecord?.rounds ?? [];
+    const thisRoundEntry = roundsArr.find(r => r.roundNum === roundNum);
+    const resolvedCourseId = thisRound?.courseId ?? thisRoundEntry?.courseId ?? null;
+    const hasCourse  = !!resolvedCourseId;
 
     if (crsCard) crsCard.style.display = hasCourse ? 'none' : '';
-    if (crsSel && !hasCourse) {
+    if (crsSel) {
       crsSel.innerHTML = (allCourses ?? []).map(c => `<option value="${_esc(c.id)}">${_esc(c.name)}</option>`).join('');
+      if (resolvedCourseId) crsSel.value = resolvedCourseId;
     }
 
     // Handicap note
@@ -18150,8 +18155,8 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
           gameHandicap: parseFloat(cb.dataset.playerAdjHcp)  || 0,  // adjusted playing handicap
         }));
 
-        // Determine course
-        let courseId = thisRound?.courseId ?? crsSel?.value ?? null;
+        // Determine course — prefer pre-resolved value, then picker, then rounds entry
+        let courseId = resolvedCourseId ?? crsSel?.value ?? null;
 
         // Build a group ID and save round state to localStorage
         const groupId = `g${Date.now()}`;
