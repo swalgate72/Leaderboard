@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030o';
+window.APP_BUILD = '20261030p';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -70,7 +70,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030o');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030p');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -501,9 +501,11 @@ async function uploadScores(gameCode, roundsArr) {
  * btn — the button element to show feedback on.
  */
 async function pushScoresToCloud(btn) {
+  // Use the same code resolution as the leaderboard: gameState.gameCode → localStorage → tournState
   let code = null;
-  try { code = localStorage.getItem('lb-game-code'); } catch {}
-  console.log('[push] lb-game-code=', code, 'gameState?', !!gameState);
+  try { code = _lbGetCode(); } catch {}
+  if (!code) try { code = localStorage.getItem('lb-game-code'); } catch {}
+  console.log('[push] code=', code, 'gameState.gameCode=', gameState?.gameCode, 'gameState?', !!gameState);
   if (!code) {
     // No game code yet — open the share modal so they can generate one, then push
     openShareGameModal().catch(() => {});
@@ -10076,15 +10078,9 @@ let _lbCloudScores = null;       // last fetched cloud scores payload
     const btn = document.getElementById('btn-lb-update');
     if (btn) { btn.textContent = '⏳ Updating…'; btn.disabled = true; }
     try {
-      // Hub tournament games push scores via the normal hole-by-hole sync;
-      // pushing here hangs mid-round because pushScoresToCloud reads lb-game-code
-      // (the share code) not the hub tournament code. Skip push for hub games;
-      // for regular share-code games, push first then pull.
-      const isHubRound = !!gameState?._hubTournamentCode;
-      if (!isHubRound) {
-        const pushBtn = { textContent: '', style: {}, disabled: false };
-        await pushScoresToCloud(pushBtn);
-      }
+      // Push local scores first, then pull all cloud scores
+      const pushBtn = { textContent: '', style: {}, disabled: false };
+      await pushScoresToCloud(pushBtn).catch(err => console.warn('[LB] Update push failed:', err));
       // Pull cloud scores (works for both hub and regular games)
       const code = _lbGetCode();
       if (code) {
@@ -10169,13 +10165,10 @@ function showLeaderboard() {
     _lbCloudScores = null;  // clear stale data
     const tableEl = document.getElementById('leaderboard-table');
     if (tableEl) tableEl.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);">Syncing scores…</div>';
-    const isHubRound = !!gameState?._hubTournamentCode;
-    // Push local scores first (skip for hub rounds — they sync hole-by-hole via a different path)
-    const pushPromise = isHubRound
-      ? Promise.resolve()
-      : pushScoresToCloud({ textContent: '', style: {}, disabled: false }).catch(err => {
-          console.warn('[LB] Auto-push failed (non-fatal):', err);
-        });
+    // Push local scores first (non-fatal if it fails — we still fetch and render)
+    const pushPromise = pushScoresToCloud({ textContent: '', style: {}, disabled: false }).catch(err => {
+      console.warn('[LB] Auto-push failed (non-fatal):', err);
+    });
     // After push, fetch all cloud scores and render
     pushPromise.then(() => {
       console.log('[LB] Fetching /scores/' + code.toUpperCase());
@@ -16134,7 +16127,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030o';
+const APP_BUILD = '20261030p';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
