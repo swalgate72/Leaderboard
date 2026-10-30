@@ -1,6 +1,14 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030a';
+window.APP_BUILD = '20261030b';
+// Debug helper: window._navHist() prints screen navigation history
+window._navHist = () => {
+  try {
+    const h = JSON.parse(sessionStorage.getItem('_nav_hist') || '[]');
+    console.table(h.map(e => ({ screen: e.id, time: new Date(e.t).toLocaleTimeString() })));
+    return h.map(e => e.id).join(' → ');
+  } catch { return 'no history'; }
+};
 
 // UI controller. Imports data.js (Supabase) and game.js (engine).
 // ================================================================
@@ -62,7 +70,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030a');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030b');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -1888,6 +1896,14 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const el = document.getElementById(id);
   if (el) { el.classList.add('active'); window.scrollTo(0, 0); }
+  // Debug: log every screen transition to console
+  console.log('[NAV]', id);
+  try {
+    const hist = JSON.parse(sessionStorage.getItem('_nav_hist') || '[]');
+    hist.push({ t: Date.now(), id });
+    if (hist.length > 30) hist.shift();
+    sessionStorage.setItem('_nav_hist', JSON.stringify(hist));
+  } catch {}
 
   const bottomNav = document.getElementById('bottom-nav');
   if (bottomNav) bottomNav.style.display = BOTTOM_NAV_SCREENS.includes(id) ? 'flex' : 'none';
@@ -16060,7 +16076,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030a';
+const APP_BUILD = '20261030b';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
