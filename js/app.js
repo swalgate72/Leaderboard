@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030m';
+window.APP_BUILD = '20261030n';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -70,7 +70,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030m');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030n');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -5989,9 +5989,20 @@ function buildSetupReview() {
          <span style="color:var(--gold,#d4a843);font-weight:800;">${ts.currentRound} of ${ts.rounds}</span>
        </div>` : '';
 
+  // Build course/tee selector HTML for when no course is set (e.g. tournament join)
+  const noCourseHtml = !course ? `
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.4rem;">
+      <span style="color:var(--muted2);">Course</span>
+      <select id="review-course-picker" style="font-size:0.9rem;padding:0.3rem 0.5rem;border-radius:6px;
+        border:1px solid var(--border);background:var(--surface2);color:var(--text);">
+        <option value="">— select course —</option>
+        ${(allCourses ?? []).map(c => `<option value="${_esc(c.id)}">${_esc(c.name)}</option>`).join('')}
+      </select>
+    </div>` : '';
+
   let html = `
     <div style="display:grid;gap:0.5rem;font-size:1.05rem;font-weight:700;margin-bottom:1rem;">
-      ${course ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Course</span><span style="text-align:right;max-width:60%;">${course.name}</span></div>` : ''}
+      ${course ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Course</span><span style="text-align:right;max-width:60%;">${course.name}</span></div>` : noCourseHtml}
       ${tee    ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Tees</span><span>${tee.name}</span></div>` : ''}
       ${reviewDateStr ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Date</span><span>${reviewDateStr}</span></div>` : ''}
       ${reviewOrganiser ? `<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted2);">Organiser</span><span>${reviewOrganiser}</span></div>` : ''}
@@ -6473,9 +6484,21 @@ async function teeOff() {
     // fall through to normal game-start code ↓
   }
 
+  // Pick up inline course selector from review screen if no course set
+  const reviewCoursePicker = document.getElementById('review-course-picker');
+  if (reviewCoursePicker?.value) setup.courseId = reviewCoursePicker.value;
+
   const course = allCourses.find(c => c.id === setup.courseId);
-  const tee    = course?.tees?.[setup.teeIdx];
-  if (!course || !tee) return;
+  if (!course) {
+    alert('Please select a course before teeing off.');
+    return;
+  }
+  if (!course.tees?.[setup.teeIdx ?? 0]) setup.teeIdx = 0;
+  const tee = course.tees?.[setup.teeIdx ?? 0];
+  if (!tee) {
+    alert('No tee data found for this course. Please go back and select a course.');
+    return;
+  }
   const { offset, count } = holeRange(setup.holes);
   const siSlice  = tee.si.slice(offset, offset + count);
   const parSlice = tee.par.slice(offset, offset + count);
@@ -16101,7 +16124,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030m';
+const APP_BUILD = '20261030n';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
