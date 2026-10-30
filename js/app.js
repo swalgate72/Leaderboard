@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030h';
+window.APP_BUILD = '20261030i';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -70,7 +70,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030h');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030i');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -16122,7 +16122,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030h';
+const APP_BUILD = '20261030i';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
@@ -18008,12 +18008,12 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
           players.forEach(p => {
             const origHcp = p.originalHcp ?? p.hcpIndex ?? 0;
             const adjHcp  = p.adjustedHcp  ?? origHcp;
-            gsHtml += `<label class="pp-card pp-paired" style="cursor:pointer;position:relative;" data-tsr-label>
+            gsHtml += `<label class="pp-card" style="cursor:pointer;position:relative;" data-tsr-label>
               <input type="checkbox" data-player-id="${_esc(p.playerId ?? p.id)}"
                 data-player-name="${_esc(p.name)}"
                 data-player-orig-hcp="${origHcp}"
                 data-player-adj-hcp="${adjHcp}"
-                checked style="position:absolute;top:6px;right:6px;width:1.1rem;height:1.1rem;accent-color:var(--gold);">
+                style="position:absolute;top:6px;right:6px;width:1.1rem;height:1.1rem;accent-color:var(--gold);">
               <div class="pp-name" style="font-size:14px;padding-right:1.4rem;">${_esc(p.name)}</div>
               <div class="pp-bottom" style="margin-top:auto;">
                 <div class="pp-stat">
@@ -18033,13 +18033,13 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
           listEl.innerHTML = `<div class="pp-grid">${players.map(p => {
             const origHcp = p.originalHcp ?? p.hcpIndex ?? 0;
             const adjHcp  = p.adjustedHcp ?? origHcp;
-            return `<label class="pp-card pp-paired" style="cursor:pointer;position:relative;"
+            return `<label class="pp-card" style="cursor:pointer;position:relative;"
               data-tsr-label>
               <input type="checkbox" data-player-id="${_esc(p.playerId ?? p.id)}"
                 data-player-name="${_esc(p.name)}"
                 data-player-orig-hcp="${origHcp}"
                 data-player-adj-hcp="${adjHcp}"
-                checked style="position:absolute;top:6px;right:6px;
+                style="position:absolute;top:6px;right:6px;
                   width:1.1rem;height:1.1rem;accent-color:var(--gold);">
               <div class="pp-name" style="font-size:14px;padding-right:1.4rem;">${_esc(p.name)}</div>
               <div class="pp-bottom" style="margin-top:auto;">
@@ -18066,7 +18066,8 @@ async function showTournamentStartRound(code, roundNum, tournRecord) {
     if (launchBtn) {
       launchBtn.onclick = async () => {
         const checked = [...(listEl?.querySelectorAll('input[type=checkbox]:checked') ?? [])];
-        if (!checked.length) { alert('Select at least one player.'); return; }
+        if (!checked.length) { alert('Select at least one player for this group.'); return; }
+        if (checked.length > 4) { alert('A playing group can have a maximum of 4 players. Please deselect some players.'); return; }
         const selectedPlayers = checked.map(cb => ({
           playerId:     cb.dataset.playerId,
           name:         cb.dataset.playerName,
