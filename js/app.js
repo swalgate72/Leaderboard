@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030q';
+window.APP_BUILD = '20261030r';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -70,7 +70,7 @@ async function registerServiceWorker() {
   try {
     const res = await fetch('/sw2.js', { method: 'HEAD' }).catch(() => null);
     if (!res || !res.ok) { console.log('[sw] sw2.js not found, skipping'); return null; }
-    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030q');
+    const reg = await navigator.serviceWorker.register('/sw2.js?v=20261030r');
     console.log('[sw] registered', reg.scope);
     return reg;
   } catch (err) {
@@ -10471,14 +10471,16 @@ function renderLeaderboard() {
       cloudRounds.add(rn);
       for (const p of (grp.players ?? [])) {
         if (!p.name) continue;
-        if (!byName[p.name]) byName[p.name] = { pts: 0, net: 0, roundScores: {} };
+        if (!byName[p.name]) byName[p.name] = { pts: 0, net: 0, thru: 0, roundScores: {} };
         // Cloud stores netTotal/grossTotal (from pushScoresToCloud); also accept net/gross as fallback
         const pNet   = p.netTotal   ?? p.net   ?? 0;
         const pGross = p.grossTotal ?? p.gross  ?? 0;
         const pPts   = p.pts ?? 0;
+        const pHoles = p.holesPlayed ?? 0;
         byName[p.name].pts += pPts;
         byName[p.name].net += pNet;
-        byName[p.name].roundScores[rn] = { pts: pPts, net: pNet, gross: pGross };
+        byName[p.name].thru = (byName[p.name].thru ?? 0) + pHoles;
+        byName[p.name].roundScores[rn] = { pts: pPts, net: pNet, gross: pGross, holes: pHoles };
       }
     }
   }
@@ -10487,16 +10489,20 @@ function renderLeaderboard() {
   // Hub games store round number on gameState._hubTournRound; local tournaments use ts.currentRound
   const liveRound = gameState._hubTournRound ?? ts.currentRound ?? 1;
   for (const [name, live] of Object.entries(liveScoreByName)) {
-    if (!byName[name]) byName[name] = { pts: 0, net: 0, roundScores: {} };
+    if (!byName[name]) byName[name] = { pts: 0, net: 0, thru: 0, roundScores: {} };
+    const liveHolesThisPlayer = live.holes ?? 0;
     // Only add live if not already covered by cloud for this round
     if (!byName[name].roundScores[liveRound]) {
       byName[name].pts += isStroke ? (live.net ?? 0) : (live.pts ?? 0);
       byName[name].net += live.net ?? 0;
     }
+    // Live data always wins for the current round's hole count (most up to date)
+    const prevRoundHoles = (liveRound - 1) * numHolesPerRound;
+    byName[name].thru = prevRoundHoles + liveHolesThisPlayer;
     byName[name].roundScores[liveRound] = {
       pts:   live.pts ?? 0,
       net:   live.net ?? 0,
-      holes: live.holes ?? 0,
+      holes: liveHolesThisPlayer,
     };
   }
 
@@ -10539,21 +10545,23 @@ function renderLeaderboard() {
     const accent    = 'var(--accent,#3b82f6)';
 
     let html = `<div style="font-family:'Plus Jakarta Sans',sans-serif;">`;
-    // Header row
-    html += `<div style="display:grid;grid-template-columns:1fr ${allRounds.map(()=>colW).join(' ')} 3.5rem;
+    // Header row — added Thru column
+    html += `<div style="display:grid;grid-template-columns:1fr ${allRounds.map(()=>colW).join(' ')} 3rem 3.5rem;
       gap:0;padding:0.35rem 0.75rem;border-bottom:1.5px solid var(--border2);
       font-size:0.6rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);">
       <div>Player</div>${allRounds.map(r => {
         const isLive = r === liveRound;
-        const thruTxt = isLive && liveHoles < numHolesPerRound ? `<div style="font-size:0.55rem;opacity:0.75;">${liveHoles}H</div>` : '';
-        return `<div style="text-align:center;${isLive ? `color:${accent};` : ''}">R${r}${thruTxt}</div>`;
+        return `<div style="text-align:center;${isLive ? `color:${accent};` : ''}">R${r}</div>`;
       }).join('')}
+      <div style="text-align:center">Thru</div>
       <div style="text-align:center">${scoreLabel}</div></div>`;
 
     sortedPlayers.forEach((p, i) => {
       const isLd  = i === 0;
       const total = isStroke ? p.net : p.pts;
-      html += `<div style="display:grid;grid-template-columns:1fr ${allRounds.map(()=>colW).join(' ')} 3.5rem;
+      const thruVal = p.thru ?? 0;
+      const thruTxt = thruVal >= numHolesPerRound * allRounds.length ? 'F' : String(thruVal || '–');
+      html += `<div style="display:grid;grid-template-columns:1fr ${allRounds.map(()=>colW).join(' ')} 3rem 3.5rem;
         gap:0;padding:0.6rem 0.75rem;border-bottom:1px solid var(--border2);
         background:${isLd ? 'rgba(212,168,67,0.07)' : 'transparent'};">
         <div style="font-size:0.85rem;font-weight:${isLd?'800':'600'};
@@ -10565,29 +10573,26 @@ function renderLeaderboard() {
           return `<div style="text-align:center;font-size:0.8rem;
             color:${isLive ? accent : 'var(--muted)'};">${s}</div>`;
         }).join('')}
+        <div style="text-align:center;font-size:0.75rem;color:var(--muted);">${thruTxt}</div>
         <div style="text-align:center;font-size:0.85rem;font-weight:800;
           color:${isLd?'var(--gold)':'var(--text)'};">${total}</div>
       </div>`;
     });
 
-    // Legend — cumulative holes played
-    const cumulHoles = (liveRound - 1) * numHolesPerRound + liveHoles;
     html += `<div style="padding:0.5rem 0.75rem;font-size:0.7rem;color:${accent};opacity:0.85;">
-      R${liveRound} in progress · ${cumulHoles} holes played overall</div>`;
+      R${liveRound} in progress</div>`;
     html += '</div>';
     tableEl.innerHTML = html;
   } else {
     // ── Flat total view (toggle or non-tournament) ──
-    // Thru = completed rounds × holes + current round holes played
-    const completedRounds = liveRound - 1;
-    const cumulativeThru  = completedRounds * numHolesPerRound + liveHoles;
+    // Use per-player thru so players in different groups show their own hole count
     tableEl.innerHTML = buildLeaderboardTable(
       sortedPlayers.map((p, i) => ({
         rank:   i + 1,
         label:  p.name,
         sub:    null,
         score:  isStroke ? p.net : p.pts,
-        thru:   cumulativeThru,
+        thru:   p.thru ?? 0,
         isLead: i === 0,
       })),
       scoreLabel
@@ -16133,7 +16138,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030q';
+const APP_BUILD = '20261030r';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
