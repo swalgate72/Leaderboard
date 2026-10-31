@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261031b';
+window.APP_BUILD = '20261031c';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -2427,6 +2427,81 @@ async function onSignedIn(user) {
     currentProfile = await profileLoad(user.id);
     allCourses     = await coursesLoadAll();
     allFriends     = await friendsLoad(user.id);
+
+    // ── Handicap index check — fires once per app session ───────────────
+    // Show on every fresh app open (not on every navigation). Gated by
+    // sessionStorage so it fires once per browser session, not per sign-in event.
+    (async () => {
+      try {
+        const hcpKey = 'lb-hcp-checked';
+        const alreadyChecked = (() => { try { return sessionStorage.getItem(hcpKey); } catch { return null; } })();
+        if (!alreadyChecked && currentProfile) {
+          try { sessionStorage.setItem(hcpKey, '1'); } catch {}
+          const currentHcp = currentProfile.handicap_index;
+          const hcpDisplay = (currentHcp !== null && currentHcp !== undefined)
+            ? Number(currentHcp).toFixed(1)
+            : 'not set';
+
+          // Build modal overlay
+          const overlay = document.createElement('div');
+          overlay.id = 'hcp-check-overlay';
+          overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+
+          const box = document.createElement('div');
+          box.style.cssText = 'background:var(--surface,#fff);border-radius:16px;padding:1.5rem;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.25);';
+
+          box.innerHTML = `
+            <h3 style="margin:0 0 0.5rem;font-size:1.15rem;">Your Handicap Index</h3>
+            <p style="margin:0 0 1rem;font-size:0.95rem;color:var(--text-muted,#666);">
+              Current index: <strong>${hcpDisplay}</strong>
+            </p>
+            <p style="margin:0 0 1.25rem;font-size:0.9rem;">Has your handicap index changed?</p>
+            <div style="display:flex;flex-direction:column;gap:0.6rem;">
+              <div style="display:flex;gap:0.5rem;align-items:center;">
+                <input id="hcp-new-val" type="number" step="0.1" min="0" max="54"
+                  placeholder="New index (e.g. 14.2)"
+                  style="flex:1;padding:0.6rem 0.75rem;border:1.5px solid var(--border,#ddd);border-radius:10px;font-size:1rem;">
+                <button id="hcp-update-btn" class="btn btn-primary"
+                  style="padding:0.6rem 1rem;white-space:nowrap;">Update</button>
+              </div>
+              <button id="hcp-no-change-btn" class="btn btn-secondary"
+                style="width:100%;padding:0.65rem;">No change — looks right</button>
+            </div>`;
+
+          overlay.appendChild(box);
+          document.body.appendChild(overlay);
+
+          const closeModal = () => { try { overlay.remove(); } catch {} };
+
+          document.getElementById('hcp-no-change-btn').addEventListener('click', closeModal);
+
+          document.getElementById('hcp-update-btn').addEventListener('click', async () => {
+            const input = document.getElementById('hcp-new-val');
+            const newVal = parseFloat(input?.value);
+            if (isNaN(newVal) || newVal < 0 || newVal > 54) {
+              input.style.border = '1.5px solid red';
+              return;
+            }
+            try {
+              await profileSave(user.id, { ...currentProfile, handicap_index: newVal });
+              currentProfile = await profileLoad(user.id);
+              const toast = document.createElement('div');
+              toast.textContent = `✅ Handicap index updated to ${newVal.toFixed(1)}`;
+              toast.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--green,#22c55e);color:#fff;padding:0.65rem 1.25rem;border-radius:20px;font-weight:800;font-size:0.9rem;z-index:11000;pointer-events:none;white-space:nowrap;';
+              document.body.appendChild(toast);
+              setTimeout(() => toast.remove(), 2800);
+            } catch (e) {
+              console.warn('[hcp-check] save failed:', e);
+            }
+            closeModal();
+          });
+        }
+      } catch (e) {
+        console.warn('[hcp-check] error:', e);
+      }
+    })();
+    // ────────────────────────────────────────────────────────────────────
+
     if (MULTI_USER) subscribeToFriendRequests();
     if (MULTI_USER) subscribeToGameInvites();
     // Ensure this device has a CF player profile (non-blocking)
@@ -2729,7 +2804,7 @@ document.querySelectorAll('.fmt-btn:not(.wiz-fmt-btn)').forEach(btn => {
     setup.tournamentId     = null;
     setup.tournRoundNumber = null;
     setup.scoring  = fmt;
-    setup.courseId = null; setup.teeIdx = 0; setup.holes = 18;
+    setup.courseId = currentProfile?.home_course_id ?? null; setup.teeIdx = 0; setup.holes = 18;
     setup.gameDate = null; setup.pairs  = []; setup.players = [];
     setup.texasMode        = 'average';
     setup.texasScoringFmt  = 'stableford';
@@ -2823,7 +2898,7 @@ document.querySelectorAll('.fmt-btn:not(.wiz-fmt-btn)').forEach(btn => {
         setup.tournRoundNumber = null;
         setup.scoring          = fmt;
         setup.teamScoringMode  = mode;
-        setup.courseId = null; setup.teeIdx = 0; setup.holes = 18;
+        setup.courseId = currentProfile?.home_course_id ?? null; setup.teeIdx = 0; setup.holes = 18;
         setup.gameDate = null; setup.pairs  = []; setup.players = [];
         setup.texasMode        = 'average';
         setup.texasScoringFmt  = mode === 'match' ? 'match' : mode;
@@ -2974,7 +3049,7 @@ function showFormatPicker(category) {
     card.addEventListener('click', () => {
       const fmt = card.dataset.fmt;
       setup.scoring  = fmt;
-      setup.courseId = null; setup.teeIdx = 0; setup.holes = 18;
+      setup.courseId = currentProfile?.home_course_id ?? null; setup.teeIdx = 0; setup.holes = 18;
       setup.gameDate = null; setup.pairs = [];
       // Clear stale game code so scores are never pushed to a previous game
       try { localStorage.removeItem('lb-game-code'); } catch {}
@@ -16138,7 +16213,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261031b';
+const APP_BUILD = '20261031c';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
