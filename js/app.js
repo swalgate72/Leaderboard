@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261030u';
+window.APP_BUILD = '20261031a';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -2862,7 +2862,7 @@ const SOLO_FORMATS = [
   { key: 'match',      icon: '⚔️', label: 'Match Play',   desc: 'Hole by hole · net scores · 1v1' },
   { key: 'skins',      icon: '🏆', label: 'Skins',        desc: 'Win a hole outright · halved holes carry over' },
   { key: 'itc',        icon: '🪑', label: 'In the Chair', desc: 'Win the hole · defend the chair to score' },
-  { key: 'split6',     icon: '🎯', label: 'Split 6',      desc: '3 players · 6 points distributed per hole' },
+  { key: 'split6',     icon: '🎯', label: 'Split 6 (3 Players)',      desc: '3 players · 6 points distributed per hole' },
 ];
 
 const TEAM_FORMATS = [
@@ -16138,7 +16138,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261030u';
+const APP_BUILD = '20261031a';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
