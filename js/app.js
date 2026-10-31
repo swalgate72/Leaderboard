@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261031c';
+window.APP_BUILD = '20261031d';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -2437,7 +2437,7 @@ async function onSignedIn(user) {
         const alreadyChecked = (() => { try { return sessionStorage.getItem(hcpKey); } catch { return null; } })();
         if (!alreadyChecked && currentProfile) {
           try { sessionStorage.setItem(hcpKey, '1'); } catch {}
-          const currentHcp = currentProfile.handicap_index;
+          const currentHcp = currentProfile.hcp;
           const hcpDisplay = (currentHcp !== null && currentHcp !== undefined)
             ? Number(currentHcp).toFixed(1)
             : 'not set';
@@ -2483,8 +2483,9 @@ async function onSignedIn(user) {
               return;
             }
             try {
-              await profileSave(user.id, { ...currentProfile, handicap_index: newVal });
+              await profileSave(user.id, { ...currentProfile, hcp: newVal });
               currentProfile = await profileLoad(user.id);
+              syncHcpToCF(newVal).catch(() => {});
               const toast = document.createElement('div');
               toast.textContent = `✅ Handicap index updated to ${newVal.toFixed(1)}`;
               toast.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--green,#22c55e);color:#fff;padding:0.65rem 1.25rem;border-radius:20px;font-weight:800;font-size:0.9rem;z-index:11000;pointer-events:none;white-space:nowrap;';
@@ -16213,7 +16214,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261031c';
+const APP_BUILD = '20261031d';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
