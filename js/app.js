@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261101a';
+window.APP_BUILD = '20261102a';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -296,7 +296,7 @@ async function ensureCFProfile() {
         const currentName = currentProfile
           ? `${currentProfile.first_name ?? ''} ${currentProfile.last_name ?? ''}`.trim()
           : '';
-        const nameBad = !remote.name || remote.name === 'Player';
+        const nameBad = !remote.name || remote.name.trim() === '' || /^player$/i.test(remote.name.trim());
         // Sync handicap if it differs from what's on CF
         const currentHcp = currentProfile?.hcp ?? null;
         const hcpChanged = currentHcp !== null && currentHcp !== remote.handicapIndex;
@@ -362,11 +362,12 @@ async function syncHcpToCF(newHcp) {
  */
 async function _addFriendFromCFProfile(profile) {
   if (!profile) throw new Error('Profile not found');
-  const nameParts = (profile.name ?? 'Friend').trim().split(/\s+/);
+  const rawName   = (profile.name ?? '').trim();
+  const nameParts = rawName ? rawName.split(/\s+/) : [];
   await guestProfileCreate(currentUser?.id ?? null, {
-    name:       profile.name,
-    first_name: nameParts[0] ?? profile.name,
-    last_name:  nameParts.slice(1).join(' ') ?? '',
+    name:       rawName || null,
+    first_name: nameParts[0] ?? null,
+    last_name:  nameParts.slice(1).join(' ') || null,
     hcp:        profile.handicapIndex ?? null,
     cfProfileId: profile.id,
     cfAlias:     profile.alias,
@@ -16214,7 +16215,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261101a';
+const APP_BUILD = '20261102a';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)

@@ -496,8 +496,7 @@ export async function roundPlayerClaimScorer() {}
 // FRIENDS / PLAYERS
 // ================================================================
 
-// friendsLoad returns all local players in the same shape as
-// the Supabase friendsLoad, so app.js picker works unchanged.
+// friendsLoad returns all local players sorted by play count.
 export async function friendsLoad(userId) {
   const all = await playersStore.getAll();
   return all
@@ -505,10 +504,10 @@ export async function friendsLoad(userId) {
     .map(p => ({
       friendshipId:           p.id,            // used as deletion key
       profileId:              p.id,
-      name:                   `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim() || p.name || 'Player',
+      name:                   `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim() || p.name || '',
       first_name:             p.firstName ?? null,
       last_name:              p.lastName  ?? null,
-      hcp:                    p.hcp ?? 0,
+      hcp:                    p.hcp ?? null,
       home_course_id:         p.homeCourseId ?? null,
       home_course_handicaps:  p.teeHandicaps ?? {},
       playCount:              p.playCount ?? 0,
