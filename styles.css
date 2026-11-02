@@ -372,7 +372,7 @@ select option { background: var(--surface); }
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.1em;
-  transition: opacity 0.15s, transform 0.1s;
+  transition: opacity 0.15s, transform 0.05s;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -437,7 +437,7 @@ select option { background: var(--surface); }
   letter-spacing: 0.1em;
   box-shadow: var(--shadow-cta);
   border-radius: var(--radius-sm);
-  transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+  transition: opacity 0.15s, transform 0.05s, box-shadow 0.15s;
 }
 .btn-play:active {
   transform: scale(0.98);
@@ -461,7 +461,7 @@ select option { background: var(--surface); }
   letter-spacing: 0.1em;
   box-shadow: var(--shadow-cta);
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+  transition: opacity 0.15s, transform 0.05s, box-shadow 0.15s;
   margin-top: 0.75rem;
 }
 .btn-setup-next:active {
@@ -503,7 +503,7 @@ html.light .btn-play    { background: #1a3a22 !important; color: #fff !important
   border-radius: var(--radius-sm);
   padding: 0.9rem 0.85rem;
   text-align: left;
-  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  transition: border-color 0.15s, background 0.15s, transform 0.05s;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -1322,7 +1322,7 @@ html.light .gi-arr-up {
   font-weight: 800;
   letter-spacing: 0.1em;
   box-shadow: var(--shadow-cta);
-  transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+  transition: opacity 0.15s, transform 0.05s, box-shadow 0.15s;
 }
 .btn-record:active {
   transform: scale(0.98);
@@ -2072,7 +2072,7 @@ html.light .home-hero {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
+  transition: opacity 0.15s, transform 0.05s;
   position: relative;
 }
 .home-hero-cta:active { transform: scale(0.98); opacity: 0.9; }
@@ -2139,7 +2139,7 @@ html.light .fmt-col {
   letter-spacing: 0.02em;
   line-height: 1.15;
   white-space: nowrap;
-  transition: background 0.1s, color 0.1s;
+  transition: background 0.05s, color 0.05s;
 }
 .fmt-btn:active { background: var(--surface2); }
 .fmt-btn:hover  { background: var(--surface2); }
@@ -2187,7 +2187,7 @@ html.light .home-section-label {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  transition: border-color 0.15s, transform 0.1s;
+  transition: border-color 0.15s, transform 0.05s;
 }
 .mode-card:active { transform: scale(0.99); }
 .mode-card-icon {
@@ -2357,7 +2357,7 @@ html.light .bottom-nav-btn.active { color: #fff; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  transition: border-color 0.15s, transform 0.1s;
+  transition: border-color 0.15s, transform 0.05s;
 }
 .history-card:active { transform: scale(0.99); }
 .history-card-icon {
@@ -3364,7 +3364,7 @@ html.light .home-hero {
   text-align: left;
   cursor: pointer;
   font-family: var(--font-ui);
-  transition: transform 0.1s;
+  transition: transform 0.05s;
 }
 .home-round-card:active { transform: scale(0.985); }
 .home-round-card.is-idle { border-color: rgba(212,168,67,0.3); box-shadow: none; }

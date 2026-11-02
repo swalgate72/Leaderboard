@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261031d';
+window.APP_BUILD = '20261101a';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -16214,7 +16214,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261031d';
+const APP_BUILD = '20261101a';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
