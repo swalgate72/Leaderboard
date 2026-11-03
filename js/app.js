@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261103a';
+window.APP_BUILD = '20261103b';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -366,8 +366,8 @@ async function _addFriendFromCFProfile(profile) {
   const rawName   = (profile.name ?? '').trim();
   const nameParts = rawName ? rawName.split(/\s+/) : [];
   await guestProfileCreate(currentUser?.id ?? null, {
-    name:       rawName || null,
-    first_name: nameParts[0] ?? null,
+    name:       rawName || '',
+    first_name: nameParts[0] || null,
     last_name:  nameParts.slice(1).join(' ') || null,
     hcp:        profile.handicapIndex ?? null,
     cfProfileId: profile.id,
@@ -16245,7 +16245,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261103a';
+const APP_BUILD = '20261103b';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)

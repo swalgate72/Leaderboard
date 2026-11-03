@@ -500,7 +500,7 @@ export async function roundPlayerClaimScorer() {}
 export async function friendsLoad(userId) {
   const all = await playersStore.getAll();
   return all
-    .sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0) || a.name.localeCompare(b.name))
+    .sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0) || (a.name ?? '').localeCompare(b.name ?? ''))
     .map(p => ({
       friendshipId:           p.id,            // used as deletion key
       profileId:              p.id,
