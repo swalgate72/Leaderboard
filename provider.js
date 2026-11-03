@@ -89,10 +89,11 @@ export const friendRequestDecline= (...a) => provider.friendRequestDecline(...a)
 export const friendRemove        = (...a) => provider.friendRemove(...a);
 
 // Guest players
-export const guestProfileCreate  = (...a) => provider.guestProfileCreate(...a);
-export const guestProfileUpdate  = (...a) => provider.guestProfileUpdate(...a);
-export const guestProfileLinkEmail = (...a) => provider.guestProfileLinkEmail(...a);
-export const guestProfileDelete  = (...a) => provider.guestProfileDelete(...a);
+export const guestProfileCreate       = (...a) => provider.guestProfileCreate(...a);
+export const guestProfileUpdate       = (...a) => provider.guestProfileUpdate(...a);
+export const guestProfileLinkEmail    = (...a) => provider.guestProfileLinkEmail(...a);
+export const guestProfileDelete       = (...a) => provider.guestProfileDelete(...a);
+export const guestProfilesFindUnnamed = (...a) => provider.guestProfilesFindUnnamed(...a);
 
 // Push notifications (dormant in local mode)
 export const pushSubscriptionSave = (...a) => provider.pushSubscriptionSave(...a);
