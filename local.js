@@ -510,10 +510,12 @@ export async function friendsLoad(userId) {
       hcp:                    p.hcp ?? null,
       home_course_id:         p.homeCourseId ?? null,
       home_course_handicaps:  p.teeHandicaps ?? {},
-      playCount:              p.playCount ?? 0,
-      is_guest:               p.isGuest   ?? false,
-      email:                  p.email     ?? null,
-      isGuestTable:           p.isGuest   ?? false,
+      playCount:              p.playCount   ?? 0,
+      is_guest:               p.isGuest    ?? false,
+      email:                  p.email      ?? null,
+      isGuestTable:           p.isGuest    ?? false,
+      cfProfileId:            p.cfProfileId ?? null,
+      cfAlias:                p.cfAlias    ?? null,
     }));
 }
 

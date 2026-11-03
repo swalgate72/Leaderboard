@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261103c';
+window.APP_BUILD = '20261103d';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -3701,7 +3701,7 @@ function openFriendsPickerModal() {
       return `<div class="fp-row pp-card${isSelected ? ' pp-paired' : ''}" data-fi="${fi}"
         style="cursor:pointer;">
         <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px;">
-          <span class="dot" style="background:${pHex(fi%8)};flex-shrink:0;margin-top:3px;"></span>
+          <span class="dot" style="background:${f.cfProfileId ? 'var(--green)' : pHex(fi%8)};flex-shrink:0;margin-top:3px;" title="${f.cfProfileId ? 'Live scoring profile' : ''}"></span>
           <div class="pp-name" style="font-size:14px;flex:1;min-width:0;">
             ${_esc(nameStr)}${playBadge}
           </div>
@@ -16245,7 +16245,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261103c';
+const APP_BUILD = '20261103d';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
