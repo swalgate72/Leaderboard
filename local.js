@@ -533,7 +533,7 @@ export async function friendRemove(friendshipId) {
 // ================================================================
 
 export async function guestProfileCreate(userId, guestData) {
-  const { first_name, last_name, hcp, home_course_id, home_course_handicaps } = guestData;
+  const { first_name, last_name, hcp, home_course_id, home_course_handicaps, cfProfileId, cfAlias } = guestData;
   const id = crypto.randomUUID();
   await playersStore.put({
     id,
@@ -547,6 +547,8 @@ export async function guestProfileCreate(userId, guestData) {
     email:        null,
     mobile:       null,
     playCount:    0,
+    cfProfileId:  cfProfileId ?? null,
+    cfAlias:      cfAlias     ?? null,
     createdAt:    now(),
     updatedAt:    now(),
   });
@@ -556,7 +558,7 @@ export async function guestProfileCreate(userId, guestData) {
 export async function guestProfileUpdate(guestId, data) {
   const existing = await playersStore.get(guestId);
   if (!existing) throw new Error('Player not found: ' + guestId);
-  const { first_name, last_name, hcp, email, home_course_id, home_course_handicaps } = data;
+  const { first_name, last_name, hcp, email, home_course_id, home_course_handicaps, cfProfileId, cfAlias } = data;
   await playersStore.put({
     ...existing,
     firstName:    first_name?.trim()    ?? existing.firstName,
@@ -566,8 +568,24 @@ export async function guestProfileUpdate(guestId, data) {
     email:        email        ?? existing.email,
     homeCourseId: home_course_id        ?? existing.homeCourseId,
     teeHandicaps: home_course_handicaps ?? existing.teeHandicaps,
+    cfProfileId:  cfProfileId  ?? existing.cfProfileId  ?? null,
+    cfAlias:      cfAlias      ?? existing.cfAlias      ?? null,
     updatedAt:    now(),
   });
+}
+
+/**
+ * Return guest players whose name is blank but who have a cfProfileId.
+ * Used by app.js to repair friends added before the name-fix was deployed.
+ * Returns raw store records (not the friendsLoad shape).
+ */
+export async function guestProfilesFindUnnamed() {
+  const all = await playersStore.getAll();
+  return all.filter(p =>
+    p.isGuest &&
+    p.cfProfileId &&
+    !`${p.firstName ?? ''} ${p.lastName ?? ''}`.trim()
+  );
 }
 
 export async function guestProfileLinkEmail(guestId, email) {

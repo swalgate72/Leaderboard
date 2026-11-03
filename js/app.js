@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261102a';
+window.APP_BUILD = '20261103a';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -25,6 +25,7 @@ import {
   pushSubscriptionSave, pushSubscriptionsLoadForUser, pushSubscriptionDelete,
   friendsLoad, friendRequestsLoadPending,
   guestProfileCreate, guestProfileUpdate, guestProfileLinkEmail, guestProfileDelete,
+  guestProfilesFindUnnamed,
   friendRequestSend, friendRequestAccept, friendRequestDecline, friendRemove,
   smsInviteCreate, gameInviteLoad, gameInvitesPollPending, gameInvitesLoadHistory, smsInviteLookup, smsInviteAccept,
   smsInvitesDeleteMany, invitesForRoundLoad, invitesForTournamentRoundLoad,
@@ -2428,6 +2429,35 @@ async function onSignedIn(user) {
     currentProfile = await profileLoad(user.id);
     allCourses     = await coursesLoadAll();
     allFriends     = await friendsLoad(user.id);
+
+    // ── Repair unnamed CF friends (added before name-fix was deployed) ──
+    // Fire-and-forget: re-fetches the CF profile for any friend stored with
+    // a blank name, patches the local record silently.
+    (async () => {
+      try {
+        const unnamed = await guestProfilesFindUnnamed();
+        if (!unnamed.length) return;
+        await Promise.allSettled(unnamed.map(async p => {
+          try {
+            const cfProf = await _workerFetch(`/player/${p.cfProfileId}`);
+            const rawName = (cfProf.name ?? '').trim();
+            if (!rawName) return; // still no name on CF — nothing to do
+            const parts = rawName.split(/\s+/);
+            await guestProfileUpdate(p.id, {
+              first_name: parts[0]                    ?? null,
+              last_name:  parts.slice(1).join(' ') || null,
+              hcp:        cfProf.handicapIndex        ?? p.hcp,
+            });
+            console.log('[repair] Fixed unnamed friend:', rawName);
+          } catch (e) {
+            console.warn('[repair] Could not fix friend', p.id, e.message);
+          }
+        }));
+        allFriends = await friendsLoad(user.id);
+      } catch (e) {
+        console.warn('[repair] unnamed-friend pass failed:', e.message);
+      }
+    })();
 
     // ── Handicap index check — fires once per app session ───────────────
     // Show on every fresh app open (not on every navigation). Gated by
@@ -16215,7 +16245,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261102a';
+const APP_BUILD = '20261103a';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
