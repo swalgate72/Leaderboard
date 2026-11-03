@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261103d';
+window.APP_BUILD = '20261103e';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -14814,15 +14814,19 @@ async function renderFriendsList() {
     if (f.playCount > 0) details.push(`${f.playCount} round${f.playCount === 1 ? '' : 's'}`);
     if (f.email && (f.friends_see_email !== false)) details.push(f.email);
     if (f.username) details.unshift(`@${f.username}`);
-    const friendId = f.is_guest ? (f.profileId || '') : (f.userId || '');
+    const avatarBg = f.cfProfileId ? 'var(--green)' : '#6c757d';
+    const relinkBtn = (!f.cfProfileId && f.is_guest)
+      ? `<button class="btn btn-ghost friend-relink-btn" style="font-size:1rem;padding:0.4rem 0.6rem;" title="Link live-scoring profile">🔗</button>`
+      : '';
     return `
       <div class="friend-item" data-fid="${f.friendshipId}" data-gid="${f.is_guest ? (f.profileId || '') : ''}" data-is-guest="${f.is_guest ? '1' : '0'}">
-        <div class="friend-avatar">${init}</div>
+        <div class="friend-avatar" style="background:${avatarBg};">${init}</div>
         <div class="friend-info">
-          <div class="friend-name">${displayName}</div>
+          <div class="friend-name">${_esc(displayName)}</div>
           <div class="friend-sub" style="line-height:1.5;">${details.join(' · ')}</div>
         </div>
         <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
+          ${relinkBtn}
           <button class="btn btn-ghost friend-share-btn" style="font-size:1rem;padding:0.4rem 0.6rem;" title="Share invite">📤</button>
           <button class="btn btn-ghost friend-edit-btn" style="font-size:1rem;padding:0.4rem 0.6rem;" title="Edit">✏️</button>
           <button class="btn btn-ghost friend-del-btn" style="font-size:1rem;padding:0.4rem 0.6rem;border-color:var(--red-border);color:var(--red);" title="Remove">🗑️</button>
@@ -14894,6 +14898,70 @@ async function renderFriendsList() {
       }
       allFriends = await friendsLoad(currentUser.id);
       await renderFriendsList();
+    });
+  });
+
+  // ── Re-link: enter friend's code to attach their CF profile ──────
+  listEl.querySelectorAll('.friend-relink-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const row  = btn.closest('[data-fid]');
+      const gid  = row.dataset.gid;
+      if (!gid) return;
+
+      // Inline prompt: replace the button row with a small code input
+      const actionsDiv = btn.parentElement;
+      actionsDiv.innerHTML = `
+        <input id="relink-input-${gid}" maxlength="5" placeholder="THEIR CODE"
+          style="width:6rem;font-family:'Plus Jakarta Sans',sans-serif;font-size:0.85rem;
+                 text-transform:uppercase;letter-spacing:0.1em;text-align:center;
+                 border:1px solid var(--border);border-radius:8px;padding:0.3rem 0.4rem;
+                 background:var(--surface2);color:var(--text);">
+        <button id="relink-go-${gid}" class="btn btn-ghost"
+          style="font-size:0.8rem;padding:0.3rem 0.6rem;">Link</button>
+        <button id="relink-cancel-${gid}" class="btn btn-ghost"
+          style="font-size:0.8rem;padding:0.3rem 0.5rem;color:var(--muted);">✕</button>`;
+
+      const input    = document.getElementById(`relink-input-${gid}`);
+      const goBtn    = document.getElementById(`relink-go-${gid}`);
+      const cancelBtn = document.getElementById(`relink-cancel-${gid}`);
+
+      cancelBtn.addEventListener('click', () => renderFriendsList());
+      input.addEventListener('input', () => {
+        input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      });
+
+      const doRelink = async () => {
+        const code = input.value.trim();
+        if (code.length !== 5) return;
+        goBtn.disabled = true;
+        goBtn.textContent = '⏳';
+        try {
+          const myLocal = _cfProfileLoad() ?? await ensureCFProfile();
+          if (!myLocal?.id) throw new Error('Set up your own profile first');
+          const result = await _workerFetch('/friend-swap', 'POST', { myId: myLocal.id, theirCode: code });
+          const cfProf = result?.them;
+          if (!cfProf?.id) throw new Error('Code not found or expired');
+          const rawName = (cfProf.name ?? '').trim();
+          const parts   = rawName ? rawName.split(/\s+/) : [];
+          await guestProfileUpdate(gid, {
+            first_name:  parts[0]                   || null,
+            last_name:   parts.slice(1).join(' ')   || null,
+            hcp:         cfProf.handicapIndex        ?? null,
+            cfProfileId: cfProf.id,
+            cfAlias:     cfProf.alias,
+          });
+          allFriends = await friendsLoad(currentUser.id);
+          await renderFriendsList();
+        } catch (e) {
+          goBtn.disabled = false;
+          goBtn.textContent = '❌ ' + (e.message || 'Not found');
+          setTimeout(() => { goBtn.textContent = 'Link'; }, 2000);
+        }
+      };
+
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') doRelink(); });
+      goBtn.addEventListener('click', doRelink);
+      input.focus();
     });
   });
 }
@@ -16245,7 +16313,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261103d';
+const APP_BUILD = '20261103e';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
