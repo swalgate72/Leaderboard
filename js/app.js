@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261103e';
+window.APP_BUILD = '20261104a';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -2517,6 +2517,14 @@ async function onSignedIn(user) {
               await profileSave(user.id, { ...currentProfile, hcp: newVal });
               currentProfile = await profileLoad(user.id);
               syncHcpToCF(newVal).catch(() => {});
+              // ── Refresh header stat immediately ──────────────────
+              const _hcpEl = document.getElementById('home-stat-hcp');
+              if (_hcpEl) _hcpEl.textContent = currentProfile?.hcp != null ? fmtHandicap(currentProfile.hcp) : '--';
+              const _heroSub = document.getElementById('home-hero-subline');
+              if (_heroSub) {
+                const _myName = `${currentProfile?.first_name ?? ''} ${currentProfile?.last_name ?? ''}`.trim();
+                _heroSub.textContent = [_myName, currentProfile?.hcp != null ? `HCP ${fmtHandicap(currentProfile.hcp)}` : ''].filter(Boolean).join(' · ');
+              }
               const toast = document.createElement('div');
               toast.textContent = `✅ Handicap index updated to ${newVal.toFixed(1)}`;
               toast.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--green,#22c55e);color:#fff;padding:0.65rem 1.25rem;border-radius:20px;font-weight:800;font-size:0.9rem;z-index:11000;pointer-events:none;white-space:nowrap;';
@@ -14394,6 +14402,14 @@ document.getElementById('btn-save-profile')?.addEventListener('click', async () 
   try {
     await profileSave(profile);
     currentProfile = { ...currentProfile, ...profile };
+    // ── Refresh header stat immediately ──────────────────────────
+    const _hcpEl2 = document.getElementById('home-stat-hcp');
+    if (_hcpEl2) _hcpEl2.textContent = currentProfile?.hcp != null ? fmtHandicap(currentProfile.hcp) : '--';
+    const _heroSub2 = document.getElementById('home-hero-subline');
+    if (_heroSub2) {
+      const _myName2 = `${currentProfile?.first_name ?? ''} ${currentProfile?.last_name ?? ''}`.trim();
+      _heroSub2.textContent = [_myName2, currentProfile?.hcp != null ? `HCP ${fmtHandicap(currentProfile.hcp)}` : ''].filter(Boolean).join(' · ');
+    }
     const syncEl = document.getElementById('profile-sync-text');
     if (syncEl) syncEl.textContent = 'Saved ✓';
     setTimeout(() => { if (syncEl) syncEl.textContent = 'Synced'; }, 2000);
@@ -16313,7 +16329,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261103e';
+const APP_BUILD = '20261104a';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
