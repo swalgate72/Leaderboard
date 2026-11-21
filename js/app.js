@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261104c';
+window.APP_BUILD = '20261104d';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -5172,19 +5172,26 @@ function renderSetupPairsScreen() {
   // Optional pair HCP function for foursomes/greensomes
   const isHcpFmt = ['foursomes', 'greensomes'].includes(setup.scoring);
   const pairHcpFn = isHcpFmt ? (piA, piB) => {
-    const hcp0 = setup.players[piA]?.courseHandicap ?? setup.players[piA]?.hcpIndex ?? 0;
-    const hcp1 = setup.players[piB]?.courseHandicap ?? setup.players[piB]?.hcpIndex ?? 0;
+    const hcp0 = setup.players[piA] ? (playerHcpValues(setup.players[piA]).course ?? setup.players[piA].hcpIndex ?? 0) : 0;
+    const hcp1 = setup.players[piB] ? (playerHcpValues(setup.players[piB]).course ?? setup.players[piB].hcpIndex ?? 0) : 0;
     return setup.scoring === 'greensomes'
       ? greensomesPairHandicap(hcp0, hcp1)
       : foursomedPairHandicap(hcp0, hcp1);
   } : null;
 
-  // Build player list for PairPicker — show HCP index on left, course HCP on right
-  const ppPlayers = setup.players.map(p => ({
-    name:      p.name,
-    hcpIndex:  p.hcpIndex ?? 0,
-    hcpIndex2: p.courseHandicap ?? p.gameHandicap ?? p.hcpIndex ?? 0,
-  }));
+  // Build player list for PairPicker — show HCP index on left, course HCP on right.
+  // Use playerHcpValues() so slope/rating calculation is applied consistently,
+  // matching what the Players screen shows.
+  const ppPlayers = setup.players.map(p => {
+    const vals = playerHcpValues(p);
+    // Also sync gameHandicap so scoring uses the same value
+    if (!p._hcpNudgeOpen) p.gameHandicap = Math.round(vals.course);
+    return {
+      name:      p.name,
+      hcpIndex:  p.hcpIndex ?? 0,
+      hcpIndex2: Math.round(vals.course),
+    };
+  });
 
   const _updateSetupPairs = (updatedPairs) => {
     // Write PairPicker result back to setup.pairs
@@ -16339,7 +16346,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261104c';
+const APP_BUILD = '20261104d';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
