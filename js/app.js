@@ -1,6 +1,6 @@
 // ================================================================
 // LEADERBOARD - app.js  (v3.2 · build 20261027a)
-window.APP_BUILD = '20261104a';
+window.APP_BUILD = '20261104b';
 // Debug helper: window._navHist() prints screen navigation history
 window._navHist = () => {
   try {
@@ -1655,6 +1655,8 @@ function _tournCarryPlayers() {
         mobile: currentProfile?.mobile ?? '', isScorer: true,
         hcpSource: 'course',
         gameHandicap: Math.round(myCourseHcp ?? myHcp ?? 0),
+        home_course_id:        currentProfile?.home_course_id        ?? null,
+        home_course_handicaps: currentProfile?.home_course_handicaps ?? {},
       }];
     } catch {}
   }
@@ -3449,6 +3451,8 @@ document.getElementById('btn-setup-course-next')?.addEventListener('click', () =
       mobile: currentProfile?.mobile ?? '', isScorer: true,
       hcpSource: 'course',
       gameHandicap: Math.round(myCourseHcp ?? myHcp ?? 0),
+      home_course_id:        currentProfile?.home_course_id        ?? null,
+      home_course_handicaps: currentProfile?.home_course_handicaps ?? {},
     }];
   }
 
@@ -16329,7 +16333,7 @@ window.addEventListener('pagehide', () => {
 // VERSION CHECK — polls /version.json (network-only) and shows a
 // toast when the deployed build differs from the running build.
 // ================================================================
-const APP_BUILD = '20261104a';
+const APP_BUILD = '20261104b';
 
 async function checkForUpdate() {
   // Wire toast buttons once (safe to call repeatedly — getElementById is idempotent)
